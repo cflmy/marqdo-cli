@@ -4,11 +4,11 @@ One native library exports two complete names: `solver.add` and `solver.neg`.
 Both are registered and callable; there is no "first prefix wins" namespace.
 
 ```sh
-./examples/plugin-multi-export/build.sh
+./examples/plugin-multi-export/build.sh   # writes build/ for this host
 marqdo check examples/plugin-multi-export/plugin-call.mq.md \
-  --plugin examples/plugin-multi-export
+  --plugin examples/plugin-multi-export/build
 marqdo run examples/plugin-multi-export/plugin-call.mq.md \
-  --plugin examples/plugin-multi-export \
+  --plugin examples/plugin-multi-export/build \
   --trust-native-plugin --allow-plugin demo.solver
 ```
 

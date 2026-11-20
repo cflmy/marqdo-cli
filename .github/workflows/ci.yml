@@ -61,16 +61,16 @@ jobs:
           ./target/debug/marqdo benchmark run .
           ./target/debug/marqdo tool remove benchmark
           ./examples/plugin-demo/build.sh
-          ./target/debug/marqdo plugin inspect examples/plugin-demo
+          ./target/debug/marqdo plugin inspect examples/plugin-demo/build
           ./target/debug/marqdo run examples/plugin-demo/plugin-call.mq.md \
-            --plugin examples/plugin-demo \
+            --plugin examples/plugin-demo/build \
             --trust-native-plugin \
             --allow-plugin demo.solver
           ./examples/plugin-multi-export/build.sh
           ./target/debug/marqdo check examples/plugin-multi-export/plugin-call.mq.md \
-            --plugin examples/plugin-multi-export
+            --plugin examples/plugin-multi-export/build
           ./target/debug/marqdo run examples/plugin-multi-export/plugin-call.mq.md \
-            --plugin examples/plugin-multi-export \
+            --plugin examples/plugin-multi-export/build \
             --trust-native-plugin \
             --allow-plugin demo.solver
 

@@ -42,6 +42,24 @@ fn repo() -> PathBuf {
         .to_path_buf()
 }
 
+/// Platform dynamic-library name for the test fixture.
+fn library_name() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "solver.dylib"
+    } else {
+        "solver.so"
+    }
+}
+
+/// Flags for building a shared library with the platform C compiler.
+fn shared_flags() -> &'static [&'static str] {
+    if cfg!(target_os = "macos") {
+        &["-dynamiclib", "-fPIC"]
+    } else {
+        &["-shared", "-fPIC"]
+    }
+}
+
 fn have_cc() -> bool {
     Command::new("cc")
         .arg("--version")
@@ -51,9 +69,10 @@ fn have_cc() -> bool {
 }
 
 fn compile(dir: &Path, extra: &[&str]) -> PathBuf {
-    let output = dir.join("solver.so");
+    let output = dir.join(library_name());
     let status = Command::new("cc")
-        .args(["-std=c11", "-O2", "-shared", "-fPIC"])
+        .args(["-std=c11", "-O2"])
+        .args(shared_flags())
         .arg("-I")
         .arg(repo().join("include"))
         .args(extra)
@@ -82,10 +101,11 @@ fn write_manifest(dir: &Path, sha: &str) {
     - math.compute
   artifacts:
     - target: {}
-      file: solver.so
+      file: {}
       sha256: "{}"
 "#,
             HostTarget::current().triple(),
+            library_name(),
             sha
         ),
     )
@@ -156,9 +176,14 @@ fn worker_crash_is_isolated_from_the_host() {
 }
 
 fn compile_capability(dir: &Path, extra: &[&str]) -> PathBuf {
-    let output = dir.join("capability.so");
+    let output = dir.join(if cfg!(target_os = "macos") {
+        "capability.dylib"
+    } else {
+        "capability.so"
+    });
     let status = Command::new("cc")
-        .args(["-std=c11", "-O2", "-shared", "-fPIC"])
+        .args(["-std=c11", "-O2"])
+        .args(shared_flags())
         .arg("-I")
         .arg(repo().join("include"))
         .args(extra)
@@ -187,10 +212,15 @@ fn write_capability_manifest(dir: &Path, sha: &str) {
     - fs.read
   artifacts:
     - target: {}
-      file: capability.so
+      file: {}
       sha256: "{}"
 "#,
             HostTarget::current().triple(),
+            if cfg!(target_os = "macos") {
+                "capability.dylib"
+            } else {
+                "capability.so"
+            },
             sha
         ),
     )

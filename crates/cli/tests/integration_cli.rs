@@ -521,61 +521,83 @@ fn lock_and_sync_locked_detect_dependency_tampering() {
     assert_exit(&synced, 0, "sync --locked after re-lock");
 }
 
-/// Build the C demo plugin in a temporary copy and refresh the manifest hash in
-/// that copy only. The repository copy is never touched and the `.so` is never
-/// committed.
+/// Host target and dynamic-library naming for a real Native ABI fixture.
+///
+/// The manifest is generated from the actual host target instead of reusing
+/// the Linux-only example manifest. This is what makes the integration test a
+/// real test on macOS/Windows rather than an accidental "no matching artifact".
+fn host_triple() -> String {
+    marqdo_plugin_abi::artifact::current_target_triple()
+        .as_str()
+        .to_string()
+}
+
+fn dynamic_library_name() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "solver.dll"
+    } else if cfg!(target_os = "macos") {
+        "solver.dylib"
+    } else {
+        "solver.so"
+    }
+}
+
+fn shared_library_flags() -> &'static [&'static str] {
+    if cfg!(target_os = "windows") {
+        &["-shared"]
+    } else if cfg!(target_os = "macos") {
+        &["-dynamiclib", "-fPIC"]
+    } else {
+        &["-shared", "-fPIC"]
+    }
+}
+
+/// Build the C demo plugin in a temporary directory and generate a manifest for
+/// this host. The repository (including `examples/plugin-demo/plugin.yaml`) is
+/// never modified, and no prebuilt artifact is reused.
 fn build_plugin_copy(tag: &str) -> Option<(TempDir, PathBuf)> {
+    build_plugin_copy_with(tag, &[])
+}
+
+/// Like [`build_plugin_copy`], with extra C compiler flags for negative fixtures.
+fn build_plugin_copy_with(tag: &str, extra_flags: &[&str]) -> Option<(TempDir, PathBuf)> {
     if !cc_available() {
-        println!("skipping plugin test: `cc` is unavailable");
-        return None;
+        // A real C ABI test needs a C toolchain. Windows MSVC does not provide
+        // `cc` in the plain runner PATH, so native ABI on Windows is reported
+        // as unsupported rather than counted as a pass.
+        if cfg!(windows) {
+            println!("skipping native plugin test on Windows: no `cc` toolchain");
+            return None;
+        }
+        panic!("`cc` is required for the native plugin integration test on this platform");
     }
     let dir = TempDir::new(tag);
-    let source = repo_root().join("examples").join("plugin-demo");
     let target = dir.path().join("plugin-demo");
     fs::create_dir_all(&target).expect("create plugin copy");
-    for entry in fs::read_dir(&source).expect("read plugin-demo") {
-        let entry = entry.expect("plugin-demo entry");
-        if !entry.path().is_file() {
-            continue;
-        }
-        // Copy manifest/source/readme but never a stale compiled artifact.
-        if entry
-            .path()
-            .extension()
-            .is_some_and(|extension| extension == "so")
-        {
-            continue;
-        }
-        fs::copy(entry.path(), target.join(entry.file_name()))
-            .unwrap_or_else(|error| panic!("copy plugin file: {error}"));
-    }
+    let source = repo_root().join("examples").join("plugin-demo");
+    fs::copy(source.join("solver.c"), target.join("solver.c")).expect("copy plugin source");
 
-    let include = repo_root().join("include");
+    let artifact = target.join(dynamic_library_name());
     let status = Command::new("cc")
-        .args([
-            "-shared",
-            "-fPIC",
-            "-I",
-            include.to_str().expect("utf-8 include path"),
-            "-o",
-            target.join("solver.so").to_str().expect("utf-8 path"),
-            target.join("solver.c").to_str().expect("utf-8 path"),
-        ])
+        .args(shared_library_flags())
+        .args(extra_flags)
+        .arg("-I")
+        .arg(repo_root().join("include"))
+        .args(["-o", artifact.to_str().expect("utf-8 path")])
+        .arg(target.join("solver.c"))
         .status()
         .unwrap_or_else(|error| panic!("cannot run cc: {error}"));
     assert!(status.success(), "building the demo plugin failed");
 
-    let bytes = fs::read(target.join("solver.so")).expect("read solver.so");
+    let bytes = fs::read(&artifact).expect("read built plugin");
     let digest = hex::encode(sha2::Sha256::digest(&bytes));
-    let manifest_path = target.join("plugin.yaml");
-    let manifest = fs::read_to_string(&manifest_path).expect("read plugin.yaml");
-    let placeholder = "0000000000000000000000000000000000000000000000000000000000000000";
-    assert!(
-        manifest.contains(placeholder),
-        "manifest placeholder missing"
+    let manifest = format!(
+        "plugin:\n  name: demo.solver\n  version: 0.1.0\n  abi: \"^1.0\"\n  kind: native\n  exports:\n    - name: solver.add\n      signature: \"($a: Int, $b: Int) -> Int\"\n  requires:\n    - math.compute\n  artifacts:\n    - target: {}\n      file: {}\n      sha256: \"{}\"\n",
+        host_triple(),
+        dynamic_library_name(),
+        digest
     );
-    fs::write(&manifest_path, manifest.replace(placeholder, &digest))
-        .expect("refresh plugin.yaml sha256");
+    fs::write(target.join("plugin.yaml"), manifest).expect("write plugin.yaml");
     Some((dir, target))
 }
 
@@ -763,4 +785,103 @@ fn platform_reports_strict_unavailable_until_security_gate_passes() {
         "unavailable strict needs an actionable reason: {strict}"
     );
     assert_eq!(value["platform"]["worker_processes"], true);
+}
+
+/// A manifest whose only artifact is for another target must be rejected with
+/// `no_matching_artifact` *before* any library is loaded. This test needs no C
+/// compiler and runs on every platform, including Windows.
+#[test]
+fn plugin_foreign_target_is_rejected_without_loading() {
+    let host = host_triple();
+    let foreign = if host == "x86_64-unknown-linux-gnu" {
+        "aarch64-apple-darwin"
+    } else {
+        "x86_64-unknown-linux-gnu"
+    };
+    let dir = TempDir::new("plugin-foreign-target");
+    let file = dynamic_library_name();
+    dir.write(file, "this is not a shared library");
+    let digest = hex::encode(sha2::Sha256::digest(dir.read(file).as_bytes()));
+    dir.write(
+        "plugin.yaml",
+        &format!(
+            "plugin:\n  name: demo.solver\n  version: 0.1.0\n  abi: \"^1.0\"\n  kind: native\n  exports:\n    - name: solver.add\n      signature: \"($a: Int, $b: Int) -> Int\"\n  artifacts:\n    - target: {foreign}\n      file: {file}\n      sha256: \"{digest}\"\n"
+        ),
+    );
+    let output = cli(
+        dir.path(),
+        &["plugin", "inspect", dir.path().to_str().unwrap(), "--json"],
+    );
+    assert_exit(&output, 1, "foreign artifact target must fail closed");
+    let value = json_stdout(&output);
+    assert_eq!(value["success"], false);
+    assert_eq!(value["error"]["code"], "no_matching_artifact");
+    let message = value["error"]["message"]
+        .as_str()
+        .expect("error message is a string");
+    assert!(
+        message.contains(&host),
+        "the diagnostic must name the host target `{host}`: {message}"
+    );
+}
+
+/// A content-hash mismatch is detected by inspection and the library is never
+/// loaded. The test mutates the built artifact after the manifest was sealed.
+#[test]
+fn plugin_artifact_tampering_is_rejected_before_load() {
+    let Some((_dir, plugin_dir)) = build_plugin_copy("plugin-tamper") else {
+        return;
+    };
+    let artifact = plugin_dir.join(dynamic_library_name());
+    let mut bytes = fs::read(&artifact).expect("read artifact");
+    bytes.push(0);
+    fs::write(&artifact, bytes).expect("tamper with artifact");
+
+    let output = cli(
+        repo_root().as_path(),
+        &["plugin", "inspect", plugin_dir.to_str().unwrap(), "--json"],
+    );
+    assert_exit(&output, 1, "tampered artifact must fail closed");
+    let value = json_stdout(&output);
+    assert_eq!(value["success"], false);
+    assert_eq!(value["error"]["code"], "hash_mismatch");
+    assert!(value["error"]["message"].as_str().is_some());
+}
+
+/// An ABI major mismatch reported by the native library is rejected by
+/// negotiation before any export runs.
+#[test]
+fn plugin_abi_major_mismatch_is_rejected_before_execution() {
+    let Some((_dir, plugin_dir)) =
+        build_plugin_copy_with("plugin-abi-mismatch", &["-DMQ_SOLVER_REPORT_ABI_MAJOR=2"])
+    else {
+        return;
+    };
+    let dir = TempDir::new("plugin-abi-run");
+    dir.write(
+        "doc.mq.md",
+        "## main\n\n**结果 = solver.add(a=20, b=22)**\n\n> 打印(结果)\n",
+    );
+    let output = cli(
+        dir.path(),
+        &[
+            "run",
+            "doc.mq.md",
+            "--plugin",
+            plugin_dir.to_str().unwrap(),
+            "--trust-native-plugin",
+            "--allow-plugin",
+            "demo.solver",
+        ],
+    );
+    assert_exit(&output, 1, "ABI major mismatch must fail before execution");
+    let stderr = stderr_text(&output);
+    assert!(
+        stderr.contains("abi_major_mismatch"),
+        "expected abi_major_mismatch, got: {stderr}"
+    );
+    assert!(
+        !stdout_text(&output).contains("42"),
+        "plugin export must not run after an ABI mismatch"
+    );
 }

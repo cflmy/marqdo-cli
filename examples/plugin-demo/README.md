@@ -41,7 +41,7 @@ interchangeable. Update `artifacts[0].target` and `sha256` in
 [`plugin.yaml`](plugin.yaml) to match what you built:
 
 ```sh
-sha256sum examples/plugin-demo/solver.so
+sha256sum examples/plugin-demo/build/solver.so
 ```
 
 ## Inspect
@@ -51,8 +51,8 @@ Manifest validation and artifact verification are implemented by
 never loads plugin code):
 
 ```sh
-./examples/plugin-demo/build.sh           # builds solver.so and refreshes sha256
-marqdo plugin inspect examples/plugin-demo
+./examples/plugin-demo/build.sh   # writes build/solver.<dylib> + manifest
+marqdo plugin inspect examples/plugin-demo/build
 ```
 
 A typical inspection flow is:
