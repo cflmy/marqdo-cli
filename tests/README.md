@@ -177,6 +177,11 @@ grant/pure/strict/DNS refusal) and
 `crates/cli/tests/resource_streams.rs::tcp_stream_round_trips_through_mqmd_with_a_network_grant`
 (`--allow-net 127.0.0.1`).
 
+RFC-CM CM-A09 C ABI provider (ADR-0036) is pinned by
+`crates/marqdo-host/tests/c_provider.rs`, which compiles a small C shared
+library, registers it, round-trips `resource.*` and checks missing-library
+fail-closed behavior.
+
 RFC-CM CM-A09 worker provider transport (ADR-0035) is pinned by
 `crates/marqdo-host/tests/worker_provider.rs`: a Python helper is spawned,
 pinged, opened/read/written/closed through framed JSON; missing grant, pure,

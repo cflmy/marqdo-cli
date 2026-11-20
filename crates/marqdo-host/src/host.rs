@@ -21,6 +21,7 @@ use crate::context::ExecutionContext;
 use crate::fs::ProjectFs;
 use crate::handles::{contains_plugin_handle, PluginHandleTable};
 use crate::plugin_worker::WorkerPlugin;
+use crate::provider_c::CResourceProvider;
 use crate::provider_worker::WorkerResourceProvider;
 use crate::resource::{ResourceProvider, ResourceRead, ResourceTable, SharedResourceProvider};
 use crate::trace::{EffectTrace, SemanticEvent, TraceBudget, TraceEntry, TraceState};
@@ -580,6 +581,25 @@ impl StdHost {
         provider: Box<dyn ResourceProvider>,
     ) -> Result<(), RuntimeError> {
         self.register_provider_checked(provider)
+    }
+
+    /// Register a trusted C ABI resource provider (ADR-0036).
+    ///
+    /// The shared library runs in the host address space and is **trusted**, not
+    /// sandboxed. Registration still requires the provider-name grant at
+    /// `resource.open` and is project-mode only.
+    pub fn register_c_resource_provider(
+        &mut self,
+        name: &str,
+        kinds: &[&str],
+        library: &std::path::Path,
+    ) -> Result<(), RuntimeError> {
+        let kinds = kinds
+            .iter()
+            .map(|kind| (*kind).to_string())
+            .collect::<Vec<_>>();
+        let provider = CResourceProvider::open(name, &kinds, library)?;
+        self.register_provider_checked(Box::new(provider))
     }
 
     /// Register a trusted worker-process resource provider (ADR-0035).

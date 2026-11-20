@@ -31,6 +31,8 @@ implementation status lives in `docs/STATUS.md`; frozen behavior is in
 | CM-A08 table logical value / stdlib algorithms / T0 storage | [0032](../adr/0032-table-logical-value-and-stdlib-algorithms.md) | Accepted |
 | CM-A09 in-process ResourceProvider v1 | [0033](../adr/0033-in-process-resource-provider-v1.md) | Accepted (trusted in-process slice) |
 | P5 blocking TCP resource endpoint v1 | [0034](../adr/0034-tcp-resource-endpoint.md) | Accepted (IP-literal, no DNS/TLS) |
+| CM-A09 worker resource-provider transport v1 | [0035](../adr/0035-worker-resource-provider-transport.md) | Accepted (trusted helper) |
+| CM-A09 C ABI ResourceProvider v1 | [0036](../adr/0036-c-abi-resource-provider.md) | Accepted (trusted native adapter) |
 | Table physical storage (T1/T2/T3), C/Worker provider transport, strict file/network resources | — | Not decided; do not implement by implication |
 
 ## What a future phase must not do

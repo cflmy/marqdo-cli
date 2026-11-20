@@ -394,6 +394,7 @@ name = "marqdo-host"
 version = "0.1.0"
 dependencies = [
  "glob",
+ "libloading",
  "marqdo-foreign",
  "marqdo-math",
  "marqdo-plugin-abi",
