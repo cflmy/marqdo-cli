@@ -14,7 +14,7 @@ module; a mismatch is a hard error.
 - `data/table.mq.md` — value-returning table select/filter/sort/append/set/join/group/GFM
 - `net/http.mq.md` — HTTP/1.1 response parsing (headers/chunked) and request builder
 - `tests/` — product self-tests for every public module
-  (`console`, `format`, `http`, `io`, `stream`, `table`, `text`, `utf8`)
+  (`console`, `demo`, `format`, `http`, `io`, `stream`, `table`, `text`, `utf8`)
 
 The digest is a SHA-256 over sorted `*.mq.md` relative paths, a NUL, file
 bytes, and a NUL. It excludes `stdlib.json` and non-`.mq.md` files. After any

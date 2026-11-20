@@ -62,6 +62,7 @@ the verified bundle:
 | Test | Public module |
 |---|---|
 | `console.mq.md` | `std:io/console` |
+| `demo.mq.md` | `std:demo` |
 | `format.mq.md` | `std:format` |
 | `http.mq.md` | `std:net/http` |
 | `io.mq.md` | `std:io` |

@@ -88,6 +88,7 @@ fn every_public_stdlib_module_has_a_product_test() {
         names,
         vec![
             "console.mq.md",
+            "demo.mq.md",
             "format.mq.md",
             "http.mq.md",
             "io.mq.md",
