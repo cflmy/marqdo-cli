@@ -1,6 +1,7 @@
 # Marqdo Trace v1
 
-Status: **implemented by `marqdo run/call --trace-file <path>` (M0.6 R4).**
+Status: **superseded by [Trace v2](trace-v2.md); never released, do not write
+v1.** Kept as history.
 
 ## 1. Invariants
 

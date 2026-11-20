@@ -125,6 +125,31 @@ Analysis v2 (`spec/analysis-v2.md`, `spec/schemas/analysis-v2.schema.json`):
 * Tests cover byte-identical output after moving a project and resource
   addressing for formulas/code fences.
 
+### S2-C/H2-B record (current)
+
+Trace v2 (`spec/trace-v2.md`, `spec/schemas/trace-v2.schema.json`):
+
+* `source.root_id` uses the same logical Analysis identity; `analysis_digest`
+  is the digest of the exact emitted Analysis bytes and is independently
+  verifiable.
+* Every span-bearing event carries `module_id`; `call.enter`/`call.exit` are
+  owned by the caller module, other semantic events by the current function,
+  effects by their `ExecutionContext`. The effect key is now `module_id`.
+* Trace budgets: 100 000 events / 32 MiB by default, configurable with
+  `--trace-max-events` and `--trace-max-bytes`; `0` means unlimited. Semantic
+  recording is disabled when no trace is requested.
+* On capacity exhaustion the trace ends with `trace.truncated` and
+  `truncated.reason`; the run status and execution result are unchanged. The
+  writer also enforces the byte cap on the final document.
+* Worker frames are capped at 8 MiB, with aligned request/result/capability
+  wire caps; partial headers, oversized lengths, truncated payloads and invalid
+  JSON are protocol errors, clean EOF is distinct, and the host kills and marks
+  a worker dead after a transport failure.
+* New independent `tests/consumers/trace_consumer.py` verifies identity,
+  digest, module references and sequence ordering in CI.
+* Tests: event module ownership, 20-event truncation of a 500-iteration loop,
+  worker frame round-trip/EOF/partial/oversized/truncated cases.
+
 ### M0.6 implementation progress
 
 | Step | State | Evidence |
@@ -133,11 +158,12 @@ Analysis v2 (`spec/analysis-v2.md`, `spec/schemas/analysis-v2.schema.json`):
 | S1/H1-A lock v3 graph | **Done** | ADR-0016; full-closure `marqdo.lock` v3; fail-closed edge lookup; strict non-rewriting `sync`; verified Git cache; unified file-set profile (see §S1/H1-A) |
 | S2-A/H1-B source locations | **Done** | ADR-0017; `RuntimeError`/`CallFrame` carry `module_id`; callsite origin; CLI module-aware resolution with no entry fallback (see §S2-A/H1-B) |
 | S2-B/H2-A Analysis v2 | **Done** | logical project identity, resources array, machine-path-free diagnostics, emitted-bytes digest, v2 schema + independent consumer (see §S2-B/H2-A) |
+| S2-C/H2-B Trace v2 | **Done** | logical root/digest, module-owned events, bounded/truncated trace, independent consumer, hardened worker frames (see §S2-C/H2-B) |
 | R0 baseline + ADRs | **Done** | this section; `docs/adr/0008`–`0012`; full workspace gate |
 | R1 package-aware identity + callable registry | **Done for statics; superseded by S1 lock v3** | `ModuleId { instance, relative_path }`; `PackageResolver` path sources; lock v3 transitive graph (ADR-0016) replaces the flat v2 lock; `CallableRegistry` for builtins/marqdo/declared ABI exports; external manifest wiring is R2 |
 | R2 ABI/Kernel/Broker | **Done (worker = crash isolation)** | `KernelRegistry` external providers; complete-name export routing; `CapabilityBroker`; static `check --plugin`; multi-export C test; isolated worker with timeout/crash tests; host handle table. Native/worker are not an OS sandbox |
 | R3 Tool Protocol | **Done** | `tool install/list/remove`; unknown-command fallback; atomic local install; SHA/tamper checks; black-box tests for arbitrary names, Unicode args, conflicts, traversal and PATH hijacking |
-| R4 Analysis v2 / Trace v1 | **Partial** | `check --emit` Analysis v2 (logical identity, resources, path-free diagnostics, emitted-bytes digest); `run/call --trace-file` still Trace v1 pending H2-B; independent Python consumer; stale-artifact removal; value redaction |
+| R4 Analysis/Trace v2 | **Done** | `check --emit` Analysis v2 and `run/call --trace-file` Trace v2 with logical identity, resources, module-owned events, capacity bounds, schemas and independent Python consumers; stale-artifact removal; value redaction |
 | R5 environment/isolation | **Partial** | Pinned Git fetch with verified cache markers, transitive `@alias` resolution, full-closure atomic `.marqdo/env` materialization, foreign process-group cleanup. Strict OS isolation remains explicitly unavailable (fail-closed) |
 | R6 release/consumers | **Done for Linux** | examples for unknown-name Tool, multi-export plugin, external kernel and multi-version packages; Analysis/Trace/Tool JSON Schemas; CI Linux gate + Windows/macOS `cargo check`; R6 example tests |
 

@@ -242,6 +242,52 @@ print(1)
 }
 
 #[test]
+fn trace_v2_budget_truncates_long_loops_without_failing_the_run() {
+    let dir = TempDir::new("trace-budget");
+    write(
+        dir.path(),
+        "index.mq.md",
+        "## main\n\n**i = 0**\n\n- `i < 500`\n\n  **i = i + 1**\n\n*i*\n",
+    );
+    let trace_path = dir.path().join("trace.json");
+    let output = cli(
+        dir.path(),
+        &[
+            "run",
+            "index.mq.md",
+            "--trace-file",
+            trace_path.to_str().unwrap(),
+            "--trace-max-events",
+            "20",
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let trace: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&trace_path).unwrap()).unwrap();
+    assert_eq!(trace["schema_version"], 2);
+    assert_eq!(trace["run"]["status"], "ok");
+    assert_eq!(trace["limits"]["max_events"], 20);
+    assert_eq!(trace["truncated"]["reason"], "event_budget");
+    assert_eq!(trace["truncated"]["limit"], 20);
+    let events = trace["events"].as_array().unwrap();
+    assert!(events.len() <= 21, "events: {}", events.len());
+    assert_eq!(events.last().unwrap()["kind"], "trace.truncated");
+    let mut previous = None;
+    for event in events {
+        let seq = event["seq"].as_u64().unwrap();
+        if let Some(previous) = previous {
+            assert!(seq > previous);
+        }
+        previous = Some(seq);
+    }
+}
+
+#[test]
 fn failed_check_removes_stale_analysis() {
     let dir = TempDir::new("analysis-error");
     write(dir.path(), "bad.mq.md", "## main\n\n1. 没有条件\n");
@@ -282,11 +328,14 @@ fn trace_records_calls_effects_and_status_without_secrets() {
     );
     let trace: serde_json::Value = serde_json::from_str(&text).unwrap();
     assert_eq!(trace["schema"], "marqdo.trace");
-    assert_eq!(trace["schema_version"], 1);
+    assert_eq!(trace["schema_version"], 2);
     assert_eq!(trace["run"]["status"], "ok");
     assert_eq!(trace["run"]["entry"], "root:default::index.mq.md::main");
     let events = trace["events"].as_array().unwrap();
-    assert!(events.iter().any(|event| event["kind"] == "call.enter"));
+    assert!(events
+        .iter()
+        .any(|event| event["kind"] == "call.enter"
+            && event["module_id"] == "root:default::index.mq.md"));
     assert!(events.iter().any(|event| event["kind"] == "effect"));
     assert!(events.iter().any(|event| event["kind"] == "call.exit"));
     let mut previous = None;

@@ -38,8 +38,12 @@ pub struct SandboxSettings {
     pub plugins: Vec<PathBuf>,
     /// Explicit trust decision for in-process native plugin loading.
     pub trust_native_plugin: bool,
-    /// Optional Trace v1 output path.
+    /// Optional Trace v2 output path.
     pub trace_file: Option<PathBuf>,
+    /// Trace event budget override (0 = unlimited).
+    pub trace_max_events: Option<usize>,
+    /// Trace approximate byte budget override (0 = unlimited).
+    pub trace_max_bytes: Option<usize>,
     /// External foreign-kernel descriptor paths.
     pub kernels: Vec<PathBuf>,
 }
@@ -690,7 +694,16 @@ pub fn execute(
     };
     let mut host = StdHost::new(mode, capabilities, project.root.clone());
     if trace || json || settings.trace_file.is_some() {
-        host = host.with_trace();
+        host = host
+            .with_trace()
+            .with_trace_budget(marqdo_host::TraceBudget {
+                max_events: settings
+                    .trace_max_events
+                    .unwrap_or(marqdo_host::trace::DEFAULT_MAX_TRACE_EVENTS),
+                max_bytes: settings
+                    .trace_max_bytes
+                    .unwrap_or(marqdo_host::trace::DEFAULT_MAX_TRACE_BYTES),
+            });
     }
     if let Some(fuel) = settings.fuel {
         host.budget.fuel = fuel;

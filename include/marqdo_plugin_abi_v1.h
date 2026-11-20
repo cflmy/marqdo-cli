@@ -99,10 +99,10 @@
  *   MQ_MAX_EXPORT_NAME_BYTES         256
  *   MQ_MAX_SIGNATURE_WIRE_BYTES      4096
  *   MQ_MAX_METADATA_WIRE_BYTES       65536
- *   MQ_MAX_REQUEST_WIRE_BYTES        16777216  (16 MiB)
- *   MQ_MAX_RESULT_WIRE_BYTES         67108864  (64 MiB)
+ *   MQ_MAX_REQUEST_WIRE_BYTES        8384512   (8 MiB - 4096)
+ *   MQ_MAX_RESULT_WIRE_BYTES         8384512   (8 MiB - 4096)
  *   MQ_MAX_ERROR_WIRE_BYTES          1048576   (1 MiB)
- *   MQ_MAX_CAPABILITY_REPLY_BYTES    16777216  (16 MiB)
+ *   MQ_MAX_CAPABILITY_REPLY_BYTES    8384512   (8 MiB - 4096)
  * JSON depth is additionally limited to 64 levels. Requests/results that
  * exceed these limits are rejected with a structured error; they must not
  * be truncated and reparsed.
@@ -245,10 +245,10 @@ extern "C" {
 #define MQ_MAX_EXPORT_NAME_BYTES 256u
 #define MQ_MAX_SIGNATURE_WIRE_BYTES 4096u
 #define MQ_MAX_METADATA_WIRE_BYTES 65536u
-#define MQ_MAX_REQUEST_WIRE_BYTES (16u * 1024u * 1024u)
-#define MQ_MAX_RESULT_WIRE_BYTES (64u * 1024u * 1024u)
+#define MQ_MAX_REQUEST_WIRE_BYTES ((8u * 1024u * 1024u) - 4096u)
+#define MQ_MAX_RESULT_WIRE_BYTES ((8u * 1024u * 1024u) - 4096u)
 #define MQ_MAX_ERROR_WIRE_BYTES (1024u * 1024u)
-#define MQ_MAX_CAPABILITY_REPLY_BYTES (16u * 1024u * 1024u)
+#define MQ_MAX_CAPABILITY_REPLY_BYTES ((8u * 1024u * 1024u) - 4096u)
 
 /* ------------------------------------------------------------------ */
 /* Stable-layout buffer types                                         */

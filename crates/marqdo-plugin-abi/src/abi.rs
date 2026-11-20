@@ -73,14 +73,14 @@ pub const MAX_EXPORT_NAME_BYTES: usize = 256;
 pub const MAX_SIGNATURE_WIRE_BYTES: usize = 4096;
 /// Maximum plugin metadata wire length in bytes.
 pub const MAX_METADATA_WIRE_BYTES: usize = 65_536;
-/// Maximum request wire length in bytes (16 MiB).
-pub const MAX_REQUEST_WIRE_BYTES: usize = 16 * 1024 * 1024;
-/// Maximum result wire length in bytes (64 MiB).
-pub const MAX_RESULT_WIRE_BYTES: usize = 64 * 1024 * 1024;
+/// Maximum request wire length in bytes (8 MiB frame minus envelope reserve).
+pub const MAX_REQUEST_WIRE_BYTES: usize = 8 * 1024 * 1024 - 4096;
+/// Maximum result wire length in bytes (8 MiB frame minus envelope reserve).
+pub const MAX_RESULT_WIRE_BYTES: usize = 8 * 1024 * 1024 - 4096;
 /// Maximum error wire length in bytes (1 MiB).
 pub const MAX_ERROR_WIRE_BYTES: usize = 1024 * 1024;
-/// Maximum capability reply length in bytes (16 MiB).
-pub const MAX_CAPABILITY_REPLY_BYTES: usize = 16 * 1024 * 1024;
+/// Maximum capability reply length in bytes (8 MiB frame minus envelope reserve).
+pub const MAX_CAPABILITY_REPLY_BYTES: usize = 8 * 1024 * 1024 - 4096;
 
 /// Borrowed, immutable byte view (`MqBytes`).
 ///

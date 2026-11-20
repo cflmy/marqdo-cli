@@ -41,9 +41,13 @@ jobs:
           ./target/debug/marqdo inspect examples/references.mq.md --refs
           ./target/debug/marqdo check examples/multi-module/index.mq.md --refs \
             --emit /tmp/marqdo-analysis.json
+          ./target/debug/marqdo run examples/multi-module/index.mq.md \
+            --trace-file /tmp/marqdo-analysis-trace.json
+          python3 tests/consumers/analysis_consumer.py /tmp/marqdo-analysis.json
+          python3 tests/consumers/trace_consumer.py \
+            /tmp/marqdo-analysis.json /tmp/marqdo-analysis-trace.json
           ./target/debug/marqdo run examples/hello.mq.md \
             --trace-file /tmp/marqdo-trace.json
-          python3 tests/consumers/analysis_consumer.py /tmp/marqdo-analysis.json
           python3 - <<'PY'
           import json
           json.load(open("/tmp/marqdo-trace.json"))

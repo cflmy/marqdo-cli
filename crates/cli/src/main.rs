@@ -109,9 +109,15 @@ struct SandboxArgs {
     /// Explicitly trusted plugin manifest/directory to load (repeatable).
     #[arg(long = "plugin", value_name = "PATH")]
     plugin: Vec<PathBuf>,
-    /// Write a versioned Trace v1 file for this run.
+    /// Write a versioned Trace v2 file for this run.
     #[arg(long = "trace-file", value_name = "PATH")]
     trace_file: Option<PathBuf>,
+    /// Override the trace event budget (0 = unlimited).
+    #[arg(long = "trace-max-events")]
+    trace_max_events: Option<usize>,
+    /// Override the approximate trace byte budget (0 = unlimited).
+    #[arg(long = "trace-max-bytes")]
+    trace_max_bytes: Option<usize>,
     /// Register an external foreign-kernel provider (repeatable).
     #[arg(long = "kernel", value_name = "PATH")]
     kernel: Vec<PathBuf>,
@@ -135,6 +141,8 @@ impl SandboxArgs {
             plugins: self.plugin.clone(),
             trust_native_plugin: self.trust_native_plugin,
             trace_file: self.trace_file.clone(),
+            trace_max_events: self.trace_max_events,
+            trace_max_bytes: self.trace_max_bytes,
             kernels: self.kernel.clone(),
         }
     }

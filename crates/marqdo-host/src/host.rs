@@ -20,7 +20,7 @@ use crate::context::ExecutionContext;
 use crate::fs::ProjectFs;
 use crate::handles::{contains_plugin_handle, PluginHandleTable};
 use crate::plugin_worker::WorkerPlugin;
-use crate::trace::{EffectTrace, SemanticEvent, TraceEntry};
+use crate::trace::{EffectTrace, SemanticEvent, TraceBudget, TraceEntry, TraceState};
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
 
 /// Host operations reachable from the language surface.
@@ -99,6 +99,7 @@ pub trait Host {
         &mut self,
         _kind: &str,
         _function_id: Option<&str>,
+        _module_id: Option<&str>,
         _span: Option<Span>,
         _detail: Option<&str>,
     ) {
@@ -144,6 +145,7 @@ pub struct StdHost {
     pub handles: PluginHandleTable,
     semantic_events: Vec<SemanticEvent>,
     next_event_seq: u64,
+    trace_state: TraceState,
 }
 
 struct PluginSlot {
@@ -203,6 +205,7 @@ impl StdHost {
             handles: PluginHandleTable::default(),
             semantic_events: Vec::new(),
             next_event_seq: 0,
+            trace_state: TraceState::default(),
         }
     }
 
@@ -338,6 +341,17 @@ impl StdHost {
         seq
     }
 
+    /// Trace capacity state for the writer.
+    pub fn trace_state(&self) -> &TraceState {
+        &self.trace_state
+    }
+
+    /// Override the trace event/byte budget.
+    pub fn with_trace_budget(mut self, budget: TraceBudget) -> Self {
+        self.trace_state.budget = budget;
+        self
+    }
+
     /// Audited plugin capability decisions.
     pub fn capability_audit(&self) -> Vec<CapabilityAudit> {
         self.broker_audit
@@ -359,6 +373,7 @@ impl StdHost {
     /// Enable effect tracing.
     pub fn with_trace(mut self) -> Self {
         self.trace = EffectTrace::enabled();
+        self.trace_state.enabled = true;
         self
     }
 
@@ -504,20 +519,29 @@ impl Host for StdHost {
         ctx: &ExecutionContext,
     ) -> Result<Value, RuntimeError> {
         let started = Instant::now();
-        let seq = self.next_seq();
         let result = self.dispatch(op, args, ctx);
         let summary = match &result {
             Ok(_) => "ok".to_string(),
             Err(error) => error.code().to_string(),
         };
-        self.trace.record(
-            seq,
-            op.name(),
-            ctx.module_id.clone(),
-            ctx.span,
-            started.elapsed(),
-            summary,
+        let estimate = TraceState::estimate(
+            "effect",
+            None,
+            Some(&ctx.module_id),
+            Some(&summary),
+            Some(op.name()),
         );
+        if self.trace_state.accept(estimate) {
+            let seq = self.next_seq();
+            self.trace.record(
+                seq,
+                op.name(),
+                ctx.module_id.clone(),
+                ctx.span,
+                started.elapsed(),
+                summary,
+            );
+        }
         result
     }
 
@@ -545,14 +569,20 @@ impl Host for StdHost {
         &mut self,
         kind: &str,
         function_id: Option<&str>,
+        module_id: Option<&str>,
         span: Option<Span>,
         detail: Option<&str>,
     ) {
+        let estimate = TraceState::estimate(kind, function_id, module_id, detail, None);
+        if !self.trace_state.accept(estimate) {
+            return;
+        }
         let seq = self.next_seq();
         self.semantic_events.push(SemanticEvent {
             seq,
             kind: kind.to_string(),
             function_id: function_id.map(str::to_string),
+            module_id: module_id.map(str::to_string),
             span,
             detail: detail.map(str::to_string),
         });

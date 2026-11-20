@@ -68,10 +68,10 @@ minted for. Plugins must not dereference, cache or copy it.
 | `MQ_MAX_EXPORT_NAME_BYTES` | 256 |
 | `MQ_MAX_SIGNATURE_WIRE_BYTES` | 4096 |
 | `MQ_MAX_METADATA_WIRE_BYTES` | 65536 |
-| `MQ_MAX_REQUEST_WIRE_BYTES` | 16 MiB (16,777,216) |
-| `MQ_MAX_RESULT_WIRE_BYTES` | 64 MiB (67,108,864) |
+| `MQ_MAX_REQUEST_WIRE_BYTES` | 8 MiB - 4096 (8,384,512) |
+| `MQ_MAX_RESULT_WIRE_BYTES` | 8 MiB - 4096 (8,384,512) |
 | `MQ_MAX_ERROR_WIRE_BYTES` | 1 MiB (1,048,576) |
-| `MQ_MAX_CAPABILITY_REPLY_BYTES` | 16 MiB |
+| `MQ_MAX_CAPABILITY_REPLY_BYTES` | 8 MiB - 4096 |
 
 Wire JSON decoding additionally applies the default `WireLimits` from
 `spec/value-wire.md` (depth 64, 1,000,000 items, 16 MiB strings). Oversized
@@ -270,8 +270,8 @@ with both is rejected (`ambiguous_response`). Error:
 }}
 ```
 
-Envelope limits: at most `MAX_ARGS = 1024` request arguments; request ≤ 16 MiB,
-response ≤ 64 MiB, error ≤ 1 MiB. `context` carries no secrets and no
+Envelope limits: at most `MAX_ARGS = 1024` request arguments; request and
+response ≤ 8 MiB - 4096, error ≤ 1 MiB. `context` carries no secrets and no
 reconstructable OS handles. `signature_wire` is
 `{"signature":"<signature string>"}`; `plugin_metadata_wire` is
 `{"name":"<package name>","version":"<semver>"}` (extra fields ignored).
@@ -364,7 +364,10 @@ full plugin capability broker for worker requests remain future work.
 
 ### 9.1 Worker frames
 
-Frames are a 4-byte big-endian length followed by one JSON object (max 64 MiB).
+Frames are a 4-byte big-endian length followed by one JSON object (max 8 MiB).
+A zero/oversized length, partial header, truncated payload or invalid JSON is a
+protocol error; clean EOF at a frame boundary is not. The host marks the worker
+dead after a transport failure and does not reuse it.
 Worker → host: `{"kind":"ready","exports":[...]}`. Host → worker:
 `{"kind":"invoke","request":<wire request>}` and `{"kind":"shutdown"}`.
 Worker → host responses are `{"kind":"response","response":<wire response>}` or

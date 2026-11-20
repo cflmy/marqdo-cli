@@ -135,11 +135,17 @@ impl<'a> Interpreter<'a> {
     ) -> Result<Value, RuntimeError> {
         let display = function.id.name.clone();
         let trace_id = function.id.to_string();
+        let trace_module = caller_module.unwrap_or(&function.id.module).canonical();
         if self.depth + 1 > 0 {
             self.host.check_stack(self.depth + 1, call_span)?;
         }
-        self.host
-            .record_semantic("call.enter", Some(&trace_id), call_span, None);
+        self.host.record_semantic(
+            "call.enter",
+            Some(&trace_id),
+            Some(&trace_module),
+            call_span,
+            None,
+        );
         let locals = match self.bind_args(function, args, call_span) {
             Ok(locals) => locals,
             Err(mut error) => {
@@ -162,8 +168,13 @@ impl<'a> Interpreter<'a> {
             Ok(Flow::Return(_)) => "return",
             Err(error) => error.code(),
         };
-        self.host
-            .record_semantic("call.exit", Some(&trace_id), call_span, Some(status));
+        self.host.record_semantic(
+            "call.exit",
+            Some(&trace_id),
+            Some(&trace_module),
+            call_span,
+            Some(status),
+        );
         match result {
             Ok(Flow::Next) => Ok(Value::Unit),
             Ok(Flow::Return(value)) => Ok(value),
@@ -301,9 +312,11 @@ impl<'a> Interpreter<'a> {
                 }
                 Stmt::Return { value, span } => {
                     let value = self.eval_expr(value, frame)?;
+                    let module = frame.function.module.canonical();
                     self.host.record_semantic(
                         "return",
                         Some(&frame.function.to_string()),
+                        Some(&module),
                         Some(*span),
                         Some(value.type_name()),
                     );
@@ -322,9 +335,11 @@ impl<'a> Interpreter<'a> {
                                 ),
                             ));
                         };
+                        let module = frame.function.module.canonical();
                         self.host.record_semantic(
                             "branch.eval",
                             Some(&frame.function.to_string()),
+                            Some(&module),
                             Some(arm.condition_span),
                             Some(if condition { "true" } else { "false" }),
                         );
@@ -351,9 +366,11 @@ impl<'a> Interpreter<'a> {
                             format!("loop condition must be Bool, got {}", value.type_name()),
                         ));
                     };
+                    let module = frame.function.module.canonical();
                     self.host.record_semantic(
                         "loop.iteration",
                         Some(&frame.function.to_string()),
+                        Some(&module),
                         Some(*condition_span),
                         Some(if value { "continue" } else { "exit" }),
                     );

@@ -1,4 +1,4 @@
-//! Public Trace v1 writer (spec/trace-v1.md).
+//! Public Trace v2 writer (spec/trace-v2.md).
 //!
 //! Events come from the interpreter (semantic) and the capability host
 //! (effects). No argument values, secrets or handles are recorded.
@@ -12,7 +12,7 @@ use crate::loader::LoadedProject;
 
 /// Schema name and version.
 pub const SCHEMA: &str = "marqdo.trace";
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// Write a trace atomically for one run.
 pub fn write(
@@ -32,6 +32,7 @@ pub fn write(
     );
     let analysis_digest = crate::analysis::digest(project);
     let root_id = project.identity.root_id();
+    let state = host.trace_state();
     let mut events: Vec<Value> = host
         .semantic_events()
         .iter()
@@ -39,15 +40,55 @@ pub fn write(
         .chain(host.trace().iter().map(effect_json))
         .collect();
     events.sort_by_key(|event| event.get("seq").and_then(Value::as_u64).unwrap_or(u64::MAX));
-    let trace = json!({
-        "schema": SCHEMA,
-        "schema_version": SCHEMA_VERSION,
-        "run": {"id": run_id, "entry": entry, "status": status},
-        "source": {"root_id": root_id, "analysis_digest": format!("sha256:{analysis_digest}")},
-        "events": events,
-    });
-    let bytes = serde_json::to_vec_pretty(&trace)
-        .map_err(|error| format!("cannot encode trace: {error}"))?;
+
+    let mut truncation = state.truncation.clone();
+    let max_bytes = state.budget.max_bytes;
+    let bytes = loop {
+        let mut all = events.clone();
+        if let Some(truncation) = &truncation {
+            let seq = all
+                .last()
+                .and_then(|event| event.get("seq"))
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+                + 1;
+            all.push(json!({
+                "seq": seq,
+                "kind": "trace.truncated",
+                "module_id": null,
+                "span": null,
+                "detail": truncation.reason,
+            }));
+        }
+        let trace = json!({
+            "schema": SCHEMA,
+            "schema_version": SCHEMA_VERSION,
+            "run": {"id": run_id, "entry": entry, "status": status},
+            "source": {
+                "root_id": root_id,
+                "analysis_digest": format!("sha256:{analysis_digest}"),
+            },
+            "limits": {
+                "max_events": state.budget.max_events,
+                "max_bytes": state.budget.max_bytes,
+            },
+            "truncated": truncation,
+            "events": all,
+        });
+        let bytes = serde_json::to_vec_pretty(&trace)
+            .map_err(|error| format!("cannot encode trace: {error}"))?;
+        if max_bytes == 0 || bytes.len() <= max_bytes || events.is_empty() {
+            break bytes;
+        }
+        events.pop();
+        if truncation.is_none() {
+            truncation = Some(marqdo_host::TraceTruncation {
+                reason: "byte_budget".to_string(),
+                limit: max_bytes as u64,
+                written: events.len() as u64,
+            });
+        }
+    };
     atomic_write(path, &bytes)
 }
 
@@ -56,6 +97,7 @@ fn semantic_json(event: &SemanticEvent) -> Value {
         "seq": event.seq,
         "kind": event.kind,
         "function_id": event.function_id,
+        "module_id": event.module_id,
         "span": event.span.map(|span| json!({"start": span.start, "end": span.end})),
         "detail": event.detail,
     })
@@ -65,7 +107,7 @@ fn effect_json(entry: &TraceEntry) -> Value {
     json!({
         "seq": entry.seq,
         "kind": "effect",
-        "module": entry.module,
+        "module_id": entry.module,
         "span": entry.span.map(|span| json!({"start": span.start, "end": span.end})),
         "detail": entry.result,
         "operation": entry.op,

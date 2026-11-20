@@ -22,6 +22,7 @@ pub struct WorkerPlugin {
     stdin: ChildStdin,
     frames: Receiver<Result<serde_json::Value, PluginError>>,
     exports: BTreeMap<String, String>,
+    dead: bool,
 }
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
@@ -94,6 +95,7 @@ impl WorkerPlugin {
         };
         let Some(mut stdout) = child.stdout.take() else {
             let _ = child.kill();
+            let _ = std::fs::remove_file(&manifest_path);
             return Err(PluginError::load(
                 "worker_spawn_failed",
                 "worker stdout unavailable",
@@ -103,10 +105,23 @@ impl WorkerPlugin {
         thread::Builder::new()
             .name("marqdo-plugin-worker-reader".to_string())
             .spawn(move || loop {
-                let frame = read_frame(&mut stdout);
-                let failed = frame.is_err();
-                if sender.send(frame).is_err() || failed {
-                    break;
+                match read_frame(&mut stdout) {
+                    Ok(Some(frame)) => {
+                        if sender.send(Ok(frame)).is_err() {
+                            break;
+                        }
+                    }
+                    Ok(None) => {
+                        let _ = sender.send(Err(PluginError::invoke(
+                            "plugin.crashed",
+                            "plugin worker closed its output stream",
+                        )));
+                        break;
+                    }
+                    Err(error) => {
+                        let _ = sender.send(Err(error));
+                        break;
+                    }
                 }
             })
             .map_err(|error| {
@@ -169,21 +184,35 @@ impl WorkerPlugin {
             stdin,
             frames,
             exports,
+            dead: false,
         })
     }
 
     /// Invoke one export in the worker.
     pub fn invoke(&mut self, request: &WireRequest) -> Result<WireResponse, PluginError> {
+        if self.dead {
+            return Err(PluginError::invoke(
+                "plugin.crashed",
+                "plugin worker is no longer usable after a transport failure",
+            ));
+        }
         let request_value: serde_json::Value = serde_json::from_slice(&request.to_json_bytes()?)
             .map_err(|error| PluginError::wire("worker_encode_failed", error.to_string()))?;
-        write_frame(
+        if let Err(error) = write_frame(
             &mut self.stdin,
             &json!({"kind": "invoke", "request": request_value}),
-        )?;
+        ) {
+            self.mark_dead();
+            return Err(error);
+        }
         let frame = match self.frames.recv_timeout(CALL_TIMEOUT) {
-            Ok(frame) => frame?,
+            Ok(Ok(frame)) => frame,
+            Ok(Err(error)) => {
+                self.mark_dead();
+                return Err(error);
+            }
             Err(_) => {
-                let _ = self.child.kill();
+                self.mark_dead();
                 return Err(PluginError::invoke(
                     "plugin.timeout",
                     "plugin worker exceeded its invocation timeout",
@@ -202,11 +231,19 @@ impl WorkerPlugin {
                     .and_then(serde_json::Value::as_str)
                     .unwrap_or("worker reported an error"),
             )),
-            _ => Err(PluginError::invoke(
-                "plugin.crashed",
-                "plugin worker closed or violated the frame protocol",
-            )),
+            _ => {
+                self.mark_dead();
+                Err(PluginError::invoke(
+                    "plugin.crashed",
+                    "plugin worker closed or violated the frame protocol",
+                ))
+            }
         }
+    }
+
+    fn mark_dead(&mut self) {
+        self.dead = true;
+        let _ = self.child.kill();
     }
 }
 

@@ -19,17 +19,34 @@ use crate::wire::{WireRequest, WireResponse};
 /// Hidden CLI command name used to start a worker.
 pub const WORKER_COMMAND: &str = "__plugin-worker";
 /// Maximum frame size accepted by either side.
-pub const MAX_FRAME_BYTES: usize = 64 * 1024 * 1024;
+pub const MAX_FRAME_BYTES: usize = 8 * 1024 * 1024;
 
 /// Read one length-prefixed frame (4-byte big-endian length + JSON).
-pub fn read_frame<R: Read>(reader: &mut R) -> Result<Value, PluginError> {
+///
+/// `Ok(None)` means a clean EOF at a frame boundary. A partial header or
+/// truncated payload is a protocol error, never EOF.
+pub fn read_frame<R: Read>(reader: &mut R) -> Result<Option<Value>, PluginError> {
     let mut length = [0_u8; 4];
-    reader.read_exact(&mut length).map_err(|error| {
-        PluginError::invoke(
-            "plugin.crashed",
-            format!("worker frame read failed: {error}"),
-        )
-    })?;
+    let mut read = 0usize;
+    while read < length.len() {
+        match reader.read(&mut length[read..]) {
+            Ok(0) if read == 0 => return Ok(None),
+            Ok(0) => {
+                return Err(PluginError::wire(
+                    "worker_frame_invalid",
+                    "worker stream ended inside a frame header",
+                ))
+            }
+            Ok(count) => read += count,
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(error) => {
+                return Err(PluginError::invoke(
+                    "plugin.crashed",
+                    format!("worker frame read failed: {error}"),
+                ))
+            }
+        }
+    }
     let length = u32::from_be_bytes(length) as usize;
     if length == 0 || length > MAX_FRAME_BYTES {
         return Err(PluginError::wire(
@@ -37,14 +54,23 @@ pub fn read_frame<R: Read>(reader: &mut R) -> Result<Value, PluginError> {
             format!("worker frame length {length} is invalid"),
         ));
     }
-    let mut bytes = vec![0_u8; length];
-    reader.read_exact(&mut bytes).map_err(|error| {
-        PluginError::invoke(
-            "plugin.crashed",
-            format!("worker frame read failed: {error}"),
-        )
-    })?;
-    serde_json::from_slice(&bytes).map_err(|error| {
+    let mut bytes = Vec::with_capacity(length.min(64 * 1024));
+    let read = reader
+        .take(length as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|error| {
+            PluginError::invoke(
+                "plugin.crashed",
+                format!("worker frame read failed: {error}"),
+            )
+        })?;
+    if read != length {
+        return Err(PluginError::wire(
+            "worker_frame_invalid",
+            format!("worker frame declared {length} bytes but only {read} arrived"),
+        ));
+    }
+    serde_json::from_slice(&bytes).map(Some).map_err(|error| {
         PluginError::wire(
             "worker_frame_invalid",
             format!("worker frame is not valid JSON: {error}"),
@@ -110,8 +136,12 @@ pub fn serve(manifest_path: &Path, base_dir: &Path) -> i32 {
     }
     loop {
         let frame = match read_frame(&mut stdin) {
-            Ok(frame) => frame,
-            Err(_) => return 0,
+            Ok(Some(frame)) => frame,
+            Ok(None) => return 0,
+            Err(error) => {
+                eprintln!("worker: {}: {}", error.code, error.message);
+                return 1;
+            }
         };
         match frame.get("kind").and_then(Value::as_str) {
             Some("shutdown") => return 0,
@@ -188,4 +218,46 @@ pub fn response_from_frame(frame: &Value) -> Result<WireResponse, PluginError> {
     let bytes = serde_json::to_vec(body)
         .map_err(|error| PluginError::wire("worker_response_invalid", error.to_string()))?;
     WireResponse::from_json_bytes(&bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn frame_roundtrip_and_clean_eof() {
+        let mut bytes = Vec::new();
+        write_frame(&mut bytes, &json!({"kind": "shutdown"})).unwrap();
+        let mut cursor = Cursor::new(bytes.clone());
+        assert_eq!(
+            read_frame(&mut cursor).unwrap(),
+            Some(json!({"kind": "shutdown"}))
+        );
+        assert_eq!(read_frame(&mut cursor).unwrap(), None);
+    }
+
+    #[test]
+    fn partial_header_is_an_error_not_eof() {
+        let mut cursor = Cursor::new(vec![0_u8, 0]);
+        let error = read_frame(&mut cursor).unwrap_err();
+        assert_eq!(error.code, "worker_frame_invalid");
+    }
+
+    #[test]
+    fn oversized_and_zero_length_frames_are_rejected() {
+        for length in [0_u32, (MAX_FRAME_BYTES as u32) + 1] {
+            let mut cursor = Cursor::new(length.to_be_bytes().to_vec());
+            let error = read_frame(&mut cursor).unwrap_err();
+            assert_eq!(error.code, "worker_frame_invalid");
+        }
+    }
+
+    #[test]
+    fn truncated_payload_is_rejected() {
+        let mut bytes = 10_u32.to_be_bytes().to_vec();
+        bytes.extend_from_slice(b"{}");
+        let error = read_frame(&mut Cursor::new(bytes)).unwrap_err();
+        assert_eq!(error.code, "worker_frame_invalid");
+    }
 }
