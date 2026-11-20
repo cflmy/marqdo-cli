@@ -9,11 +9,9 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-marqdo-span = { workspace = true }
 marqdo-value = { workspace = true }
 num-bigint = { workspace = true }
 num-rational = { workspace = true }
 num-traits = { workspace = true }
 serde = { workspace = true }
-thiserror = { workspace = true }
 
