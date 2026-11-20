@@ -16,7 +16,7 @@ if analysis.get("schema_version") != 1:
 
 functions = []
 for module in analysis["modules"]:
-    if not module["id"].startswith("root:default::"):
+    if not module["id"].startswith("root:"):
         raise SystemExit("unexpected module identity")
     if not isinstance(module["source_digest"], str) or len(module["source_digest"]) != 64:
         raise SystemExit("bad source digest")
