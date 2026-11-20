@@ -67,7 +67,7 @@ import:
 
 3. `true`
 
-   *{ok: true, value: {count: 已写}}*
+   *{ok: true, value: {count: 长度}}*
 
 ## 写文本
 
@@ -98,4 +98,4 @@ import:
 
 3. `true`
 
-   *{ok: true, value: None}*
+   *{ok: true, value: {count: 长度}}*
