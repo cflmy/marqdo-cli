@@ -278,7 +278,7 @@ host boundary. Names are stable; adding one requires a spec update.
 | `fs.read/write` | see `spec/security.md` | capability-gated |
 
 The legacy `打印/print` builtin remains the default and still uses the host
-output path. `examples/stdlib/` contains an explicitly imported `.mq.md`
+output path. `stdlib/` (the bundled standard library, `std:` imports) contains an explicitly imported `.mq.md`
 `format/utf8/io` prototype (ADR-0027 Compat-A) whose output is comparison-tested
 against `打印` for Unit/None/Bool/Int/Float/Text/List/Map/Table; it does **not**
 replace the builtin, and Formula/Code/FunctionRef/PluginHandle formatting is not

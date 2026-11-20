@@ -9,6 +9,7 @@ mod args;
 mod commands;
 mod loader;
 mod output;
+mod stdlib;
 mod tool;
 mod trace;
 

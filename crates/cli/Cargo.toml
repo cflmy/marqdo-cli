@@ -33,3 +33,6 @@ semver = { workspace = true }
 [[bin]]
 name = "marqdo"
 path = "src/main.rs"
+
+[dev-dependencies]
+tempfile = { workspace = true }

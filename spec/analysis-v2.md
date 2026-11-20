@@ -31,7 +31,12 @@ Analysis v1. v1 was never released; it is kept as history and is not written.
   "project": {
     "root_id": "root:quantum@0.1.0",
     "identity_kind": "manifest",
-    "lock_digest": "sha256:<64 hex>"
+    "lock_digest": "sha256:<64 hex>",
+    "stdlib": {
+      "version": "0.1.0",
+      "digest": "sha256:<64 hex>",
+      "instance_id": "std:marqdo-stdlib@0.1.0#<64 hex>"
+    }
   },
   "modules": [],
   "diagnostics": []
@@ -47,6 +52,11 @@ Analysis v1. v1 was never released; it is kept as history and is not written.
 
 `project.lock_digest` is the SHA-256 of the exact `marqdo.lock` bytes prefixed
 with `sha256:`, or `""` when there is no lock. It is not a logical identity.
+
+`project.stdlib` records the verified bundled standard library identity used by
+this load: declared version, content digest and package instance id. It is
+`null` when no bundle was available. A digest mismatch is a hard load error, so
+an Analysis artifact can only name a bundle whose bytes matched the manifest.
 
 `AnalysisDigest` is the lowercase hex SHA-256 of the exact UTF-8 bytes written
 by `check --emit` (pretty JSON). This is what Trace v2 binds to

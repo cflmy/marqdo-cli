@@ -40,13 +40,13 @@ claim CM-A07 complete.
 
 ### 2. Compat-A implementation
 
-Add a normal `.mq.md` module package under `examples/stdlib/`:
+Add a normal `.mq.md` module package (later moved to the bundled `stdlib/` tree by ADR-0028):
 
 ```text
-examples/stdlib/format.mq.md   # 显示 / 列表显示 / 映射显示 / 表格显示 / 转义文本
-examples/stdlib/text.mq.md     # utf8编码 (Memory bytes)
-examples/stdlib/io.mq.md       # 写文本 / 写值 (resource.open stdout + write/close)
-examples/stdlib/demo.mq.md     # side-by-side comparison with 打印
+stdlib/format.mq.md   # 显示 / 列表显示 / 映射显示 / 表格显示 / 转义文本
+stdlib/text.mq.md     # utf8编码 (Memory bytes)
+stdlib/io.mq.md       # 写文本 / 写值 (resource.open stdout + write/close)
+stdlib/demo.mq.md     # side-by-side comparison with 打印
 ```
 
 `io.写值(值)` = `format.显示(值) + "\n"` → `text.utf8编码` → `Memory` →

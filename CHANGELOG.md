@@ -108,7 +108,12 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   an `fs_write` grant, buffers in the host, flushes only on `close`, never
   flushes on drop, has an 8 MiB ceiling, and is refused in pure/strict. A
   `.mq.md` chunked copy loop reproduces a file without a Rust `copy_file`.
-- CM-A07 **Compat-A** prototype (ADR-0027): `examples/stdlib/` provides
+- CM-A10 bundled stdlib (ADR-0028): a fixed `stdlib/` tree with
+  `format/text/io`, explicit `std:<path>` imports, SHA-256 digest verification
+  before module loading, a `std:marqdo-stdlib@<version>#<digest>` package
+  instance id, `project.stdlib` in Analysis v2, and test coverage for
+  `std:` resolution, tamper rejection and frozen-binary hash equality.
+- CM-A07 **Compat-A** prototype (ADR-0027): `stdlib/` provides
   `format.显示`, UTF-8 encoding and `io.写值` (`resource.write(stdout)`), and
   its output is comparison-tested byte-for-byte against builtin `打印` for
   Unit/None/Bool/Int/Float/Text/List/Map/Table. Builtin `打印` remains the

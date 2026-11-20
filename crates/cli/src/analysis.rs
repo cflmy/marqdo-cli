@@ -61,6 +61,11 @@ pub fn build(project: &LoadedProject) -> Value {
             "root_id": project.identity.root_id(),
             "identity_kind": project.identity.kind(),
             "lock_digest": lock_digest(project),
+            "stdlib": project.stdlib.as_ref().map(|stdlib| json!({
+                "version": stdlib.version,
+                "digest": stdlib.digest,
+                "instance_id": stdlib.instance_id,
+            })),
         },
         "modules": modules,
         "diagnostics": diagnostics_json(project),

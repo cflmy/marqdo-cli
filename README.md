@@ -99,10 +99,11 @@ executes anything.
   `{ok:false,code,message}` as an ordinary Map, with a `.mq.md` first-fit
   free-list allocator demonstrating reuse, splitting and `alloc.no_space`
   recovery (ADR-0024). No `Result` type or exception syntax.
-* **Stdlib print prototype (RFC-CM CM-A07 Compat-A)** — ordinary imported
-  `.mq.md` `format.显示` + UTF-8 + `resource.write(stdout)` matches builtin
-  `打印` for the covered value set; the builtin is still the default and no
-  alias is routed (ADR-0027).
+* **Bundled stdlib + print prototype (RFC-CM CM-A07/A10)** — offline
+  `stdlib/` with explicit `std:io`/`std:format`/`std:text` imports, SHA-256
+  digest verification, Analysis identity and a frozen-CLI closure test; the
+  `.mq.md` print chain matches builtin `打印` for the covered values, while
+  `打印` remains the default builtin (ADR-0027/0028).
 * **Resource streams (RFC-CM CM-A06)** — opaque host-issued `Resource` handles;
   `resource.open/read/write/close` transfer bytes through `Memory`; stdout
   write in pure/project, granted project-file read, and buffered project-file

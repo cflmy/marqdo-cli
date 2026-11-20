@@ -20,6 +20,8 @@ use marqdo_package::{
 };
 use marqdo_value::{codes, Diagnostic};
 
+use crate::stdlib::StdlibBundle;
+
 /// One analysed source file.
 pub struct LoadedFile {
     /// Canonical module identity (package instance + package-relative path).
@@ -125,6 +127,17 @@ pub struct LocatedSource<'a> {
     pub column: usize,
 }
 
+/// Identity of the verified bundled stdlib used by a load, if any.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StdlibInfo {
+    /// Declared version.
+    pub version: String,
+    /// Verified content digest.
+    pub digest: String,
+    /// Package instance id.
+    pub instance_id: String,
+}
+
 /// A fully loaded project ready for checking or running.
 pub struct LoadedProject {
     /// Project root.
@@ -141,6 +154,8 @@ pub struct LoadedProject {
     pub packages: BTreeMap<String, PathBuf>,
     /// All diagnostics in deterministic order.
     pub diagnostics: Vec<FileDiagnostic>,
+    /// Verified bundled stdlib identity, when one was available.
+    pub stdlib: Option<StdlibInfo>,
 }
 
 impl LoadedProject {
@@ -205,6 +220,7 @@ struct Loader {
     program: Program,
     diagnostics: Vec<FileDiagnostic>,
     stack: Vec<PathBuf>,
+    stdlib: Option<StdlibBundle>,
 }
 
 /// Load the entry file and its explicitly imported modules.
@@ -250,6 +266,7 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
     };
     let resolver = PackageResolver::new(root.clone(), manifest.clone(), lock);
     let entry_module = resolver.resolve_entry(&entry)?;
+    let stdlib = StdlibBundle::discover().map_err(|error| format!("stdlib: {error}"))?;
     let mut loader = Loader {
         resolver,
         packages: BTreeMap::new(),
@@ -257,6 +274,7 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
         program: Program::default(),
         diagnostics: Vec::new(),
         stack: Vec::new(),
+        stdlib,
     };
     let entry_id = loader.load_module(&entry_module.package, &entry_module.relative_path)?;
     loader.program.main_module = Some(entry_id.clone());
@@ -270,6 +288,11 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
             });
         }
     }
+    let stdlib_info = loader.stdlib.as_ref().map(|bundle| StdlibInfo {
+        version: bundle.version().to_string(),
+        digest: bundle.digest().to_string(),
+        instance_id: bundle.instance_id(),
+    });
     let identity = match &manifest {
         Some(_) => ProjectIdentity::Manifest {
             instance: entry_id.instance.clone(),
@@ -286,6 +309,7 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
         files: loader.files,
         packages: loader.packages,
         diagnostics: loader.diagnostics,
+        stdlib: stdlib_info,
     })
 }
 
@@ -360,7 +384,16 @@ impl Loader {
             .unwrap_or_default();
 
         for (alias, target, span) in imports {
-            let resolved = if let Some(alias_name) = target.strip_prefix('@') {
+            let resolved = if let Some(std_target) = target.strip_prefix("std:") {
+                match &self.stdlib {
+                    Some(stdlib) => stdlib.resolve(std_target),
+                    None => Err(format!(
+                        "no bundled stdlib is available for `{target}`; install the official \
+                         CLI bundle or set {STDLIB_DIR_ENV}",
+                        STDLIB_DIR_ENV = crate::stdlib::STDLIB_DIR_ENV
+                    )),
+                }
+            } else if let Some(alias_name) = target.strip_prefix('@') {
                 self.resolver.resolve_alias_from(package, alias_name)
             } else {
                 self.resolver.resolve_relative(package, &path, &target)

@@ -26,7 +26,7 @@ fn stderr(output: &Output) -> String {
 
 #[test]
 fn mqmd_stdlib_print_output_matches_builtin_print() {
-    let output = cli(&["run", "examples/stdlib/demo.mq.md"]);
+    let output = cli(&["run", "stdlib/demo.mq.md"]);
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.lines().collect();

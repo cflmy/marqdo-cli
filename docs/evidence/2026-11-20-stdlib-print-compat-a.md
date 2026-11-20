@@ -24,7 +24,7 @@ No GitHub CI is available from this checkout; this is local evidence.
 
 ## Prototype
 
-Ordinary `.mq.md` modules under `examples/stdlib/`:
+Ordinary `.mq.md` modules (now the bundled `stdlib/` tree, ADR-0028):
 
 | File | Responsibility |
 |---|---|
@@ -50,7 +50,7 @@ The module is loaded only through an explicit Markdown import alias.
 ## Output comparison
 
 ```text
-$ marqdo run examples/stdlib/demo.mq.md
+$ marqdo run stdlib/demo.mq.md
 ["文本", 2, 1.5, [3, true], {a: 1, b: "x"}, None]
 ["文本", 2, 1.5, [3, true], {a: 1, b: "x"}, None]
 Table[名称 | 分数]{甲 | 87; 乙 | 92}
@@ -88,7 +88,7 @@ extension, not part of this slice. This is the explicit blocker for Compat-B.
 export PATH=/root/.cargo/bin:$PATH
 export CARGO_HOME=/root/work/marqdo-cli/.cache/cargo
 export CARGO_TARGET_DIR=/root/work/marqdo-cli/.cache/target
-cargo run -q -p marqdo-cli -- run examples/stdlib/demo.mq.md
+cargo run -q -p marqdo-cli -- run stdlib/demo.mq.md
 cargo test -p marqdo-cli --test examples_r6
 cargo test --workspace --locked
 ```

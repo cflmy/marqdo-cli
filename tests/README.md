@@ -171,9 +171,21 @@ by:
 * fixture 55 additionally has a second-free detection path: freeing an
   already-free block returns `{ok:false, code:"alloc.double_free"}`.
 
+RFC-CM CM-A10 bundled stdlib (ADR-0028) is pinned by
+`crates/cli/tests/stdlib_bundle.rs` (6 tests):
+
+* explicit `std:io` import resolves the verified bundle and runs;
+* Analysis records `project.stdlib.version/digest/instance_id`;
+* a tampered `io.mq.md` is rejected with `stdlib digest mismatch` before any
+  module executes;
+* a missing manifest is a hard error;
+* the bundle has no `foreign.`/`plugin.` calls;
+* the CLI binary hash is unchanged after running a `std:io` project
+  (frozen-CLI closure).
+
 RFC-CM CM-A07 Compat-A (ADR-0027) is pinned by:
 
-* `examples/stdlib/{format,text,io}.mq.md` and `examples/stdlib/demo.mq.md`;
+* `stdlib/{format,text,io}.mq.md` and `stdlib/demo.mq.md`;
 * `crates/cli/tests/examples_r6.rs::mqmd_stdlib_print_output_matches_builtin_print`,
   which runs the demo and asserts `io.写值` and builtin `打印` lines are
   byte-identical for a nested List/Map/None value and a Table;
