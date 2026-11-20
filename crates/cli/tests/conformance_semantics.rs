@@ -266,6 +266,26 @@ fn semantic_goldens_match_end_to_end_execution() {
     );
 }
 
+fn normalise_relative(path: &Path) -> String {
+    let mut parts: Vec<std::ffi::OsString> = Vec::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::Normal(part) => parts.push(part.to_os_string()),
+            std::path::Component::ParentDir => {
+                parts.pop();
+            }
+            std::path::Component::CurDir
+            | std::path::Component::RootDir
+            | std::path::Component::Prefix(_) => {}
+        }
+    }
+    parts
+        .iter()
+        .map(|part| part.to_string_lossy().to_string())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
 /// Load the bundled stdlib print modules for direct-runtime fixtures.
 ///
 /// The CLI loader normally injects these for Compat-B. The semantic harness
@@ -294,13 +314,23 @@ fn load_stdlib_module(
     program: &mut Program,
     loaded: &mut std::collections::BTreeSet<String>,
 ) -> Result<ModuleId, String> {
-    if !loaded.insert(relative.to_string()) {
+    let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let relative = normalise_relative(Path::new(relative));
+    if loaded.contains(&relative) {
+        if let Some((id, _)) = program
+            .modules
+            .iter()
+            .find(|(id, _)| id.relative_path == relative)
+        {
+            return Ok(id.clone());
+        }
         return Err(format!("stdlib import cycle at `{relative}`"));
     }
-    let path = root.join(relative);
+    loaded.insert(relative.clone());
+    let path = root.join(&relative);
     let source = fs::read_to_string(&path)
         .map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
-    let module_id = ModuleId::new("std:test", relative.replace('\\', "/"));
+    let module_id = ModuleId::new("std:test", relative.clone());
     let analysis = marqdo_frontend::analyze_source(&module_id.to_string(), &source);
     if analysis.has_errors() {
         return Err(format!("stdlib module `{relative}` has diagnostics"));
@@ -314,18 +344,14 @@ fn load_stdlib_module(
     for (alias, target) in imports {
         let target = target.strip_prefix("std:").unwrap_or(&target);
         let child = if target.starts_with("./") || target.starts_with("../") {
-            let base = Path::new(relative)
+            let base = Path::new(&relative)
                 .parent()
                 .unwrap_or_else(|| Path::new(""));
-            base.join(target)
-                .components()
-                .map(|component| component.as_os_str().to_string_lossy().to_string())
-                .collect::<Vec<_>>()
-                .join("/")
+            normalise_relative(&base.join(target))
         } else {
             target.to_string()
         };
-        let to = load_stdlib_module(root, &child, program, loaded)?;
+        let to = load_stdlib_module(&root, &child, program, loaded)?;
         program.resolved_imports.push(ResolvedImport {
             from: module_id.clone(),
             alias,
