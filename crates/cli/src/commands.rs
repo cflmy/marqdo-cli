@@ -144,7 +144,11 @@ fn load_project(file: Option<&Path>, json: bool) -> Result<LoadedProject, i32> {
             } else {
                 eprintln!("error: {error}");
             }
-            Err(2)
+            if error.contains("marqdo.lock") || error.contains("lockfile") {
+                Err(1)
+            } else {
+                Err(2)
+            }
         }
     }
 }
@@ -1081,15 +1085,21 @@ pub fn lock(json: bool) -> i32 {
             return 2;
         }
     };
-    let lockfile = match build_lockfile(&root, &manifest) {
-        Ok(lockfile) => lockfile,
-        Err(error) => {
-            eprintln!("error: {error}");
-            return 1;
-        }
-    };
+    let graph =
+        match marqdo_package::PackageResolver::new(root.clone(), Some(manifest.clone()), None)
+            .with_fetch(true)
+            .with_unlocked(true)
+            .resolve_lock_graph()
+        {
+            Ok(graph) => graph,
+            Err(error) => {
+                eprintln!("error: {error}");
+                return 1;
+            }
+        };
+    let lockfile = graph.lock;
     let path = root.join(marqdo_package::LOCK_FILE);
-    if let Err(error) = std::fs::write(&path, lockfile.to_yaml()) {
+    if let Err(error) = write_atomic(&path, lockfile.to_yaml().as_bytes()) {
         eprintln!("error: cannot write {}: {error}", path.display());
         return 1;
     }
@@ -1140,23 +1150,14 @@ pub fn sync(locked: bool, json: bool) -> i32 {
             return 1;
         }
     };
-    let expected = match build_lockfile(&root, &manifest) {
-        Ok(lockfile) => lockfile,
-        Err(error) => {
-            eprintln!("error: {error}");
-            return 1;
-        }
-    };
-    if locked && expected != lockfile {
-        eprintln!(
-            "error: lockfile is out of date or dependency contents changed; run `marqdo lock`"
-        );
+    if let Err(error) = lockfile.validate_root(&manifest) {
+        eprintln!("error: {error}");
         return 1;
     }
     let resolver =
-        marqdo_package::PackageResolver::new(root, Some(manifest.clone()), Some(lockfile))
-            .with_fetch(true);
-    if let Err(error) = resolver.materialize_env(&manifest, &expected) {
+        marqdo_package::PackageResolver::new(root, Some(manifest.clone()), Some(lockfile.clone()))
+            .with_fetch(!locked);
+    if let Err(error) = resolver.materialize_env(&lockfile) {
         eprintln!("error: cannot materialize project environment: {error}");
         return 1;
     }
@@ -1165,12 +1166,12 @@ pub fn sync(locked: bool, json: bool) -> i32 {
             "command": "sync",
             "success": true,
             "locked": locked,
-            "packages": expected.packages,
+            "packages": lockfile.packages,
         }));
     } else {
         println!(
             "synchronized {} package(s){} into {}",
-            expected.packages.len(),
+            lockfile.packages.len(),
             if locked { " (locked)" } else { "" },
             resolver.env_root().display()
         );
@@ -1189,27 +1190,34 @@ fn discover_project_root() -> Result<PathBuf, String> {
     })
 }
 
-fn build_lockfile(
-    root: &Path,
-    manifest: &marqdo_package::Manifest,
-) -> Result<marqdo_package::LockFile, String> {
-    let resolver =
-        marqdo_package::PackageResolver::new(root, Some(manifest.clone()), None).with_fetch(true);
-    let mut packages = Vec::new();
-    for name in manifest.dependencies.keys() {
-        let resolved = resolver.resolve_alias(name)?;
-        packages.push(marqdo_package::LockedPackage {
-            name: name.clone(),
-            instance_id: resolved.package.instance_id,
-            source: resolved.package.origin.source(),
-            sha256: resolved.package.content_digest,
-        });
+fn write_atomic(path: &Path, contents: &[u8]) -> Result<(), String> {
+    let file_name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| "marqdo.lock".to_string());
+    let temp = path.with_file_name(format!(
+        ".{file_name}.tmp-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or(0)
+    ));
+    let result = (|| -> Result<(), String> {
+        let mut file = std::fs::File::create(&temp)
+            .map_err(|error| format!("cannot create {}: {error}", temp.display()))?;
+        std::io::Write::write_all(&mut file, contents)
+            .map_err(|error| format!("cannot write {}: {error}", temp.display()))?;
+        file.sync_all()
+            .map_err(|error| format!("cannot sync {}: {error}", temp.display()))?;
+        std::fs::rename(&temp, path)
+            .map_err(|error| format!("cannot publish {}: {error}", path.display()))?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temp);
     }
-    packages.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(marqdo_package::LockFile {
-        lock_version: 2,
-        packages,
-    })
+    result
 }
 
 /// `marqdo add <name> --path <dir> [--git URL --rev SHA]`.
@@ -1295,13 +1303,8 @@ pub fn remove(name: &str, json: bool) -> i32 {
         eprintln!("error: cannot write {}: {error}", manifest_path.display());
         return 1;
     }
-    // Keep the lockfile consistent by removing the stale entry if present.
-    let lock_path = root.join(marqdo_package::LOCK_FILE);
-    if let Ok(lock) = marqdo_package::LockFile::load(&lock_path) {
-        let mut updated = lock.clone();
-        updated.packages.retain(|package| package.name != name);
-        let _ = std::fs::write(&lock_path, updated.to_yaml());
-    }
+    // The lock is a graph, not a per-name list: regenerating it here would
+    // require resolving the new manifest. Leave it stale and tell the user.
     if json {
         output::print_json(&json!({
             "command": "remove",
@@ -1310,6 +1313,7 @@ pub fn remove(name: &str, json: bool) -> i32 {
         }));
     } else {
         println!("removed dependency `{name}`");
+        println!("run `marqdo lock` to refresh {}", marqdo_package::LOCK_FILE);
     }
     0
 }

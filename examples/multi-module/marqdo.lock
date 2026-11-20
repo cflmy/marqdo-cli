@@ -1,2 +1,7 @@
-lock_version: 1
+lock_version: 3
+content_profile_version: 1
+root:
+  package: root:multi-module@0.1.0
+  manifest_digest: 3d11906f34641802949b75de4728ea66a3557671db5c1ca89d6359d58a7a6936
 packages: []
+root_dependencies: {}

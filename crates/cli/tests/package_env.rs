@@ -97,6 +97,13 @@ fn transitive_path_dependency_resolves_from_its_own_manifest() {
         &root.join("index.mq.md"),
         "---\nimport:\n  a: \"@a\"\n---\n\n## main\n\n> 打印(a.outer())\n",
     );
+    let lock = cli(root, &["lock"]);
+    assert_eq!(
+        lock.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&lock.stderr)
+    );
     let output = cli(root, &["run", "index.mq.md"]);
     assert_eq!(
         output.status.code(),
@@ -160,9 +167,11 @@ fn pinned_git_dependency_locks_syncs_and_runs() {
         String::from_utf8_lossy(&lock.stderr)
     );
     let lock_text = std::fs::read_to_string(root.join("marqdo.lock")).unwrap();
-    assert!(lock_text.contains("lock_version: 2"));
+    assert!(lock_text.contains("lock_version: 3"));
+    assert!(lock_text.contains("root_dependencies:"));
     assert!(lock_text.contains("instance_id: dep:remote@0.3.0#"));
-    assert!(lock_text.contains("source: git:"));
+    assert!(lock_text.contains("kind: git"));
+    assert!(lock_text.contains("content_digest: "));
 
     let sync = cli(&root, &["sync", "--locked"]);
     assert_eq!(
@@ -202,6 +211,141 @@ fn check_does_not_fetch_a_missing_git_revision() {
     let output = cli(root, &["check", "index.mq.md"]);
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("not cached") || stderr.contains("cannot open dependency"));
+    assert!(stderr.contains("marqdo.lock is missing"), "{stderr}");
     assert!(!root.join(".marqdo/cache/git").exists());
+}
+
+#[test]
+fn run_and_check_require_a_lock_when_dependencies_exist() {
+    let dir = TempDir::new("no-lock");
+    let root = dir.path();
+    write(
+        &root.join("marqdo.yaml"),
+        "project:\n  name: root\n  version: 0.1.0\ndependencies:\n  dep:\n    path: ./dep\n",
+    );
+    write(&root.join("dep/index.mq.md"), "## value\n\n*1*\n");
+    write(
+        &root.join("index.mq.md"),
+        "---\nimport:\n  dep: \"@dep\"\n---\n\n## main\n\n*1*\n",
+    );
+    for command in ["check", "run"] {
+        let output = cli(root, &[command, "index.mq.md"]);
+        assert_eq!(output.status.code(), Some(1), "{command}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("marqdo.lock is missing"), "{stderr}");
+    }
+}
+
+#[test]
+fn sync_is_strict_and_never_rewrites_the_lock() {
+    let dir = TempDir::new("strict-sync");
+    let root = dir.path();
+    write(
+        &root.join("marqdo.yaml"),
+        "project:\n  name: root\n  version: 0.1.0\ndependencies:\n  dep:\n    path: ./dep\n",
+    );
+    write(&root.join("dep/index.mq.md"), "## value\n\n*1*\n");
+    write(&root.join("index.mq.md"), "## main\n\n*1*\n");
+
+    let lock = cli(root, &["lock"]);
+    assert_eq!(lock.status.code(), Some(0));
+    let original = std::fs::read(root.join("marqdo.lock")).unwrap();
+
+    write(&root.join("dep/index.mq.md"), "## value\n\n*2*\n");
+    let stale = cli(root, &["sync"]);
+    assert_eq!(stale.status.code(), Some(1), "plain sync must be strict");
+    let stderr = String::from_utf8_lossy(&stale.stderr);
+    assert!(stderr.contains("lockfile is out of date"), "{stderr}");
+    assert_eq!(
+        std::fs::read(root.join("marqdo.lock")).unwrap(),
+        original,
+        "sync must never rewrite the lock"
+    );
+
+    let relock = cli(root, &["lock"]);
+    assert_eq!(relock.status.code(), Some(0));
+    let after_relock = std::fs::read(root.join("marqdo.lock")).unwrap();
+    let synced = cli(root, &["sync"]);
+    assert_eq!(synced.status.code(), Some(0));
+    assert_eq!(
+        std::fs::read(root.join("marqdo.lock")).unwrap(),
+        after_relock
+    );
+}
+
+#[test]
+fn lock_records_transitive_closure_and_sync_materializes_it() {
+    let dir = TempDir::new("closure");
+    let root = dir.path();
+    write(
+        &root.join("marqdo.yaml"),
+        "project:\n  name: root\n  version: 0.1.0\ndependencies:\n  a:\n    path: ./deps/a\n",
+    );
+    write(
+        &root.join("deps/a/marqdo.yaml"),
+        "project:\n  name: a\n  version: 0.1.0\ndependencies:\n  b:\n    path: ./b\n",
+    );
+    write(&root.join("deps/a/index.mq.md"), "## a\n\n*1*\n");
+    write(
+        &root.join("deps/a/b/marqdo.yaml"),
+        "project:\n  name: b\n  version: 0.1.0\n",
+    );
+    write(&root.join("deps/a/b/index.mq.md"), "## b\n\n*2*\n");
+    write(&root.join("index.mq.md"), "## main\n\n*1*\n");
+
+    let lock = cli(root, &["lock"]);
+    assert_eq!(lock.status.code(), Some(0));
+    let lock_text = std::fs::read_to_string(root.join("marqdo.lock")).unwrap();
+    assert!(lock_text.contains("name: a"), "{lock_text}");
+    assert!(lock_text.contains("name: b"), "{lock_text}");
+    assert!(lock_text.contains("b: dep:b"), "{lock_text}");
+
+    let sync = cli(root, &["sync", "--locked"]);
+    assert_eq!(
+        sync.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&sync.stderr)
+    );
+    let env: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(root.join(".marqdo/env/env.json")).unwrap())
+            .unwrap();
+    assert_eq!(env["schema_version"], 2);
+    assert_eq!(
+        env["packages"].as_array().map(|packages| packages.len()),
+        Some(2)
+    );
+    assert!(env["lock_digest"].as_str().unwrap().len() == 64);
+}
+
+#[test]
+fn deleted_lock_edge_fails_check_and_run() {
+    let dir = TempDir::new("missing-edge");
+    let root = dir.path();
+    write(
+        &root.join("marqdo.yaml"),
+        "project:\n  name: root\n  version: 0.1.0\ndependencies:\n  dep:\n    path: ./dep\n",
+    );
+    write(&root.join("dep/index.mq.md"), "## value\n\n*1*\n");
+    write(
+        &root.join("index.mq.md"),
+        "---\nimport:\n  dep: \"@dep\"\n---\n\n## main\n\n*1*\n",
+    );
+    assert_eq!(cli(root, &["lock"]).status.code(), Some(0));
+    let lock = std::fs::read_to_string(root.join("marqdo.lock")).unwrap();
+    let head = &lock[..lock.find("root_dependencies:").unwrap()];
+    write(
+        &root.join("marqdo.lock"),
+        &format!("{head}root_dependencies: {{}}\n"),
+    );
+    for command in ["check", "run"] {
+        let output = cli(root, &[command, "index.mq.md"]);
+        assert_eq!(output.status.code(), Some(1), "{command}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("not recorded in marqdo.lock")
+                || stderr.contains("not reachable from root_dependencies"),
+            "{stderr}"
+        );
+    }
 }

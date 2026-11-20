@@ -60,17 +60,47 @@ CI run URL: not yet available from this environment; record the first pushed
 run here before treating H0 as CI-verified. The local gate is reproducible with
 `CARGO_HOME=.cache/cargo CARGO_TARGET_DIR=.cache/target`.
 
+S0 fix commit: `74e34c6` (`fix(ci): remove empty-directory dependency from prose
+property test (B-01)`).
+
+### S1/H1-A record (current)
+
+Implemented the lock v3 package-instance graph and fail-closed reproducibility
+contract from ADR-0016:
+
+* `marqdo lock` traverses the full dependency closure, records root and
+  per-instance `(alias → instance)` edges, the root manifest digest, full
+  content digests and structured path/Git sources, then writes atomically.
+* `run`/`call`/`check`/`inspect` require a lock whenever dependencies are
+  declared, never fetch or rewrite it, and validate every `(parent, alias)`
+  edge. Missing edges/records, digest or source drift, root-manifest drift and
+  v1/v2 locks fail closed (exit 1).
+* `sync` is strict in both modes and never rewrites the lock; it materializes
+  the entire locked closure into `.marqdo/env` with `env.json` schema 2 and
+  atomic publication.
+* Git cache entries carry a marker and are reverified by URL, revision,
+  profile and content digest; revisions must be full lowercase commit hashes.
+* `content_profile_version: 1` unifies hashing and materialization (B-05).
+* `add`/`remove` no longer patch the lock; a stale graph is rejected with a
+  relock instruction.
+
+Tests added: package file-set selection/encoding/budgets, transitive closure,
+missing-edge fail-closed, root-manifest invalidation, strict sync without
+`--locked`, full-closure env materialization, missing-lock and deleted-edge CLI
+failures.
+
 ### M0.6 implementation progress
 
 | Step | State | Evidence |
 |---|---|---|
 | S0/H0 CI baseline | **Done locally** | B-01 fixed in `crates/cli/tests/properties.rs`; fresh-clone path no longer needs an empty directory; full local gate green (see §S0/H0) |
+| S1/H1-A lock v3 graph | **Done** | ADR-0016; full-closure `marqdo.lock` v3; fail-closed edge lookup; strict non-rewriting `sync`; verified Git cache; unified file-set profile (see §S1/H1-A) |
 | R0 baseline + ADRs | **Done** | this section; `docs/adr/0008`–`0012`; full workspace gate |
-| R1 package-aware identity + callable registry | **Done for statics** | `ModuleId { instance, relative_path }`; `PackageResolver` path sources; `lock_version: 2` with v1 migration; `CallableRegistry` for builtins/marqdo/declared ABI exports; external manifest wiring is R2 |
+| R1 package-aware identity + callable registry | **Done for statics; superseded by S1 lock v3** | `ModuleId { instance, relative_path }`; `PackageResolver` path sources; lock v3 transitive graph (ADR-0016) replaces the flat v2 lock; `CallableRegistry` for builtins/marqdo/declared ABI exports; external manifest wiring is R2 |
 | R2 ABI/Kernel/Broker | **Done (worker = crash isolation)** | `KernelRegistry` external providers; complete-name export routing; `CapabilityBroker`; static `check --plugin`; multi-export C test; isolated worker with timeout/crash tests; host handle table. Native/worker are not an OS sandbox |
 | R3 Tool Protocol | **Done** | `tool install/list/remove`; unknown-command fallback; atomic local install; SHA/tamper checks; black-box tests for arbitrary names, Unicode args, conflicts, traversal and PATH hijacking |
 | R4 Analysis/Trace v1 | **Done** | `check --emit` Analysis v1; `run/call --trace-file` Trace v1; deterministic schema tests; independent Python consumer; stale-artifact removal; value redaction |
-| R5 environment/isolation | **Partial** | Pinned Git fetch/cache, transitive `@alias` resolution, atomic `.marqdo/env` materialization, foreign process-group cleanup. Strict OS isolation remains explicitly unavailable (fail-closed) |
+| R5 environment/isolation | **Partial** | Pinned Git fetch with verified cache markers, transitive `@alias` resolution, full-closure atomic `.marqdo/env` materialization, foreign process-group cleanup. Strict OS isolation remains explicitly unavailable (fail-closed) |
 | R6 release/consumers | **Done for Linux** | examples for unknown-name Tool, multi-export plugin, external kernel and multi-version packages; Analysis/Trace/Tool JSON Schemas; CI Linux gate + Windows/macOS `cargo check`; R6 example tests |
 
 Reproduce the evidence:

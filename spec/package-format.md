@@ -1,9 +1,10 @@
-# Marqdo Project Package Format v2
+# Marqdo Project Package Format v3
 
-Status: **lock_version 2 as implemented by M0.6 R1.** Path sources and
-package-instance identity are implemented; pinned Git sources, registries,
-transitive dependency solving and environment materialization are added in R5
-or later; see §8.
+Status: **lock_version 3 package-instance graph as implemented by S1
+(ADR-0016).** Path and pinned Git sources, transitive closure locking,
+fail-closed locked resolution, strict `sync`, and content-profile-1 file-set
+hashing/materialization are implemented. Registries and SemVer solving remain
+out of scope; see §8.
 
 Implementation: `crates/marqdo-package/src/lib.rs` (manifest/lock types and
 validation), `crates/cli/src/commands.rs` (`init`, `add`, `remove`, `lock`,
@@ -91,32 +92,77 @@ grants (`spec/security.md` §2). `net` has no implementing host op, and
 
 ## 3. `marqdo.lock`
 
-`lock_version: 2`, packages sorted by name:
+`lock_version: 3` records the complete package-instance closure reachable from
+the root manifest. Packages are sorted by `instance_id`:
 
 ```yaml
-lock_version: 2
+lock_version: 3
+content_profile_version: 1
+root:
+  package: root:quantum@0.1.0
+  manifest_digest: 4f5c...
 packages:
-- name: geo
-  instance_id: dep:geo@0.1.0#101a6f6db4cc
-  source: path:./packages/geo
-  sha256: 101a6f6db4cc48d8c138b4716028da9bc8934b5f02b2235e020fbcabba15b757
+- instance_id: dep:math@1.0.0#9e2...
+  name: math
+  version: 1.0.0
+  source:
+    kind: path
+    path: deps/math
+  content_digest: 9e2...
+  manifest_digest: 7a1...
+  dependencies:
+    helper: dep:helper@2.0.0#1b3...
+- instance_id: dep:helper@2.0.0#1b3...
+  name: helper
+  version: 2.0.0
+  source:
+    kind: git
+    url: https://example.invalid/helper.git
+    rev: 0123456789abcdef0123456789abcdef01234567
+  content_digest: 1b3...
+  manifest_digest: 3c9...
+  dependencies: {}
+root_dependencies:
+  math: dep:math@1.0.0#9e2...
 ```
 
 | Field | Semantics |
 |---|---|
-| `lock_version` | writers emit `2`; readers accept `1` and `2` and migrate v1 entries by deriving an instance id |
-| `packages[].name` | dependency name from the manifest |
-| `packages[].instance_id` | logical `dep:<name>@<version>#<digest-prefix>` identity (ADR-0008) |
-| `packages[].source` | `path:<manifest path as written>`; a Git source is `git:<url>@<rev>` |
-| `packages[].sha256` | optional; lowercase hex SHA-256 of the dependency tree |
+| `lock_version` | writers emit `3`; readers accept only `3` and tell v1/v2 users to run `marqdo lock` |
+| `content_profile_version` | file-set/digest profile; only `1` is accepted |
+| `root.package` | logical root instance `root:<name>@<version>` |
+| `root.manifest_digest` | lowercase hex SHA-256 of the canonical `marqdo.yaml` |
+| `packages[].instance_id` | `dep:<name>@<version>#<full content digest>` |
+| `packages[].source` | `{kind: path, path}` (project-relative) or `{kind: git, url, rev}` (full commit hash) |
+| `packages[].content_digest` | 64-character lowercase hex SHA-256 of the package file set |
+| `packages[].manifest_digest` | optional lowercase hex digest of the dependency's own manifest |
+| `packages[].dependencies` | this instance's alias → target instance edges |
+| `root_dependencies` | root manifest alias → target instance edges |
 
-### 3.1 Deterministic serialization
+The graph is the unit of reproducibility: a transitive dependency that can be
+imported is also locked. Edges are keyed by `(parent instance, alias)`, so the
+same alias in two packages may resolve to different instances.
 
-`LockFile::to_yaml` sorts packages by name before serializing. The format
-contains no timestamps, no absolute paths and no machine-specific values, so
-repeated `marqdo lock` runs over unchanged dependencies are byte-identical.
-`LockFile::from_yaml` also sorts packages on load, so equality comparison is
-order-insensitive.
+### 3.1 Serialization and validation
+
+`lock` writes atomically (temporary file, `sync_all`, rename); a failed
+resolution leaves the previous lock untouched. `LockFile::to_yaml` sorts
+packages by `instance_id`. The format contains no timestamps, absolute paths or
+machine-specific values, so repeated `lock` runs over unchanged inputs are
+byte-identical.
+
+`LockFile::from_yaml` validates before returning:
+
+* `lock_version == 3`, `content_profile_version == 1`;
+* unique ids, each consistent with `dep:<name>@<version>#<content_digest>`;
+* every digest is 64 lowercase hex characters;
+* every source is normalized (path relative to the project root without `..`,
+  Git revision a full lowercase 40/64-character hash);
+* every edge target exists and every package is reachable from
+  `root_dependencies`; empty aliases and self-edges are errors.
+
+v1/v2 locks are rejected, not silently upgraded: a flat lock cannot represent
+the closure and treating it as complete would re-open fail-open loading.
 
 ### 3.2 Tree hash
 
@@ -149,42 +195,49 @@ are normalized on materialization (`0644` files, `0755` directories on Unix).
 
 1. discovers the project root from the cwd;
 2. loads and validates `marqdo.yaml`;
-3. for each manifest dependency, in map (sorted) order:
-   * a `path` source: the directory/file must exist; its tree is hashed;
-   * a `git` source: an exact `rev` is required. `lock` clones it into
-     `.marqdo/cache/git/<url-digest>-<rev>`, checks out that revision, strips
-     `.git`, and hashes the tree. Install hooks and submodules are not run;
-   * no source → error;
-4. records `instance_id`, `source` and `sha256` for each package;
-5. writes `marqdo.lock` (exit 0, `locked N package(s)`).
+3. traverses the full dependency closure in sorted manifest order:
+   * a `path` source must resolve inside the project root; its module root is
+     hashed and recorded as a project-relative path;
+   * a `git` source requires a full lowercase commit hash. `lock` clones into
+     `.marqdo/cache/git/<url-digest>-<rev>`, checks out the revision, verifies
+     `git rev-parse HEAD` equals it, strips `.git`, hashes the tree, and writes
+     a sibling `.meta.json` marker (`url`, `rev`, profile, digest). Install
+     hooks and submodules are not run;
+   * package cycles, duplicate ids with conflicting content, depth >128 and
+     more than 4096 instances are errors;
+4. records every package instance with its alias→instance edges, plus the root
+   manifest digest and root edges;
+5. validates the graph and atomically writes `marqdo.lock` (exit 0,
+   `locked N package(s)`).
 
 What it does **not** do: resolve SemVer ranges, download a registry, verify
-package signatures, install packages or run dependency scripts. A dependency's
-own `marqdo.yaml` is used for transitive `@alias` imports (R1/R5); the lock is
-still a flat direct-dependency record.
+publisher signatures, install packages or run dependency scripts. A dependency's
+own `marqdo.yaml` supplies its dependency edges.
 
 ## 4. `sync`
 
 `marqdo sync [--locked]` (run in a project):
 
-1. discovers the root; loads the manifest and the existing `marqdo.lock`
-   (missing lock → error "run `marqdo lock` first", exit 1);
-2. recomputes the expected lock file exactly as `lock` would (including Git
-   cache resolution and tree hashes);
-3. with `--locked`, compares the expected lock with the on-disk lock; a
-   difference (manifest change, source change or dependency content change)
-   prints "lockfile is out of date or dependency contents changed; run
-   `marqdo lock`" and exits 1;
-4. materializes the locked packages into a project-private
-   `.marqdo/env/<instance-id>/` tree, writes `.marqdo/env/env.json`, and
-   publishes it atomically (staging + rename, old env restored on failure);
-5. without `--locked`, also refreshes the env; with `--locked`, the materialized
-   content must match the lock. `run`/`check` prefer a materialized copy only
-   when its tree digest matches the resolved package digest.
+1. discovers the root; loads and validates the existing `marqdo.lock`
+   (missing or v1/v2 lock → exit 1 with a relock instruction);
+2. verifies the lock belongs to the current root manifest
+   (`root.package` and `root.manifest_digest`); drift fails closed;
+3. materializes **every** package in the locked closure into a project-private
+   `.marqdo/env/pkg-<sha256(instance-id)>/` tree using the profile-1 file set
+   and the lock's content digest;
+4. writes `.marqdo/env/env.json` schema 2 with the content profile, canonical
+   lock digest, root edges and one record per package; publishes via staging +
+   rename, restoring the previous environment on failure;
+5. never rewrites the lock. Plain `sync` may fetch a pinned Git revision named
+   by the lock; `--locked` forbids fetching. Both modes verify contents and
+   fail with "lockfile is out of date or dependency contents changed; run
+   `marqdo lock`" on drift.
 
-`sync` never rewrites the lock file. There is no `--offline` flag yet; a
-missing Git cache causes a clear "not cached; run sync/lock" error rather than
-an implicit network fetch during `check`/`run`.
+`run`, `call`, `check` and `inspect` never fetch and never write the lock. With
+declared dependencies they require a lock. They resolve each `(parent instance,
+alias)` edge in the lock; missing entries, digest/source drift and root-manifest
+drift are errors. A materialized env or Git cache directory is trusted only
+after its file-set digest and cache marker verify.
 
 ## 5. `init`
 
@@ -262,13 +315,13 @@ inconsistency to fix).
 |---|---|
 | Git dependency resolution (pinned rev, clone/fetch/checkout) | Implemented for exact revisions; no floating branches, submodules or dependency scripts. |
 | Registry / package publishing / SemVer resolution | Not implemented. |
-| Transitive dependency graph and conflict resolution | Transitive `@alias` imports resolve from the dependency's own manifest; the lock remains flat and a full conflict solver is not implemented. |
+| Transitive dependency graph and conflict resolution | The lock records the full transitive closure with per-instance edges; two versions of one package can coexist. A general SemVer conflict solver is not implemented. |
 | `tree`, `update`, `vendor`, `package` commands | Not implemented. |
 | `--offline`, `--locked` on `lock` | Not implemented; missing cache fails instead of fetching during check/run. |
-| Environment materialization (`.marqdo/env`, `cache`) | Implemented: `sync` writes `.marqdo/env` atomically and `lock` populates the Git cache. Kernels/sessions are not materialized. |
+| Environment materialization (`.marqdo/env`, `cache`) | Implemented: `sync` materializes the full locked closure into `.marqdo/env` atomically; `lock`/`sync` populate a verified Git cache. Kernels/sessions are not materialized. |
 | Dependency signatures / trusted publishers / supply-chain scanning | Not implemented. |
 | Multiple/nested project boundary diagnostics | Not implemented; nearest `marqdo.yaml` wins. |
-| Lock file migration between `lock_version`s | v1 is read and migrated; writers emit v2. |
+| Lock file migration between `lock_version`s | Only v3 is read; v1/v2 are rejected with a relock instruction. `lock` regenerates the graph. |
 | Plugin installation / plugin dependency management | Not implemented; `plugins:` in the manifest is declarative only. |
 
 The lock/package format is deliberately small and deterministic so these can

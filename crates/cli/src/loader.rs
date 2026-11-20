@@ -146,8 +146,24 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
         None
     };
     let lock = if root.join(LOCK_FILE).is_file() {
-        Some(LockFile::load(&root.join(LOCK_FILE))?)
+        let lock = LockFile::load(&root.join(LOCK_FILE))
+            .map_err(|error| format!("{LOCK_FILE}: {error}"))?;
+        if let Some(manifest) = &manifest {
+            lock.validate_root(manifest)
+                .map_err(|error| format!("{LOCK_FILE}: {error}"))?;
+        }
+        Some(lock)
     } else {
+        if manifest
+            .as_ref()
+            .map(|manifest| !manifest.dependencies.is_empty())
+            .unwrap_or(false)
+        {
+            return Err(
+                "marqdo.lock is missing; run `marqdo lock` before checking or running this project"
+                    .to_string(),
+            );
+        }
         None
     };
     let resolver = PackageResolver::new(root.clone(), manifest, lock);
