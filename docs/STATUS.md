@@ -39,10 +39,32 @@ example smoke tests. The R0 ADRs are `docs/adr/0008`–`0012` (package identity,
 callable resolution, plugin export routing, capability broker, kernel
 providers).
 
+### S0/H0 baseline record (current)
+
+Starting point: `0adebe42f14d72a2a275564d03ff9558f197766e`, 2026-11-20. B-01
+fixed by removing the `tests/properties/` empty-directory assertion from
+`crates/cli/tests/properties.rs`; all fixtures are in-code strings, so the test
+no longer depends on a directory Git cannot track. The prose-invariance
+assertions were not reduced.
+
+Local gate after the fix (Linux x86_64, rustc 1.100.0 / cargo 1.100.0):
+
+```text
+cargo fmt --all -- --check                          ok
+cargo clippy --workspace --all-targets -- -D warnings  ok
+cargo test --workspace                              ok
+cargo test -p marqdo-cli --test properties          ok (2 tests)
+```
+
+CI run URL: not yet available from this environment; record the first pushed
+run here before treating H0 as CI-verified. The local gate is reproducible with
+`CARGO_HOME=.cache/cargo CARGO_TARGET_DIR=.cache/target`.
+
 ### M0.6 implementation progress
 
 | Step | State | Evidence |
 |---|---|---|
+| S0/H0 CI baseline | **Done locally** | B-01 fixed in `crates/cli/tests/properties.rs`; fresh-clone path no longer needs an empty directory; full local gate green (see §S0/H0) |
 | R0 baseline + ADRs | **Done** | this section; `docs/adr/0008`–`0012`; full workspace gate |
 | R1 package-aware identity + callable registry | **Done for statics** | `ModuleId { instance, relative_path }`; `PackageResolver` path sources; `lock_version: 2` with v1 migration; `CallableRegistry` for builtins/marqdo/declared ABI exports; external manifest wiring is R2 |
 | R2 ABI/Kernel/Broker | **Done (worker = crash isolation)** | `KernelRegistry` external providers; complete-name export routing; `CapabilityBroker`; static `check --plugin`; multi-export C test; isolated worker with timeout/crash tests; host handle table. Native/worker are not an OS sandbox |

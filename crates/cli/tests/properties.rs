@@ -189,15 +189,6 @@ $$
 
 const INSERTED_PROSE: &str = "这是一段与执行结构无关的纯叙述文字，它只改变 Markdown 文本节点。";
 
-fn repo_root() -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("crates/cli has a parent")
-        .parent()
-        .expect("crates has a parent")
-        .to_path_buf()
-}
-
 /// Strip source spans so narrative edits (which shift byte offsets) compare
 /// equal. This mirrors the invariance definition in blueprint section 14.2.
 fn without_spans(value: &serde_json::Value) -> serde_json::Value {
@@ -322,11 +313,9 @@ fn variants(base: &Base) -> BTreeMap<String, String> {
 
 #[test]
 fn pure_prose_edits_do_not_change_executable_ir() {
-    // Keep the fixture root meaningful for the documented layout even though
-    // these tests are generated in code: assert the directory exists so a typo
-    // in the workspace layout is caught.
-    assert!(repo_root().join("tests").join("properties").is_dir());
-
+    // All fixtures are in-code strings. The test deliberately does not depend
+    // on an on-disk `tests/properties/` directory: Git cannot track empty
+    // directories, so such an assertion failed only on a fresh clone (B-01).
     let mut checked = 0usize;
     for base in BASES {
         let expected = executable_projection(base.source);
