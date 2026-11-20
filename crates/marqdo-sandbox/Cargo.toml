@@ -9,7 +9,5 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-marqdo-span = { workspace = true }
 serde = { workspace = true }
-thiserror = { workspace = true }
 
