@@ -111,6 +111,9 @@ executes anything.
 * **Blocking TCP endpoint (RFC-CM P5 first slice)** — `resource.open("tcp",
   "<ip>:<port>", ["read","write"])` with exact IP grants, project mode and
   5-second timeouts; DNS/TLS/UDP/server sockets excluded (ADR-0034).
+* **Worker ResourceProvider transport v1 (RFC-CM CM-A09)** — trusted helper
+  process with framed JSON resource operations; project + name grant; C ABI
+  binding remains open (ADR-0035).
 * **In-process ResourceProvider v1 (RFC-CM CM-A09 first slice)** — trusted
   providers register extra resource kinds, project-mode + name-grant gated,
   using the existing `resource.*`/`Result` ABI; no parser/runtime/`HostOp`

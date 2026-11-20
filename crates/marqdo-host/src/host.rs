@@ -21,6 +21,7 @@ use crate::context::ExecutionContext;
 use crate::fs::ProjectFs;
 use crate::handles::{contains_plugin_handle, PluginHandleTable};
 use crate::plugin_worker::WorkerPlugin;
+use crate::provider_worker::WorkerResourceProvider;
 use crate::resource::{ResourceProvider, ResourceRead, ResourceTable, SharedResourceProvider};
 use crate::trace::{EffectTrace, SemanticEvent, TraceBudget, TraceEntry, TraceState};
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
@@ -578,6 +579,32 @@ impl StdHost {
         &mut self,
         provider: Box<dyn ResourceProvider>,
     ) -> Result<(), RuntimeError> {
+        self.register_provider_checked(provider)
+    }
+
+    /// Register a trusted worker-process resource provider (ADR-0035).
+    ///
+    /// The helper speaks framed JSON over stdin/stdout and is **not** an OS
+    /// sandbox; only explicitly trusted helpers may be spawned.
+    pub fn register_worker_resource_provider(
+        &mut self,
+        name: &str,
+        kinds: &[&str],
+        program: &std::path::Path,
+        args: &[String],
+    ) -> Result<(), RuntimeError> {
+        let kinds = kinds
+            .iter()
+            .map(|kind| (*kind).to_string())
+            .collect::<Vec<_>>();
+        let provider = WorkerResourceProvider::spawn(name, &kinds, program, args)?;
+        self.register_provider_checked(Box::new(provider))
+    }
+
+    fn register_provider_checked(
+        &mut self,
+        provider: Box<dyn ResourceProvider>,
+    ) -> Result<(), RuntimeError> {
         if provider.protocol_version() != 1 {
             return Err(RuntimeError::new(
                 ErrorCategory::ResourceUnsupported,
@@ -597,11 +624,7 @@ impl StdHost {
                 format!("resource provider name `{name}` is reserved or empty"),
             ));
         }
-        let kinds = provider
-            .kinds()
-            .iter()
-            .map(|kind| kind.to_string())
-            .collect::<Vec<_>>();
+        let kinds = provider.kind_strings();
         if kinds.is_empty() {
             return Err(RuntimeError::new(
                 ErrorCategory::ResourceUnsupported,

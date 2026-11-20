@@ -136,6 +136,9 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   JSON report; no bytecode/JIT/native backend is introduced.
 - P4 cross-storage table equivalence: fixture 72 compares row-store Table
   sort/filter output with a `.mq.md` columnar store cell-by-cell.
+- CM-A09 worker provider transport (ADR-0035): host-managed helper process
+  speaking framed JSON for resource open/read/write/close; trusted-only,
+  project-mode + name grant; C ABI binding still open.
 - P5 HTTP framing/client: `stdlib/net/http.mq.md` parses status/headers/chunked
   responses and builds requests; `http_over_tcp.rs` runs a loopback TCP HTTP
   exchange through `resource.open("tcp")`. No host HTTP/TLS implementation.

@@ -177,6 +177,12 @@ grant/pure/strict/DNS refusal) and
 `crates/cli/tests/resource_streams.rs::tcp_stream_round_trips_through_mqmd_with_a_network_grant`
 (`--allow-net 127.0.0.1`).
 
+RFC-CM CM-A09 worker provider transport (ADR-0035) is pinned by
+`crates/marqdo-host/tests/worker_provider.rs`: a Python helper is spawned,
+pinged, opened/read/written/closed through framed JSON; missing grant, pure,
+strict and missing-program cases are rejected. The helper is trusted, not a
+sandbox.
+
 RFC-CM CM-A09 in-process provider v1 (ADR-0033) is pinned by the three
 `registered_provider_streams_*` / `provider_*` tests in
 `crates/marqdo-host/tests/resource_streams.rs`: a mock provider is registered

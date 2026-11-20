@@ -28,6 +28,15 @@ pub trait ResourceProvider: Send {
     }
     /// Resource kinds served by this provider.
     fn kinds(&self) -> &[&str];
+
+    /// Owned kind list used by registration. Providers with dynamically owned
+    /// kind strings override this.
+    fn kind_strings(&self) -> Vec<String> {
+        self.kinds()
+            .iter()
+            .map(|kind| (*kind).to_string())
+            .collect()
+    }
     /// Open one descriptor, returning a provider-private token.
     fn open(
         &mut self,

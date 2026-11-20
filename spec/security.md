@@ -63,7 +63,7 @@ set for one run:
 | `process: bool` | `false` | required together with `foreign` for `foreign.run`/`foreign.call` |
 | `foreign: bool` | `false` | foreign kernels |
 | `plugins: Vec<String>` | empty | `plugin.invoke` and `StdHost::load_plugin` |
-| `resource_providers: Vec<String>` | empty | registered in-process `ResourceProvider` kinds; project mode only (ADR-0033) |
+| `resource_providers: Vec<String>` | empty | registered in-process/worker `ResourceProvider` kinds; project mode only; helpers are trusted, not sandboxed (ADR-0033/0035) |
 
 Requests versus grants:
 
