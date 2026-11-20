@@ -144,15 +144,16 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   changes; project-mode + name grant required; pure/strict refuse provider
   kinds; C/Worker transport remains open.
 - Table stdlib algorithms (CM-A08, ADR-0032): `stdlib/data/table.mq.md`
-  provides select/filter/sort/append/set/join/group over the logical
+  provides select/filter/sort/append/set/join/group/`转GFM` over the logical
   `Value::Table`; inputs are never mutated; GFM AST laziness and physical T0
   storage are unchanged.
 - Bundled standard library (CM-A10, ADR-0028): `stdlib/` ships
   `format`/`text`/`io`; explicit `std:` imports resolve only inside the bundle;
   a SHA-256 digest over `*.mq.md` is verified before loading; Analysis records
   `project.stdlib`; a frozen-binary test asserts the CLI hash is unchanged after
-  running a `std:io` project and that tampering is rejected. `打印` is still
-  the builtin default.
+  running a `std:io` project and that tampering is rejected. `打印/print` is
+  routed to the bundled stdlib (Compat-C, ADR-0030/0031); there is no legacy
+  host formatter.
 - Resource streams (RFC-CM CM-A06, ADR-0025): opaque host-issued `Resource`
   handles with `resource.open/read/write/close`; bytes move only through
   `Memory`; stdout write is capability/output-budget checked and project-file
