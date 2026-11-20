@@ -114,7 +114,13 @@ runs.
    produced locally; the release decision is **DO NOT RELEASE** until the
    native CI matrix and G-C conditions in the plan are satisfied.
 
-## 5. Reproduce
+## 5. Evidence files
+
+- [`evidence/2026-11-20-local-gate.md`](evidence/2026-11-20-local-gate.md) —
+  exact local commands, Windows autocrlf reproduction, clean-install smoke and
+  the environment limits that block G-C.
+
+## 6. Reproduce
 
 ```bash
 export PATH="$HOME/.cargo/bin:$PATH"
