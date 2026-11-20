@@ -1,0 +1,88 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 69
+  },
+  "children": [
+    {
+      "kind": "heading",
+      "level": 2,
+      "setext": false,
+      "span": {
+        "start": 0,
+        "end": 7
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 3,
+            "end": 7
+          },
+          "literal": "main"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 9,
+        "end": 52
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 9,
+            "end": 22
+          },
+          "literal": "正文里的 "
+        },
+        {
+          "kind": "code",
+          "ticks": 1,
+          "span": {
+            "start": 22,
+            "end": 30
+          },
+          "literal": "n ** 2"
+        },
+        {
+          "kind": "text",
+          "span": {
+            "start": 30,
+            "end": 52
+          },
+          "literal": " 只是惰性文本。"
+        }
+      ]
+    },
+    {
+      "kind": "block_quote",
+      "span": {
+        "start": 54,
+        "end": 69
+      },
+      "children": [
+        {
+          "kind": "paragraph",
+          "span": {
+            "start": 56,
+            "end": 69
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 56,
+                "end": 69
+              },
+              "literal": "print(\"done\")"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

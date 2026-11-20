@@ -1,0 +1,13 @@
+{
+  "schema": "marqdo.cli-tool",
+  "schema_version": 1,
+  "name": "demo.sample-view",
+  "version": "0.1.0",
+  "command": "sample-view",
+  "entrypoint": "bin/sample-view",
+  "compatibility": {
+    "marqdo": ">=0.1,<1",
+    "analysis": [2],
+    "trace": [2]
+  }
+}

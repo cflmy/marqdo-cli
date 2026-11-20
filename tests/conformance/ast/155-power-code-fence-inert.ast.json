@@ -1,0 +1,64 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 59
+  },
+  "children": [
+    {
+      "kind": "heading",
+      "level": 2,
+      "setext": false,
+      "span": {
+        "start": 0,
+        "end": 7
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 3,
+            "end": 7
+          },
+          "literal": "main"
+        }
+      ]
+    },
+    {
+      "kind": "code_block",
+      "fenced": true,
+      "info": "text",
+      "span": {
+        "start": 9,
+        "end": 42
+      },
+      "literal": "2 ** 3\n**n = 2 ** 3**\n"
+    },
+    {
+      "kind": "block_quote",
+      "span": {
+        "start": 44,
+        "end": 59
+      },
+      "children": [
+        {
+          "kind": "paragraph",
+          "span": {
+            "start": 46,
+            "end": 59
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 46,
+                "end": 59
+              },
+              "literal": "print(\"done\")"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

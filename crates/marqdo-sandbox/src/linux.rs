@@ -254,7 +254,28 @@ fn finish(outcome: StrictOutcome) -> Result<i32, SandboxError> {
     Err(SandboxError::LaunchFailed { message })
 }
 
+/// Probe function used by [`run`]. A function pointer keeps the production
+/// path free of runtime hooks while allowing a unit test to model
+/// `probe succeeds → launch fails`.
+type ProbeFn = fn() -> Result<String, String>;
+
+/// Supervisor spawn function used by [`run`]. See [`ProbeFn`].
+type SpawnFn = fn(&Path, &[OsString], Stdio, Stdio, u64, u64) -> io::Result<Child>;
+
 fn run(command: &StrictHostCommand<'_>) -> Result<StrictOutcome, SandboxError> {
+    run_with(command, probe, spawn_supervisor)
+}
+
+/// Run one supervised command with injectable probe/spawn steps.
+///
+/// The separation is a test seam, not a bypass: any spawn error after a
+/// successful probe is returned as [`SandboxError::LaunchFailed`] and the
+/// caller never executes the project without the supervisor.
+fn run_with(
+    command: &StrictHostCommand<'_>,
+    probe_fn: ProbeFn,
+    spawn_fn: SpawnFn,
+) -> Result<StrictOutcome, SandboxError> {
     if command.project_root == Path::new("/") {
         return Err(SandboxError::LaunchFailed {
             message: "strict mode refuses to expose the host root as the project".to_string(),
@@ -290,7 +311,7 @@ fn run(command: &StrictHostCommand<'_>) -> Result<StrictOutcome, SandboxError> {
         }
         None => None,
     };
-    probe().map_err(|reason| SandboxError::LaunchFailed { message: reason })?;
+    probe_fn().map_err(|reason| SandboxError::LaunchFailed { message: reason })?;
     let bwrap = bwrap_path().ok_or_else(|| SandboxError::LaunchFailed {
         message: "bubblewrap disappeared after the probe".to_string(),
     })?;
@@ -336,34 +357,17 @@ fn run(command: &StrictHostCommand<'_>) -> Result<StrictOutcome, SandboxError> {
     let limit = command.output_limit.max(1024) as u64;
     let timeout = command.timeout;
     let cpu_limit = timeout.as_secs().saturating_add(2).max(1);
-    let mut supervisor = Command::new(&bwrap);
-    supervisor
-        .args(&args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(stdout.reopen()?))
-        .stderr(Stdio::from(stderr.reopen()?));
-    // SAFETY: the closure only calls async-signal-safe libc functions
-    // (`setpgid`, `setrlimit`) between fork and exec.
-    unsafe {
-        supervisor.pre_exec(move || {
-            if libc::setpgid(0, 0) != 0 {
-                return Err(io::Error::last_os_error());
-            }
-            set_limit(libc::RLIMIT_CPU, cpu_limit, cpu_limit)?;
-            set_limit(libc::RLIMIT_AS, MAX_ADDRESS_SPACE, MAX_ADDRESS_SPACE)?;
-            set_limit(libc::RLIMIT_NOFILE, MAX_OPEN_FILES, MAX_OPEN_FILES)?;
-            set_limit(libc::RLIMIT_NPROC, MAX_PROCESSES, MAX_PROCESSES)?;
-            set_limit(libc::RLIMIT_FSIZE, limit, limit)?;
-            set_limit(libc::RLIMIT_STACK, MAX_STACK_BYTES, MAX_STACK_BYTES)?;
-            set_limit(libc::RLIMIT_CORE, 0, 0)?;
-            Ok(())
-        });
-    }
-    let mut child = supervisor
-        .spawn()
-        .map_err(|error| SandboxError::LaunchFailed {
-            message: format!("cannot start the strict supervisor: {error}"),
-        })?;
+    let mut child = spawn_fn(
+        &bwrap,
+        &args,
+        Stdio::from(stdout.reopen()?),
+        Stdio::from(stderr.reopen()?),
+        limit,
+        cpu_limit,
+    )
+    .map_err(|error| SandboxError::LaunchFailed {
+        message: format!("cannot start the strict supervisor: {error}"),
+    })?;
 
     let status = match wait_with_deadline(&mut child, timeout) {
         Ok(status) => status,
@@ -383,6 +387,42 @@ fn run(command: &StrictHostCommand<'_>) -> Result<StrictOutcome, SandboxError> {
         stdout: stdout.read_all()?,
         stderr: stderr.read_all()?,
     })
+}
+
+/// Spawn Bubblewrap with the supervisor's rlimits installed in the child
+/// before `exec`.
+fn spawn_supervisor(
+    bwrap: &Path,
+    args: &[OsString],
+    stdout: Stdio,
+    stderr: Stdio,
+    fsize_limit: u64,
+    cpu_limit: u64,
+) -> io::Result<Child> {
+    let mut supervisor = Command::new(bwrap);
+    supervisor
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(stdout)
+        .stderr(stderr);
+    // SAFETY: the closure only calls async-signal-safe libc functions
+    // (`setpgid`, `setrlimit`) between fork and exec.
+    unsafe {
+        supervisor.pre_exec(move || {
+            if libc::setpgid(0, 0) != 0 {
+                return Err(io::Error::last_os_error());
+            }
+            set_limit(libc::RLIMIT_CPU, cpu_limit, cpu_limit)?;
+            set_limit(libc::RLIMIT_AS, MAX_ADDRESS_SPACE, MAX_ADDRESS_SPACE)?;
+            set_limit(libc::RLIMIT_NOFILE, MAX_OPEN_FILES, MAX_OPEN_FILES)?;
+            set_limit(libc::RLIMIT_NPROC, MAX_PROCESSES, MAX_PROCESSES)?;
+            set_limit(libc::RLIMIT_FSIZE, fsize_limit, fsize_limit)?;
+            set_limit(libc::RLIMIT_STACK, MAX_STACK_BYTES, MAX_STACK_BYTES)?;
+            set_limit(libc::RLIMIT_CORE, 0, 0)?;
+            Ok(())
+        });
+    }
+    supervisor.spawn()
 }
 
 fn set_limit(resource: libc::__rlimit_resource_t, soft: u64, hard: u64) -> io::Result<()> {
@@ -473,5 +513,86 @@ impl Drop for CaptureFile {
     fn drop(&mut self) {
         drop(self.file.take());
         let _ = fs::remove_file(&self.path);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Model the GitHub-hosted Linux runner failure: the first probe reports
+    /// that Bubblewrap works, but the real supervisor spawn immediately fails
+    /// with `EAGAIN` (resource/namespace pressure). The contract is fail-closed:
+    /// propagate `LaunchFailed`, never execute the project without isolation.
+    #[test]
+    fn probe_success_then_launch_eagain_is_fail_closed() {
+        if bwrap_path().is_none() {
+            // The seam is about the launch path after a successful probe; a
+            // host without bwrap is covered by the ordinary refusal tests.
+            eprintln!("skipping launch seam test: bubblewrap is not installed");
+            return;
+        }
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or(0);
+        let project =
+            std::env::temp_dir().join(format!("marqdo-launch-seam-{}-{nanos}", std::process::id()));
+        fs::create_dir_all(&project).expect("create seam project");
+
+        let command = StrictHostCommand {
+            program: Path::new("/bin/true"),
+            args: &[],
+            project_root: &project,
+            document: None,
+            original_document: None,
+            output_limit: 4096,
+            timeout: Duration::from_secs(1),
+        };
+        let error = run_with(
+            &command,
+            || Ok("test probe succeeded".to_string()),
+            |_, _, _, _, _, _| Err(io::Error::from_raw_os_error(libc::EAGAIN)),
+        )
+        .expect_err("a spawn failure after a successful probe must not run the project");
+        let _ = fs::remove_dir_all(&project);
+
+        match &error {
+            SandboxError::LaunchFailed { message } => {
+                assert!(
+                    message.contains("cannot start the strict supervisor"),
+                    "unexpected launch diagnostic: {message}"
+                );
+                assert!(
+                    message.contains("Resource temporarily unavailable")
+                        || message.contains("os error 11"),
+                    "EAGAIN was not preserved in the diagnostic: {message}"
+                );
+            }
+            other => panic!("expected LaunchFailed, got {other:?}"),
+        }
+    }
+
+    /// Every non-zero/abnormal child termination is surfaced, never converted
+    /// into a successful unrestricted run.
+    #[test]
+    fn launch_failure_never_falls_back_to_unrestricted_execution() {
+        let command = StrictHostCommand {
+            program: Path::new("/bin/true"),
+            args: &[],
+            project_root: Path::new("/"),
+            document: None,
+            original_document: None,
+            output_limit: 4096,
+            timeout: Duration::from_secs(1),
+        };
+        let error = run_with(
+            &command,
+            || Ok("probe".into()),
+            |_, _, _, _, _, _| unreachable!("host root must be rejected before spawning"),
+        )
+        .expect_err("host root must be rejected");
+        assert!(matches!(error, SandboxError::LaunchFailed { .. }));
+        assert!(error.to_string().contains("host root"));
     }
 }

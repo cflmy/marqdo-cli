@@ -259,3 +259,100 @@ mod tests {
         assert!(error.reason.contains("emph"));
     }
 }
+
+#[cfg(test)]
+mod extra_span_tests {
+    use super::*;
+    use marqdo_markdown::parse;
+
+    fn first_strong(source: &str) -> MdNode {
+        let doc = parse(source);
+        let mut found = None;
+        doc.root.walk(&mut |node| {
+            if found.is_none() && node.kind == MdKind::Strong {
+                found = Some(node.clone());
+            }
+        });
+        found.expect("strong node")
+    }
+
+    #[test]
+    fn double_backtick_code_span_maps_inside_both_delimiters() {
+        let source = "**``n = 2 ** 3``**";
+        let node = first_strong(source);
+        let (payload, segments) = PayloadSegments::of(&node).unwrap();
+        assert_eq!(payload, "n = 2 ** 3");
+        let two = payload.find('2').expect("literal 2");
+        let span = segments.map_span(Span::new(two, two + 1));
+        assert_eq!(&source[span.start..span.end], "2");
+        assert_eq!(&source[2..4], "``");
+        assert_eq!(&source[span.start..span.start + 6], "2 ** 3");
+    }
+
+    #[test]
+    fn utf8_prefix_and_multiline_payload_map_to_original_bytes() {
+        let source = "**中文 = `2 ** 3`**";
+        let node = first_strong(source);
+        let (payload, segments) = PayloadSegments::of(&node).unwrap();
+        assert_eq!(payload, "中文 = 2 ** 3");
+        let chinese = payload.find("中文").expect("chinese");
+        let span = segments.map_span(Span::new(chinese, chinese + "中文".len()));
+        assert_eq!(&source[span.start..span.end], "中文");
+        let power = payload.find("2 ** 3").expect("power");
+        let span = segments.map_span(Span::new(power, power + "2 ** 3".len()));
+        assert_eq!(&source[span.start..span.end], "2 ** 3");
+    }
+
+    #[test]
+    fn condition_literal_span_excludes_backticks_for_one_and_two_ticks() {
+        for source in ["## f\n\n1. `n ** 2 ==`\n", "## f\n\n1. ``n ** 2 ==``\n"] {
+            let result = crate::analyze_source("index.mq.md", source);
+            let diagnostic = result
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == marqdo_value::codes::EXPR_PARSE)
+                .unwrap_or_else(|| panic!("no expr.parse diagnostic for {source:?}"));
+            let span = diagnostic
+                .span
+                .expect("condition parse error has a source span");
+            assert_eq!(
+                source.as_bytes()[span.start],
+                b'`',
+                "span must stop before the closing backtick: {span:?} in {source:?}"
+            );
+            assert_eq!(
+                &source[span.start.saturating_sub(2)..span.start],
+                "==",
+                "span must point at the missing operand"
+            );
+        }
+    }
+
+    #[test]
+    fn condition_description_rejects_executable_roles() {
+        for tail in ["**print(1)**", "*1*"] {
+            let source = format!("## f\n\n1. `n > 0` {tail}\n\n   > print(1)\n");
+            let result = crate::analyze_source("index.mq.md", &source);
+            assert!(
+                result
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code
+                        == marqdo_value::codes::MARKDOWN_INVALID_CONSTRUCT),
+                "executable tail `{tail}` was not rejected: {:#?}",
+                result.diagnostics
+            );
+        }
+    }
+
+    #[test]
+    fn condition_description_allows_inert_inline_content() {
+        let source = "## f\n\n**n = 1**\n\n1. `n > 0` 普通说明、`惰性代码` 与 [链接](#f)。\n\n   > print(1)\n";
+        let result = crate::analyze_source("index.mq.md", source);
+        assert!(
+            !result.has_errors(),
+            "inert description was rejected: {:#?}",
+            result.diagnostics
+        );
+    }
+}

@@ -1,0 +1,54 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 23
+  },
+  "children": [
+    {
+      "kind": "heading",
+      "level": 2,
+      "setext": false,
+      "span": {
+        "start": 0,
+        "end": 7
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 3,
+            "end": 7
+          },
+          "literal": "main"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 9,
+        "end": 23
+      },
+      "children": [
+        {
+          "kind": "strong",
+          "span": {
+            "start": 9,
+            "end": 23
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 11,
+                "end": 21
+              },
+              "literal": "n = n ** 2"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

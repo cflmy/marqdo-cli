@@ -1,0 +1,144 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 58
+  },
+  "children": [
+    {
+      "kind": "heading",
+      "level": 2,
+      "setext": false,
+      "span": {
+        "start": 0,
+        "end": 7
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 3,
+            "end": 7
+          },
+          "literal": "main"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 9,
+        "end": 18
+      },
+      "children": [
+        {
+          "kind": "strong",
+          "span": {
+            "start": 9,
+            "end": 18
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 11,
+                "end": 16
+              },
+              "literal": "n = 0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "list",
+      "ordered": false,
+      "tight": false,
+      "span": {
+        "start": 20,
+        "end": 53
+      },
+      "children": [
+        {
+          "kind": "item",
+          "span": {
+            "start": 20,
+            "end": 53
+          },
+          "children": [
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 22,
+                "end": 36
+              },
+              "children": [
+                {
+                  "kind": "code",
+                  "ticks": 1,
+                  "span": {
+                    "start": 22,
+                    "end": 36
+                  },
+                  "literal": "n ** 2 < 100"
+                }
+              ]
+            },
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 40,
+                "end": 53
+              },
+              "children": [
+                {
+                  "kind": "strong",
+                  "span": {
+                    "start": 40,
+                    "end": 53
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "span": {
+                        "start": 42,
+                        "end": 51
+                      },
+                      "literal": "n = n + 1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 55,
+        "end": 58
+      },
+      "children": [
+        {
+          "kind": "emph",
+          "span": {
+            "start": 55,
+            "end": 58
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 56,
+                "end": 57
+              },
+              "literal": "n"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

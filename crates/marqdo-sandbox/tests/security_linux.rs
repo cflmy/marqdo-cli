@@ -19,6 +19,8 @@ use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use marqdo_sandbox::{launch_strict_capture, probe, StrictHostCommand, StrictOutcome};
@@ -30,28 +32,36 @@ fn required() -> bool {
         == Some("1")
 }
 
+/// Compile the escape helper exactly once even when the test binary runs its
+/// tests in parallel.
 fn helper() -> Option<PathBuf> {
-    if let Ok(path) = std::env::var("MARQDO_SECURITY_HELPER") {
-        let path = PathBuf::from(path);
-        assert!(path.is_file(), "MARQDO_SECURITY_HELPER does not exist");
-        return Some(path);
-    }
-    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/security/escape_helper.c");
-    let output = std::env::temp_dir().join(format!(
-        "marqdo-escape-helper-{}{}",
-        std::process::id(),
-        std::env::consts::EXE_SUFFIX
-    ));
-    let status = Command::new("cc")
-        .args(["-O2", "-o"])
-        .arg(&output)
-        .arg(&source)
-        .status()
-        .ok()?;
-    if !status.success() {
-        return None;
-    }
-    Some(output)
+    static HELPER: OnceLock<Option<PathBuf>> = OnceLock::new();
+    HELPER
+        .get_or_init(|| {
+            if let Ok(path) = std::env::var("MARQDO_SECURITY_HELPER") {
+                let path = PathBuf::from(path);
+                assert!(path.is_file(), "MARQDO_SECURITY_HELPER does not exist");
+                return Some(path);
+            }
+            let source =
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/security/escape_helper.c");
+            let output = std::env::temp_dir().join(format!(
+                "marqdo-escape-helper-{}{}",
+                std::process::id(),
+                std::env::consts::EXE_SUFFIX
+            ));
+            let status = Command::new("cc")
+                .args(["-O2", "-o"])
+                .arg(&output)
+                .arg(&source)
+                .status()
+                .ok()?;
+            if !status.success() {
+                return None;
+            }
+            Some(output)
+        })
+        .clone()
 }
 
 fn setup() -> Option<(PathBuf, PathBuf, PathBuf)> {
@@ -72,7 +82,12 @@ fn setup() -> Option<(PathBuf, PathBuf, PathBuf)> {
             return None;
         }
     };
-    let project = std::env::temp_dir().join(format!("marqdo-security-{}", std::process::id()));
+    // `cargo test` runs these tests in parallel. The project and outside
+    // paths must be unique per test or two tests can remove each other's
+    // project between the supervisor mount and the assertion.
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let id = NEXT.fetch_add(1, Ordering::Relaxed);
+    let project = std::env::temp_dir().join(format!("marqdo-security-{}-{id}", std::process::id()));
     let _ = fs::remove_dir_all(&project);
     fs::create_dir_all(&project).expect("create security project");
     fs::write(project.join("allowed.txt"), "allowed\n").expect("write allowed file");
@@ -81,7 +96,7 @@ fn setup() -> Option<(PathBuf, PathBuf, PathBuf)> {
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("/home"));
-    let outside = home.join(format!("marqdo-escape-{}", std::process::id()));
+    let outside = home.join(format!("marqdo-escape-{}-{id}", std::process::id()));
     let _ = fs::remove_file(&outside);
     Some((helper, project, outside))
 }

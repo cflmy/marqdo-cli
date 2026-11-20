@@ -294,8 +294,37 @@ impl<'a> Mapper<'a> {
             );
             return None;
         }
+        // The remainder of the condition paragraph is description only. The
+        // semantic mapper does not descend into it, so an executable `Strong`
+        // or `Emph` there would otherwise be silently swallowed. Reject it as
+        // a hard shape error instead of guessing the author's intent.
+        for tail in first.children.iter().skip(1) {
+            if matches!(tail.kind, MdKind::Strong | MdKind::Emph) {
+                self.error_with_hint(
+                    codes::MARKDOWN_INVALID_CONSTRUCT,
+                    Some(tail.span),
+                    format!(
+                        "`{}` inside a list-item condition paragraph is not executed and cannot be silently ignored",
+                        tail.kind.tag()
+                    ),
+                    "put executable statements in their own paragraph after the condition line",
+                );
+                return None;
+            }
+        }
         let literal = condition_node.literal.clone().unwrap_or_default();
-        let segments = PayloadSegments::single(&literal, condition_node.span);
+        // `condition_node.span` includes the backtick delimiters. The payload
+        // map must start at the first literal byte so parse diagnostics and
+        // expression spans point at the expression, not at a delimiter.
+        let ticks = match condition_node.kind {
+            MdKind::Code { ticks } => ticks,
+            _ => 0,
+        };
+        let literal_span = Span::new(
+            condition_node.span.start.saturating_add(ticks),
+            condition_node.span.end.saturating_sub(ticks),
+        );
+        let segments = PayloadSegments::single(&literal, literal_span);
         match parse_expression(&literal) {
             Ok(mut expr) => {
                 segments.rewrite_expr(&mut expr);

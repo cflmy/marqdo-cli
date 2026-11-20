@@ -350,21 +350,77 @@ fn strict_mode_enforces_isolation_or_refuses_closed() {
     let hello = root.join("examples").join("hello.mq.md");
     let output = cli(&root, &["run", hello.to_str().unwrap(), "--mode", "strict"]);
     if strict_is_available(&root) {
-        assert_exit(&output, 0, "strict mode must succeed when the gate passes");
-        assert_eq!(stdout_text(&output), "你好，Marqdo\n");
-        // External execution surfaces are rejected at the strict L1 boundary.
-        let foreign = cli(
-            &root,
-            &[
-                "run",
-                hello.to_str().unwrap(),
-                "--mode",
-                "strict",
-                "--allow-foreign",
-            ],
+        if output.status.success() {
+            assert_eq!(stdout_text(&output), "你好，Marqdo\n");
+            // External execution surfaces are rejected at the strict L1 boundary.
+            let foreign = cli(
+                &root,
+                &[
+                    "run",
+                    hello.to_str().unwrap(),
+                    "--mode",
+                    "strict",
+                    "--allow-foreign",
+                ],
+            );
+            assert_exit(&foreign, 2, "strict must reject foreign grants");
+            assert!(stderr_text(&foreign).contains("strict mode currently supports"));
+            return;
+        }
+
+        // The snapshot from `inspect --platform` is not a permanent promise:
+        // the host can lose namespace capability or resources between the
+        // probe and the real launch. GitHub-hosted runners have produced
+        // `bwrap: Creating new namespace failed: Resource temporarily
+        // unavailable` here. The only acceptable outcome is a fail-closed
+        // refusal: non-zero exit, diagnostic, and no project output.
+        assert_exit(
+            &output,
+            1,
+            "strict launch failure must fail closed, not fall back",
         );
-        assert_exit(&foreign, 2, "strict must reject foreign grants");
-        assert!(stderr_text(&foreign).contains("strict mode currently supports"));
+        let stderr = stderr_text(&output);
+        assert!(!stderr.is_empty(), "strict failure had no diagnostic");
+        assert!(
+            stderr.contains("strict isolation failed")
+                || stderr.contains("refusing to run in strict mode")
+                || stderr.contains("bubblewrap")
+                || stderr.contains("bwrap"),
+            "strict failure diagnostic does not identify isolation: {stderr}"
+        );
+        assert!(
+            stderr.contains("namespace")
+                || stderr.contains("Resource temporarily unavailable")
+                || stderr.contains("os error 11"),
+            "strict failure diagnostic does not identify the launch failure: {stderr}"
+        );
+        assert!(
+            stdout_text(&output).is_empty(),
+            "project output appeared although strict launch failed: {}",
+            stdout_text(&output)
+        );
+
+        let json = cli(
+            &root,
+            &["run", hello.to_str().unwrap(), "--mode", "strict", "--json"],
+        );
+        if json.status.success() {
+            let value = json_stdout(&json);
+            assert_eq!(value["success"], true);
+            assert_eq!(value["value"]["type"], "none");
+        } else {
+            assert_exit(
+                &json,
+                1,
+                "strict launch failure keeps exit code 1 in JSON mode",
+            );
+            let value = json_stdout(&json);
+            assert_eq!(value["success"], false);
+            assert!(value["error"]
+                .as_str()
+                .expect("error string")
+                .contains("strict"));
+        }
         return;
     }
     assert_exit(
@@ -988,4 +1044,62 @@ fn check_never_spawns_a_foreign_kernel() {
         marker.exists(),
         "run did not execute the provider; the no-execution assertion is vacuous"
     );
+}
+
+#[test]
+fn power_branch_loop_and_inert_code_end_to_end() {
+    let dir = TempDir::new("power");
+    dir.write(
+        "branch.mq.md",
+        "## main\n\n**n = 2**\n\n1. `n ** 2 == 4`，正确分支。\n\n   > print(\"乘方正确\")\n\n2. `n ** 2 != 4`，另一分支。\n\n   > print(\"乘方错误\")\n",
+    );
+    let branch = cli(dir.path(), &["run", "branch.mq.md", "--json"]);
+    assert_exit(&branch, 0, "power branch run");
+    let value = json_stdout(&branch);
+    assert_eq!(value["success"], true);
+    assert_eq!(value["stdout"], "乘方正确\n");
+    assert_eq!(value["value"]["type"], "unit");
+
+    dir.write(
+        "loop.mq.md",
+        "## main\n\n**n = 0**\n\n**limit = 100**\n\n- `n ** 2 < limit`\n\n  **n = n + 1**\n\n*n*\n",
+    );
+    let looped = cli(dir.path(), &["run", "loop.mq.md", "--json"]);
+    assert_exit(&looped, 0, "power loop run");
+    let value = json_stdout(&looped);
+    assert_eq!(value["value"]["type"], "int");
+    assert_eq!(value["value"]["decimal"], "10");
+
+    // A code fence containing power syntax is an inert value: it produces no
+    // diagnostics and never changes the returned value.
+    dir.write(
+        "inert.mq.md",
+        "## main\n\n```text\n**n = 2 ** 3**\n```\n\n正文里的 `2 ** 3` 不执行。\n\n**x = 1**\n\n*x*\n",
+    );
+    let inert = cli(dir.path(), &["run", "inert.mq.md", "--json"]);
+    assert_exit(&inert, 0, "inert code run");
+    let value = json_stdout(&inert);
+    assert_eq!(value["value"]["decimal"], "1");
+}
+
+#[test]
+fn condition_parse_diagnostic_points_inside_the_code_span() {
+    let dir = TempDir::new("condition-span");
+    let source = "## main\n\n**n = 2**\n\n1. `n ** 2 ==`\n\n   > print(1)\n";
+    dir.write("bad.mq.md", source);
+    let output = cli(dir.path(), &["check", "bad.mq.md", "--json"]);
+    assert_exit(&output, 1, "condition parse error");
+    let value = json_stdout(&output);
+    let diagnostic = value["diagnostics"]
+        .as_array()
+        .expect("diagnostics array")
+        .iter()
+        .find(|diagnostic| diagnostic["code"] == "expr.parse")
+        .expect("expr.parse diagnostic");
+    assert_eq!(diagnostic["line"], 5);
+    // 1-based column 14 is the closing backtick: the empty end-of-input span
+    // must not be shifted by the delimiter.
+    assert_eq!(diagnostic["column"], 14);
+    let line = source.lines().nth(4).expect("line 5");
+    assert_eq!(&line[13..14], "`");
 }

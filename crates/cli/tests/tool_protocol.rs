@@ -110,6 +110,134 @@ fn stdout(output: &Output) -> String {
     String::from_utf8_lossy(&output.stdout).to_string()
 }
 
+fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("crates/cli has a parent")
+        .parent()
+        .expect("crates has a parent")
+        .to_path_buf()
+}
+
+/// Compile one of the checked-in independent consumer samples and package it
+/// as a Tool Protocol v1 bundle. Sources live in `examples/tool-samples/` so
+/// they are reviewable software, not hidden test strings.
+fn write_sample_from_source(dir: &Path, command: &str) -> PathBuf {
+    let root = repo_root();
+    let source = root.join(format!("examples/tool-samples/{command}/src/main.rs"));
+    let package = dir.join(format!("{command}-pkg"));
+    std::fs::create_dir_all(package.join("bin")).unwrap();
+    let entry = package
+        .join("bin")
+        .join(format!("{command}{}", std::env::consts::EXE_SUFFIX));
+    let status = Command::new("rustc")
+        .args(["--edition", "2021", "-o"])
+        .arg(&entry)
+        .arg(&source)
+        .status()
+        .expect("run rustc for the sample tool");
+    assert!(status.success(), "rustc failed for {command}");
+    let entrypoint = format!("bin/{command}{}", std::env::consts::EXE_SUFFIX);
+    let manifest = package.join("tool.json");
+    std::fs::write(
+        &manifest,
+        format!(
+            r#"{{"schema":"marqdo.cli-tool","schema_version":1,"name":"demo.{command}","version":"0.1.0","command":"{command}","entrypoint":"{entrypoint}","compatibility":{{"marqdo":">=0.1,<1","analysis":[2],"trace":[2]}}}}"#
+        ),
+    )
+    .unwrap();
+    manifest
+}
+
+#[test]
+fn independent_sample_tools_consume_public_analysis_and_trace() {
+    let dir = TempDir::new("samples");
+    let home = dir.path().join("home");
+    let analysis = dir.path().join("analysis.json");
+    let trace = dir.path().join("trace.json");
+    let root = repo_root();
+
+    let check = Command::new(binary())
+        .args([
+            "check",
+            "examples/multi-module/index.mq.md",
+            "--refs",
+            "--emit",
+        ])
+        .arg(&analysis)
+        .current_dir(&root)
+        .output()
+        .expect("run check");
+    assert!(check.status.success(), "check failed: {}", stderr(&check));
+    let run = Command::new(binary())
+        .args(["run", "examples/multi-module/index.mq.md", "--trace-file"])
+        .arg(&trace)
+        .current_dir(&root)
+        .output()
+        .expect("run");
+    assert!(run.status.success(), "run failed: {}", stderr(&run));
+
+    // None of these names exists in the CLI: dispatch must come from the
+    // installed generic tool registry.
+    for command in ["sample-view", "sample-knowledge", "sample-proof"] {
+        let unknown = cli(&home, &[command]);
+        assert_eq!(unknown.status.code(), Some(2), "{command} must be unknown");
+        assert!(stderr(&unknown).contains("unknown command"));
+        let manifest = write_sample_from_source(dir.path(), command);
+        let install = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
+        assert_eq!(
+            install.status.code(),
+            Some(0),
+            "{command}: {}",
+            stderr(&install)
+        );
+    }
+
+    let view = cli(
+        &home,
+        &["sample-view", "--analysis", analysis.to_str().unwrap()],
+    );
+    assert_eq!(view.status.code(), Some(0), "{}", stderr(&view));
+    let text = stdout(&view);
+    assert!(
+        text.contains("sample-view schema=marqdo.analysis version=2"),
+        "{text}"
+    );
+    assert!(text.contains("modules="), "{text}");
+
+    let knowledge = cli(
+        &home,
+        &["sample-knowledge", "--trace", trace.to_str().unwrap()],
+    );
+    assert_eq!(knowledge.status.code(), Some(0), "{}", stderr(&knowledge));
+    let text = stdout(&knowledge);
+    assert!(
+        text.contains("sample-knowledge schema=marqdo.trace version=2"),
+        "{text}"
+    );
+    assert!(text.contains("status=ok"), "{text}");
+
+    let proof = cli(
+        &home,
+        &[
+            "sample-proof",
+            "--analysis",
+            analysis.to_str().unwrap(),
+            "--trace",
+            trace.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(proof.status.code(), Some(0), "{}", stderr(&proof));
+    let text = stdout(&proof);
+    assert!(text.contains("sample-proof bound=true"), "{text}");
+    assert!(text.contains("digest=sha256:"), "{text}");
+
+    for command in ["sample-view", "sample-knowledge", "sample-proof"] {
+        let removed = cli(&home, &["tool", "remove", command]);
+        assert_eq!(removed.status.code(), Some(0), "{}", stderr(&removed));
+    }
+}
+
 #[test]
 fn install_dispatch_list_remove_without_core_knowledge_of_the_name() {
     let dir = TempDir::new("roundtrip");

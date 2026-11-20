@@ -1,0 +1,63 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 33
+  },
+  "children": [
+    {
+      "kind": "heading",
+      "level": 2,
+      "setext": false,
+      "span": {
+        "start": 0,
+        "end": 7
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 3,
+            "end": 7
+          },
+          "literal": "main"
+        }
+      ]
+    },
+    {
+      "kind": "math_block",
+      "span": {
+        "start": 9,
+        "end": 21
+      },
+      "literal": "2 ** 3\n"
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 23,
+        "end": 33
+      },
+      "children": [
+        {
+          "kind": "emph",
+          "span": {
+            "start": 23,
+            "end": 33
+          },
+          "children": [
+            {
+              "kind": "code",
+              "ticks": 1,
+              "span": {
+                "start": 24,
+                "end": 32
+              },
+              "literal": "2 ** 3"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

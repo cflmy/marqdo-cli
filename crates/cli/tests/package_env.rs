@@ -349,3 +349,61 @@ fn deleted_lock_edge_fails_check_and_run() {
         );
     }
 }
+
+#[test]
+fn tampered_path_dependency_content_is_rejected_by_locked_sync() {
+    let dir = TempDir::new("path-tamper");
+    let root = dir.path();
+    write(
+        &root.join("marqdo.yaml"),
+        "project:\n  name: root\n  version: 0.1.0\ndependencies:\n  dep:\n    path: ./dep\n",
+    );
+    write(
+        &root.join("dep/marqdo.yaml"),
+        "project:\n  name: dep\n  version: 0.1.0\n",
+    );
+    write(&root.join("dep/index.mq.md"), "## value\n\n*1*\n");
+    write(
+        &root.join("index.mq.md"),
+        "---\nimport:\n  dep: \"@dep\"\n---\n\n## main\n\n*1*\n",
+    );
+    assert_eq!(cli(root, &["lock"]).status.code(), Some(0));
+    let lock_before = std::fs::read(root.join("marqdo.lock")).unwrap();
+    assert_eq!(cli(root, &["sync", "--locked"]).status.code(), Some(0));
+    let env_before = std::fs::read(root.join(".marqdo/env/env.json")).unwrap();
+
+    // Content change after the lock is a tamper/staleness signal. `run` and
+    // `check` must never silently accept it, re-lock, or materialize a new
+    // environment.
+    write(&root.join("dep/index.mq.md"), "## value\n\n*2*\n");
+    for args in [
+        vec!["sync", "--locked"],
+        vec!["run", "index.mq.md"],
+        vec!["check", "index.mq.md"],
+    ] {
+        let output = cli(root, &args);
+        assert_eq!(
+            output.status.code(),
+            Some(1),
+            "{args:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("out of date")
+                || stderr.contains("digest")
+                || stderr.contains("integrity"),
+            "{args:?}: {stderr}"
+        );
+    }
+    assert_eq!(
+        std::fs::read(root.join("marqdo.lock")).unwrap(),
+        lock_before,
+        "a failed locked operation must not rewrite the lock"
+    );
+    assert_eq!(
+        std::fs::read(root.join(".marqdo/env/env.json")).unwrap(),
+        env_before,
+        "a failed locked operation must not replace the materialized environment"
+    );
+}

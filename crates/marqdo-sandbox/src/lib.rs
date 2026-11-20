@@ -111,31 +111,52 @@ impl PlatformCapabilities {
     /// security contract. The isolated worker transport is implemented, but a
     /// plain child process is not an OS sandbox.
     pub fn detect() -> Self {
-        let strict = if cfg!(target_os = "linux") {
-            match linux::probe() {
-                Ok(mechanism) => StrictIsolation::Available { mechanism },
-                Err(reason) => StrictIsolation::Unavailable { reason },
-            }
-        } else if cfg!(target_os = "macos") {
-            StrictIsolation::Unavailable {
-                reason: "no verified macOS sandbox adapter is implemented in this build"
-                    .to_string(),
-            }
-        } else if cfg!(target_os = "windows") {
-            StrictIsolation::Unavailable {
-                reason: "no verified Windows job-object/appcontainer adapter is implemented in this build".to_string(),
-            }
-        } else {
-            StrictIsolation::Unavailable {
-                reason: "platform isolation is not implemented for this target".to_string(),
-            }
-        };
         Self {
             os: std::env::consts::OS.to_string(),
             arch: std::env::consts::ARCH.to_string(),
-            strict,
+            strict: detect_strict(),
             worker_processes: true,
         }
+    }
+}
+
+/// Detect strict isolation using only code that is compiled for the current
+/// platform.
+///
+/// `cfg!` is a boolean constant and does **not** remove the other branch from
+/// type checking. Using it around `linux::probe()` made macOS/Windows builds
+/// reference a module that is not compiled there (`E0433`). The platform
+/// dispatch therefore lives in dedicated `#[cfg]` functions.
+#[cfg(target_os = "linux")]
+fn detect_strict() -> StrictIsolation {
+    match linux::probe() {
+        Ok(mechanism) => StrictIsolation::Available { mechanism },
+        Err(reason) => StrictIsolation::Unavailable { reason },
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn detect_strict() -> StrictIsolation {
+    StrictIsolation::Unavailable {
+        reason: "no verified macOS sandbox adapter is implemented in this build".to_string(),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn detect_strict() -> StrictIsolation {
+    StrictIsolation::Unavailable {
+        reason: "no verified Windows job-object/appcontainer adapter is implemented in this build"
+            .to_string(),
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+fn detect_strict() -> StrictIsolation {
+    StrictIsolation::Unavailable {
+        reason: format!(
+            "platform isolation is not implemented for `{}`",
+            std::env::consts::OS
+        ),
     }
 }
 
@@ -262,5 +283,21 @@ mod tests {
         assert!(format!("{}", result.unwrap_err()).contains("strict"));
         assert!(enforce(SandboxMode::Pure, &platform).is_ok());
         assert!(enforce(SandboxMode::Project, &platform).is_ok());
+    }
+
+    /// macOS and Windows must compile without the Linux-only `linux` module,
+    /// report strict as unavailable, and still refuse strict execution. This
+    /// is the regression guard for the `E0433` platform-detection defect.
+    #[cfg(not(target_os = "linux"))]
+    #[test]
+    fn non_linux_detection_is_compiled_and_fails_closed() {
+        let platform = PlatformCapabilities::detect();
+        assert!(matches!(
+            platform.strict,
+            StrictIsolation::Unavailable { .. }
+        ));
+        let error = enforce(SandboxMode::Strict, &platform).expect_err("strict must refuse");
+        assert!(matches!(error, SandboxError::StrictUnavailable { .. }));
+        assert!(!platform.strict.describe().contains("available via"));
     }
 }
