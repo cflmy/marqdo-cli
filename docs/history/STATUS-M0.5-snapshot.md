@@ -11,10 +11,10 @@ complete.
 
 > **M0.6 planning cross-reference (2026-11-20)**: this file is the M0.5 evidence
 > snapshot that the M0.6 audit was based on. Read
-> [`docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`](CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md)
+> [`docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`](../CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md)
 > (current-stage stabilization spec, baseline `0adebe4`),
-> [`docs/EXTENSIBILITY_AUDIT.md`](EXTENSIBILITY_AUDIT.md) (issues E01–E16) and
-> the proposed [`docs/NEXT_PHASE_IMPLEMENTATION.md`](NEXT_PHASE_IMPLEMENTATION.md)
+> [`docs/EXTENSIBILITY_AUDIT.md`](../EXTENSIBILITY_AUDIT.md) (issues E01–E16) and
+> the proposed [`docs/NEXT_PHASE_IMPLEMENTATION.md`](../NEXT_PHASE_IMPLEMENTATION.md)
 > alongside it. The stabilization spec supersedes the earlier plans on the
 > current baseline, gap list and G-A/G-B/G-C release gates; none of these plans
 > claims any gap below is fixed. Per audit item

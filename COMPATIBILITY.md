@@ -49,7 +49,7 @@ reproduce the Windows checkout byte behavior.
 - `strict` additionally requires a kernel/environment that permits user,
   mount, PID and network namespaces, plus delegated cgroups. The current
   container does not, so strict is refused. See
-  [`docs/security-gate.md`](security-gate.md).
+  [`docs/security-gate.md`](docs/security-gate.md).
 
 ## Explicitly unsupported in this candidate
 
