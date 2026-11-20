@@ -18,7 +18,7 @@ marqdo-cli/
 │   ├── EXTENSIBILITY_AUDIT.md     source-backed E01–E16 audit for M0.6
 │   ├── STATUS.md                  implementation matrix (P0–P7)
 │   ├── contributor-guide.md       this file
-│   └── adr/0001..0012-*.md        accepted decisions
+│   └── adr/0001..0014-*.md        accepted decisions
 ├── spec/
 │   ├── markdown-profile.md        frozen parser profile `marqdo.md.v1`
 │   ├── mapping.md                 AST → program roles

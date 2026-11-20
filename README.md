@@ -179,7 +179,7 @@ tests/                        conformance/negative corpus (see tests/README.md)
 * [`docs/adr/`](docs/adr/) — accepted decisions (crate graph, inert executables,
   `ref` ambiguity, strict refusal, AST normalization, CLI contract, BigInt/wire,
   package identity, callable resolution, plugin export routing, capability
-  broker, kernel providers).
+  broker, kernel providers, generic CLI tools, plugin-handle authority).
 * Specs: [`markdown-profile.md`](spec/markdown-profile.md),
   [`mapping.md`](spec/mapping.md), [`expression.ebnf`](spec/expression.ebnf),
   [`evaluation.md`](spec/evaluation.md), [`references.md`](spec/references.md),

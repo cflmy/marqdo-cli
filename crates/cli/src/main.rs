@@ -8,7 +8,9 @@ mod args;
 mod commands;
 mod loader;
 mod output;
+mod tool;
 
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
@@ -49,6 +51,11 @@ enum Command {
     Lock(LockArgs),
     /// Verify that path dependencies match the lockfile.
     Sync(SyncArgs),
+    /// Manage and dispatch generic external CLI tools.
+    Tool(ToolArgs),
+    /// Unknown top-level command: dispatch to a registered external tool.
+    #[command(external_subcommand)]
+    External(Vec<OsString>),
 }
 
 #[derive(Args)]
@@ -252,6 +259,47 @@ struct LockArgs {
 }
 
 #[derive(Args)]
+struct ToolArgs {
+    #[command(subcommand)]
+    command: ToolCommand,
+}
+
+#[derive(Subcommand)]
+enum ToolCommand {
+    /// Install a tool from a local tool.json (or its directory).
+    Install(ToolInstallArgs),
+    /// List installed external tools.
+    List(ToolListArgs),
+    /// Remove an installed external tool.
+    Remove(ToolRemoveArgs),
+}
+
+#[derive(Args)]
+struct ToolInstallArgs {
+    /// Path to tool.json or the tool package directory.
+    manifest: PathBuf,
+    /// Machine readable JSON output.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Args)]
+struct ToolListArgs {
+    /// Machine readable JSON output.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Args)]
+struct ToolRemoveArgs {
+    /// Tool command to remove.
+    command: String,
+    /// Machine readable JSON output.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Args)]
 struct SyncArgs {
     /// Fail instead of silently updating when the lockfile is stale.
     #[arg(long)]
@@ -315,6 +363,12 @@ fn main() {
         Command::Remove(args) => commands::remove(&args.name, args.json),
         Command::Lock(args) => commands::lock(args.json),
         Command::Sync(args) => commands::sync(args.locked, args.json),
+        Command::Tool(args) => match args.command {
+            ToolCommand::Install(args) => tool::install(&args.manifest, args.json),
+            ToolCommand::List(args) => tool::list(args.json),
+            ToolCommand::Remove(args) => tool::remove(&args.command, args.json),
+        },
+        Command::External(args) => tool::dispatch(&args),
     };
     std::process::exit(code);
 }
