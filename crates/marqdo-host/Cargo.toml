@@ -1,0 +1,21 @@
+[package]
+name = "marqdo-host"
+description = "CapabilityHost dispatch, budgets, authorization and effect tracing"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+marqdo-span = { workspace = true }
+marqdo-value = { workspace = true }
+marqdo-math = { workspace = true }
+marqdo-foreign = { workspace = true }
+marqdo-plugin-abi = { workspace = true }
+marqdo-sandbox = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+

@@ -1,0 +1,17 @@
+[package]
+name = "marqdo-markdown"
+description = "Canonical CommonMark/GFM/Math AST view, frontmatter extraction and source maps"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+unicode-normalization = { workspace = true }
+marqdo-span = { workspace = true }
+comrak = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+

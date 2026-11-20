@@ -1,0 +1,21 @@
+[package]
+name = "marqdo-frontend"
+description = "Unit index, semantic mapping, static analysis and diagnostics"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+unicode-normalization = { workspace = true }
+marqdo-span = { workspace = true }
+marqdo-markdown = { workspace = true }
+marqdo-expression = { workspace = true }
+marqdo-ir = { workspace = true }
+marqdo-value = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+

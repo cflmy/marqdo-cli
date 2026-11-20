@@ -1,0 +1,15 @@
+[package]
+name = "marqdo-sandbox"
+description = "Sandbox modes and platform isolation capability detection"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+marqdo-span = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+

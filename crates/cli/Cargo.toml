@@ -1,0 +1,32 @@
+[package]
+name = "marqdo-cli"
+description = "Marqdo command line interface (composition root)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+marqdo-span = { workspace = true }
+marqdo-value = { workspace = true }
+marqdo-expression = { workspace = true }
+marqdo-markdown = { workspace = true }
+marqdo-ir = { workspace = true }
+marqdo-frontend = { workspace = true }
+marqdo-math = { workspace = true }
+marqdo-foreign = { workspace = true }
+marqdo-plugin-abi = { workspace = true }
+marqdo-host = { workspace = true }
+marqdo-runtime = { workspace = true }
+marqdo-package = { workspace = true }
+marqdo-sandbox = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[[bin]]
+name = "marqdo"
+path = "src/main.rs"

@@ -1,0 +1,16 @@
+[package]
+name = "marqdo-foreign"
+description = "Explicit foreign code kernels (Python/Node) with structured protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+marqdo-span = { workspace = true }
+marqdo-value = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+

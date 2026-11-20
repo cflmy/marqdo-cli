@@ -1,0 +1,58 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/marqdo-span",
+    "crates/marqdo-value",
+    "crates/marqdo-expression",
+    "crates/marqdo-markdown",
+    "crates/marqdo-ir",
+    "crates/marqdo-frontend",
+    "crates/marqdo-math",
+    "crates/marqdo-foreign",
+    "crates/marqdo-plugin-abi",
+    "crates/marqdo-plugin-sdk",
+    "crates/marqdo-host",
+    "crates/marqdo-runtime",
+    "crates/marqdo-package",
+    "crates/marqdo-sandbox",
+    "crates/cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/cflmy/marqdo-cli"
+authors = ["Marqdo contributors"]
+
+[workspace.dependencies]
+marqdo-span = { path = "crates/marqdo-span" }
+marqdo-value = { path = "crates/marqdo-value" }
+marqdo-expression = { path = "crates/marqdo-expression" }
+marqdo-markdown = { path = "crates/marqdo-markdown" }
+marqdo-ir = { path = "crates/marqdo-ir" }
+marqdo-frontend = { path = "crates/marqdo-frontend" }
+marqdo-math = { path = "crates/marqdo-math" }
+marqdo-foreign = { path = "crates/marqdo-foreign" }
+marqdo-plugin-abi = { path = "crates/marqdo-plugin-abi" }
+marqdo-plugin-sdk = { path = "crates/marqdo-plugin-sdk" }
+marqdo-host = { path = "crates/marqdo-host" }
+marqdo-runtime = { path = "crates/marqdo-runtime" }
+marqdo-package = { path = "crates/marqdo-package" }
+marqdo-sandbox = { path = "crates/marqdo-sandbox" }
+comrak = { version = "=1.0.0", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+num-bigint = { version = "0.5", features = ["serde"] }
+num-rational = { version = "0.4", features = ["serde"] }
+num-traits = "0.2"
+sha2 = "0.10"
+hex = "0.4"
+libloading = "0.8"
+tempfile = "3"
+thiserror = "2"
+clap = { version = "4", features = ["derive"] }
+walkdir = "2"
+unicode-normalization = "0.1"
