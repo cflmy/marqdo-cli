@@ -1,0 +1,88 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "items": [
+      {
+        "header": [
+          "名称",
+          "分数"
+        ],
+        "rows": [
+          [
+            {
+              "type": "text",
+              "value": "甲"
+            },
+            {
+              "decimal": "87",
+              "type": "int"
+            }
+          ],
+          [
+            {
+              "type": "text",
+              "value": "乙"
+            },
+            {
+              "decimal": "92",
+              "type": "int"
+            }
+          ],
+          [
+            {
+              "type": "text",
+              "value": "丙"
+            },
+            {
+              "decimal": "71",
+              "type": "int"
+            }
+          ]
+        ],
+        "type": "table"
+      },
+      {
+        "header": [
+          "名称",
+          "分数"
+        ],
+        "rows": [
+          [
+            {
+              "type": "text",
+              "value": "丙"
+            },
+            {
+              "decimal": "71",
+              "type": "int"
+            }
+          ],
+          [
+            {
+              "type": "text",
+              "value": "甲"
+            },
+            {
+              "decimal": "87",
+              "type": "int"
+            }
+          ],
+          [
+            {
+              "type": "text",
+              "value": "乙"
+            },
+            {
+              "decimal": "92",
+              "type": "int"
+            }
+          ]
+        ],
+        "type": "table"
+      }
+    ],
+    "type": "list"
+  }
+}

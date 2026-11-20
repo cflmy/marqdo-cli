@@ -1,0 +1,22 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "type": "list",
+    "items": [
+      {
+        "type": "list",
+        "items": [
+          {"type": "int", "decimal": "97"},
+          {"type": "int", "decimal": "233"},
+          {"type": "int", "decimal": "20013"}
+        ]
+      },
+      {"type": "text", "value": "中"},
+      {"type": "none"},
+      {"type": "none"},
+      {"type": "int", "decimal": "1"}
+    ]
+  }
+}

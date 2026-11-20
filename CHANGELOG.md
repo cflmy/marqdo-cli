@@ -43,9 +43,84 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   without rewriting `marqdo.lock` or the materialized `.marqdo/env`.
 - G-C lane honours `CARGO_TARGET_DIR`, so a run from a clean `git archive` with
   an external target directory uses the binary it just built.
+- Addressable `Memory` (RFC-CM-0001 P1, ADR-0022): an opaque run-scoped
+  region value with 64 KiB zero-filled pages, grow-only capacity, bounded
+  byte read/write, `memory.new/size/grow`, and `m[offset] = byte`. Copies share
+  the region identity; different regions never alias. Default budgets are
+  64 MiB committed per run and 16 MiB per region; `--max-memory` and
+  `--max-region-memory` override the budgets on `run`/`call`.
+- Memory-index place assignment in the expression/IR model
+  (`AssignTarget::Index` / `PlaceTarget::Index`) with the frozen evaluation
+  order base, index, RHS and no change to `List`/`Map`/`Table` value semantics.
+- Stable `runtime.memory` error category for invalid/stale handles and page
+  counts; `runtime.index` for offsets, `runtime.type` for operand/byte-range
+  errors, `resource.exhausted` for budgets.
+- Analysis v2 projects an index assignment target as an additive
+  `{"kind":"index",...}` object while local targets keep the v1 string.
+- `examples/memory-buffer.mq.md`, semantic goldens 45–47 and runtime negatives
+  13–18 cover sharing, isolation, growth, zero-fill, offsets, byte range,
+  non-Memory index assignment, declared-max growth and negative page counts.
+- Partial RFC-CM P2 closure evidence (`.mq.md` only, no Rust algorithm
+  additions): fixtures 48–50 implement a big-endian u32 codec, a bump
+  allocator, node allocation and a linked-list traversal/sum, and prove that a
+  failed allocation leaves the allocator header unchanged. This is **not** the
+  full P2 gate: JSON floats, table group and a frozen-CLI stdlib closure lane
+  are still missing.
+- `Memory` handles are never transferable: `to_wire` emits a bare rejected tag,
+  `from_wire` fails, and every host/plugin/foreign call rejects arguments that
+  contain a handle.
+- Minimal structure observation/construction (RFC-CM CM-A04, ADR-0023):
+  `list.append/concat`, `map.keys/has/get/set/remove`,
+  `text.codepoints/from_codepoint`, and `table.columns/row/cell`. All are pure,
+  value-returning builtins; inputs are never mutated and no new syntax is
+  added. Semantic fixtures 51–53 and runtime negatives 19–21 cover value
+  semantics, Unicode scalars, table projection, wrong types and bounds.
+- `.mq.md` table filter (`过滤`) built on `table.columns/row/cell`,
+  `list.append` and `表`, with a semantic golden showing the input table is
+  unchanged (fixture 54). No `table.filter`/`HostOp` is added.
+- Recoverable `Result` convention (RFC-CM CM-A05, ADR-0024): an ordinary Map
+  `{ok:true,value}` / `{ok:false,code,message[,details]}`, constructed by
+  `.mq.md` functions, with expected failures recoverable and language
+  invariant violations still fatal. No `Result` type, exception or
+  `try`/`catch` syntax.
+- `.mq.md` first-fit free-list allocator (fixture 55): 8-byte block headers,
+  free-block reuse, block splitting, address-adjacent coalescing (tested in a
+  second region whose bump space is exhausted, so only a merged block can
+  satisfy the request), non-overlapping reused payloads and `alloc.no_space`
+  returned as a `Result` without aborting the run. No allocator Rust builtin or
+  `HostOp` was added.
+
+- `.mq.md` P2 closures beyond the first slice: binary tree insert/in-order
+  traversal (56), CSV row splitter (57), open-addressing hash table (58),
+  UTF-8 encoder/validating decoder (59–60), graph adjacency list (61),
+  recursive JSON parser for arrays/objects/strings (62), stack bytecode VM
+  (63), 16/32/64-bit + LEB128 codecs (64), table sort (65), table equality join
+  (67) and quoted/escaped CSV (68). No Rust algorithm, container or parser was
+  added for these; algorithms remain `.mq.md` code. JSON floats remain open.
+- Resource/stream first slice (RFC-CM CM-A06, ADR-0025): opaque host-issued
+  `Resource` handles, `resource.open/read/write/close`, bytes transferred
+  through `Memory`, stdout write in pure/project under console/output budgets,
+  granted project-file chunked read in project, EOF as success, closed-handle
+  Result errors, forged-handle fatal errors, wire/host-boundary rejection, and
+  strict refusing every resource open. Semantic fixture 66 and host/CLI tests.
+- Buffered project-file write streams (ADR-0026): `file` + `["write"]` requires
+  an `fs_write` grant, buffers in the host, flushes only on `close`, never
+  flushes on drop, has an 8 MiB ceiling, and is refused in pure/strict. A
+  `.mq.md` chunked copy loop reproduces a file without a Rust `copy_file`.
+- CM-A07 **Compat-A** prototype (ADR-0027): `examples/stdlib/` provides
+  `format.显示`, UTF-8 encoding and `io.写值` (`resource.write(stdout)`), and
+  its output is comparison-tested byte-for-byte against builtin `打印` for
+  Unit/None/Bool/Int/Float/Text/List/Map/Table. Builtin `打印` remains the
+  default; no alias routing, bundled stdlib or `HostOp::Print` removal; the
+  other value types lack public observation.
 
 ### Changed
 
+- Assignment targets are no longer restricted to bare identifiers: a single
+  index place is accepted at statement level. Member assignment stays a parse
+  error; chained assignment stays a parse error. `spec/expression.ebnf`,
+  `spec/evaluation.md`, `spec/value-wire.md`, `spec/analysis-v2.md` and
+  `spec/security.md` document the new semantics.
 - `docs/STABLE_RELEASE_IMPLEMENTATION.md` is the single next-phase
   implementation plan. Older plan documents are historical input, not current
   status.

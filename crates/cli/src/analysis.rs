@@ -8,7 +8,9 @@
 use std::path::Path;
 
 use marqdo_expression::{BinaryOp, Expr, UnaryOp};
-use marqdo_ir::{CallTarget, Function, Module, ModuleId, Resource, SignatureKind, Stmt, UnitKind};
+use marqdo_ir::{
+    CallTarget, Function, Module, ModuleId, PlaceTarget, Resource, SignatureKind, Stmt, UnitKind,
+};
 use marqdo_span::Span;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -232,13 +234,31 @@ fn function_json(function: &Function) -> Value {
     })
 }
 
+/// Project an assignment place. Local targets keep the v1 string form; the new
+/// index target is an additive object so existing consumers that compare the
+/// local `target` string are unaffected (Analysis v2, ADR-0022).
+fn place_json(place: &PlaceTarget) -> Value {
+    match place {
+        PlaceTarget::Local { name, .. } => Value::String(name.clone()),
+        PlaceTarget::Index { base, index, span } => json!({
+            "kind": "index",
+            "base": expr_json(base),
+            "index": expr_json(index),
+            "span": span_json(*span),
+        }),
+    }
+}
+
 fn stmt_json(stmt: &Stmt) -> Value {
     match stmt {
         Stmt::Assign {
-            name, value, span, ..
+            target,
+            value,
+            span,
+            ..
         } => json!({
             "kind": "assign",
-            "target": name,
+            "target": place_json(target),
             "value": expr_json(value),
             "span": span_json(*span),
         }),
@@ -497,9 +517,14 @@ fn collect_calls(
 ) {
     for stmt in body {
         match stmt {
-            Stmt::Assign { value, .. } | Stmt::Eval { expr: value, .. } => {
-                expr_calls(project, module, function, value, calls)
+            Stmt::Assign { target, value, .. } => {
+                if let PlaceTarget::Index { base, index, .. } = target {
+                    expr_calls(project, module, function, base, calls);
+                    expr_calls(project, module, function, index, calls);
+                }
+                expr_calls(project, module, function, value, calls);
             }
+            Stmt::Eval { expr: value, .. } => expr_calls(project, module, function, value, calls),
             Stmt::Return { value, .. } => expr_calls(project, module, function, value, calls),
             Stmt::Call { call, span } => calls.push(json!({
                 "function": function.id.to_string(),

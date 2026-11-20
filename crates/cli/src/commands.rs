@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use marqdo_host::{Capabilities, Host, StdHost};
-use marqdo_runtime::{run, EvaluatedArg, RuntimeError, Value};
+use marqdo_runtime::{run_with_limits, EvaluatedArg, MemoryLimits, RuntimeError, Value};
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
 use marqdo_span::Span;
 use serde_json::json;
@@ -32,6 +32,10 @@ pub struct SandboxSettings {
     pub stack: Option<usize>,
     /// Output limit override.
     pub max_output: Option<usize>,
+    /// Total committed addressable-memory budget override (bytes).
+    pub max_memory: Option<usize>,
+    /// Per-region committed addressable-memory budget override (bytes).
+    pub max_region_memory: Option<usize>,
     /// Wall-clock timeout in seconds.
     pub timeout: Option<u64>,
     /// Explicitly trusted plugin manifests to load.
@@ -884,12 +888,21 @@ pub fn execute(
         .iter()
         .map(|(name, value)| EvaluatedArg::named(name.clone(), value.clone(), Span::default()))
         .collect();
-    let result = run(
+    let memory_limits = MemoryLimits {
+        max_total_bytes: settings
+            .max_memory
+            .unwrap_or(marqdo_runtime::DEFAULT_MAX_TOTAL_BYTES),
+        max_region_bytes: settings
+            .max_region_memory
+            .unwrap_or(marqdo_runtime::DEFAULT_MAX_REGION_BYTES),
+    };
+    let result = run_with_limits(
         &project.program,
         &mut host,
         &project.entry,
         &function_name,
         runtime_args,
+        memory_limits,
     );
     if let Some(path) = &settings.trace_file {
         let status = match &result {

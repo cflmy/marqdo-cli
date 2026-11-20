@@ -81,12 +81,33 @@ executes anything.
 ## What works (implemented and tested)
 
 * **P0 contracts** — frozen Markdown profile, AST → program mapping, strict
-  expression grammar, evaluation semantics; 160 AST goldens, 44 semantic
-  goldens, 52 compile-error fixtures and 12 runtime-error fixtures
+  expression grammar, evaluation semantics; 160 AST goldens, 68 semantic
+  goldens, 52 compile-error fixtures and 21 runtime-error fixtures
   (`tests/`).
 * **P1 interpreter** — native Rust tree-walk interpreter: values, scopes,
   functions, static parameter inference, assignments, branches, loops,
   returns, recursion, structured errors, fuel/stack/output budgets.
+* **Addressable memory (RFC-CM P1)** — opaque run-scoped `Memory` regions with
+  64 KiB zero-filled pages, grow-only `memory.new/size/grow`, bounded byte
+  read/write, `m[i] = byte`, run/per-region budgets, host-boundary and wire
+  rejection (ADR-0022).
+* **Minimal structure primitives (RFC-CM CM-A04)** — value-semantics
+  `list.append/concat`, `map.keys/has/get/set/remove`, Unicode scalar
+  `text.codepoints/from_codepoint`, and non-negative `table.columns/row/cell`;
+  pure builtins with no mutation or new syntax (ADR-0023).
+* **Recoverable results (RFC-CM CM-A05)** — `{ok:true,value}` /
+  `{ok:false,code,message}` as an ordinary Map, with a `.mq.md` first-fit
+  free-list allocator demonstrating reuse, splitting and `alloc.no_space`
+  recovery (ADR-0024). No `Result` type or exception syntax.
+* **Stdlib print prototype (RFC-CM CM-A07 Compat-A)** — ordinary imported
+  `.mq.md` `format.显示` + UTF-8 + `resource.write(stdout)` matches builtin
+  `打印` for the covered value set; the builtin is still the default and no
+  alias is routed (ADR-0027).
+* **Resource streams (RFC-CM CM-A06)** — opaque host-issued `Resource` handles;
+  `resource.open/read/write/close` transfer bytes through `Memory`; stdout
+  write in pure/project, granted project-file read, and buffered project-file
+  write flushed on `close` in project; strict refuses all resource opens until
+  verified (ADR-0025/0026).
 * **P2 references + CLI** — explicit YAML front-matter imports, `ModuleId`/
   `UnitId`/anchors, import cycle detection, multi-module calls,
   `run/call/check/inspect/fmt`, reference validation (`check --refs`) and the

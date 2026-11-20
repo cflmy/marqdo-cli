@@ -6,9 +6,9 @@
 //! diagnostics and never fall back to prose.
 
 use marqdo_expression::{
-    parse_arguments, parse_expression, parse_statement, Arg, Expr, StatementKind,
+    parse_arguments, parse_expression, parse_statement, Arg, AssignTarget, Expr, StatementKind,
 };
-use marqdo_ir::{CallSite, CallTarget, ImportDecl, Stmt};
+use marqdo_ir::{CallSite, CallTarget, ImportDecl, PlaceTarget, Stmt};
 use marqdo_markdown::{normalize_name, MarkdownDocument, MdKind, MdNode};
 use marqdo_span::Span;
 use marqdo_value::{codes, Diagnostic};
@@ -143,13 +143,21 @@ impl<'a> Mapper<'a> {
             Ok(mut statement) => {
                 segments.rewrite_statement(&mut statement);
                 Some(match statement.kind {
-                    StatementKind::Assign {
-                        name,
-                        name_span,
-                        value,
-                    } => Stmt::Assign {
-                        name,
-                        name_span,
+                    StatementKind::Assign { target, value } => Stmt::Assign {
+                        target: match target {
+                            AssignTarget::Local { name, name_span } => {
+                                PlaceTarget::Local { name, name_span }
+                            }
+                            AssignTarget::Index {
+                                base,
+                                index,
+                                span: target_span,
+                            } => PlaceTarget::Index {
+                                base: *base,
+                                index: *index,
+                                span: target_span,
+                            },
+                        },
                         value,
                         span: node.span,
                     },

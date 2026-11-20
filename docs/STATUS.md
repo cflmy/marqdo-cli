@@ -71,7 +71,7 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 | 2 | Cross-platform strict `cfg` | **Fixed locally; native CI UNVERIFIED** | `#[cfg]` dispatch + non-Linux regression test |
 | 3 | Strict probe→launch race | **Fixed locally; GitHub Linux CI UNVERIFIED** | fail-closed CLI contract + probe-OK/launch-EAGAIN seam test |
 | 4 | Parallel security matrix isolation | **Fixed** | unique paths + helper `OnceLock`; 7/7 in parallel workspace run |
-| 5 | Markdown/power/control-flow corpus | **Done locally** | 160 AST, 44 semantic, 52 compile-negative, 12 runtime-negative fixtures |
+| 5 | Markdown/power/control-flow corpus | **Done locally** | 160 AST, 68 semantic, 52 compile-negative, 21 runtime-negative fixtures |
 | 6 | Condition header + source spans | **Fixed** | executable tails rejected; literal-inside-backtick mapping tests |
 | 7 | Independent Tool consumers | **Done locally** | `sample-view`/`sample-knowledge`/`sample-proof` E2E test |
 | 8 | lock v3 reproducibility | **Implemented; tamper test added** | `package_env` PASS |
@@ -86,7 +86,7 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 
 - Frozen Markdown profile `marqdo.md.v1` with 160 AST goldens and explicit
   CRLF byte semantics.
-- Native Rust interpreter with 44 semantic goldens, 52 compile-error fixtures,
+- Native Rust interpreter with 68 semantic goldens, 52 compile-error fixtures,
   and runtime error source attribution.
 - Native `**` power is pinned end-to-end: right associativity, unary-minus
   precedence, parentheses, float negative exponents, branch/loop conditions,
@@ -109,6 +109,31 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   version verification.
 - Linux strict L1: Bubblewrap namespace supervisor, runtime probe, fail-closed
   launch, child self-verification, 7/7 adversarial matrix.
+- Addressable memory (RFC-CM P1, ADR-0022): opaque `Memory` values shared by
+  handle identity, region isolation, zero-filled 64 KiB page growth, bounded
+  byte read/write, `memory.new/size/grow`, `m[i] = byte`, run and per-region
+  budgets, host/wire rejection, Analysis v2 target projection.
+- Recoverable `Result` convention (RFC-CM CM-A05, ADR-0024): success is
+  `{ok:true,value:...}`, failure is `{ok:false,code,message[,details]}` as an
+  ordinary Map; expected conditions return it, invariant violations stay
+  fatal. A `.mq.md` first-fit/free-list allocator reuses blocks, splits free
+  blocks, coalesces address-adjacent blocks and returns `alloc.no_space`
+  without aborting.
+- CM-A07 Compat-A (ADR-0027): explicit `.mq.md` `io.写值` chain
+  (`format.显示` → UTF-8 encode → `Memory` → `resource.write(stdout)`) matches
+  builtin `打印` for the covered value set; builtin remains default and no
+  alias is routed.
+- Resource streams (RFC-CM CM-A06, ADR-0025): opaque host-issued `Resource`
+  handles with `resource.open/read/write/close`; bytes move only through
+  `Memory`; stdout write is capability/output-budget checked and project-file
+  read/write is path/grant checked; file writes buffer until `close` and
+  never flush on drop; a `.mq.md` chunked copy loop reproduces a file without a
+  Rust `copy_file`; strict refuses every resource open until a provider is
+  verified. Semantic fixture 66 and CLI/host tests.
+- Minimal structure observation/construction (RFC-CM CM-A04, ADR-0023):
+  value-semantics `list.append/concat`, `map.keys/has/get/set/remove`,
+  Unicode scalar `text.codepoints`/`text.from_codepoint`, and non-negative
+  `table.columns/row/cell`. Pure builtins; no mutation, no new syntax.
 
 ## 4. Open blockers and limits
 
@@ -121,25 +146,59 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
    fixture lane, Unix-gated worker tests).
 4. `fs.write`, `net.request`, `process`, `clock`, `random` are not executed
    broker services; unsupported requests must return `capability.unavailable`.
-5. uv/npm/venv provisioning is not implemented. Only a pre-provisioned,
+5. Resource streams are a **P3 first slice** only: project-file read and
+   buffered write plus stdout, but no directories, network, process, device,
+   generic provider or stdlib `print` migration; strict refuses every
+   `resource.open` until the provider passes the isolation lane.
+6. uv/npm/venv provisioning is not implemented. Only a pre-provisioned,
    digest-pinned directory with a regular-file executable is supported.
-6. No Windows/macOS RC archive exists from this host. The release-candidate
+7. No Windows/macOS RC archive exists from this host. The release-candidate
    workflow can build macOS on GitHub, but it has not run for this SHA.
-7. No release tag/binary publication. The release decision is **DO NOT
+8. No release tag/binary publication. The release decision is **DO NOT
    RELEASE** until the native CI matrix and a security-lane CI URL exist.
 
-## 5. Evidence files
+## 5. RFC-CM compute-machine status
+
+The two 2026-11-20 architecture RFCs are design input, not implemented
+behavior. This table records only what is in this tree now.
+
+| RFC phase | State | Evidence / limit |
+|---|---|---|
+| P0 freeze (ADRs, spec deltas, baseline) | **P1 + partial P2 slice done** | ADR-0022 freezes CM-A01/CM-A02/CM-A03; ADR-0023 freezes CM-A04 (minimal List/Map/Text/Table observation and construction); ADR-0024 freezes CM-A05 (recoverable `Result` map convention); `spec/expression.ebnf`, `spec/evaluation.md`, `spec/value-wire.md`, `spec/analysis-v2.md`, `spec/security.md` updated; existing AST/value goldens unchanged |
+| P1 Memory + place assignment | **Implemented locally** | `Value::Memory`, run-scoped `MemoryStore` (64 KiB pages, 64 MiB total / 16 MiB region), `memory.new/size/grow`, `m[i]` read, `m[i] = byte`; semantic fixtures 45–47, runtime negatives 13–18, `examples/memory-buffer.mq.md`; evidence [`evidence/2026-11-20-memory-p1.md`](evidence/2026-11-20-memory-p1.md) |
+| P2 Marqdo-written allocator/data structures + minimal structure observation | **PARTIAL, gate NOT passed** | `.mq.md`-only evidence: bump allocator with u32 codec, linked list, failed-allocation atomicity (48–50); CM-A04 structure primitives and a table filter (51–54, ADR-0023); a first-fit free-list allocator with block reuse, splitting, address-adjacent coalescing and `Result` maps (55, ADR-0024), a `Memory`-backed binary tree with recursive insert/in-order traversal (56), a `.mq.md` CSV row splitter (57), an open-addressing hash table with linear probing, update and `hash.full` (58), a `.mq.md` UTF-8 encoder over `Memory` (59), a validating UTF-8 decoder rejecting truncated, bad-continuation and surrogate/overlong input (60), a `Memory`-backed graph adjacency list (61), a recursive JSON parser for nested arrays/objects, strings with escapes, integers, booleans, null and error Results (62), a `Memory`-backed stack bytecode VM with PUSH/ADD/MUL/JMP/JZ/HALT (63), big-endian 16/32/64-bit plus LEB128 integer codecs (64), a `.mq.md` table sort rebuilding a new table from `table.row/columns/cell` (65), a table join (67), and a quoted/escaped CSV row parser (68). Evidence: [`memory-p2-closure`](evidence/2026-11-20-memory-p2-closure.md), [`structure-api-p2`](evidence/2026-11-20-structure-api-p2.md), [`result-and-free-list-p2`](evidence/2026-11-20-result-and-free-list-p2.md). Still missing: separate `marqdo-stdlib` repo, JSON floats, table group, EOF/partial stream contract, and a frozen-CLI closure lane. |
+| P3 Resource/Stream ABI | **PARTIAL** | ADR-0025/0026 CM-A06 slices: opaque `Resource`, `resource.open/read/write/close`, stdout write in pure/project, granted project-file read and buffered project-file write in project, EOF/closed/handle errors, wire/host rejection; strict refuses all opens. Fixture 66 + CLI/host tests. CM-A07 is **Compat-A only**: `examples/stdlib` provides an explicitly imported `.mq.md` `format/utf8/io` chain whose output matches builtin `打印` for Unit/None/Bool/Int/Float/Text/List/Map/Table; builtin `打印` remains default, no alias routing, and Formula/Code/FunctionRef/PluginHandle formatting is still unobservable. Still missing: Compat-B/C, directories, network, generic provider registry. |
+| P4 Table logical/physical migration | **NOT IMPLEMENTED** | `Value::Table` remains `Vec<Vec<Value>>`; no stdlib table algorithms |
+| P5 third-party Provider / TCP / HTTP | **NOT IMPLEMENTED** | `fs.write`, `net.request`, `process`, `clock`, `random` remain unavailable broker services (see §4) |
+| P6 performance / native backends | **NOT IMPLEMENTED** | no bytecode/JIT/GPU/QPU work |
+
+The P1 memory domain is pure computation: it needs no grant and is available in
+`pure`, `project` and `strict` (bounded by the memory budgets). It adds no
+`HostOp`, no Markdown role and no CLI command. `Memory` handles cannot cross
+the wire or a host/plugin/foreign boundary. Block-level safety of a
+user-written allocator is explicitly **not** claimed.
+
+## 6. Evidence files
 
 - [`evidence/2026-11-20-local-gate.md`](evidence/2026-11-20-local-gate.md) —
   earlier local gate and Windows autocrlf reproduction.
 - [`evidence/2026-11-20-strict-gc-8af7262.md`](evidence/2026-11-20-strict-gc-8af7262.md)
   — current VM lane, environment, full log and workspace test log.
+- [`evidence/2026-11-20-resource-stream-p3.md`](evidence/2026-11-20-resource-stream-p3.md)
+  — CM-A06 first slice: stdout write, project-file chunked read, strict refusal,
+  wire/host boundary rejection and test commands.
+- [`evidence/2026-11-20-resource-file-write-p3.md`](evidence/2026-11-20-resource-file-write-p3.md)
+  — buffered project-file write, flush-on-close, buffer ceiling, grants and
+  CLI write-then-read evidence.
+- [`evidence/2026-11-20-stdlib-print-compat-a.md`](evidence/2026-11-20-stdlib-print-compat-a.md)
+  — CM-A07 Compat-A `.mq.md` print prototype, side-by-side output comparison,
+  covered/uncovered value types and the Compat-B blocker.
 - [`evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md`](evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md)
   — G0..G12 matrix and RC decision.
 - [`security-gate.md`](security-gate.md) — mechanism, attack matrix and strict
   L1/L2 limits.
 
-## 6. Reproduce
+## 7. Reproduce
 
 ```bash
 export PATH="$HOME/.cargo/bin:$PATH"

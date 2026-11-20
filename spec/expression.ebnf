@@ -1,5 +1,6 @@
 (* Marqdo Expression Grammar v1
-   Status: frozen for M0.5. This is the only grammar for executable payloads.
+   Status: frozen for M0.5, extended by ADR-0022 with Memory-index assignment
+   targets. This is the only grammar for executable payloads.
    It is a small independent language: it is NOT Markdown and NOT translated
    to Python. Markdown AST decides where a payload exists; this grammar
    decides what it means.
@@ -10,9 +11,13 @@
 program        = [ statement ] , EOF ;
 
 statement      = assignment | expression ;
-assignment     = identifier , "=" , expression ;
-(* "=" is a single "=" token; "==" is a distinct token. Assignment targets
-   are bare identifiers only: no member or index assignment in v1. *)
+assignment     = assign_target , "=" , expression ;
+assign_target  = identifier
+               | postfix_expr , "[" , expression , "]" ;
+(* v1 left-hand sides are a local identifier or one index place. The index
+   target writes one byte into an addressable Memory region; other base values
+   are rejected at run time. Member assignment (`a.b = 1`) is a parse error.
+   Chained assignment is a parse error. See ADR-0022. *)
 
 expression     = or_expr ;
 or_expr        = and_expr , { "or" , and_expr } ;

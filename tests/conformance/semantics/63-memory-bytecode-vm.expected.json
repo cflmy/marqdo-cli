@@ -1,0 +1,36 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "items": [
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "36",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "42",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      }
+    ],
+    "type": "list"
+  }
+}

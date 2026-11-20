@@ -167,6 +167,144 @@ const FS_WRITE: Builtin = Builtin {
     named_only: false,
     effectful: true,
 };
+const MEMORY_NEW: Builtin = Builtin {
+    name: "memory.new",
+    aliases: &[],
+    params: &[req("initial_pages"), req("max_pages")],
+    named_only: false,
+    effectful: false,
+};
+const MEMORY_SIZE: Builtin = Builtin {
+    name: "memory.size",
+    aliases: &[],
+    params: &[req("memory")],
+    named_only: false,
+    effectful: false,
+};
+const MEMORY_GROW: Builtin = Builtin {
+    name: "memory.grow",
+    aliases: &[],
+    params: &[req("memory"), req("pages")],
+    named_only: false,
+    effectful: false,
+};
+const LIST_APPEND: Builtin = Builtin {
+    name: "list.append",
+    aliases: &[],
+    params: &[req("list"), req("value")],
+    named_only: false,
+    effectful: false,
+};
+const LIST_CONCAT: Builtin = Builtin {
+    name: "list.concat",
+    aliases: &[],
+    params: &[req("left"), req("right")],
+    named_only: false,
+    effectful: false,
+};
+const MAP_KEYS: Builtin = Builtin {
+    name: "map.keys",
+    aliases: &[],
+    params: &[req("map")],
+    named_only: false,
+    effectful: false,
+};
+const MAP_HAS: Builtin = Builtin {
+    name: "map.has",
+    aliases: &[],
+    params: &[req("map"), req("key")],
+    named_only: false,
+    effectful: false,
+};
+const MAP_GET: Builtin = Builtin {
+    name: "map.get",
+    aliases: &[],
+    params: &[req("map"), req("key")],
+    named_only: false,
+    effectful: false,
+};
+const MAP_SET: Builtin = Builtin {
+    name: "map.set",
+    aliases: &[],
+    params: &[req("map"), req("key"), req("value")],
+    named_only: false,
+    effectful: false,
+};
+const MAP_REMOVE: Builtin = Builtin {
+    name: "map.remove",
+    aliases: &[],
+    params: &[req("map"), req("key")],
+    named_only: false,
+    effectful: false,
+};
+const TEXT_CODEPOINTS: Builtin = Builtin {
+    name: "text.codepoints",
+    aliases: &[],
+    params: &[req("text")],
+    named_only: false,
+    effectful: false,
+};
+const TEXT_FROM_CODEPOINT: Builtin = Builtin {
+    name: "text.from_codepoint",
+    aliases: &[],
+    params: &[req("codepoint")],
+    named_only: false,
+    effectful: false,
+};
+const TABLE_COLUMNS: Builtin = Builtin {
+    name: "table.columns",
+    aliases: &[],
+    params: &[req("table")],
+    named_only: false,
+    effectful: false,
+};
+const TABLE_ROW: Builtin = Builtin {
+    name: "table.row",
+    aliases: &[],
+    params: &[req("table"), req("row")],
+    named_only: false,
+    effectful: false,
+};
+const RESOURCE_OPEN: Builtin = Builtin {
+    name: "resource.open",
+    aliases: &[],
+    params: &[req("kind"), req("descriptor"), req("rights")],
+    named_only: false,
+    effectful: true,
+};
+const RESOURCE_READ: Builtin = Builtin {
+    name: "resource.read",
+    aliases: &[],
+    params: &[
+        req("handle"),
+        req("memory"),
+        req("offset"),
+        req("max_bytes"),
+    ],
+    named_only: false,
+    effectful: true,
+};
+const RESOURCE_WRITE: Builtin = Builtin {
+    name: "resource.write",
+    aliases: &[],
+    params: &[req("handle"), req("memory"), req("offset"), req("length")],
+    named_only: false,
+    effectful: true,
+};
+const RESOURCE_CLOSE: Builtin = Builtin {
+    name: "resource.close",
+    aliases: &[],
+    params: &[req("handle")],
+    named_only: false,
+    effectful: true,
+};
+const TABLE_CELL: Builtin = Builtin {
+    name: "table.cell",
+    aliases: &[],
+    params: &[req("table"), req("row"), req("column")],
+    named_only: false,
+    effectful: false,
+};
 
 /// All builtins known to the language. Host availability is decided at call
 /// time by the capability layer, not here.
@@ -188,6 +326,25 @@ pub const BUILTINS: &[Builtin] = &[
     FOREIGN_CALL,
     FS_READ,
     FS_WRITE,
+    MEMORY_NEW,
+    MEMORY_SIZE,
+    MEMORY_GROW,
+    LIST_APPEND,
+    LIST_CONCAT,
+    MAP_KEYS,
+    MAP_HAS,
+    MAP_GET,
+    MAP_SET,
+    MAP_REMOVE,
+    TEXT_CODEPOINTS,
+    TEXT_FROM_CODEPOINT,
+    TABLE_COLUMNS,
+    TABLE_ROW,
+    TABLE_CELL,
+    RESOURCE_OPEN,
+    RESOURCE_READ,
+    RESOURCE_WRITE,
+    RESOURCE_CLOSE,
 ];
 
 /// Find a builtin by canonical name or alias.

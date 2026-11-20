@@ -27,8 +27,8 @@ Normative implementation:
 | Mode | Intended guarantee | Actual status in this build |
 |---|---|---|
 | `pure` | No external I/O; memory computation and budgets only. | **Enforced.** `Capabilities::pure()` = `console`, `math` only; every FS/foreign/plugin grant flag makes the CLI exit 2 with "pure mode prohibits external I/O grants". |
-| `project` | Operator-approved project resources under `CapabilityHost` + bounded resources. | **Enforced for the implemented operations.** Defaults equal `pure`; `--allow-read`, `--allow-write`, `--allow-foreign`, `--allow-plugin` add grants. Sandboxing is cooperative (in-process checks), not OS isolation. |
-| `strict` | Untrusted documents under real OS isolation. | **Linux: enforced when the runtime probe passes (ADR-0021).** `PlatformCapabilities::detect()` runs a real Bubblewrap smoke test; success reports `Available { mechanism }`, failure reports `Unavailable { reason }`. Strict L1 supports the interpreter, console and native Math only; `--allow-read/--allow-write/--allow-foreign/--allow-plugin/--plugin/--trust-native-plugin/--kernel/--trace-file` are rejected with exit 2. macOS/Windows and Linux hosts without the mechanisms remain `Unavailable`; there is **no fallback** to an unrestricted process. |
+| `project` | Operator-approved project resources under `CapabilityHost` + bounded resources. | **Enforced for the implemented operations.** Defaults equal `pure`; `--allow-read`, `--allow-write`, `--allow-foreign`, `--allow-plugin` add grants. `resource.open` supports stdout write, granted project-file read and granted buffered project-file write (ADR-0025/0026); network/process remain unsupported. Sandboxing is cooperative (in-process checks), not OS isolation. |
+| `strict` | Untrusted documents under real OS isolation. | **Linux: enforced when the runtime probe passes (ADR-0021).** `resource.open` is **refused** in strict until a provider passes the isolation lane (CM-A11). `PlatformCapabilities::detect()` runs a real Bubblewrap smoke test; success reports `Available { mechanism }`, failure reports `Unavailable { reason }`. Strict L1 supports the interpreter, console and native Math only; `--allow-read/--allow-write/--allow-foreign/--allow-plugin/--plugin/--trust-native-plugin/--kernel/--trace-file` are rejected with exit 2. macOS/Windows and Linux hosts without the mechanisms remain `Unavailable`; there is **no fallback** to an unrestricted process. |
 
 `marqdo inspect <file> --platform` prints the detection report, for example:
 
@@ -55,10 +55,10 @@ set for one run:
 
 | Field | Default (`pure`/`project`) | Used by |
 |---|---|---|
-| `console: bool` | `true` | currently **not checked** by `op_print`; print is always allowed and only bounded by the output budget (open item) |
+| `console: bool` | `true` | `op_print` and `resource.open("stdio","stdout",["write"])`; a missing grant is `permission.denied` and output is also bounded by the output budget |
 | `math: bool` | `true` | `math.*` host ops |
-| `fs_read: Vec<String>` | empty | `fs.read` |
-| `fs_write: Vec<String>` | empty | `fs.write` |
+| `fs_read: Vec<String>` | empty | `fs.read` and project `resource.open("file", path, ["read"])` |
+| `fs_write: Vec<String>` | empty | `fs.write` and project `resource.open("file", path, ["write"])` |
 | `net_hosts: Vec<String>` | empty | `Capabilities::check_net` exists, but no host op or builtin performs network access in this build |
 | `process: bool` | `false` | required together with `foreign` for `foreign.run`/`foreign.call` |
 | `foreign: bool` | `false` | foreign kernels |
@@ -144,6 +144,8 @@ no host bypass for tests: tests use the same `StdHost`/`Capabilities` types.
 | call stack depth | `DEFAULT_STACK_LIMIT = 256` | checked before every function call → `resource.exhausted` |
 | program output bytes | `DEFAULT_OUTPUT_BYTES = 1 MiB` | `print` output and `fs.read` contents are charged; overflow → `resource.exhausted` |
 | wall clock | none by default | `--timeout <seconds>` sets a deadline; checked between statements/iterations and before loop conditions → `resource.exhausted`. It does **not** preempt a running host call. |
+| addressable memory | 64 MiB committed total, 16 MiB per region, 64 KiB pages; `--max-memory` / `--max-region-memory` override | Runtime-owned `MemoryStore` (ADR-0022); create/grow checks both budgets before allocation and failed growth is atomic → `resource.exhausted`. Memory is pure computation and needs no capability grant in any mode. |
+| resource streams | stdout writes charged to the existing output budget; file reads and writer buffers bounded by the 8 MiB per-file limit | Host-owned resource table (ADR-0025/0026); output budget is checked before a stdout write is buffered; a failed check produces no bytes; writer buffers flush only on `close`. No separate I/O byte budget yet. |
 
 CLI overrides (`run`/`call`): `--fuel`, `--stack`, `--max-output`,
 `--timeout`. Additional fixed limits:

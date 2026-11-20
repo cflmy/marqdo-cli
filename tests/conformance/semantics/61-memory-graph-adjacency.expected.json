@@ -1,0 +1,48 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "items": [
+      {
+        "decimal": "8",
+        "type": "int"
+      },
+      {
+        "decimal": "24",
+        "type": "int"
+      },
+      {
+        "decimal": "40",
+        "type": "int"
+      },
+      {
+        "items": [
+          {
+            "decimal": "40",
+            "type": "int"
+          },
+          {
+            "decimal": "24",
+            "type": "int"
+          }
+        ],
+        "type": "list"
+      },
+      {
+        "items": [
+          {
+            "decimal": "40",
+            "type": "int"
+          }
+        ],
+        "type": "list"
+      },
+      {
+        "items": [],
+        "type": "list"
+      }
+    ],
+    "type": "list"
+  }
+}

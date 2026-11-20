@@ -1,0 +1,61 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "你好，资源！\n",
+  "value": {
+    "items": [
+      {
+        "type": "text",
+        "value": "Resource"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "entries": {
+              "count": {
+                "decimal": "19",
+                "type": "int"
+              }
+            },
+            "type": "map"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "type": "none"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "code": {
+            "type": "text",
+            "value": "resource.closed"
+          },
+          "message": {
+            "type": "text",
+            "value": "Resource handle is closed"
+          },
+          "ok": {
+            "type": "bool",
+            "value": false
+          }
+        },
+        "type": "map"
+      }
+    ],
+    "type": "list"
+  }
+}

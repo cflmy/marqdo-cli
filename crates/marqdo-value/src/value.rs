@@ -75,6 +75,88 @@ pub struct PluginHandle {
     pub id: u64,
 }
 
+/// Opaque identity of one runtime-managed byte region (ADR-0022).
+///
+/// A handle is issued only by the runtime's `MemoryStore`. Copying a `Memory`
+/// value or passing it as an argument preserves this identity, so two names
+/// can observe each other's writes. The fields are deliberately not part of
+/// any wire format: [`crate::wire`] rejects the `memory` tag on decode, and no
+/// public constructor accepts untrusted data. There is no `usize` address in
+/// the language value; offsets are region-relative integers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MemoryHandle {
+    run: u64,
+    region: u64,
+    generation: u64,
+}
+
+impl MemoryHandle {
+    /// Create a handle. Only the runtime store may call this; users cannot
+    /// construct one from a number, a document or wire data.
+    #[doc(hidden)]
+    pub const fn from_runtime(run: u64, region: u64, generation: u64) -> Self {
+        Self {
+            run,
+            region,
+            generation,
+        }
+    }
+
+    /// Run identity this region belongs to.
+    pub const fn run_id(&self) -> u64 {
+        self.run
+    }
+
+    /// Region identity within the run.
+    pub const fn region_id(&self) -> u64 {
+        self.region
+    }
+
+    /// Generation of the region slot (guards a future reuse policy).
+    pub const fn generation(&self) -> u64 {
+        self.generation
+    }
+}
+
+/// Opaque host-issued handle to an external resource/stream (ADR-0025).
+///
+/// Fields are private and the constructor is host-only. A handle is never
+/// built from wire data or a user integer; it is a different domain from
+/// `Memory` and cannot be indexed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ResourceHandle {
+    run: u64,
+    resource: u64,
+    generation: u64,
+}
+
+impl ResourceHandle {
+    /// Host-only constructor.
+    #[doc(hidden)]
+    pub const fn from_host(run: u64, resource: u64, generation: u64) -> Self {
+        Self {
+            run,
+            resource,
+            generation,
+        }
+    }
+
+    /// Host run identity.
+    pub const fn run_id(&self) -> u64 {
+        self.run
+    }
+
+    /// Resource slot identity.
+    pub const fn resource_id(&self) -> u64 {
+        self.resource
+    }
+
+    /// Slot generation.
+    pub const fn generation(&self) -> u64 {
+        self.generation
+    }
+}
+
 /// A Marqdo runtime value.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -104,6 +186,11 @@ pub enum Value {
     FunctionRef(FunctionRef),
     /// Host-owned plugin handle.
     PluginHandle(PluginHandle),
+    /// Runtime-owned addressable byte region (RFC-CM-0001). Copies share the
+    /// same region identity; they are not byte snapshots.
+    Memory(MemoryHandle),
+    /// Host-owned external resource/stream handle (ADR-0025).
+    Resource(ResourceHandle),
 }
 
 impl Value {
@@ -123,6 +210,8 @@ impl Value {
             Value::Code(_) => "Code",
             Value::FunctionRef(_) => "FunctionRef",
             Value::PluginHandle(_) => "PluginHandle",
+            Value::Memory(_) => "Memory",
+            Value::Resource(_) => "Resource",
         }
     }
 
@@ -200,6 +289,44 @@ impl Value {
             Value::Code(c) => format!("Code({:?}, {} bytes)", c.language, c.source.len()),
             Value::FunctionRef(r) => format!("FunctionRef({}::{})", r.module, r.name),
             Value::PluginHandle(h) => format!("PluginHandle({}::{})", h.plugin, h.export),
+            // Never render the runtime handle: internal region identity is not
+            // observable program data (RFC-CM-0001 §8).
+            Value::Memory(_) => "Memory".to_string(),
+            // Resource identity is host-private and never program data.
+            Value::Resource(_) => "Resource".to_string(),
+        }
+    }
+
+    /// Whether this value contains a live `Memory` handle anywhere.
+    ///
+    /// Used at the host/plugin/foreign boundary, which must reject handles
+    /// instead of serializing them.
+    pub fn contains_memory(&self) -> bool {
+        match self {
+            Value::Memory(_) => true,
+            Value::List(items) => items.iter().any(Value::contains_memory),
+            Value::Map(entries) => entries.values().any(Value::contains_memory),
+            Value::Table(table) => table
+                .rows
+                .iter()
+                .flat_map(|row| row.iter())
+                .any(Value::contains_memory),
+            _ => false,
+        }
+    }
+
+    /// Whether this value contains a live `Resource` handle anywhere.
+    pub fn contains_resource(&self) -> bool {
+        match self {
+            Value::Resource(_) => true,
+            Value::List(items) => items.iter().any(Value::contains_resource),
+            Value::Map(entries) => entries.values().any(Value::contains_resource),
+            Value::Table(table) => table
+                .rows
+                .iter()
+                .flat_map(|row| row.iter())
+                .any(Value::contains_resource),
+            _ => false,
         }
     }
 
@@ -323,6 +450,18 @@ mod tests {
             Value::List(vec![Value::int(1), Value::Unit]).display(),
             "[1, Unit]"
         );
+    }
+
+    #[test]
+    fn memory_display_never_leaks_the_runtime_handle() {
+        let memory = Value::Memory(MemoryHandle::from_runtime(41, 7, 1));
+        assert_eq!(memory.type_name(), "Memory");
+        assert_eq!(memory.display(), "Memory");
+        assert_eq!(memory.repr(), "Memory");
+        assert!(!memory.display().contains("41"));
+        assert!(!memory.repr().contains('7'));
+        assert!(memory.contains_memory());
+        assert!(Value::List(vec![memory]).contains_memory());
     }
 
     #[test]

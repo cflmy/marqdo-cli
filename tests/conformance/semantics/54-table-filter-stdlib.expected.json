@@ -1,0 +1,42 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "type": "list",
+    "items": [
+      {
+        "type": "table",
+        "header": ["名称", "分数"],
+        "rows": [
+          [
+            {"type": "text", "value": "甲"},
+            {"type": "int", "decimal": "87"}
+          ],
+          [
+            {"type": "text", "value": "乙"},
+            {"type": "int", "decimal": "92"}
+          ],
+          [
+            {"type": "text", "value": "丙"},
+            {"type": "int", "decimal": "71"}
+          ]
+        ]
+      },
+      {
+        "type": "table",
+        "header": ["名称", "分数"],
+        "rows": [
+          [
+            {"type": "text", "value": "甲"},
+            {"type": "int", "decimal": "87"}
+          ],
+          [
+            {"type": "text", "value": "乙"},
+            {"type": "int", "decimal": "92"}
+          ]
+        ]
+      }
+    ]
+  }
+}

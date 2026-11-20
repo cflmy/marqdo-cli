@@ -145,6 +145,12 @@ fn encode(value: &Value) -> Json {
             "export": handle.export,
             "id": handle.id,
         }),
+        // Active memory handles never cross the wire (RFC-CM-0001 §8).
+        // The tag is emitted so an accidental transfer is visible instead of
+        // silently becoming a number; decoding it is a hard error.
+        Value::Memory(_) => json!({"type": "memory"}),
+        // Resource handles are host-private; same non-transferable rule.
+        Value::Resource(_) => json!({"type": "resource"}),
     }
 }
 
@@ -321,6 +327,12 @@ fn decode(json: &Json, depth: usize, limits: &WireLimits) -> Result<Value, WireE
                 .as_u64()
                 .ok_or_else(|| WireError::Invalid("plugin_handle.id must be an integer".into()))?,
         })),
+        "memory" => Err(WireError::Invalid(
+            "Memory handles cannot cross the wire; copy bytes explicitly".into(),
+        )),
+        "resource" => Err(WireError::Invalid(
+            "Resource handles cannot cross the wire".into(),
+        )),
         other => Err(WireError::UnknownType(other.to_string())),
     }
 }
@@ -391,6 +403,34 @@ mod tests {
         assert_eq!(to_wire(&Value::Float(f64::INFINITY))["special"], "infinity");
         let decoded = from_wire(&to_wire(&Value::Float(f64::NEG_INFINITY))).unwrap();
         assert!(matches!(decoded, Value::Float(f) if f == f64::NEG_INFINITY));
+    }
+
+    #[test]
+    fn memory_handles_are_not_transferable() {
+        let value = Value::Memory(crate::MemoryHandle::from_runtime(1, 2, 1));
+        let wire = to_wire(&value);
+        assert_eq!(wire, json!({"type": "memory"}));
+        assert_eq!(
+            from_wire(&wire),
+            Err(WireError::Invalid(
+                "Memory handles cannot cross the wire; copy bytes explicitly".into()
+            ))
+        );
+        // A hand-written fake handle is rejected by the same tag rule.
+        assert!(from_wire(&json!({"type": "memory", "region": 2})).is_err());
+    }
+
+    #[test]
+    fn resource_handles_are_not_transferable() {
+        let value = Value::Resource(crate::ResourceHandle::from_host(1, 2, 1));
+        let wire = to_wire(&value);
+        assert_eq!(wire, json!({"type": "resource"}));
+        assert_eq!(
+            from_wire(&wire),
+            Err(WireError::Invalid(
+                "Resource handles cannot cross the wire".into()
+            ))
+        );
     }
 
     #[test]

@@ -1,0 +1,87 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "items": [
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "type": "text",
+            "value": "Aé中"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "code": {
+            "type": "text",
+            "value": "utf8.truncated"
+          },
+          "message": {
+            "type": "text",
+            "value": "UTF-8 解码失败"
+          },
+          "ok": {
+            "type": "bool",
+            "value": false
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "code": {
+            "type": "text",
+            "value": "utf8.invalid_continuation"
+          },
+          "message": {
+            "type": "text",
+            "value": "UTF-8 解码失败"
+          },
+          "ok": {
+            "type": "bool",
+            "value": false
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "code": {
+            "type": "text",
+            "value": "utf8.invalid_scalar"
+          },
+          "message": {
+            "type": "text",
+            "value": "UTF-8 解码失败"
+          },
+          "ok": {
+            "type": "bool",
+            "value": false
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "type": "text",
+            "value": "𝄞"
+          }
+        },
+        "type": "map"
+      }
+    ],
+    "type": "list"
+  }
+}

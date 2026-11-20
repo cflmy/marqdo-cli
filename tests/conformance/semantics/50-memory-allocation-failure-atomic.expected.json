@@ -1,0 +1,14 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "type": "list",
+    "items": [
+      {"type": "none"},
+      {"type": "int", "decimal": "4"},
+      {"type": "int", "decimal": "4"},
+      {"type": "int", "decimal": "65536"}
+    ]
+  }
+}

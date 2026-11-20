@@ -1,0 +1,142 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "items": [
+      {
+        "entries": {
+          "next": {
+            "decimal": "20",
+            "type": "int"
+          },
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "items": [
+              {
+                "decimal": "1",
+                "type": "int"
+              },
+              {
+                "decimal": "23",
+                "type": "int"
+              },
+              {
+                "items": [
+                  {
+                    "decimal": "4",
+                    "type": "int"
+                  },
+                  {
+                    "decimal": "5",
+                    "type": "int"
+                  }
+                ],
+                "type": "list"
+              },
+              {
+                "decimal": "-6",
+                "type": "int"
+              }
+            ],
+            "type": "list"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "code": {
+            "type": "text",
+            "value": "json.invalid_array"
+          },
+          "message": {
+            "type": "text",
+            "value": "数组缺少逗号或 ]"
+          },
+          "ok": {
+            "type": "bool",
+            "value": false
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "code": {
+            "type": "text",
+            "value": "json.unexpected_eof"
+          },
+          "message": {
+            "type": "text",
+            "value": "数组未闭合"
+          },
+          "ok": {
+            "type": "bool",
+            "value": false
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "next": {
+            "decimal": "35",
+            "type": "int"
+          },
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "entries": {
+              "a": {
+                "decimal": "1",
+                "type": "int"
+              },
+              "b": {
+                "items": [
+                  {
+                    "type": "bool",
+                    "value": true
+                  },
+                  {
+                    "type": "none"
+                  },
+                  {
+                    "type": "text",
+                    "value": "说\"好"
+                  }
+                ],
+                "type": "list"
+              }
+            },
+            "type": "map"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "next": {
+            "decimal": "6",
+            "type": "int"
+          },
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "type": "text",
+            "value": "a\nb"
+          }
+        },
+        "type": "map"
+      }
+    ],
+    "type": "list"
+  }
+}

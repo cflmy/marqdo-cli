@@ -6,13 +6,13 @@
 
 use std::collections::BTreeMap;
 
-use marqdo_host::HostOp;
+use marqdo_host::{HostOp, ResourceRead};
 use marqdo_ir::builtins::Builtin;
 use marqdo_ir::Resource;
 use marqdo_span::Span;
 use marqdo_value::{
-    float_to_bigint, CodeValue, ErrorCategory, FormulaValue, FunctionRef, RuntimeError, Table,
-    Value,
+    float_to_bigint, CodeValue, ErrorCategory, FormulaValue, FunctionRef, ResourceHandle,
+    RuntimeError, Table, Value,
 };
 
 use crate::interpreter::Interpreter;
@@ -187,6 +187,292 @@ pub(crate) fn dispatch(
                 &module,
             )
         }
+        "memory.new" => {
+            let initial_pages = page_count(take(&bound, "initial_pages", builtin, span)?, span)?;
+            let max_pages = page_count(take(&bound, "max_pages", builtin, span)?, span)?;
+            let handle = interpreter
+                .memory_mut()
+                .create(initial_pages, max_pages, span)?;
+            interpreter.record_memory_event(
+                "memory.new",
+                &module,
+                span,
+                &format!("initial_pages={initial_pages} max_pages={max_pages}"),
+            );
+            Ok(Value::Memory(handle))
+        }
+        "memory.size" => {
+            let memory = take(&bound, "memory", builtin, span)?;
+            let memory_type = memory.type_name();
+            let Value::Memory(handle) = memory else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("memory.size expects a Memory value, got {memory_type}"),
+                ));
+            };
+            let pages = interpreter.memory().size(handle, span)?;
+            Ok(pages_value(pages, span)?)
+        }
+        "memory.grow" => {
+            let memory = take(&bound, "memory", builtin, span)?;
+            let memory_type = memory.type_name();
+            let Value::Memory(handle) = memory else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("memory.grow expects a Memory value, got {memory_type}"),
+                ));
+            };
+            let pages = page_count(take(&bound, "pages", builtin, span)?, span)?;
+            let old_pages = interpreter.memory_mut().grow(handle, pages, span)?;
+            interpreter.record_memory_event(
+                "memory.grow",
+                &module,
+                span,
+                &format!("pages={pages} old_pages={old_pages}"),
+            );
+            Ok(pages_value(old_pages, span)?)
+        }
+        "list.append" => {
+            let list = take(&bound, "list", builtin, span)?;
+            let value = take(&bound, "value", builtin, span)?;
+            let list_type = list.type_name();
+            let Value::List(mut items) = list else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("list.append expects a List, got {list_type}"),
+                ));
+            };
+            items.push(value);
+            Ok(Value::List(items))
+        }
+        "list.concat" => {
+            let left = take(&bound, "left", builtin, span)?;
+            let right = take(&bound, "right", builtin, span)?;
+            let left_type = left.type_name();
+            let Value::List(mut items) = left else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("list.concat left operand must be a List, got {left_type}"),
+                ));
+            };
+            let right_type = right.type_name();
+            let Value::List(other) = right else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("list.concat right operand must be a List, got {right_type}"),
+                ));
+            };
+            items.extend(other);
+            Ok(Value::List(items))
+        }
+        "map.keys" => {
+            let value = take(&bound, "map", builtin, span)?;
+            let value_type = value.type_name();
+            let Value::Map(map) = value else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("map.keys expects a Map, got {value_type}"),
+                ));
+            };
+            Ok(Value::List(
+                map.keys().cloned().map(Value::Text).collect::<Vec<_>>(),
+            ))
+        }
+        "map.has" => {
+            let value = take(&bound, "map", builtin, span)?;
+            let key = map_key(take(&bound, "key", builtin, span)?, "map.has", span)?;
+            let value_type = value.type_name();
+            let Value::Map(map) = value else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("map.has expects a Map, got {value_type}"),
+                ));
+            };
+            Ok(Value::Bool(map.contains_key(&key)))
+        }
+        "map.get" => {
+            let value = take(&bound, "map", builtin, span)?;
+            let key = map_key(take(&bound, "key", builtin, span)?, "map.get", span)?;
+            let value_type = value.type_name();
+            let Value::Map(map) = value else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("map.get expects a Map, got {value_type}"),
+                ));
+            };
+            Ok(map.get(&key).cloned().unwrap_or(Value::None))
+        }
+        "map.set" => {
+            let value = take(&bound, "map", builtin, span)?;
+            let key = map_key(take(&bound, "key", builtin, span)?, "map.set", span)?;
+            let new_value = take(&bound, "value", builtin, span)?;
+            let value_type = value.type_name();
+            let Value::Map(mut map) = value else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("map.set expects a Map, got {value_type}"),
+                ));
+            };
+            map.insert(key, new_value);
+            Ok(Value::Map(map))
+        }
+        "map.remove" => {
+            let value = take(&bound, "map", builtin, span)?;
+            let key = map_key(take(&bound, "key", builtin, span)?, "map.remove", span)?;
+            let value_type = value.type_name();
+            let Value::Map(mut map) = value else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("map.remove expects a Map, got {value_type}"),
+                ));
+            };
+            map.remove(&key);
+            Ok(Value::Map(map))
+        }
+        "text.codepoints" => {
+            let value = take(&bound, "text", builtin, span)?;
+            let value_type = value.type_name();
+            let Value::Text(text) = value else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("text.codepoints expects Text, got {value_type}"),
+                ));
+            };
+            Ok(Value::List(
+                text.chars()
+                    .map(|character| Value::int(i64::from(character as u32)))
+                    .collect(),
+            ))
+        }
+        "text.from_codepoint" => {
+            let value = take(&bound, "codepoint", builtin, span)?;
+            let value_type = value.type_name();
+            let Value::Int(codepoint) = value else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("text.from_codepoint expects an Int, got {value_type}"),
+                ));
+            };
+            let Some(codepoint) = num_traits::ToPrimitive::to_u32(&codepoint) else {
+                return Ok(Value::None);
+            };
+            Ok(match char::from_u32(codepoint) {
+                Some(character) => Value::Text(character.to_string()),
+                None => Value::None,
+            })
+        }
+        "table.columns" => {
+            let value = take(&bound, "table", builtin, span)?;
+            let value_type = value.type_name();
+            let Value::Table(table) = value else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("table.columns expects a Table, got {value_type}"),
+                ));
+            };
+            Ok(Value::List(
+                table.header.into_iter().map(Value::Text).collect(),
+            ))
+        }
+        "table.row" => {
+            let value = take(&bound, "table", builtin, span)?;
+            let row = take(&bound, "row", builtin, span)?;
+            let value_type = value.type_name();
+            let Value::Table(table) = value else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("table.row expects a Table, got {value_type}"),
+                ));
+            };
+            let position = table_index(row, table.rows.len(), "row", span)?;
+            Ok(Value::List(table.rows[position].clone()))
+        }
+        "table.cell" => {
+            let value = take(&bound, "table", builtin, span)?;
+            let row = take(&bound, "row", builtin, span)?;
+            let column = take(&bound, "column", builtin, span)?;
+            let value_type = value.type_name();
+            let Value::Table(table) = value else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("table.cell expects a Table, got {value_type}"),
+                ));
+            };
+            let row = table_index(row, table.rows.len(), "row", span)?;
+            let column = table_index(column, table.header.len(), "column", span)?;
+            Ok(table.rows[row][column].clone())
+        }
+        "resource.open" => {
+            let kind = expect_text_value(take(&bound, "kind", builtin, span)?, span)?;
+            let descriptor = expect_text_value(take(&bound, "descriptor", builtin, span)?, span)?;
+            let rights = rights_list(take(&bound, "rights", builtin, span)?, span)?;
+            interpreter.resource_open(&kind, &descriptor, &rights, &module, span)
+        }
+        "resource.read" => {
+            let handle = resource_handle(take(&bound, "handle", builtin, span)?, span)?;
+            let memory = memory_handle(
+                take(&bound, "memory", builtin, span)?,
+                "resource.read",
+                span,
+            )?;
+            let offset = take(&bound, "offset", builtin, span)?;
+            let offset_int = int_value(offset, "resource.read offset", span)?;
+            let offset_value = Value::Int(offset_int.clone());
+            let max_bytes = positive_count(
+                take(&bound, "max_bytes", builtin, span)?,
+                "resource.read max_bytes",
+                span,
+            )?;
+            let available = interpreter.memory().byte_len(memory, span)?;
+            let start = non_negative_usize(&offset_value, "resource.read offset", span)?;
+            if start >= available {
+                return Err(RuntimeError::new(
+                    ErrorCategory::IndexOutOfBounds,
+                    span,
+                    format!("resource.read offset {start} is at or beyond the Memory length {available}"),
+                ));
+            }
+            let limit = max_bytes.min(available - start);
+            let result = interpreter.resource_read(handle, limit, &module, span);
+            match result {
+                Ok(read) => {
+                    interpreter
+                        .memory_mut()
+                        .write_bytes(memory, &offset_int, &read.bytes, span)?;
+                    Ok(resource_ok(resource_read_payload(&read)))
+                }
+                Err(error) => resource_recoverable(error),
+            }
+        }
+        "resource.write" => {
+            let handle = resource_handle(take(&bound, "handle", builtin, span)?, span)?;
+            let memory = memory_handle(
+                take(&bound, "memory", builtin, span)?,
+                "resource.write",
+                span,
+            )?;
+            let offset = take(&bound, "offset", builtin, span)?;
+            let offset_int = int_value(offset, "resource.write offset", span)?;
+            let length = non_negative_usize(
+                &take(&bound, "length", builtin, span)?,
+                "resource.write length",
+                span,
+            )?;
+            let bytes = interpreter
+                .memory()
+                .read_bytes(memory, &offset_int, length, span)?;
+            match interpreter.resource_write(handle, &bytes, &module, span) {
+                Ok(count) => Ok(resource_ok(resource_write_payload(count))),
+                Err(error) => resource_recoverable(error),
+            }
+        }
+        "resource.close" => {
+            let handle = resource_handle(take(&bound, "handle", builtin, span)?, span)?;
+            match interpreter.resource_close(handle, &module, span) {
+                Ok(()) => Ok(resource_ok(Value::None)),
+                Err(error) => resource_recoverable(error),
+            }
+        }
         other => Err(RuntimeError::new(
             ErrorCategory::KernelUnavailable,
             span,
@@ -208,6 +494,228 @@ fn take(
             format!("`{}` is missing argument `{name}`", builtin.name),
         )
     })
+}
+
+/// Validate a page-count argument: an `Int` in the non-negative `u64` range.
+fn page_count(value: Value, span: Option<Span>) -> Result<u64, RuntimeError> {
+    let value_type = value.type_name();
+    let Value::Int(count) = value else {
+        return Err(RuntimeError::type_error(
+            span,
+            format!("memory page count must be an Int, got {value_type}"),
+        ));
+    };
+    num_traits::ToPrimitive::to_u64(&count).ok_or_else(|| {
+        RuntimeError::new(
+            ErrorCategory::MemoryFault,
+            span,
+            format!("memory page count {count} must be a non-negative integer"),
+        )
+    })
+}
+
+/// Convert a page count back to a language `Int`.
+fn pages_value(pages: u64, span: Option<Span>) -> Result<Value, RuntimeError> {
+    i64::try_from(pages).map(Value::int).map_err(|_| {
+        RuntimeError::new(
+            ErrorCategory::MemoryFault,
+            span,
+            format!("page count {pages} does not fit an Int"),
+        )
+    })
+}
+
+/// Require a `Text` map key and return it.
+fn map_key(value: Value, builtin: &str, span: Option<Span>) -> Result<String, RuntimeError> {
+    let value_type = value.type_name();
+    match value {
+        Value::Text(key) => Ok(key),
+        _ => Err(RuntimeError::type_error(
+            span,
+            format!("{builtin} key must be Text, got {value_type}"),
+        )),
+    }
+}
+
+/// Require a Text value.
+fn expect_text_value(value: Value, span: Option<Span>) -> Result<String, RuntimeError> {
+    let value_type = value.type_name();
+    let Value::Text(text) = value else {
+        return Err(RuntimeError::type_error(
+            span,
+            format!("expected Text, got {value_type}"),
+        ));
+    };
+    Ok(text)
+}
+
+/// Require a List of Text rights.
+fn rights_list(value: Value, span: Option<Span>) -> Result<Vec<String>, RuntimeError> {
+    let value_type = value.type_name();
+    let Value::List(items) = value else {
+        return Err(RuntimeError::type_error(
+            span,
+            format!("resource rights must be a List, got {value_type}"),
+        ));
+    };
+    let mut rights = Vec::with_capacity(items.len());
+    for item in items {
+        let item_type = item.type_name();
+        let Value::Text(right) = item else {
+            return Err(RuntimeError::type_error(
+                span,
+                format!("resource rights must contain Text, got {item_type}"),
+            ));
+        };
+        rights.push(right);
+    }
+    Ok(rights)
+}
+
+/// Require an opaque resource handle.
+fn resource_handle(value: Value, span: Option<Span>) -> Result<ResourceHandle, RuntimeError> {
+    let value_type = value.type_name();
+    let Value::Resource(handle) = value else {
+        return Err(RuntimeError::type_error(
+            span,
+            format!("expected a Resource handle, got {value_type}"),
+        ));
+    };
+    Ok(handle)
+}
+
+/// Require an opaque Memory handle.
+fn memory_handle(
+    value: Value,
+    builtin: &str,
+    span: Option<Span>,
+) -> Result<marqdo_value::MemoryHandle, RuntimeError> {
+    let value_type = value.type_name();
+    let Value::Memory(handle) = value else {
+        return Err(RuntimeError::type_error(
+            span,
+            format!("{builtin} memory must be a Memory value, got {value_type}"),
+        ));
+    };
+    Ok(handle)
+}
+
+/// Require an Int value.
+fn int_value(
+    value: Value,
+    what: &str,
+    span: Option<Span>,
+) -> Result<num_bigint::BigInt, RuntimeError> {
+    let value_type = value.type_name();
+    let Value::Int(value) = value else {
+        return Err(RuntimeError::type_error(
+            span,
+            format!("{what} must be an Int, got {value_type}"),
+        ));
+    };
+    Ok(value)
+}
+
+/// Require a non-negative usize.
+fn non_negative_usize(
+    value: &Value,
+    what: &str,
+    span: Option<Span>,
+) -> Result<usize, RuntimeError> {
+    let value_type = value.type_name();
+    let Value::Int(value) = value else {
+        return Err(RuntimeError::type_error(
+            span,
+            format!("{what} must be an Int, got {value_type}"),
+        ));
+    };
+    num_traits::ToPrimitive::to_usize(value).ok_or_else(|| {
+        RuntimeError::new(
+            ErrorCategory::IndexOutOfBounds,
+            span,
+            format!("{what} {value} must be a non-negative integer in range"),
+        )
+    })
+}
+
+/// Require a strictly positive byte count.
+fn positive_count(value: Value, what: &str, span: Option<Span>) -> Result<usize, RuntimeError> {
+    let count = non_negative_usize(&value, what, span)?;
+    if count == 0 {
+        return Err(RuntimeError::type_error(
+            span,
+            format!("{what} must be greater than zero"),
+        ));
+    }
+    Ok(count)
+}
+
+fn resource_ok(value: Value) -> Value {
+    let mut map = BTreeMap::new();
+    map.insert("ok".to_string(), Value::Bool(true));
+    map.insert("value".to_string(), value);
+    Value::Map(map)
+}
+
+fn resource_err(code: &str, message: &str) -> Value {
+    let mut map = BTreeMap::new();
+    map.insert("ok".to_string(), Value::Bool(false));
+    map.insert("code".to_string(), Value::Text(code.to_string()));
+    map.insert("message".to_string(), Value::Text(message.to_string()));
+    Value::Map(map)
+}
+
+fn resource_read_payload(read: &ResourceRead) -> Value {
+    let mut map = BTreeMap::new();
+    map.insert("count".to_string(), Value::int(read.bytes.len() as i64));
+    map.insert("eof".to_string(), Value::Bool(read.eof));
+    Value::Map(map)
+}
+
+fn resource_write_payload(count: usize) -> Value {
+    let mut map = BTreeMap::new();
+    map.insert("count".to_string(), Value::int(count as i64));
+    Value::Map(map)
+}
+
+/// Convert a closed-handle failure into a recoverable Result; other errors are
+/// fatal (ADR-0025).
+fn resource_recoverable(error: RuntimeError) -> Result<Value, RuntimeError> {
+    if error.category == ErrorCategory::ResourceClosed {
+        return Ok(resource_err("resource.closed", &error.message));
+    }
+    Err(error)
+}
+
+/// Validate a non-negative table row/column coordinate.
+fn table_index(
+    value: Value,
+    len: usize,
+    what: &str,
+    span: Option<Span>,
+) -> Result<usize, RuntimeError> {
+    let value_type = value.type_name();
+    let Value::Int(index) = value else {
+        return Err(RuntimeError::type_error(
+            span,
+            format!("table {what} must be an Int, got {value_type}"),
+        ));
+    };
+    let Some(position) = num_traits::ToPrimitive::to_usize(&index) else {
+        return Err(RuntimeError::new(
+            ErrorCategory::IndexOutOfBounds,
+            span,
+            format!("table {what} {index} is out of bounds for length {len}"),
+        ));
+    };
+    if position >= len {
+        return Err(RuntimeError::new(
+            ErrorCategory::IndexOutOfBounds,
+            span,
+            format!("table {what} {position} is out of bounds for length {len}"),
+        ));
+    }
+    Ok(position)
 }
 
 fn formula_text(value: Value, span: Option<Span>) -> Result<String, RuntimeError> {

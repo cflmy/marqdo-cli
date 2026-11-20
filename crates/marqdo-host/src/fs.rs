@@ -83,6 +83,22 @@ impl ProjectFs {
 
     /// Read a UTF-8 file, bounded by [`MAX_READ_BYTES`].
     pub fn read(&self, user_path: &str, span: Option<Span>) -> Result<String, RuntimeError> {
+        let bytes = self.read_bytes(user_path, span)?;
+        String::from_utf8(bytes).map_err(|_| {
+            RuntimeError::new(
+                ErrorCategory::Type,
+                span,
+                format!("`{user_path}` is not valid UTF-8"),
+            )
+        })
+    }
+
+    /// Read a file as raw bytes, bounded by [`MAX_READ_BYTES`].
+    ///
+    /// Used by the resource stream provider; path/capability checks are the
+    /// caller's responsibility for grants, while this method still rejects
+    /// traversal and symlink escapes.
+    pub fn read_bytes(&self, user_path: &str, span: Option<Span>) -> Result<Vec<u8>, RuntimeError> {
         let (absolute, relative) = self.resolve(user_path, span)?;
         let metadata = std::fs::metadata(&absolute).map_err(|error| {
             RuntimeError::new(
@@ -118,18 +134,11 @@ impl ProjectFs {
         if !canonical.starts_with(&self.root) {
             return Err(invalid_path(span, "path escapes the project root"));
         }
-        let bytes = std::fs::read(&canonical).map_err(|error| {
+        std::fs::read(&canonical).map_err(|error| {
             RuntimeError::new(
                 ErrorCategory::HostError,
                 span,
                 format!("cannot read `{relative}`: {error}"),
-            )
-        })?;
-        String::from_utf8(bytes).map_err(|_| {
-            RuntimeError::new(
-                ErrorCategory::Type,
-                span,
-                format!("`{relative}` is not valid UTF-8"),
             )
         })
     }
@@ -139,6 +148,18 @@ impl ProjectFs {
         &self,
         user_path: &str,
         contents: &str,
+        span: Option<Span>,
+    ) -> Result<(), RuntimeError> {
+        self.write_bytes(user_path, contents.as_bytes(), span)
+    }
+
+    /// Write raw bytes inside the project root, creating parent directories.
+    ///
+    /// This is a single validated write, not a transactional replace.
+    pub fn write_bytes(
+        &self,
+        user_path: &str,
+        bytes: &[u8],
         span: Option<Span>,
     ) -> Result<(), RuntimeError> {
         let (absolute, relative) = self.resolve(user_path, span)?;
@@ -169,7 +190,7 @@ impl ProjectFs {
                 )
             })?;
         }
-        std::fs::write(&absolute, contents).map_err(|error| {
+        std::fs::write(&absolute, bytes).map_err(|error| {
             RuntimeError::new(
                 ErrorCategory::HostError,
                 span,

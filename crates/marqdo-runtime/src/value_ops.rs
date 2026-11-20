@@ -107,6 +107,32 @@ fn compare(
                 }
             }))
         }
+        (Value::Resource(a), Value::Resource(b)) => {
+            return Ok(Value::Bool(match op {
+                BinaryOp::Eq => a == b,
+                BinaryOp::Ne => a != b,
+                _ => {
+                    return Err(type_error(
+                        span,
+                        "Resource ordering comparisons are not supported".to_string(),
+                    ))
+                }
+            }));
+        }
+        (Value::Memory(a), Value::Memory(b)) => {
+            // Identity, not byte content: two handles for the same region are
+            // equal, regions with identical bytes are not (ADR-0022 §1).
+            return Ok(Value::Bool(match op {
+                BinaryOp::Eq => a == b,
+                BinaryOp::Ne => a != b,
+                _ => {
+                    return Err(type_error(
+                        span,
+                        "Memory ordering comparisons are not supported".to_string(),
+                    ))
+                }
+            }));
+        }
         (a, b) => {
             if op == BinaryOp::Eq {
                 return Ok(Value::Bool(false));

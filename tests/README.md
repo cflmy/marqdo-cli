@@ -15,11 +15,11 @@ no test commits, copies or rewrites files outside a throw-away temp directory.
 tests/
 ├── conformance/
 │   ├── ast/            160 × *.mq.md + sibling *.ast.json goldens
-│   └── semantics/       44 × *.mq.md + sibling *.expected.json goldens
+│   └── semantics/       68 × *.mq.md + sibling *.expected.json goldens
 ├── negative/
 │   ├── *.mq.md          52 × compile-time hard-error fixtures + *.expected.json
 │   ├── warnings/         6 × inert-executable warning fixtures + *.expected.json
-│   └── runtime/         12 × runtime-error fixtures + *.expected.json
+│   └── runtime/         21 × runtime-error fixtures + *.expected.json
 └── README.md           this file
 ```
 
@@ -68,6 +68,130 @@ The power/control-flow slice is pinned by:
 * runtime negatives 11–12: negative integer exponent and exponent budget;
 * `crates/marqdo-frontend/src/payload.rs` span tests and
   `crates/cli/tests/integration_cli.rs` CLI span/E2E assertions.
+
+The addressable-memory slice (RFC-CM P1, ADR-0022) is pinned by:
+
+* semantic fixtures 45–47: sharing a region by handle, per-region isolation,
+  `memory.size`, `memory.grow` returning the old count, preserved old bytes and
+  zero-filled new pages;
+* runtime negatives 13–18: out-of-bounds and huge offsets, byte values outside
+  `0..=255`, index assignment on a `List`, growth beyond the declared maximum
+  and negative page counts;
+* `tests/negative/runtime/15-index-assign-non-memory.mq.md` also guards the v1
+  value semantics of `List` (it must not become shared mutable memory);
+* `crates/marqdo-runtime/src/memory.rs` unit tests (aliasing, atomic failed
+  growth, forged/stale handles, page arithmetic) and
+  `crates/marqdo-runtime/tests/interpreter.rs` host-boundary/budget tests;
+* `crates/marqdo-value/src/wire.rs` proves live handles are not transferable;
+* `examples/memory-buffer.mq.md` and the `examples_r6` CLI test prove the
+  `.mq.md` surface end to end.
+
+Partial RFC-CM P2 (compute closure) is demonstrated, not certified, by:
+
+* semantic fixtures 48–50: a big-endian u32 codec and bump allocator, three
+  allocated nodes linked and traversed, and a failed allocation that leaves
+  the allocator header unchanged. These documents use only language builtins
+  and control flow; no Rust algorithm is added for them.
+* The full P2 gate also needs a free-list allocator with reuse/coalescing,
+  tree/graph structures, a recoverable `Result` model and an independent
+  stdlib repository. Those are **not** implemented.
+
+CM-A04 structure primitives (ADR-0023) are pinned by:
+
+* semantic fixtures 51–54: value semantics of `list.append`/`map.set`/
+  `map.remove` (inputs unchanged, keys sorted, `map.has`/`map.get`),
+  Unicode scalar round-trip through `text.codepoints`/
+  `text.from_codepoint` (including invalid scalars → `None`),
+  `table.columns`/`table.row`/`table.cell` projection, and a `.mq.md`
+  `过滤` function that rebuilds a filtered GFM-style table without mutating
+  the input or adding a Rust table algorithm;
+* runtime negatives 19–21: `list.append` on a Map, table row out of bounds,
+  and a non-Text `map.get` key;
+* `crates/marqdo-runtime/src/builtins_impl.rs`; no algorithm builtin such as
+  sort/filter/join/JSON/CSV is added.
+
+CM-A05 recoverable results and the first-fit allocator (ADR-0024) are pinned
+by:
+
+* semantic fixture 55: a `.mq.md` first-fit/free-list allocator with 8-byte
+  block headers, free-block reuse, block splitting, address-adjacent
+  coalescing (a second region fills its bump space, so only the merged block
+  can satisfy a 40-byte request), a too-large request returning
+  `{ok:false, code:"alloc.no_space", ...}`, and payload writes that show the
+  reused blocks do not overlap;
+* the `Result` shape is an ordinary Map; no `Result` value type, exception,
+  `try`/`catch` or propagation syntax is added. The ADR records the
+  success/failure field contract and the fatal-vs-recoverable boundary;
+* semantic fixture 56: a `Memory`-backed binary search tree with 16-byte nodes,
+  recursive insertion and recursive in-order traversal built from
+  `list.concat`; the returned root/left/right offsets and sorted values pin
+  node layout and traversal;
+* semantic fixture 57: a `.mq.md` CSV single-row splitter using
+  `text.codepoints`, `text.from_codepoint`, `list.append` and `list.concat`;
+  it preserves empty fields and does **not** pretend to support quoted or
+  escaped CSV;
+* semantic fixture 58: an open-addressing hash table with linear probing,
+  collision handling (keys 5 and 37), value update, not-found `None`, element
+  count, and a full-table `hash.full` Result in a second region;
+* semantic fixture 59: a `.mq.md` UTF-8 encoder that writes 1–4 byte sequences
+  into `Memory` from `text.codepoints`, returning the byte length and bytes;
+* semantic fixture 60: a validating `.mq.md` UTF-8 decoder over `Memory` with
+  explicit `utf8.truncated`, `utf8.invalid_continuation`, `utf8.invalid_scalar`
+  and `utf8.invalid_lead` failures; valid ASCII, 2/3/4-byte and mixed text is
+  decoded;
+* semantic fixture 61: a `Memory`-backed graph adjacency list with 16-byte nodes
+  and 8-byte edges, head-inserted edges and a neighbor traversal; no Rust graph
+  container or new `Value` type;
+* semantic fixture 62: a recursive `.mq.md` JSON subset parser for nested
+  arrays and objects, strings with standard escapes including `\uXXXX`,
+  integers (including negative), `true`/`false`/`null`, whitespace, `next`
+  positions and `Result` errors (`json.unexpected_eof`, `json.invalid_array`,
+  `json.invalid_object`, `json.invalid_string`, `json.invalid_number`,
+  `json.invalid_literal`, `json.unexpected_token`). Floats are explicitly out
+  of scope;
+* semantic fixture 63: a `Memory`-backed stack bytecode VM with instruction
+  decode, PUSH/ADD/MUL/JMP/JZ/HALT, a stack region and two programs (arithmetic
+  and conditional branch); no Rust VM or interpreter loop was added;
+* semantic fixture 64: `.mq.md` big-endian 16/32/64-bit encoders/decoders and
+  LEB128 varint encode/decode, including the `u64` maximum and byte-level
+  round-trips;
+* semantic fixture 65: a `.mq.md` table sort built on `table.row`,
+  `table.columns`, `table.cell`, `表` and `list.append`; insertion sort
+  rebuilds a new table and leaves the input table unchanged;
+* semantic fixture 67: a `.mq.md` table equality join over two tables, using
+  `table.row/columns/cell`, `list.concat`, `list.append` and `表`; both input
+  tables remain unchanged;
+* semantic fixture 68: a quoted/escaped CSV single-row parser using Unicode
+  scalar primitives; `""` is a literal quote and commas inside quotes are
+  preserved. Multi-line fields and whitespace trimming are out of scope.
+
+RFC-CM CM-A07 Compat-A (ADR-0027) is pinned by:
+
+* `examples/stdlib/{format,text,io}.mq.md` and `examples/stdlib/demo.mq.md`;
+* `crates/cli/tests/examples_r6.rs::mqmd_stdlib_print_output_matches_builtin_print`,
+  which runs the demo and asserts `io.写值` and builtin `打印` lines are
+  byte-identical for a nested List/Map/None value and a Table;
+* the demo covers Unit/None/Bool? (Bool appears inside the nested list),
+  Int, Float, Text, List, Map and Table. Formula/Code/FunctionRef/PluginHandle
+  are explicitly not covered; `打印` is not yet routed to the stdlib.
+
+RFC-CM CM-A06 resource streams (ADR-0025) are pinned by:
+
+* semantic fixture 66: `.mq.md` UTF-8 text encoded into `Memory`, written to a
+  `stdio/stdout` resource, closed, then re-used to prove
+  `{ok:false,code:"resource.closed"}`; the expected `stdout` is the decoded
+  text;
+* `crates/marqdo-host/tests/resource_streams.rs` (9): pure-mode stdout write,
+  output-budget atomicity, strict refusal, project-file chunking/EOF, missing
+  grant, traversal rejection and unsupported rights/kinds;
+* `crates/cli/tests/resource_streams.rs`: real `marqdo run` with
+  `--allow-read data.txt`, three chunked reads into `Memory` plus EOF, the same
+  document failing with `permission.denied` without the grant, and a
+  write-then-read program with `--allow-write/--allow-read out.bin` proving the
+  file is created only at `resource.close`, and a chunked `.mq.md` file copy
+  (`resource.read` → `resource.write`) that reproduces `data.txt` in `out.bin`;
+* `crates/marqdo-host/src/resource.rs` unit tests for forged/closed handles,
+  stdout read/file write unsupported, and chunked EOF.
 
 Fixture discovery is directory-based and sorted by file name, so the order is
 deterministic on every platform. The AST and semantic suites fail loudly if the

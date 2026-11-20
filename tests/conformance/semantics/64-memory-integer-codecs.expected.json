@@ -1,0 +1,46 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "items": [
+      {
+        "decimal": "4660",
+        "type": "int"
+      },
+      {
+        "decimal": "305419896",
+        "type": "int"
+      },
+      {
+        "decimal": "1311768467463790320",
+        "type": "int"
+      },
+      {
+        "decimal": "18446744073709551615",
+        "type": "int"
+      },
+      {
+        "decimal": "4",
+        "type": "int"
+      },
+      {
+        "decimal": "123456789",
+        "type": "int"
+      },
+      {
+        "decimal": "4",
+        "type": "int"
+      },
+      {
+        "decimal": "255",
+        "type": "int"
+      },
+      {
+        "decimal": "255",
+        "type": "int"
+      }
+    ],
+    "type": "list"
+  }
+}

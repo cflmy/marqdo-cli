@@ -25,6 +25,49 @@ fn stderr(output: &Output) -> String {
 }
 
 #[test]
+fn mqmd_stdlib_print_output_matches_builtin_print() {
+    let output = cli(&["run", "examples/stdlib/demo.mq.md"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.lines().collect();
+    assert_eq!(lines.len(), 4, "{stdout:?}");
+    assert_eq!(lines[0], lines[1], "list formatting differs from 打印");
+    assert_eq!(lines[2], lines[3], "table formatting differs from 打印");
+    assert_eq!(
+        lines[0],
+        r#"["文本", 2, 1.5, [3, true], {a: 1, b: "x"}, None]"#
+    );
+    assert_eq!(lines[2], "Table[名称 | 分数]{甲 | 87; 乙 | 92}");
+}
+
+#[test]
+fn addressable_memory_example_runs_through_the_cli() {
+    let output = cli(&["run", "examples/memory-buffer.mq.md", "--json"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("run --json emits JSON");
+    assert_eq!(report["success"], true);
+    assert_eq!(report["value"]["type"], "int");
+    assert_eq!(report["value"]["decimal"], "141");
+}
+
+#[test]
+fn cli_memory_budget_override_fails_closed() {
+    let output = cli(&[
+        "run",
+        "examples/memory-buffer.mq.md",
+        "--max-memory",
+        "0",
+        "--json",
+    ]);
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("run --json emits JSON");
+    assert_eq!(report["success"], false);
+    assert_eq!(report["error"]["code"], "resource.exhausted");
+}
+
+#[test]
 fn multi_version_packages_run_without_an_implicit_override() {
     let output = cli(&["run", "examples/packages-multi-version/index.mq.md"]);
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));

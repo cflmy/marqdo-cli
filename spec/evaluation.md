@@ -1,6 +1,7 @@
 # Marqdo Evaluation Semantics v1
 
-Status: **frozen for M0.5**. Changes to observable behaviour require an ADR.
+Status: **frozen for M0.5; extended by ADR-0022 (`Memory`) and ADR-0024 (recoverable results)**.
+Changes to observable behaviour require an ADR.
 
 ## 1. Values
 
@@ -19,6 +20,8 @@ Status: **frozen for M0.5**. Changes to observable behaviour require an ADR.
 | `Code` | inert code fence + provenance; execution is explicit |
 | `FunctionRef` | reference to a named function in a module |
 | `PluginHandle` | opaque host-owned plugin export handle |
+| `Memory` | opaque runtime-owned addressable byte region (ADR-0022); copies share identity, offsets are region-relative |
+| `Resource` | opaque host-issued resource/stream handle (ADR-0025); not indexable, not wire-transferable, rendered as `Resource` |
 
 There is no truthiness: `if`-like conditions accept `Bool` only. There are no
 implicit string↔number conversions; conversion builtins must be called.
@@ -52,6 +55,15 @@ implicit string↔number conversions; conversion builtins must be called.
 * Assignment binds/updates a local slot in the current frame. It never writes
   an outer frame. There is no module-level assignment in v1: assignment
   outside a function body is an error.
+* The only other writable place is an index into a `Memory` region
+  (`m[offset] = byte`, ADR-0022). List, Map and Table values keep their v1
+  value semantics; `list[i] = value`, `map[key] = value` and `obj.field = value`
+  are not defined and are rejected at run time or parse time rather than
+  silently changing those values into shared mutable objects.
+* For `m[offset] = byte` the operands are evaluated exactly once in the order
+  **base, offset, right-hand side**. The target must evaluate to `Memory`, the
+  offset to a non-negative `Int` inside the region and the value to an `Int`
+  in `0..=255`; otherwise the statement fails without writing anything.
 * `and`/`or` short-circuit and require `Bool` operands.
 * `Return` (an `emph` node) unwinds through branch/loop bodies to the
   enclosing function frame.
@@ -62,6 +74,112 @@ implicit string↔number conversions; conversion builtins must be called.
 * Function calls recurse; recursion depth is bounded by the stack budget.
   Mutual recursion is allowed.
 
+### 3.1 Addressable `Memory` (ADR-0022)
+
+`Memory` is a separate storage domain from managed `List`/`Map`/`Table`
+values. It exists so `.mq.md` programs can construct allocators, encodings and
+data structures without a new Markdown node, keyword or host operation.
+
+* **Creation.** `memory.new(initial_pages, max_pages)` creates a zero-filled
+  region and returns its handle. Both arguments are non-negative `Int`s;
+  `initial_pages <= max_pages`, and `max_pages` must fit the per-region
+  budget. Rejection is atomic: no region or committed byte is created.
+* **Page size.** One logical page is 64 KiB (`PAGE_SIZE`). Print, trace and
+  storage use bytes; page counts never mix with byte offsets.
+* **Size and growth.** `memory.size(memory)` returns committed pages.
+  `memory.grow(memory, pages)` is grow-only and returns the **old** page
+  count; old offsets keep their bytes, every new byte is zero. A failed grow
+  (declared maximum, region budget or total budget) leaves the region and the
+  budget unchanged. Growing by zero pages is a no-op returning the current
+  count. Regions never shrink and there is no user-visible `free(region)`.
+* **Read/write.** `m[offset]` returns an `Int` in `0..=255`; `m[offset] = byte`
+  writes one byte. Offsets are non-negative and region-relative; negative,
+  out-of-range and unrepresentable `BigInt` offsets are `runtime.index`.
+  Out-of-range byte values are `runtime.type`. No implicit truncation or
+  wrapping occurs.
+* **Identity and equality.** Copying a `Memory` value, passing it to a
+  function or storing it in a collection shares the same region. Two handles
+  are `==` only when they designate the same region instance; `Memory` has no
+  ordering comparison and no byte-content equality operator.
+* **Lifetime.** A region lives for one run and is dropped with the runtime.
+  Block-level ownership (`malloc`/`free`) is a standard-library concern; the
+  runtime only guarantees that a single access stays inside its region.
+* **Diagnostics.** Unknown, stale or cross-run handles are
+  `runtime.memory`; budget failures are `resource.exhausted`; a non-`Memory`
+  index-assignment base is `runtime.type`.
+* **Boundary.** A live handle never crosses the wire: `to_wire` emits only
+  `{"type":"memory"}`, decoding that tag is a `WireError::Invalid`, and every
+  host/plugin/foreign call rejects arguments containing `Memory`.
+* **Display.** `Value::display()` renders `Memory` without the internal
+  region identity; `类型(m)` returns `"Memory"`.
+
+### 3.2 Recoverable results (ADR-0024)
+
+A recoverable failure is an ordinary `Map`, not a new value type or syntax:
+
+```text
+success: {ok: true,  value: <any Value>}
+failure: {ok: false, code: <Text>, message: <Text> [, details: <Map>]}
+```
+
+`ok` is always a `Bool`. Success carries `value`; failure carries a stable
+dot-separated `code` and a human-readable `message`. Constructors such as
+`成功`/`失败` are ordinary `.mq.md` functions, not builtins.
+
+* Expected conditions (no free block, malformed parser input, invalid byte
+  sequence, and later EOF/short I/O results) should use this shape so a caller
+  can branch on `ok`.
+* Language-invariant violations (wrong type, out-of-bounds, unknown/stale
+  `Memory` handle, budget exhaustion, capability denial) remain fatal
+  `RuntimeError`s. There is no catch mechanism and a library must not try to
+  convert them into `Err`.
+* `map.get` returning `None` is a lookup result, not this convention; use
+  `map.has` to distinguish a stored `None` (ADR-0023).
+* `code` is stable within its library; callers must not branch on `message`.
+  Recommended prefixes include `alloc.*`, `parse.*`, `codec.*`, `table.*` and,
+  later, `io.*`.
+* Stream EOF/partial semantics belong to the resource ABI (CM-A06); this
+  section only reserves the shape `{ok: true, value: {count, eof, ...}}` for
+  later, without defining it.
+
+### 3.3 Resource streams (ADR-0025)
+
+`Resource` is a host-issued opaque handle to an external stream, in a separate
+domain from `Memory`. It is not indexable, not a byte address and cannot be
+constructed from a number, document or wire value.
+
+```text
+resource.open(kind: Text, descriptor: Text, rights: List) -> Resource
+resource.read(handle, memory: Memory, offset: Int, max_bytes: Int)
+    -> {ok:true, value:{count:Int, eof:Bool}} | {ok:false, code, message}
+resource.write(handle, memory: Memory, offset: Int, length: Int)
+    -> {ok:true, value:{count:Int}} | {ok:false, code, message}
+resource.close(handle)
+    -> {ok:true, value:None} | {ok:false, code, message}
+```
+
+* Providers: `stdio/stdout` with `["write"]` (pure/project, console grant);
+  `file` with `["read"]` (project, `fs_read` grant, bounded by the 8 MiB file
+  limit); `file` with `["write"]` (project, `fs_write` grant, 8 MiB buffered
+  write flushed on `close`, ADR-0026). Mixed rights and other kinds are
+  `resource.unsupported`.
+* `resource.read` checks the destination `Memory` range before calling the
+  provider, caps the request to the remaining buffer, writes the returned bytes
+  and reports the actual count plus `eof`. EOF is success, not an error.
+* `resource.write` copies bytes out of `Memory` for the call only; a short write
+  is a count. stdout output is charged to the output budget and delivered to
+  the program stdout channel. A project-file write stream appends to a bounded
+  host buffer and does not touch the filesystem until `close`; a failed close
+  leaves the handle open with its buffer, and an unclosed writer never creates
+  the file.
+* Reading/writing/closing an already closed handle returns
+  `{ok:false, code:"resource.closed"}`. Forged/cross-run/stale handles are
+  fatal `runtime.resource`; unsupported kind/rights/direction are
+  `resource.unsupported`; capability/path denial is `permission.denied`; a
+  writer buffer above 8 MiB is `resource.exhausted` and appends atomically.
+* `Memory` arguments never cross the host boundary as handles: the interpreter
+  copies bytes for the call. Resource handles never cross the value wire.
+
 ## 4. Errors
 
 All failures are structured. Compile-time problems produce diagnostics
@@ -69,7 +187,11 @@ All failures are structured. Compile-time problems produce diagnostics
 problems produce `RuntimeError { category, span, message, frames, cause }`
 with a stable category code. Runtime errors stop the current function and
 propagate with a call stack. A host/foreign/plugin failure never panics the
-interpreter; it becomes a structured error.
+interpreter; it becomes a structured error. Addressable-memory failures use
+the stable codes `runtime.memory` (unknown/stale handle, invalid page counts),
+`runtime.index` (offset outside the region, including negative or huge
+offsets), `runtime.type` (wrong operand type or byte value outside `0..=255`)
+and `resource.exhausted` (region or run budget).
 
 ## 5. Parameter inference (static, name based)
 
@@ -98,10 +220,17 @@ explicit signature paragraph allows positional arguments.
 
 Every run has explicit limits (all configurable, all reported as
 `resource.exhausted`): evaluation fuel, call stack depth, total output bytes,
-wall-clock time, and host process count. Loops consume fuel per iteration and
-expressions per node so that a hostile document cannot hang the CLI. Strict
-mode additionally enforces limits at the OS level where available; if the
-platform cannot provide that, strict mode refuses to run (see `security.md`).
+wall-clock time, host process count, and addressable memory. Addressable
+memory has two independent budgets (ADR-0022): total committed bytes across
+all regions (`DEFAULT_MAX_TOTAL_BYTES = 64 MiB`) and committed bytes per
+region (`DEFAULT_MAX_REGION_BYTES = 16 MiB`, hence at most 256 pages of
+64 KiB), overridable with `--max-memory` and `--max-region-memory`. Memory is
+a pure computation: it needs no capability grant and is available in `pure`,
+`project` and `strict` modes, subject to these budgets.
+Loops consume fuel per iteration and expressions per node so that a hostile
+document cannot hang the CLI. Strict mode additionally enforces limits at the
+OS level where available; if the platform cannot provide that, strict mode
+refuses to run (see `security.md`).
 
 ## 7. Determinism
 
@@ -125,6 +254,41 @@ host boundary. Names are stable; adding one requires a spec update.
 | `小数` / `float` | `(x) -> Float` | from Int/Float/Text |
 | `表` / `table` | `(header: List, rows: List) -> Table` | validates row widths |
 | `ref` | `(target: Text) -> FunctionRef/Formula/Code` | resolves a document address; module-local, refuses ambiguous resource units (`ref.ambiguous`) |
+| `memory.new` | `(initial_pages: Int, max_pages: Int) -> Memory` | creates a zero-filled region; budgets are checked before allocation (ADR-0022) |
+| `memory.size` | `(memory: Memory) -> Int` | committed page count |
+| `memory.grow` | `(memory: Memory, pages: Int) -> Int` | grow-only; returns the previous page count, new bytes are zero |
+| `list.append` | `(list: List, value) -> List` | new list with one appended value; input unchanged (ADR-0023) |
+| `list.concat` | `(left: List, right: List) -> List` | new concatenated list; inputs unchanged |
+| `map.keys` | `(map: Map) -> List` | Text keys in canonical sorted order |
+| `map.has` | `(map: Map, key: Text) -> Bool` | key membership |
+| `map.get` | `(map: Map, key: Text) -> Value` | stored value or `None`; use `map.has` when `None` is a legal value |
+| `map.set` | `(map: Map, key: Text, value) -> Map` | new map with the key; input unchanged |
+| `map.remove` | `(map: Map, key: Text) -> Map` | new map without the key; missing key is a no-op |
+| `text.codepoints` | `(text: Text) -> List` | Unicode scalar values as `Int`, in order |
+| `text.from_codepoint` | `(codepoint: Int) -> Text or None` | `None` for a surrogate or a value outside `0..=0x10FFFF` |
+| `table.columns` | `(table: Table) -> List` | header names in column order |
+| `table.row` | `(table: Table, row: Int) -> List` | new list of row cells; non-negative coordinate |
+| `table.cell` | `(table: Table, row: Int, column: Int) -> Value` | cell value; non-negative coordinates |
+| `resource.open` | `(kind: Text, descriptor: Text, rights: List) -> Resource` | capability-checked stream open (ADR-0025) |
+| `resource.read` | `(handle, memory: Memory, offset: Int, max_bytes: Int) -> Result` | bounded chunk read into Memory; `{count,eof}` |
+| `resource.write` | `(handle, memory: Memory, offset: Int, length: Int) -> Result` | bounded byte write; `{count}` |
+| `resource.close` | `(handle) -> Result` | releases the host slot |
 | `math.parse/eval/substitute` | see `spec/math.md` | P5; `math.simplify`/`math.differentiate` are declared but return `math.unsupported` in this build |
 | `foreign.run/call` | see `spec/foreign.md` | P5, capability-gated |
 | `fs.read/write` | see `spec/security.md` | capability-gated |
+
+The legacy `打印/print` builtin remains the default and still uses the host
+output path. `examples/stdlib/` contains an explicitly imported `.mq.md`
+`format/utf8/io` prototype (ADR-0027 Compat-A) whose output is comparison-tested
+against `打印` for Unit/None/Bool/Int/Float/Text/List/Map/Table; it does **not**
+replace the builtin, and Formula/Code/FunctionRef/PluginHandle formatting is not
+yet expressible in the standard library.
+
+The `list.*`, `map.*`, `text.*` and `table.*` entries are observation and
+construction primitives, not algorithms (ADR-0023). They return new values and
+never mutate their arguments. Sorting, filtering, joining, grouping, JSON/CSV
+and table transformations remain standard-library work: adding one must not
+add a builtin. `map.get` returns `None` for a missing key; `map.has` is the
+unambiguous membership check when a stored `None` is possible. `table.row` and
+`table.cell` use non-negative coordinates, while `List` indexing keeps its v1
+negative-index rule.

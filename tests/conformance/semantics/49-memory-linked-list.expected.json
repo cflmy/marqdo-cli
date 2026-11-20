@@ -1,0 +1,14 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "type": "list",
+    "items": [
+      {"type": "int", "decimal": "4"},
+      {"type": "int", "decimal": "12"},
+      {"type": "int", "decimal": "20"},
+      {"type": "int", "decimal": "60"}
+    ]
+  }
+}

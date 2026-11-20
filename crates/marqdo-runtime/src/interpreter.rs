@@ -3,12 +3,13 @@
 use std::collections::BTreeMap;
 
 use marqdo_expression::{BinaryOp, Expr, RecordEntry};
-use marqdo_host::{ExecutionContext, Host, HostOp};
-use marqdo_ir::{builtins, CallTarget, Function, FunctionId, ModuleId, Program, Stmt};
+use marqdo_host::{ExecutionContext, Host, HostOp, ResourceRead};
+use marqdo_ir::{builtins, CallTarget, Function, FunctionId, ModuleId, PlaceTarget, Program, Stmt};
 use marqdo_span::Span;
-use marqdo_value::{ErrorCategory, RuntimeError, Value};
+use marqdo_value::{ErrorCategory, ResourceHandle, RuntimeError, Value};
 
 use crate::builtins_impl::FrameView;
+use crate::memory::{MemoryLimits, MemoryStore};
 
 use crate::value_ops;
 
@@ -68,6 +69,7 @@ pub struct Interpreter<'a> {
     program: &'a Program,
     host: &'a mut dyn Host,
     depth: usize,
+    memory: MemoryStore,
 }
 
 /// Run a named function with already-evaluated arguments.
@@ -78,10 +80,30 @@ pub fn run(
     function: &str,
     args: Vec<EvaluatedArg>,
 ) -> Result<RunOutcome, RuntimeError> {
+    run_with_limits(
+        program,
+        host,
+        module,
+        function,
+        args,
+        MemoryLimits::default(),
+    )
+}
+
+/// Run with explicit addressable-memory limits (ADR-0022).
+pub fn run_with_limits(
+    program: &Program,
+    host: &mut dyn Host,
+    module: &ModuleId,
+    function: &str,
+    args: Vec<EvaluatedArg>,
+    limits: MemoryLimits,
+) -> Result<RunOutcome, RuntimeError> {
     let mut interpreter = Interpreter {
         program,
         host,
         depth: 0,
+        memory: MemoryStore::new(limits),
     };
     let value = interpreter.call_by_name(module, function, args, None)?;
     Ok(RunOutcome { value })
@@ -300,10 +322,25 @@ impl<'a> Interpreter<'a> {
             self.host.consume_fuel(1, Some(stmt.span()))?;
             self.host.check_deadline(Some(stmt.span()))?;
             match stmt {
-                Stmt::Assign { name, value, .. } => {
-                    let value = self.eval_expr(value, frame)?;
-                    frame.locals.insert(name.clone(), value);
-                }
+                Stmt::Assign { target, value, .. } => match target {
+                    PlaceTarget::Local { name, .. } => {
+                        let value = self.eval_expr(value, frame)?;
+                        frame.locals.insert(name.clone(), value);
+                    }
+                    PlaceTarget::Index { base, index, span } => {
+                        // Frozen order (ADR-0022): base, index, then RHS.
+                        let base_value = self.eval_expr(base, frame)?;
+                        let index_value = self.eval_expr(index, frame)?;
+                        let byte_value = self.eval_expr(value, frame)?;
+                        self.assign_memory_index(
+                            base_value,
+                            index_value,
+                            byte_value,
+                            Some(*span),
+                            frame,
+                        )?;
+                    }
+                },
                 Stmt::Eval { expr, .. } => {
                     self.eval_expr(expr, frame)?;
                 }
@@ -417,6 +454,62 @@ impl<'a> Interpreter<'a> {
         self.call_by_name_from(&module, &name, args, Some(span), Some(&caller))
     }
 
+    /// Commit one byte into an addressable region after all operand checks.
+    ///
+    /// The three operands are already evaluated, so a rejected value never
+    /// produces a partial write (ADR-0022 §3).
+    fn assign_memory_index(
+        &mut self,
+        base: Value,
+        index: Value,
+        byte: Value,
+        span: Option<Span>,
+        frame: &Frame,
+    ) -> Result<(), RuntimeError> {
+        let base_type = base.type_name();
+        let Value::Memory(handle) = base else {
+            return Err(RuntimeError::new(
+                ErrorCategory::Type,
+                span,
+                format!(
+                    "index assignment requires a Memory base in v1, got {base_type}; List, Map \
+                     and Table values keep their existing value semantics"
+                ),
+            ));
+        };
+        let index_type = index.type_name();
+        let Value::Int(offset) = index else {
+            return Err(RuntimeError::type_error(
+                span,
+                format!("Memory index must be an Int, got {index_type}"),
+            ));
+        };
+        let byte_type = byte.type_name();
+        let byte_repr = byte.display();
+        let Value::Int(byte) = byte else {
+            return Err(RuntimeError::type_error(
+                span,
+                format!("Memory byte value must be an Int in 0..255, got {byte_type}"),
+            ));
+        };
+        let Some(byte) = num_traits::ToPrimitive::to_u8(&byte) else {
+            return Err(RuntimeError::type_error(
+                span,
+                format!("Memory byte value {byte_repr} is outside 0..255"),
+            ));
+        };
+        self.memory.write(handle, &offset, byte, span)?;
+        let module = frame.function.module.canonical();
+        self.host.record_semantic(
+            "memory.write",
+            Some(&frame.function.to_string()),
+            Some(&module),
+            span,
+            Some("byte"),
+        );
+        Ok(())
+    }
+
     fn eval_args(
         &mut self,
         args: &[marqdo_expression::Arg],
@@ -528,7 +621,22 @@ impl<'a> Interpreter<'a> {
             Expr::Index { base, index, span } => {
                 let base_value = self.eval_expr(base, frame)?;
                 let index_value = self.eval_expr(index, frame)?;
-                index_value_of(base_value, index_value, Some(*span))
+                match base_value {
+                    Value::Memory(handle) => {
+                        let Value::Int(offset) = index_value else {
+                            return Err(RuntimeError::type_error(
+                                Some(*span),
+                                format!(
+                                    "Memory index must be an Int, got {}",
+                                    index_value.type_name()
+                                ),
+                            ));
+                        };
+                        let byte = self.memory.read(handle, &offset, Some(*span))?;
+                        Ok(Value::int(i64::from(byte)))
+                    }
+                    other => index_value_of(other, index_value, Some(*span)),
+                }
             }
         }
     }
@@ -699,6 +807,97 @@ impl<'a> Interpreter<'a> {
     /// Access to the program (used by builtin implementations).
     pub(crate) fn program(&self) -> &'a Program {
         self.program
+    }
+
+    /// Addressable-memory store for builtins and place writes.
+    pub(crate) fn memory(&self) -> &MemoryStore {
+        &self.memory
+    }
+
+    /// Mutable addressable-memory store for `memory.new`/`memory.grow`.
+    pub(crate) fn memory_mut(&mut self) -> &mut MemoryStore {
+        &mut self.memory
+    }
+
+    /// Record a semantic event for a builtin that is not a host operation.
+    pub(crate) fn record_memory_event(
+        &mut self,
+        kind: &str,
+        module: &ModuleId,
+        span: Option<Span>,
+        detail: &str,
+    ) {
+        let module = module.canonical();
+        self.host
+            .record_semantic(kind, None, Some(&module), span, Some(detail));
+    }
+
+    /// Open a resource/stream through the host boundary.
+    pub(crate) fn resource_open(
+        &mut self,
+        kind: &str,
+        descriptor: &str,
+        rights: &[String],
+        module: &ModuleId,
+        span: Option<Span>,
+    ) -> Result<Value, RuntimeError> {
+        let context = ExecutionContext::new(module.to_string(), span);
+        self.host
+            .resource_open(kind, descriptor, rights, &context)
+            .map_err(|mut error| {
+                error.mark_callsite();
+                error
+            })
+    }
+
+    /// Read from a resource stream.
+    pub(crate) fn resource_read(
+        &mut self,
+        handle: ResourceHandle,
+        max_bytes: usize,
+        module: &ModuleId,
+        span: Option<Span>,
+    ) -> Result<ResourceRead, RuntimeError> {
+        let context = ExecutionContext::new(module.to_string(), span);
+        self.host
+            .resource_read(handle, max_bytes, &context)
+            .map_err(|mut error| {
+                error.mark_callsite();
+                error
+            })
+    }
+
+    /// Write bytes to a resource stream.
+    pub(crate) fn resource_write(
+        &mut self,
+        handle: ResourceHandle,
+        bytes: &[u8],
+        module: &ModuleId,
+        span: Option<Span>,
+    ) -> Result<usize, RuntimeError> {
+        let context = ExecutionContext::new(module.to_string(), span);
+        self.host
+            .resource_write(handle, bytes, &context)
+            .map_err(|mut error| {
+                error.mark_callsite();
+                error
+            })
+    }
+
+    /// Close a resource stream.
+    pub(crate) fn resource_close(
+        &mut self,
+        handle: ResourceHandle,
+        module: &ModuleId,
+        span: Option<Span>,
+    ) -> Result<(), RuntimeError> {
+        let context = ExecutionContext::new(module.to_string(), span);
+        self.host
+            .resource_close(handle, &context)
+            .map_err(|mut error| {
+                error.mark_callsite();
+                error
+            })
     }
 
     /// Call a builtin-read host operation on behalf of a frame's module.

@@ -8,8 +8,12 @@
 
 mod builtins_impl;
 mod interpreter;
+mod memory;
 mod value_ops;
 
-pub use interpreter::{run, EvaluatedArg, Interpreter, RunOutcome};
+pub use interpreter::{run, run_with_limits, EvaluatedArg, Interpreter, RunOutcome};
+pub use memory::{
+    MemoryLimits, MemoryStore, DEFAULT_MAX_REGION_BYTES, DEFAULT_MAX_TOTAL_BYTES, PAGE_SIZE,
+};
 
 pub use marqdo_value::{RuntimeError, Value};

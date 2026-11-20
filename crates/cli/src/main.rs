@@ -103,6 +103,12 @@ struct SandboxArgs {
     /// Override the program output byte limit.
     #[arg(long = "max-output")]
     max_output: Option<usize>,
+    /// Override the total committed addressable-memory budget in bytes.
+    #[arg(long = "max-memory", value_name = "BYTES")]
+    max_memory: Option<usize>,
+    /// Override the per-region committed addressable-memory budget in bytes.
+    #[arg(long = "max-region-memory", value_name = "BYTES")]
+    max_region_memory: Option<usize>,
     /// Wall-clock timeout in seconds.
     #[arg(long)]
     timeout: Option<u64>,
@@ -137,6 +143,8 @@ impl SandboxArgs {
             fuel: self.fuel,
             stack: self.stack,
             max_output: self.max_output,
+            max_memory: self.max_memory,
+            max_region_memory: self.max_region_memory,
             timeout: self.timeout,
             plugins: self.plugin.clone(),
             trust_native_plugin: self.trust_native_plugin,

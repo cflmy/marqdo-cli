@@ -1,0 +1,53 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "items": [
+      {
+        "items": [
+          {
+            "type": "text",
+            "value": "甲"
+          },
+          {
+            "type": "text",
+            "value": "乙"
+          },
+          {
+            "type": "text",
+            "value": ""
+          },
+          {
+            "type": "text",
+            "value": "丙"
+          }
+        ],
+        "type": "list"
+      },
+      {
+        "items": [
+          {
+            "type": "text",
+            "value": ""
+          }
+        ],
+        "type": "list"
+      },
+      {
+        "items": [
+          {
+            "type": "text",
+            "value": "a"
+          },
+          {
+            "type": "text",
+            "value": "b"
+          }
+        ],
+        "type": "list"
+      }
+    ],
+    "type": "list"
+  }
+}

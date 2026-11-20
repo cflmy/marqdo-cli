@@ -1,0 +1,135 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "items": [
+      {
+        "header": [
+          "名称",
+          "分数"
+        ],
+        "rows": [
+          [
+            {
+              "type": "text",
+              "value": "甲"
+            },
+            {
+              "decimal": "87",
+              "type": "int"
+            }
+          ],
+          [
+            {
+              "type": "text",
+              "value": "乙"
+            },
+            {
+              "decimal": "92",
+              "type": "int"
+            }
+          ],
+          [
+            {
+              "type": "text",
+              "value": "丙"
+            },
+            {
+              "decimal": "71",
+              "type": "int"
+            }
+          ]
+        ],
+        "type": "table"
+      },
+      {
+        "header": [
+          "名称",
+          "等级"
+        ],
+        "rows": [
+          [
+            {
+              "type": "text",
+              "value": "乙"
+            },
+            {
+              "type": "text",
+              "value": "A"
+            }
+          ],
+          [
+            {
+              "type": "text",
+              "value": "甲"
+            },
+            {
+              "type": "text",
+              "value": "B"
+            }
+          ],
+          [
+            {
+              "type": "text",
+              "value": "丁"
+            },
+            {
+              "type": "text",
+              "value": "C"
+            }
+          ]
+        ],
+        "type": "table"
+      },
+      {
+        "header": [
+          "名称",
+          "分数",
+          "名称",
+          "等级"
+        ],
+        "rows": [
+          [
+            {
+              "type": "text",
+              "value": "甲"
+            },
+            {
+              "decimal": "87",
+              "type": "int"
+            },
+            {
+              "type": "text",
+              "value": "甲"
+            },
+            {
+              "type": "text",
+              "value": "B"
+            }
+          ],
+          [
+            {
+              "type": "text",
+              "value": "乙"
+            },
+            {
+              "decimal": "92",
+              "type": "int"
+            },
+            {
+              "type": "text",
+              "value": "乙"
+            },
+            {
+              "type": "text",
+              "value": "A"
+            }
+          ]
+        ],
+        "type": "table"
+      }
+    ],
+    "type": "list"
+  }
+}

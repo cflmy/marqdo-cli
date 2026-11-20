@@ -15,6 +15,6 @@ pub use error::{CallFrame, ErrorCategory, RuntimeError};
 pub use marqdo_span::{LineCol, Span};
 pub use value::{
     bigint_to_exact_f64, float_to_bigint, format_float, CodeValue, FormulaValue, FunctionRef,
-    PluginHandle, Table, Value,
+    MemoryHandle, PluginHandle, ResourceHandle, Table, Value,
 };
 pub use wire::{from_wire, to_wire, WireError, WIRE_VERSION};

@@ -17,7 +17,9 @@
 //! recursing into any sub-expression so adversarial inputs fail with a
 //! structured [`ParseError`] instead of overflowing the stack.
 
-use crate::ast::{Arg, BinaryOp, Expr, Ident, RecordEntry, Statement, StatementKind, UnaryOp};
+use crate::ast::{
+    Arg, AssignTarget, BinaryOp, Expr, Ident, RecordEntry, Statement, StatementKind, UnaryOp,
+};
 use crate::lexer::{self, Token, TokenKind};
 use crate::ParseError;
 use marqdo_span::Span;
@@ -47,21 +49,16 @@ pub(crate) fn parse_statement(source: &str) -> Result<Statement, ParseError> {
         return Err(parser.error_here("expected a statement, found end of input"));
     }
     let start = parser.peek().span.start;
-    if let TokenKind::Ident(_) = parser.peek().kind {
-        if matches!(
-            parser.peek_n(1).map(|token| &token.kind),
-            Some(TokenKind::Assign)
-        ) {
-            return parser.assignment(start);
-        }
+    let left = parser.expression()?;
+    if matches!(parser.peek().kind, TokenKind::Assign) {
+        return parser.assignment(start, left);
     }
-    let expr = parser.expression()?;
     if !parser.at_eof() {
-        return Err(parser.trailing_statement_error(&expr));
+        return Err(parser.trailing_statement_error());
     }
     let end = parser.previous_end();
     Ok(Statement {
-        kind: StatementKind::Expr(expr),
+        kind: StatementKind::Expr(left),
         span: Span::new(start, end),
     })
 }
@@ -201,11 +198,8 @@ impl Parser {
     // Statements
     // ------------------------------------------------------------------
 
-    fn assignment(&mut self, start: usize) -> Result<Statement, ParseError> {
-        let TokenKind::Ident(name) = self.peek().kind.clone() else {
-            return Err(self.error_here("expected an identifier on the left of `=`"));
-        };
-        let name_token = self.bump();
+    fn assignment(&mut self, start: usize, left: Expr) -> Result<Statement, ParseError> {
+        let target = self.assign_target(left)?;
         self.bump(); // `=`
         if self.at_eof() {
             return Err(self.error_here("expected an expression after `=`"));
@@ -226,29 +220,40 @@ impl Parser {
         }
         let end = self.previous_end();
         Ok(Statement {
-            kind: StatementKind::Assign {
-                name,
-                name_span: name_token.span,
-                value,
-            },
+            kind: StatementKind::Assign { target, value },
             span: Span::new(start, end),
         })
     }
 
-    fn trailing_statement_error(&self, expr: &Expr) -> ParseError {
-        if matches!(self.peek().kind, TokenKind::Assign) {
-            return if matches!(expr, Expr::Member { .. } | Expr::Index { .. }) {
-                self.error_here(
-                    "invalid assignment target: member and index assignment are not supported \
-                     in v1; assign a bare identifier",
-                )
-            } else {
-                self.error_here(
-                    "invalid assignment target: assignment requires a bare identifier on the \
-                     left of `=`",
-                )
-            };
+    /// Turn the already-parsed left expression into a writable target.
+    ///
+    /// v1 only writes local slots. Addressable `Memory` adds index targets;
+    /// member assignment and every other shape stay hard parse errors so an
+    /// invalid executable shape never silently becomes prose (ADR-0022).
+    fn assign_target(&self, left: Expr) -> Result<AssignTarget, ParseError> {
+        match left {
+            Expr::Ident(Ident { name, span }) => Ok(AssignTarget::Local {
+                name,
+                name_span: span,
+            }),
+            Expr::Index { base, index, span } => Ok(AssignTarget::Index { base, index, span }),
+            Expr::Member { span, .. } => Err(ParseError::new(
+                span,
+                "member assignment is not supported in v1; only a local name or a \
+                 Memory index is writable",
+            )),
+            other => Err(ParseError::new(
+                other.span(),
+                format!(
+                    "invalid assignment target: {} is not a writable place; assign a local \
+                     name or a Memory index",
+                    describe_expr(&other)
+                ),
+            )),
         }
+    }
+
+    fn trailing_statement_error(&self) -> ParseError {
         self.error_here(format!(
             "unexpected {} after expression",
             self.describe_current()
@@ -705,6 +710,24 @@ fn is_keyword(kind: &TokenKind) -> bool {
     )
 }
 
+fn describe_expr(expr: &Expr) -> &'static str {
+    match expr {
+        Expr::Int(_) => "an integer literal",
+        Expr::Float(_) => "a float literal",
+        Expr::Text(_) => "a text literal",
+        Expr::Bool(_) => "a boolean literal",
+        Expr::None => "`None`",
+        Expr::Ident(_) => "an identifier",
+        Expr::List(_) => "a list literal",
+        Expr::Record(_) => "a record literal",
+        Expr::Unary { .. } => "a unary expression",
+        Expr::Binary { .. } => "a binary expression",
+        Expr::Call { .. } => "a call expression",
+        Expr::Member { .. } => "a member access",
+        Expr::Index { .. } => "an index expression",
+    }
+}
+
 fn describe_token(kind: &TokenKind) -> String {
     match kind {
         TokenKind::Int(raw) => format!("integer literal `{raw}`"),
@@ -1154,20 +1177,59 @@ mod tests {
         assert_eq!(
             stmt.kind,
             StatementKind::Assign {
-                name: "x".to_owned(),
-                name_span: Span::new(0, 1),
+                target: AssignTarget::Local {
+                    name: "x".to_owned(),
+                    name_span: Span::new(0, 1),
+                },
                 value: Expr::Int(BigInt::from(1)),
             }
         );
         let stmt = st("结果 = 阶乘(n=3)");
         match &stmt.kind {
-            StatementKind::Assign { name, value, .. } => {
+            StatementKind::Assign {
+                target: AssignTarget::Local { name, .. },
+                value,
+            } => {
                 assert_eq!(name, "结果");
                 assert_eq!(sexpr(value), "(call 阶乘 n=3)");
             }
             other => panic!("expected assignment, got {other:?}"),
         }
         assert_eq!(st("x = y + 1").span(), Span::new(0, 9));
+    }
+
+    #[test]
+    fn memory_index_assignment_parses_as_a_place() {
+        let stmt = st("m[8] = 42");
+        let StatementKind::Assign { target, value } = &stmt.kind else {
+            panic!("expected assignment, got {:?}", stmt.kind);
+        };
+        let AssignTarget::Index { base, index, span } = target else {
+            panic!("expected index target, got {target:?}");
+        };
+        assert_eq!(
+            **base,
+            Expr::Ident(Ident {
+                name: "m".to_owned(),
+                span: Span::new(0, 1),
+            })
+        );
+        assert_eq!(**index, Expr::Int(BigInt::from(8)));
+        assert_eq!(*span, Span::new(0, 4));
+        assert_eq!(*value, Expr::Int(BigInt::from(42)));
+        assert_eq!(stmt.span, Span::new(0, 9));
+
+        // Nested targets are syntactically places; the runtime decides whether
+        // the base value is a writable Memory region.
+        let stmt = st("outer[0][1] = 2");
+        let StatementKind::Assign {
+            target: AssignTarget::Index { base, .. },
+            ..
+        } = &stmt.kind
+        else {
+            panic!("expected nested index target, got {:?}", stmt.kind);
+        };
+        assert!(matches!(base.as_ref(), Expr::Index { .. }));
     }
 
     #[test]
@@ -1185,8 +1247,8 @@ mod tests {
             "x =",
             "x = 1 = 2",
             "a.b = 1",
-            "a[0] = 1",
             "1 = 2",
+            "f() = 1",
             "= 1",
             "x = 1 2",
         ] {
@@ -1194,7 +1256,8 @@ mod tests {
             assert_eq!(err.code, "expr.parse", "input {bad:?}");
         }
         assert!(st_err("x = 1 = 2").message.contains("chained assignment"));
-        assert!(st_err("a.b = 1").message.contains("member and index"));
+        assert!(st_err("a.b = 1").message.contains("member assignment"));
+        assert!(st_err("1 = 2").message.contains("writable place"));
         assert!(st_err("x =").message.contains("after `=`"));
     }
 
@@ -1228,7 +1291,10 @@ mod tests {
         let stmt = st("  x = 1  ");
         assert_eq!(stmt.span(), Span::new(2, 7));
         match stmt.kind {
-            StatementKind::Assign { name_span, .. } => assert_eq!(name_span, Span::new(2, 3)),
+            StatementKind::Assign {
+                target: AssignTarget::Local { name_span, .. },
+                ..
+            } => assert_eq!(name_span, Span::new(2, 3)),
             other => panic!("expected assignment, got {other:?}"),
         }
 

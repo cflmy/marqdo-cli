@@ -182,6 +182,34 @@ fn analysis_v2_identity_is_location_independent() {
 }
 
 #[test]
+fn analysis_v2_projects_memory_place_targets_additively() {
+    let dir = TempDir::new("analysis-place");
+    let source = "## main\n\n**内存 = memory.new(1, 2)**\n\n**`内存[0] = 7`**\n\n*内存[0]*\n";
+    write(dir.path(), "index.mq.md", source);
+    let target = dir.path().join("analysis.json");
+    let output = cli(
+        dir.path(),
+        &["check", "index.mq.md", "--emit", target.to_str().unwrap()],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let analysis: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&target).unwrap()).unwrap();
+    let body = analysis["modules"][0]["functions"][0]["body"]
+        .as_array()
+        .expect("body is an array");
+    assert_eq!(body[0]["target"], "内存");
+    assert_eq!(body[1]["target"]["kind"], "index");
+    assert_eq!(body[1]["target"]["base"]["kind"], "variable");
+    assert_eq!(body[1]["target"]["index"]["kind"], "literal");
+    assert_eq!(body[1]["target"]["index"]["type"], "int");
+}
+
+#[test]
 fn analysis_v2_projects_addressable_formula_and_code_resources() {
     let dir = TempDir::new("analysis-resources");
     let source = r#"## calc

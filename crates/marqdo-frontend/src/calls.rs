@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use marqdo_expression::{Arg, Expr, Ident};
-use marqdo_ir::{builtins, Module, ModuleId, Param, Program, SignatureKind, Stmt};
+use marqdo_ir::{builtins, Module, ModuleId, Param, PlaceTarget, Program, SignatureKind, Stmt};
 use marqdo_span::Span;
 use marqdo_value::{codes, Diagnostic};
 
@@ -109,7 +109,10 @@ pub fn validate_program(program: &Program) -> Vec<(ModuleId, Diagnostic)> {
 fn collect_assigned(stmts: &[Stmt], out: &mut BTreeSet<String>) {
     for stmt in stmts {
         match stmt {
-            Stmt::Assign { name, .. } => {
+            Stmt::Assign {
+                target: PlaceTarget::Local { name, .. },
+                ..
+            } => {
                 out.insert(name.clone());
             }
             Stmt::Branch { arms, .. } => {
@@ -138,9 +141,14 @@ impl<'a> CallChecker<'a> {
     fn stmts(&mut self, stmts: &[Stmt]) {
         for stmt in stmts {
             match stmt {
-                Stmt::Assign { value, .. }
-                | Stmt::Eval { expr: value, .. }
-                | Stmt::Return { value, .. } => {
+                Stmt::Assign { target, value, .. } => {
+                    if let PlaceTarget::Index { base, index, .. } = target {
+                        self.expr(base);
+                        self.expr(index);
+                    }
+                    self.expr(value);
+                }
+                Stmt::Eval { expr: value, .. } | Stmt::Return { value, .. } => {
                     self.expr(value);
                 }
                 Stmt::Call { call, .. } => {

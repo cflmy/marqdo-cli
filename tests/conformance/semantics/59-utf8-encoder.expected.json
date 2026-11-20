@@ -1,0 +1,59 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "items": [
+      {
+        "decimal": "10",
+        "type": "int"
+      },
+      {
+        "items": [
+          {
+            "decimal": "65",
+            "type": "int"
+          },
+          {
+            "decimal": "195",
+            "type": "int"
+          },
+          {
+            "decimal": "169",
+            "type": "int"
+          },
+          {
+            "decimal": "228",
+            "type": "int"
+          },
+          {
+            "decimal": "184",
+            "type": "int"
+          },
+          {
+            "decimal": "173",
+            "type": "int"
+          },
+          {
+            "decimal": "240",
+            "type": "int"
+          },
+          {
+            "decimal": "157",
+            "type": "int"
+          },
+          {
+            "decimal": "132",
+            "type": "int"
+          },
+          {
+            "decimal": "158",
+            "type": "int"
+          }
+        ],
+        "type": "list"
+      }
+    ],
+    "type": "list"
+  }
+}

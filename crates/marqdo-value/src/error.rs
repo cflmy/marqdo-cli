@@ -23,8 +23,19 @@ pub enum ErrorCategory {
     NotCallable,
     /// A map key or record field does not exist.
     UnknownField,
-    /// A list/map index is out of bounds.
+    /// A list/map/memory index is out of bounds.
     IndexOutOfBounds,
+    /// An addressable-memory operation failed for a reason other than a plain
+    /// out-of-bounds read: invalid page counts, an unknown/stale handle, or an
+    /// arithmetic overflow in an address.
+    MemoryFault,
+    /// A resource handle is forged, cross-run or stale.
+    ResourceFault,
+    /// A resource operation used an already-closed handle (recoverable as a
+    /// `Result` by the builtin).
+    ResourceClosed,
+    /// The requested resource kind/descriptor/rights are not implemented.
+    ResourceUnsupported,
     /// A resource budget was exhausted (fuel, stack, output size).
     ResourceExhausted,
     /// A capability check denied the operation.
@@ -60,6 +71,10 @@ impl ErrorCategory {
             ErrorCategory::NotCallable => "call.not_callable",
             ErrorCategory::UnknownField => "runtime.unknown_field",
             ErrorCategory::IndexOutOfBounds => codes::RUNTIME_INDEX,
+            ErrorCategory::MemoryFault => "runtime.memory",
+            ErrorCategory::ResourceFault => "runtime.resource",
+            ErrorCategory::ResourceClosed => "resource.closed",
+            ErrorCategory::ResourceUnsupported => "resource.unsupported",
             ErrorCategory::ResourceExhausted => codes::RESOURCE_EXHAUSTED,
             ErrorCategory::PermissionDenied => codes::PERMISSION_DENIED,
             ErrorCategory::KernelUnavailable => codes::KERNEL_UNAVAILABLE,

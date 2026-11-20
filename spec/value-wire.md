@@ -1,7 +1,9 @@
 # Marqdo Value Wire Format v1
 
-Status: **frozen for M0.5**. Changes require an ADR, a `wire_version` bump and
-cross-ABI compatibility tests.
+Status: **frozen for M0.5; extended by ADR-0022 (non-transferable `Memory`)**.
+Changes require an ADR, a `wire_version` bump and cross-ABI compatibility
+tests. Adding a rejected tag is not a version bump; accepting a new value shape
+is.
 
 Canonical implementation: `crates/marqdo-value/src/wire.rs`
 (`to_wire`, `from_wire`, `from_wire_with_limits`, `WireLimits`, `WireError`).
@@ -14,11 +16,19 @@ documented in [`foreign.md`](foreign.md) and implemented in
 ## 1. Why a typed wire format
 
 JSON has one numeric type. Marqdo has arbitrary-precision `Int`, IEEE-754
-`Float` (including `NaN` and both infinities) and 13 distinct runtime value
+`Float` (including `NaN` and both infinities) and 15 distinct runtime value
 types (`crates/marqdo-value/src/value.rs`). Encoding an `Int` as a JSON number
 would silently lose digits above 2^53 and would make `Int(1)` and
 `Float(1.0)` indistinguishable after a round trip. The wire format is
 therefore **fully type-tagged** and is not plain JSON.
+
+Addressable `Memory` and host `Resource` handles are deliberately **not
+transferable**. `to_wire` emits
+`{"type":"memory"}` only so that an accidental transfer is visible; decoding
+that tag is always `WireError::Invalid`, and the host boundary rejects any
+argument containing a live handle before an ABI call. Copying bytes requires an
+explicit standard-library snapshot to a managed value, not serializing a
+handle (ADR-0022).
 
 The rules that follow from this:
 
@@ -81,6 +91,8 @@ The table is normative and mirrors `encode`/`decode` in
 | `Code` | `{"type":"code","language":"python","source":"...","content_hash":"<sha256 hex>"}` plus optional `"unit"` and `"span"` | `language` and `content_hash` default to `""` on decode when absent; `source` is required. |
 | `FunctionRef` | `{"type":"function_ref","module":"index.mq.md","name":"main"}` | Both fields required strings. |
 | `PluginHandle` | `{"type":"plugin_handle","plugin":"demo.solver","export":"solver.add","id":1}` | `id` must be a non-negative JSON integer (`as_u64`). |
+| `Memory` | `{"type":"memory"}` | **Never decodable.** No handle, address or bytes are encoded; a round trip is intentionally impossible (`wire::tests::memory_handles_are_not_transferable`). |
+| `Resource` | `{"type":"resource"}` | **Never decodable.** Host-private stream handle; `from_wire` rejects the tag (`resource_handles_are_not_transferable`, ADR-0025). |
 
 Optional fields (`unit`, `span`, `display`, `language`, `content_hash`) are
 emitted only when present on the value. Encoders always emit `display` for

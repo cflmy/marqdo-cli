@@ -224,16 +224,51 @@ pub struct Function {
     pub body: Vec<Stmt>,
 }
 
+/// Writable place of an assignment (ADR-0022).
+///
+/// The Markdown surface is unchanged: both variants are `strong` nodes whose
+/// payload contains `target = expression`. `Local` rebinds a frame slot;
+/// `Index` writes one byte into an addressable runtime `Memory` region and is
+/// rejected for every other base value.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "place", rename_all = "snake_case")]
+pub enum PlaceTarget {
+    /// Local slot rebinding.
+    Local {
+        /// Target name.
+        name: String,
+        /// Span of the target name.
+        name_span: Span,
+    },
+    /// `base[index] = value`; only a `Memory` base is writable.
+    Index {
+        /// Base expression, evaluated first.
+        base: Expr,
+        /// Index expression, evaluated second.
+        index: Expr,
+        /// Span from the base start through the closing `]`.
+        span: Span,
+    },
+}
+
+impl PlaceTarget {
+    /// Best known source span of the place.
+    pub fn span(&self) -> Span {
+        match self {
+            PlaceTarget::Local { name_span, .. } => *name_span,
+            PlaceTarget::Index { span, .. } => *span,
+        }
+    }
+}
+
 /// An executable statement.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "stmt", rename_all = "snake_case")]
 pub enum Stmt {
-    /// Local assignment (`strong` node with `name = expr`).
+    /// Assignment to a local slot or a `Memory` index.
     Assign {
-        /// Target name.
-        name: String,
-        /// Span of the target name (approximated by the payload span).
-        name_span: Span,
+        /// Writable place.
+        target: PlaceTarget,
         /// Value expression.
         value: Expr,
         /// Span of the whole statement.

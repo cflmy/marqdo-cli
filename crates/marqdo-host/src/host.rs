@@ -12,7 +12,7 @@ use marqdo_plugin_abi::{
     ErrorKind as PluginErrorKind, LoadedPlugin, PluginError, PluginKind, PluginManifest,
 };
 use marqdo_span::Span;
-use marqdo_value::{ErrorCategory, RuntimeError, Value};
+use marqdo_value::{ErrorCategory, ResourceHandle, RuntimeError, Value};
 
 use crate::budget::Budget;
 use crate::capability::{Capabilities, CapabilityAudit, CapabilityBroker};
@@ -20,6 +20,7 @@ use crate::context::ExecutionContext;
 use crate::fs::ProjectFs;
 use crate::handles::{contains_plugin_handle, PluginHandleTable};
 use crate::plugin_worker::WorkerPlugin;
+use crate::resource::{ResourceRead, ResourceTable};
 use crate::trace::{EffectTrace, SemanticEvent, TraceBudget, TraceEntry, TraceState};
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
 
@@ -78,6 +79,65 @@ pub trait Host {
         args: Vec<Value>,
         ctx: &ExecutionContext,
     ) -> Result<Value, RuntimeError>;
+
+    /// Open a resource/stream by kind, descriptor and requested rights.
+    ///
+    /// Default: unavailable. Only the standard host implements the first
+    /// resource kinds (ADR-0025).
+    fn resource_open(
+        &mut self,
+        _kind: &str,
+        _descriptor: &str,
+        _rights: &[String],
+        ctx: &ExecutionContext,
+    ) -> Result<Value, RuntimeError> {
+        Err(RuntimeError::new(
+            ErrorCategory::ResourceUnsupported,
+            ctx.span,
+            "this host does not provide resource streams",
+        ))
+    }
+
+    /// Read up to `max_bytes` from a resource into host memory.
+    fn resource_read(
+        &mut self,
+        _handle: ResourceHandle,
+        _max_bytes: usize,
+        ctx: &ExecutionContext,
+    ) -> Result<ResourceRead, RuntimeError> {
+        Err(RuntimeError::new(
+            ErrorCategory::ResourceUnsupported,
+            ctx.span,
+            "this host does not provide resource streams",
+        ))
+    }
+
+    /// Write bytes to a resource; returns the accepted count.
+    fn resource_write(
+        &mut self,
+        _handle: ResourceHandle,
+        _bytes: &[u8],
+        ctx: &ExecutionContext,
+    ) -> Result<usize, RuntimeError> {
+        Err(RuntimeError::new(
+            ErrorCategory::ResourceUnsupported,
+            ctx.span,
+            "this host does not provide resource streams",
+        ))
+    }
+
+    /// Close a resource handle.
+    fn resource_close(
+        &mut self,
+        _handle: ResourceHandle,
+        ctx: &ExecutionContext,
+    ) -> Result<(), RuntimeError> {
+        Err(RuntimeError::new(
+            ErrorCategory::ResourceUnsupported,
+            ctx.span,
+            "this host does not provide resource streams",
+        ))
+    }
 
     /// Consume evaluation fuel.
     fn consume_fuel(&mut self, amount: u64, span: Option<Span>) -> Result<(), RuntimeError>;
@@ -143,6 +203,8 @@ pub struct StdHost {
     broker_audit: Arc<Mutex<Vec<CapabilityAudit>>>,
     /// Host-issued opaque plugin handles.
     pub handles: PluginHandleTable,
+    /// Host-owned resource/stream table (ADR-0025).
+    resources: ResourceTable,
     semantic_events: Vec<SemanticEvent>,
     next_event_seq: u64,
     trace_state: TraceState,
@@ -203,6 +265,7 @@ impl StdHost {
             vendor_capabilities: BTreeSet::new(),
             broker_audit: Arc::new(Mutex::new(Vec::new())),
             handles: PluginHandleTable::default(),
+            resources: ResourceTable::new(),
             semantic_events: Vec::new(),
             next_event_seq: 0,
             trace_state: TraceState::default(),
@@ -526,6 +589,96 @@ impl StdHost {
         self.fs.write(&path, &contents, ctx.span)?;
         Ok(Value::Unit)
     }
+
+    fn open_resource_stream(
+        &mut self,
+        kind: &str,
+        descriptor: &str,
+        rights: &[String],
+        ctx: &ExecutionContext,
+    ) -> Result<Value, RuntimeError> {
+        if self.mode == SandboxMode::Strict {
+            return Err(RuntimeError::new(
+                ErrorCategory::PermissionDenied,
+                ctx.span,
+                "resource streams are not verified in strict mode and are refused",
+            ));
+        }
+        if self.mode == SandboxMode::Pure && kind == "file" {
+            return Err(RuntimeError::new(
+                ErrorCategory::PermissionDenied,
+                ctx.span,
+                "pure mode does not provide project file resources",
+            ));
+        }
+        let requested: BTreeSet<&str> = rights.iter().map(String::as_str).collect();
+        match kind {
+            "stdio" => {
+                if descriptor != "stdout" || requested != BTreeSet::from(["write"]) {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::ResourceUnsupported,
+                        ctx.span,
+                        "the first stream slice supports only stdio/stdout with rights [write]",
+                    ));
+                }
+                if !self.capabilities.console {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::PermissionDenied,
+                        ctx.span,
+                        "the console capability is required for stdio/stdout",
+                    ));
+                }
+                let handle = self.resources.open_stdout();
+                self.record_semantic(
+                    "resource.open",
+                    None,
+                    Some(&ctx.module_id),
+                    ctx.span,
+                    Some("kind=stdio descriptor=stdout"),
+                );
+                Ok(Value::Resource(handle))
+            }
+            "file" => {
+                if requested == BTreeSet::from(["read"]) {
+                    self.capabilities.check_read(descriptor, ctx.span)?;
+                    let (_, relative) = self.fs.resolve(descriptor, ctx.span)?;
+                    let bytes = self.fs.read_bytes(descriptor, ctx.span)?;
+                    let handle = self.resources.open_file(relative, bytes);
+                    self.record_semantic(
+                        "resource.open",
+                        None,
+                        Some(&ctx.module_id),
+                        ctx.span,
+                        Some("kind=file rights=read"),
+                    );
+                    return Ok(Value::Resource(handle));
+                }
+                if requested == BTreeSet::from(["write"]) {
+                    self.capabilities.check_write(descriptor, ctx.span)?;
+                    let (_, relative) = self.fs.resolve(descriptor, ctx.span)?;
+                    let handle = self.resources.open_file_writer(relative);
+                    self.record_semantic(
+                        "resource.open",
+                        None,
+                        Some(&ctx.module_id),
+                        ctx.span,
+                        Some("kind=file rights=write"),
+                    );
+                    return Ok(Value::Resource(handle));
+                }
+                Err(RuntimeError::new(
+                    ErrorCategory::ResourceUnsupported,
+                    ctx.span,
+                    "project file streams support exactly [read] or [write] in this build",
+                ))
+            }
+            other => Err(RuntimeError::new(
+                ErrorCategory::ResourceUnsupported,
+                ctx.span,
+                format!("resource kind `{other}` is not implemented in this build"),
+            )),
+        }
+    }
 }
 
 impl Host for StdHost {
@@ -535,6 +688,31 @@ impl Host for StdHost {
         args: Vec<Value>,
         ctx: &ExecutionContext,
     ) -> Result<Value, RuntimeError> {
+        // Addressable memory is language-local state. Handles must not reach a
+        // plugin, foreign kernel or file adapter, where they could not be
+        // interpreted safely (RFC-CM-0001 §8, ADR-0022 §4).
+        if args.iter().any(Value::contains_memory) {
+            return Err(RuntimeError::new(
+                ErrorCategory::Type,
+                ctx.span,
+                format!(
+                    "Memory values cannot cross the host boundary (`{}`); copy bytes into \
+                     Text explicitly first",
+                    op.name()
+                ),
+            ));
+        }
+        if args.iter().any(Value::contains_resource) {
+            return Err(RuntimeError::new(
+                ErrorCategory::Type,
+                ctx.span,
+                format!(
+                    "Resource handles cannot cross the generic host boundary (`{}`); use \
+                     resource.* operations",
+                    op.name()
+                ),
+            ));
+        }
         let started = Instant::now();
         let result = self.dispatch(op, args, ctx);
         let summary = match &result {
@@ -560,6 +738,84 @@ impl Host for StdHost {
             );
         }
         result
+    }
+
+    fn resource_open(
+        &mut self,
+        kind: &str,
+        descriptor: &str,
+        rights: &[String],
+        ctx: &ExecutionContext,
+    ) -> Result<Value, RuntimeError> {
+        self.open_resource_stream(kind, descriptor, rights, ctx)
+    }
+
+    fn resource_read(
+        &mut self,
+        handle: ResourceHandle,
+        max_bytes: usize,
+        ctx: &ExecutionContext,
+    ) -> Result<ResourceRead, RuntimeError> {
+        let kind = self.resources.kind(handle, ctx.span)?;
+        let read = self.resources.read(handle, max_bytes, ctx.span)?;
+        self.record_semantic(
+            "resource.read",
+            None,
+            Some(&ctx.module_id),
+            ctx.span,
+            Some(&format!(
+                "kind={kind} count={} eof={}",
+                read.bytes.len(),
+                read.eof
+            )),
+        );
+        Ok(read)
+    }
+
+    fn resource_write(
+        &mut self,
+        handle: ResourceHandle,
+        bytes: &[u8],
+        ctx: &ExecutionContext,
+    ) -> Result<usize, RuntimeError> {
+        let kind = self.resources.kind(handle, ctx.span)?;
+        let count = self.resources.write(handle, bytes, ctx.span)?;
+        if kind == "stdio" {
+            self.budget.consume_output(count, ctx.span)?;
+            self.output.extend_from_slice(bytes);
+        }
+        self.record_semantic(
+            "resource.write",
+            None,
+            Some(&ctx.module_id),
+            ctx.span,
+            Some(&format!("kind={kind} count={count}")),
+        );
+        Ok(count)
+    }
+
+    fn resource_close(
+        &mut self,
+        handle: ResourceHandle,
+        ctx: &ExecutionContext,
+    ) -> Result<(), RuntimeError> {
+        let pending = self.resources.pending_file_write(handle, ctx.span)?;
+        let count = match pending {
+            Some((relative, bytes)) => {
+                self.fs.write_bytes(&relative, &bytes, ctx.span)?;
+                bytes.len()
+            }
+            None => 0,
+        };
+        self.resources.close(handle, ctx.span)?;
+        self.record_semantic(
+            "resource.close",
+            None,
+            Some(&ctx.module_id),
+            ctx.span,
+            Some(&format!("flushed_bytes={count}")),
+        );
+        Ok(())
     }
 
     fn consume_fuel(&mut self, amount: u64, span: Option<Span>) -> Result<(), RuntimeError> {

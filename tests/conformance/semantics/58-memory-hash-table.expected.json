@@ -1,0 +1,66 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "items": [
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "type": "none"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "decimal": "55",
+        "type": "int"
+      },
+      {
+        "decimal": "370",
+        "type": "int"
+      },
+      {
+        "decimal": "120",
+        "type": "int"
+      },
+      {
+        "type": "none"
+      },
+      {
+        "decimal": "3",
+        "type": "int"
+      },
+      {
+        "entries": {
+          "code": {
+            "type": "text",
+            "value": "hash.full"
+          },
+          "message": {
+            "type": "text",
+            "value": "哈希表已满"
+          },
+          "ok": {
+            "type": "bool",
+            "value": false
+          }
+        },
+        "type": "map"
+      },
+      {
+        "decimal": "10",
+        "type": "int"
+      },
+      {
+        "decimal": "20",
+        "type": "int"
+      }
+    ],
+    "type": "list"
+  }
+}

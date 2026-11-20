@@ -36,8 +36,8 @@
 //! The grammar is frozen in `spec/expression.ebnf`. In order of decreasing
 //! precedence: prefix `not` / `-` / `+`, `**` (right associative), postfix
 //! calls `.name` / `[index]`, `* / // %`, `+ -`, a single non-associative
-//! comparison, `and`, `or`. Assignment is only available at statement start
-//! and only for a bare identifier target.
+//! comparison, `and`, `or`. Assignment is only available at statement start;
+//! its target is a bare identifier or an index expression (`m[8] = 42`).
 //!
 //! Notable lexical rules:
 //!
@@ -84,7 +84,9 @@ use std::fmt;
 
 use serde::Serialize;
 
-pub use ast::{Arg, BinaryOp, Expr, Ident, RecordEntry, Statement, StatementKind, UnaryOp};
+pub use ast::{
+    Arg, AssignTarget, BinaryOp, Expr, Ident, RecordEntry, Statement, StatementKind, UnaryOp,
+};
 pub use marqdo_span::Span;
 pub use parser::MAX_NESTING_DEPTH;
 

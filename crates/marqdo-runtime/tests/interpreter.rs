@@ -2,7 +2,7 @@
 
 use marqdo_host::{Capabilities, Host, StdHost};
 use marqdo_ir::{ModuleId, Program};
-use marqdo_runtime::{run, EvaluatedArg, RuntimeError, Value};
+use marqdo_runtime::{run, run_with_limits, EvaluatedArg, MemoryLimits, RuntimeError, Value};
 use marqdo_sandbox::SandboxMode;
 use marqdo_span::Span;
 
@@ -169,4 +169,47 @@ fn ambiguous_ref_resource_is_an_error() {
     let source = "## f\n\n### 公式\n\n$$a = 1$$\n\n$$b = 2$$\n\n**x = ref(\"#公式\")**\n\n*x*\n";
     let error = run_named(source, "f", &[]).unwrap_err();
     assert_eq!(error.code(), "ref.ambiguous");
+}
+
+#[test]
+fn memory_region_is_shared_by_handle_identity() {
+    let source = "## f\n\n**m = memory.new(1, 2)**\n\n**n = m**\n\n**`m[3] = 7`**\n\n*[n[3], m == n, memory.size(n)]*\n";
+    let value = run_named(source, "f", &[]).unwrap();
+    assert_eq!(
+        value,
+        Value::List(vec![Value::int(7), Value::Bool(true), Value::int(1)])
+    );
+}
+
+#[test]
+fn memory_handle_cannot_reach_the_host_boundary() {
+    let source = "## f\n\n**m = memory.new(1, 1)**\n\n> 打印(m)\n\n*0*\n";
+    let error = run_named(source, "f", &[]).unwrap_err();
+    assert_eq!(error.code(), "runtime.type");
+    assert!(
+        error
+            .message
+            .contains("Memory values cannot cross the host boundary"),
+        "unexpected message: {}",
+        error.message
+    );
+}
+
+#[test]
+fn memory_budget_is_enforced_without_changing_the_region() {
+    let program = build("## f\n\n**m = memory.new(1, 1)**\n\n*[m[0], memory.grow(m, 1)]*\n");
+    let mut host = host();
+    let error = run_with_limits(
+        &program,
+        &mut host,
+        &ModuleId::from("index.mq.md"),
+        "f",
+        Vec::new(),
+        MemoryLimits {
+            max_total_bytes: 64 * 1024,
+            max_region_bytes: 64 * 1024 * 2,
+        },
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), "resource.exhausted");
 }

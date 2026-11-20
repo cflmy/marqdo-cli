@@ -1,6 +1,7 @@
 # Marqdo Analysis v2
 
-Status: **implemented by `marqdo check --emit <path>` (S2).** Supersedes
+Status: **implemented by `marqdo check --emit <path>` (S2); ADR-0022 adds an
+additive index target shape.** Supersedes
 Analysis v1. v1 was never released; it is kept as history and is not written.
 
 ## 1. Invariants
@@ -81,6 +82,24 @@ the v1 semantic node shapes (`assign`, `expression`, `call_site`, `branch`,
 index, call). `imports`, `references` and `calls` remain static facts; a
 Markdown reference is not a call. `effects` remains `["unknown"]` (a
 conservative summary, not a purity proof).
+
+An `assign` node keeps the v1 string `target` for a local rebinding. Addressable
+memory adds one additive target form (ADR-0022); consumers that only understand
+local assignments can ignore an object target:
+
+```json
+{"kind":"assign",
+ "target":{"kind":"index",
+           "base":{"kind":"variable","name":"内存","span":{"start":23,"end":26}},
+           "index":{"kind":"literal","type":"int","value":"0","span":{"start":27,"end":28}},
+           "span":{"start":23,"end":29}},
+ "value":{"kind":"literal","type":"int","value":"7","span":{"start":32,"end":33}},
+ "span":{"start":18,"end":35}}
+```
+
+`target.kind` is `"index"`; `base` and `index` use the same expression node
+shapes as every other expression. Analysis is static: it records the place but
+never allocates a region or executes the write.
 
 ## 4. Resources
 

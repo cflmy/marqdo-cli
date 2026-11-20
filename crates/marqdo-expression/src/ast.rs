@@ -195,15 +195,50 @@ impl Expr {
     }
 }
 
-/// The payload of a statement.
+/// The writable target on the left of `=` (ADR-0022).
+///
+/// v1 accepted only [`AssignTarget::Local`]. RFC-CM-0001 adds the second
+/// variant because addressable `Memory` needs a writable place; no other
+/// collection becomes mutable. Both variants use the same assignment syntax
+/// and the same statement position.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum StatementKind {
-    /// `<bare identifier> = <expression>`; the only assignment form in v1.
-    Assign {
+#[serde(tag = "place", rename_all = "snake_case")]
+pub enum AssignTarget {
+    /// `name = value`: rebind a local slot in the current frame.
+    Local {
         /// Assigned identifier.
         name: String,
         /// Span of the identifier token (not the whole assignment).
         name_span: Span,
+    },
+    /// `base[index] = value`: write one byte into an addressable `Memory`.
+    Index {
+        /// Base expression, evaluated first.
+        base: Box<Expr>,
+        /// Index expression, evaluated second.
+        index: Box<Expr>,
+        /// Span from the base start through the closing `]`.
+        span: Span,
+    },
+}
+
+impl AssignTarget {
+    /// Best known source span of the assignment target.
+    pub fn span(&self) -> Span {
+        match self {
+            AssignTarget::Local { name_span, .. } => *name_span,
+            AssignTarget::Index { span, .. } => *span,
+        }
+    }
+}
+
+/// The payload of a statement.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum StatementKind {
+    /// `target = expression`; see [`AssignTarget`] for the writable places.
+    Assign {
+        /// Assigned place.
+        target: AssignTarget,
         /// Right-hand side expression.
         value: Expr,
     },

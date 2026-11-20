@@ -1,0 +1,262 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "items": [
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "16",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "32",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "16",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "16",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "32",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "56",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "56",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "72",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "96",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "112",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "code": {
+            "type": "text",
+            "value": "alloc.no_space"
+          },
+          "message": {
+            "type": "text",
+            "value": "没有足够的空闲空间"
+          },
+          "ok": {
+            "type": "bool",
+            "value": false
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "16",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "32",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "48",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "decimal": "16",
+            "type": "int"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "code": {
+            "type": "text",
+            "value": "alloc.no_space"
+          },
+          "message": {
+            "type": "text",
+            "value": "没有足够的空闲空间"
+          },
+          "ok": {
+            "type": "bool",
+            "value": false
+          }
+        },
+        "type": "map"
+      },
+      {
+        "decimal": "33",
+        "type": "int"
+      },
+      {
+        "decimal": "22",
+        "type": "int"
+      },
+      {
+        "decimal": "33",
+        "type": "int"
+      },
+      {
+        "decimal": "33",
+        "type": "int"
+      },
+      {
+        "decimal": "22",
+        "type": "int"
+      },
+      {
+        "decimal": "44",
+        "type": "int"
+      },
+      {
+        "decimal": "55",
+        "type": "int"
+      },
+      {
+        "decimal": "66",
+        "type": "int"
+      },
+      {
+        "decimal": "77",
+        "type": "int"
+      }
+    ],
+    "type": "list"
+  }
+}

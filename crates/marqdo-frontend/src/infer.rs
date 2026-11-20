@@ -17,7 +17,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use marqdo_expression::{Arg, Expr, Ident, RecordEntry};
-use marqdo_ir::{BranchArm, Stmt};
+use marqdo_ir::{BranchArm, PlaceTarget, Stmt};
 use marqdo_span::Span;
 use marqdo_value::{codes, Diagnostic};
 
@@ -178,9 +178,24 @@ impl<'a> Analyzer<'a> {
     fn analyze_stmts(&mut self, stmts: &[Stmt], mut state: State) -> State {
         for stmt in stmts {
             state = match stmt {
-                Stmt::Assign { name, value, .. } => {
-                    self.read_expr(value, &state);
-                    self.assign(name, &mut state);
+                Stmt::Assign { target, value, .. } => {
+                    match target {
+                        PlaceTarget::Local { name, .. } => {
+                            // Preserve v1 order: the RHS is read before the
+                            // local rebinding makes the name definitely
+                            // assigned.
+                            self.read_expr(value, &state);
+                            self.assign(name, &mut state);
+                        }
+                        PlaceTarget::Index { base, index, .. } => {
+                            // Runtime order for an index place is base, index,
+                            // RHS; reads in the place are free reads like any
+                            // other.
+                            self.read_expr(base, &state);
+                            self.read_expr(index, &state);
+                            self.read_expr(value, &state);
+                        }
+                    }
                     state
                 }
                 Stmt::Eval { expr, .. } => {
@@ -312,8 +327,10 @@ mod tests {
 
     fn assign(name: &str, value: &str) -> Stmt {
         Stmt::Assign {
-            name: name.to_string(),
-            name_span: Span::new(0, 0),
+            target: PlaceTarget::Local {
+                name: name.to_string(),
+                name_span: Span::new(0, 0),
+            },
             value: parse_expression(value).unwrap(),
             span: Span::new(0, 0),
         }
@@ -332,6 +349,24 @@ mod tests {
             .into_iter()
             .map(|candidate| candidate.name)
             .collect()
+    }
+
+    #[test]
+    fn index_assignment_reads_its_base_and_index_without_binding_a_local() {
+        let stmts = vec![
+            Stmt::Assign {
+                target: PlaceTarget::Index {
+                    base: parse_expression("m").unwrap(),
+                    index: parse_expression("i").unwrap(),
+                    span: Span::new(0, 0),
+                },
+                value: parse_expression("9").unwrap(),
+                span: Span::new(0, 0),
+            },
+            ret("m[0]"),
+        ];
+        // `m` and `i` are free reads; the place never rebinds `m` as a local.
+        assert_eq!(params(&stmts), vec!["i".to_string(), "m".to_string()]);
     }
 
     #[test]

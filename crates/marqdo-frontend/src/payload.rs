@@ -5,7 +5,7 @@
 //! string, so its spans are payload-relative; this module maps them back to the
 //! original file so diagnostics point at real source.
 
-use marqdo_expression::{Arg, Expr, RecordEntry, Statement, StatementKind};
+use marqdo_expression::{Arg, AssignTarget, Expr, RecordEntry, Statement, StatementKind};
 use marqdo_markdown::{MdKind, MdNode, PayloadError};
 use marqdo_span::Span;
 
@@ -140,11 +140,17 @@ impl PayloadSegments {
     /// Map and rewrite every span in a parsed statement.
     pub fn rewrite_statement(&self, statement: &mut Statement) {
         statement.span = self.map_span(statement.span);
-        if let StatementKind::Assign {
-            name_span, value, ..
-        } = &mut statement.kind
-        {
-            *name_span = self.map_span(*name_span);
+        if let StatementKind::Assign { target, value } = &mut statement.kind {
+            match target {
+                AssignTarget::Local { name_span, .. } => {
+                    *name_span = self.map_span(*name_span);
+                }
+                AssignTarget::Index { base, index, span } => {
+                    *span = self.map_span(*span);
+                    self.rewrite_expr(base);
+                    self.rewrite_expr(index);
+                }
+            }
             self.rewrite_expr(value);
         }
         if let StatementKind::Expr(expr) = &mut statement.kind {
