@@ -172,7 +172,7 @@ fn decode(json: &Json, depth: usize, limits: &WireLimits) -> Result<Value, WireE
     let type_tag = obj
         .get("type")
         .and_then(Json::as_str)
-        .ok_or_else(|| WireError::MissingField("type"))?;
+        .ok_or(WireError::MissingField("type"))?;
     let require = |field: &'static str| obj.get(field).ok_or(WireError::MissingField(field));
     match type_tag {
         "unit" => Ok(Value::Unit),

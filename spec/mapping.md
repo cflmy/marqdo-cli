@@ -50,6 +50,8 @@ content is never executed:
 * heading text (headings scope, they do not run)
 * `link` labels and `image` alt text
 * `table` cells (tables are document values)
+* `strikethrough` wrappers: their content is inert prose and is not traversed
+  for execution; do not rely on formatting to hide executable nodes
 * `code_block` and inline `code` outside designated payload positions
 * `math` / `math_block`
 * `html_block` / `html_inline`
@@ -78,7 +80,12 @@ including inside branch and loop bodies:
 Outside functions (module top-level prose) the same executable nodes are inert
 document content (S-03 in the blueprint: executable lists/strong/emph only run
 inside a function body). The single exception is `main` itself, which is a
-function.
+function. To make this explicit rather than silent, the frontend emits a
+`markdown.inert_executable` **warning** for every would-be execution node found
+outside a function body; the document still compiles and the node does nothing.
+
+Headings inside container blocks (block quotes, list items) or fenced code never
+create functions and never execute inline markup.
 
 ### 4.1 Strict payload extraction
 

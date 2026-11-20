@@ -372,7 +372,6 @@ dependencies = [
  "marqdo-markdown",
  "marqdo-span",
  "marqdo-value",
- "serde",
  "serde_json",
  "sha2",
  "unicode-ident",
@@ -421,13 +420,11 @@ dependencies = [
 name = "marqdo-math"
 version = "0.1.0"
 dependencies = [
- "marqdo-span",
  "marqdo-value",
  "num-bigint 0.5.1",
  "num-rational",
  "num-traits",
  "serde",
- "thiserror",
 ]
 
 [[package]]

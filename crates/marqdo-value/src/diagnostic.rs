@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 pub mod codes {
     /// A Markdown AST node occupies an executable position but has an invalid shape.
     pub const MARKDOWN_INVALID_CONSTRUCT: &str = "markdown.invalid_construct";
+    /// A node that would be executable appears outside any function body and is
+    /// therefore inert document content.
+    pub const MARKDOWN_INERT_EXECUTABLE: &str = "markdown.inert_executable";
     /// Front matter is malformed or appears somewhere other than the document start.
     pub const FRONTMATTER_INVALID: &str = "frontmatter.invalid";
     /// An executable payload failed to parse as an expression or statement.

@@ -74,8 +74,12 @@ pub enum MdKind {
     Emph,
     /// GFM strikethrough.
     Strikethrough,
-    /// Inline code span.
-    Code,
+    /// Inline code span. `ticks` records the delimiter length so the literal
+    /// payload can be mapped back to exact source offsets.
+    Code {
+        /// Number of backtick delimiters.
+        ticks: usize,
+    },
     /// Fenced or indented code block.
     CodeBlock {
         /// Whether the block was fenced.
@@ -176,7 +180,7 @@ impl MdNode {
                 | MdKind::Strong
                 | MdKind::Emph
                 | MdKind::Strikethrough
-                | MdKind::Code
+                | MdKind::Code { .. }
                 | MdKind::Math { .. }
                 | MdKind::Link { .. }
                 | MdKind::Image { .. }
@@ -208,7 +212,7 @@ impl MdKind {
             MdKind::Strong => "strong",
             MdKind::Emph => "emph",
             MdKind::Strikethrough => "strikethrough",
-            MdKind::Code => "code",
+            MdKind::Code { .. } => "code",
             MdKind::CodeBlock { .. } => "code_block",
             MdKind::Math { .. } => "math",
             MdKind::MathBlock => "math_block",

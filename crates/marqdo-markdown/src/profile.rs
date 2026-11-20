@@ -169,7 +169,12 @@ fn map_value(value: &NodeValue) -> (MdKind, Option<String>) {
         NodeValue::Strong(_) => (MdKind::Strong, None),
         NodeValue::Emph(_) => (MdKind::Emph, None),
         NodeValue::Strikethrough(_) => (MdKind::Strikethrough, None),
-        NodeValue::Code(code) => (MdKind::Code, Some(code.literal.clone())),
+        NodeValue::Code(code) => (
+            MdKind::Code {
+                ticks: code.num_backticks,
+            },
+            Some(code.literal.clone()),
+        ),
         NodeValue::CodeBlock(block) => (
             MdKind::CodeBlock {
                 fenced: block.fenced,
@@ -209,7 +214,6 @@ fn map_value(value: &NodeValue) -> (MdKind, Option<String>) {
                             TableAlignment::Center => "center",
                             TableAlignment::Right => "right",
                             TableAlignment::None => "none",
-                            _ => "none",
                         }
                         .to_string()
                     })

@@ -97,7 +97,9 @@ Rules:
   `raw` payload of unmodelled nodes.
 * `link`/`image` embed `url` and `title`; `heading` embeds `level` and
   `setext`; `list` embeds `ordered`, optional `start` and `tight`; `table`
-  embeds column `alignments`; `table_row` embeds `header`.
+  embeds column `alignments`; `table_row` embeds `header`; inline `code`
+  embeds `ticks` (delimiter length) so payload offsets can be mapped back to
+  exact source bytes (a code span's source span includes its backticks).
 * Unmodelled parser nodes are preserved as `{"kind":"other","tag":"..."}`
   with their children and raw literal. They are inert for the language.
 * Attribute order in JSON is fixed by the serializer and goldens are

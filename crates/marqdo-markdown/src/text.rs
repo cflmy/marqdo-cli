@@ -44,7 +44,7 @@ pub fn executable_payload(node: &MdNode) -> Result<String, PayloadError> {
     for child in &node.children {
         match &child.kind {
             MdKind::Text => payload.push_str(child.literal.as_deref().unwrap_or_default()),
-            MdKind::Code => payload.push_str(child.literal.as_deref().unwrap_or_default()),
+            MdKind::Code { .. } => payload.push_str(child.literal.as_deref().unwrap_or_default()),
             other => {
                 return Err(PayloadError::new(
                     child.span,
@@ -72,7 +72,7 @@ pub fn plain_text(node: &MdNode) -> String {
 
 fn collect_plain_text(node: &MdNode, out: &mut String) {
     match &node.kind {
-        MdKind::Text | MdKind::Code | MdKind::Math { .. } | MdKind::MathBlock => {
+        MdKind::Text | MdKind::Code { .. } | MdKind::Math { .. } | MdKind::MathBlock => {
             out.push_str(node.literal.as_deref().unwrap_or_default());
         }
         MdKind::SoftBreak | MdKind::LineBreak => out.push(' '),
@@ -131,7 +131,7 @@ mod tests {
             None,
             vec![
                 node(MdKind::Text, Some("面积 = "), vec![]),
-                node(MdKind::Code, Some("计算(r=1)"), vec![]),
+                node(MdKind::Code { ticks: 1 }, Some("计算(r=1)"), vec![]),
             ],
         );
         assert_eq!(executable_payload(&strong).unwrap(), "面积 = 计算(r=1)");
