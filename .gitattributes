@@ -1,0 +1,20 @@
+# Canonical byte identity for the repository.
+#
+# The frozen Markdown profile and its AST goldens are compared byte-for-byte.
+# Normalize every text file to LF on checkout so a Windows clone does not turn
+# golden JSON into CRLF (which previously produced a confusing "0 line(s)
+# differ" failure). Line-ending semantics are tested explicitly with the
+# dedicated CRLF fixture below instead of relying on the checkout platform.
+* text=auto eol=lf
+
+# Intentional byte-level CRLF fixture (see spec/markdown-profile.md §3).
+# It must keep its original CRLF bytes on every platform.
+tests/conformance/ast/146-crlf-line-endings.mq.md -text -eol
+
+# Native build products are not text.
+*.so binary
+*.dylib binary
+*.dll binary
+*.a binary
+*.lib binary
+*.exe binary

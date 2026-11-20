@@ -71,7 +71,46 @@ fn write_golden(path: &Path, text: &str) {
         .unwrap_or_else(|error| panic!("cannot write golden {}: {error}", path.display()));
 }
 
-/// Report a compact, line-based diff summary for one fixture.
+/// First byte offset at which two inputs differ, if any.
+fn first_byte_difference(expected: &[u8], actual: &[u8]) -> Option<usize> {
+    expected
+        .iter()
+        .zip(actual.iter())
+        .position(|(left, right)| left != right)
+        .or_else(|| (expected.len() != actual.len()).then_some(expected.len().min(actual.len())))
+}
+
+/// Render a short escaped byte window around `offset`.
+fn byte_window(bytes: &[u8], offset: usize) -> String {
+    let start = offset.saturating_sub(8);
+    let end = (offset + 8).min(bytes.len());
+    bytes[start..end]
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Whether two byte strings are identical after normalizing CRLF to LF.
+fn only_line_endings_differ(expected: &[u8], actual: &[u8]) -> bool {
+    fn normalize(bytes: &[u8]) -> Vec<u8> {
+        let mut out = Vec::with_capacity(bytes.len());
+        let mut index = 0;
+        while index < bytes.len() {
+            if bytes[index] == b'\r' && bytes.get(index + 1) == Some(&b'\n') {
+                out.push(b'\n');
+                index += 2;
+            } else {
+                out.push(bytes[index]);
+                index += 1;
+            }
+        }
+        out
+    }
+    expected != actual && normalize(expected) == normalize(actual)
+}
+
+/// Report a compact, byte-aware diff summary for one fixture.
 fn report_mismatch(fixture: &Path, expected: &str, actual: &str) {
     let expected_lines: Vec<&str> = expected.lines().collect();
     let actual_lines: Vec<&str> = actual.lines().collect();
@@ -90,12 +129,36 @@ fn report_mismatch(fixture: &Path, expected: &str, actual: &str) {
     let end = (first + 8).min(expected_lines.len().max(actual_lines.len()));
     let mut message = format!(
         "AST golden mismatch for `{}`.\n\
-         {} line(s) differ (first at line {}).\n\
-         --- expected (golden) ---\n",
+         expected {} byte(s), actual {} byte(s).\n\
+         {} line(s) differ (first at line {}).\n",
         fixture.display(),
+        expected.len(),
+        actual.len(),
         differences,
         first + 1
     );
+    match first_byte_difference(expected.as_bytes(), actual.as_bytes()) {
+        Some(offset) => {
+            message.push_str(&format!(
+                "first byte difference at offset {offset}.\n\
+                 expected bytes: {}\n\
+                 actual bytes:   {}\n",
+                byte_window(expected.as_bytes(), offset),
+                byte_window(actual.as_bytes(), offset)
+            ));
+            if only_line_endings_differ(expected.as_bytes(), actual.as_bytes()) {
+                message.push_str(
+                    "the only difference is line endings (CRLF vs LF); \
+                     this is a checkout/fixture byte-identity problem, not a \
+                     Markdown semantics change. Ensure .gitattributes keeps \
+                     goldens at LF and keep intentional CRLF inputs as byte \
+                     fixtures.\n",
+                );
+            }
+        }
+        None => message.push_str("the two strings are byte-identical.\n"),
+    }
+    message.push_str("--- expected (golden) ---\n");
     for index in start..end {
         message.push_str(&format!(
             "{:>4} | {}\n",
@@ -212,4 +275,107 @@ fn ast_goldens_match_the_frozen_profile() {
             report_mismatch(fixture, &expected, &actual);
         }
     }
+}
+
+/// Goldens are canonical JSON: UTF-8, LF line endings and a trailing newline.
+/// A CRLF checkout used to fail with "0 line(s) differ", which hid the real
+/// cause. This test fails early with a direct byte-level diagnosis instead.
+#[test]
+fn ast_goldens_use_canonical_lf_bytes() {
+    let dir = ast_dir();
+    let mut checked = 0usize;
+    for entry in fs::read_dir(&dir).expect("ast fixture directory is readable") {
+        let path = entry.expect("directory entry").path();
+        if !path
+            .extension()
+            .is_some_and(|extension| extension == "json")
+        {
+            continue;
+        }
+        let bytes = fs::read(&path).expect("golden is readable");
+        assert!(
+            std::str::from_utf8(&bytes).is_ok(),
+            "golden {} is not valid UTF-8",
+            path.display()
+        );
+        assert!(
+            !bytes.contains(&b'\r'),
+            "golden {} contains CR bytes; canonical JSON goldens must use LF only",
+            path.display()
+        );
+        assert!(
+            bytes.ends_with(b"\n"),
+            "golden {} must end with exactly one trailing LF",
+            path.display()
+        );
+        checked += 1;
+    }
+    assert!(
+        checked >= 100,
+        "expected the full AST golden corpus, saw {checked}"
+    );
+}
+
+/// The profile's line-ending semantics are tested with an explicit byte
+/// fixture, not by relying on the checkout platform. Exactly one fixture keeps
+/// CRLF bytes; see `.gitattributes`.
+#[test]
+fn crlf_fixture_is_preserved_as_bytes() {
+    let fixture = ast_dir().join("146-crlf-line-endings.mq.md");
+    let bytes = fs::read(&fixture).expect("CRLF fixture is readable");
+    assert!(
+        bytes.windows(2).any(|window| window == b"\r\n"),
+        "the CRLF fixture lost its CRLF bytes (checkout normalization?)"
+    );
+    assert!(
+        bytes
+            .iter()
+            .enumerate()
+            .all(|(index, byte)| *byte != b'\r' || bytes.get(index + 1) == Some(&b'\n')),
+        "CRLF fixture contains a lone CR byte"
+    );
+    assert!(
+        !bytes
+            .split(|byte| *byte == b'\n')
+            .any(|line| !line.ends_with(b"\r") && !line.is_empty()),
+        "CRLF fixture mixes bare LF line endings with CRLF"
+    );
+
+    let golden = ast_dir().join("146-crlf-line-endings.ast.json");
+    let golden_bytes = fs::read(&golden).expect("CRLF golden is readable");
+    assert!(
+        !golden_bytes.contains(&b'\r'),
+        "the CRLF fixture's golden is canonical LF JSON, not CRLF text"
+    );
+
+    let mut crlf_fixtures = 0usize;
+    for entry in fs::read_dir(ast_dir()).expect("ast fixture directory is readable") {
+        let path = entry.expect("directory entry").path();
+        if path.extension().is_some_and(|extension| extension == "md") {
+            let bytes = fs::read(&path).expect("fixture is readable");
+            if bytes.contains(&b'\r') {
+                assert_eq!(
+                    path.file_name(),
+                    fixture.file_name(),
+                    "unexpected CRLF fixture {}; add it deliberately and document it",
+                    path.display()
+                );
+                crlf_fixtures += 1;
+            }
+        }
+    }
+    assert_eq!(
+        crlf_fixtures, 1,
+        "exactly one CRLF byte fixture is expected"
+    );
+}
+
+#[test]
+fn byte_diff_helpers_distinguish_line_endings_from_semantics() {
+    assert_eq!(first_byte_difference(b"abc", b"abc"), None);
+    assert_eq!(first_byte_difference(b"abc", b"abd"), Some(2));
+    assert_eq!(first_byte_difference(b"ab", b"abc"), Some(2));
+    assert!(only_line_endings_differ(b"a\nb\n", b"a\r\nb\r\n"));
+    assert!(!only_line_endings_differ(b"a\nb\n", b"a\nc\n"));
+    assert!(!only_line_endings_differ(b"a\r\nb\n", b"a\r\nb\n"));
 }

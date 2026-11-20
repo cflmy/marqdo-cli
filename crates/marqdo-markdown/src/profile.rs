@@ -370,6 +370,54 @@ mod tests {
         assert_eq!(&source[heading.span.start..heading.span.end], "# T");
     }
 
+    /// CRLF is a line-ending spelling, not a different document: the
+    /// structural AST is identical to the LF form while every span remains a
+    /// byte offset into the original CRLF source (so it never includes the CR
+    /// of a line terminator for content nodes).
+    #[test]
+    fn crlf_and_lf_sources_keep_structure_and_byte_spans() {
+        fn structure(node: &MdNode) -> MdNode {
+            MdNode {
+                kind: node.kind.clone(),
+                span: Span::new(0, 0),
+                literal: node.literal.clone(),
+                children: node.children.iter().map(structure).collect(),
+            }
+        }
+
+        fn check_text_spans(node: &MdNode, source: &str) {
+            if node.kind == MdKind::Text {
+                let literal = node.literal.as_deref().expect("text nodes carry a literal");
+                assert_eq!(
+                    &source[node.span.start..node.span.end],
+                    literal,
+                    "text span must slice exactly its literal"
+                );
+            }
+            for child in &node.children {
+                check_text_spans(child, source);
+            }
+        }
+
+        let lf = "# T\n\nHello *world*\n\n- a\n- b\n";
+        let crlf = "# T\r\n\r\nHello *world*\r\n\r\n- a\r\n- b\r\n";
+        let lf_doc = parse(lf);
+        let crlf_doc = parse(crlf);
+        assert_eq!(structure(&lf_doc.root), structure(&crlf_doc.root));
+
+        let heading = &crlf_doc.root.children[0];
+        assert_eq!(&crlf[heading.span.start..heading.span.end], "# T");
+        check_text_spans(&crlf_doc.root, crlf);
+
+        // The CRLF input is longer, so absolute offsets shift; the derived
+        // line/column of the same content stays the same.
+        assert!(crlf_doc.root.span.end > lf_doc.root.span.end);
+        assert_eq!(
+            crlf_doc.line_col(heading.span.start),
+            lf_doc.line_col(lf_doc.root.children[0].span.start)
+        );
+    }
+
     #[test]
     fn math_nodes_are_native_and_inert() {
         let doc = parse("inline $a+b$ math\n\n$$\nx+y\n$$\n");

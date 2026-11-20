@@ -7,3 +7,10 @@
 # Built plugin artifacts
 examples/plugin-demo/solver.so
 examples/plugin-multi-export/solver.so
+
+# Local cargo home used on hosts with a read-only $HOME
+.cargo-home/
+
+# Generated plugin fixture manifests/artifacts
+examples/plugin-demo/build/
+examples/plugin-multi-export/build/
