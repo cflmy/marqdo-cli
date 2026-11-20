@@ -183,10 +183,13 @@ Tool Protocol hardening (`spec/tool-v1.md`):
 * The Windows/macOS CI lane now runs `cargo test --workspace` plus portable CLI,
   Analysis and Trace smoke tests and a strict-mode refusal assertion, instead
   of `cargo check` only.
-* Still Unix-only in CI: compiled C ABI plugins, worker transport tests,
-  package/Git/process tests and the shell-fixture Tool black-box suite. They are
-  not counted as cross-platform evidence; `docs/STATUS.md` records this rather
-  than treating `cargo test` skips as passes.
+* Tool black-box tests no longer require a shell: they compile a portable
+  std-only fixture with `rustc`, so the Windows/macOS `cargo test --workspace`
+  lane now runs the full Tool protocol suite.
+* Still Unix-only in CI: compiled C ABI plugins, worker transport tests, and
+  package/Git/process tests. They are not counted as cross-platform evidence;
+  `docs/STATUS.md` records this rather than treating `cargo test` skips as
+  passes.
 
 ### S5-A/B-12 record (current)
 

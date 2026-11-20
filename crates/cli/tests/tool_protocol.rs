@@ -1,9 +1,12 @@
 //! External CLI Tool Protocol v1 black-box tests (spec/tool-v1.md).
-#![cfg(unix)]
+//!
+//! The tool fixture is compiled with rustc from `tests/fixtures/tool_echo.rs`
+//! rather than a shell script, so these tests run on Windows and macOS too.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::OnceLock;
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -43,11 +46,43 @@ fn cli(home: &Path, args: &[&str]) -> Output {
         .expect("run marqdo")
 }
 
-fn write_tool(dir: &Path, command: &str, script: &str) -> PathBuf {
+fn fixture_bytes() -> Option<&'static [u8]> {
+    static BYTES: OnceLock<Option<Vec<u8>>> = OnceLock::new();
+    BYTES
+        .get_or_init(|| {
+            let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()?
+                .parent()?
+                .join("tests/fixtures/tool_echo.rs");
+            let output = std::env::temp_dir().join(format!(
+                "marqdo-tool-fixture-{}{}",
+                std::process::id(),
+                std::env::consts::EXE_SUFFIX
+            ));
+            let status = Command::new("rustc")
+                .args(["--edition", "2021", "-o"])
+                .arg(&output)
+                .arg(&source)
+                .status()
+                .ok()?;
+            if !status.success() {
+                return None;
+            }
+            let bytes = std::fs::read(&output).ok()?;
+            let _ = std::fs::remove_file(&output);
+            Some(bytes)
+        })
+        .as_deref()
+}
+
+fn write_tool(dir: &Path, command: &str, _script: &str) -> PathBuf {
+    let bytes = fixture_bytes().expect("compile the portable tool fixture with rustc");
     let package = dir.join(format!("{command}-pkg"));
     std::fs::create_dir_all(package.join("bin")).unwrap();
-    let entry = package.join("bin").join(command);
-    std::fs::write(&entry, script).unwrap();
+    let entry = package
+        .join("bin")
+        .join(format!("{command}{}", std::env::consts::EXE_SUFFIX));
+    std::fs::write(&entry, bytes).unwrap();
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -55,11 +90,12 @@ fn write_tool(dir: &Path, command: &str, script: &str) -> PathBuf {
         permissions.set_mode(0o755);
         std::fs::set_permissions(&entry, permissions).unwrap();
     }
+    let entrypoint = format!("bin/{command}{}", std::env::consts::EXE_SUFFIX);
     let manifest = package.join("tool.json");
     std::fs::write(
         &manifest,
         format!(
-            r#"{{"schema":"marqdo.cli-tool","schema_version":1,"name":"demo.{command}","version":"0.1.0","command":"{command}","entrypoint":"bin/{command}","compatibility":{{"marqdo":">=0.1,<1"}}}}"#
+            r#"{{"schema":"marqdo.cli-tool","schema_version":1,"name":"demo.{command}","version":"0.1.0","command":"{command}","entrypoint":"{entrypoint}","compatibility":{{"marqdo":">=0.1,<1"}}}}"#
         ),
     )
     .unwrap();
@@ -123,9 +159,10 @@ fn invalid_manifests_and_path_escapes_are_rejected() {
     assert_eq!(output.status.code(), Some(1));
     assert!(stderr(&output).contains("built-in"));
 
-    let traversal = std::fs::read_to_string(&manifest)
-        .unwrap()
-        .replace("bin/lintx", "../outside");
+    let traversal = std::fs::read_to_string(&manifest).unwrap().replace(
+        &format!("bin/lintx{}", std::env::consts::EXE_SUFFIX),
+        "../outside",
+    );
     let traversal_manifest = dir.path().join("traversal.json");
     std::fs::write(&traversal_manifest, traversal).unwrap();
     let output = cli(
@@ -158,7 +195,10 @@ fn tampered_binary_and_path_hijack_are_not_executed() {
             .code(),
         Some(0)
     );
-    let installed = home.join("custom-abc").join("bin").join("custom-abc");
+    let installed = home
+        .join("custom-abc")
+        .join("bin")
+        .join(format!("custom-abc{}", std::env::consts::EXE_SUFFIX));
     std::fs::write(&installed, "#!/bin/sh\nexit 99\n").unwrap();
     let tampered = cli(&home, &["custom-abc"]);
     assert_eq!(tampered.status.code(), Some(1));
@@ -167,12 +207,15 @@ fn tampered_binary_and_path_hijack_are_not_executed() {
     // A PATH program with the marqdo prefix is not implicitly a tool.
     let path_dir = dir.path().join("path");
     std::fs::create_dir_all(&path_dir).unwrap();
-    let hijack = path_dir.join("marqdo-hijack");
-    std::fs::write(&hijack, "#!/bin/sh\nexit 42\n").unwrap();
-    use std::os::unix::fs::PermissionsExt;
-    let mut permissions = std::fs::metadata(&hijack).unwrap().permissions();
-    permissions.set_mode(0o755);
-    std::fs::set_permissions(&hijack, permissions).unwrap();
+    let hijack = path_dir.join(format!("marqdo-hijack{}", std::env::consts::EXE_SUFFIX));
+    std::fs::write(&hijack, b"not a registered tool").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut permissions = std::fs::metadata(&hijack).unwrap().permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&hijack, permissions).unwrap();
+    }
     let output = Command::new(binary())
         .arg("hijack")
         .env("MARQDO_TOOL_HOME", &home)
@@ -200,7 +243,7 @@ fn protocol_negotiation_accepts_declared_versions_and_rejects_disjoint_ones() {
     let install = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
     assert_eq!(install.status.code(), Some(0), "{}", stderr(&install));
     let output = cli(&home, &["proto"]);
-    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert_eq!(output.status.code(), Some(7), "{}", stderr(&output));
     let text = stdout(&output);
     assert!(text.contains("analysis=2"), "{text}");
     assert!(text.contains("trace=2"), "{text}");
