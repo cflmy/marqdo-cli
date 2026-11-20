@@ -121,8 +121,12 @@ before reading. Full symlink/race hardening is an open P4 item.
   `capabilities.check_plugin(package)` on **every call**; loading also checks
   the same grant once;
 * plugin host-capability requests → `CapabilityBroker` checks the package and
-  effective grants; unknown/vendor capabilities without a trusted policy entry
-  become `capability.unavailable`/`permission.denied`;
+  effective grants and **executes** granted `fs.read` through `ProjectFs`,
+  returning the real file bytes. Other core capabilities (`fs.write`,
+  `net.request`, `process`, console/math/log/...), and vendor capabilities
+  without a trusted executing handler, return `capability.unavailable`; they
+  never pretend an empty reply is success. Unknown/vendor names without a
+  trusted policy entry become `capability.unavailable`/`permission.denied`;
 * print → output budget only.
 
 Static analysis may warn, but it never replaces these runtime checks. There is
@@ -272,9 +276,11 @@ Neither command executes project code. Specifically:
 3. Network capability exists in the model but no host operation uses it; there
    is no `--allow-net` flag.
 4. Write-path symlink TOCTOU (see §2.1).
-5. Plugin worker isolation is unimplemented; only trusted in-process native
-   plugins are possible. The capability broker exists, but no vendor handler is
-   shipped.
+5. Plugin **worker crash isolation** is implemented, but the worker capability
+   bridge is not: worker capability requests are still denied. Only trusted
+   in-process native plugins can use the broker's `fs.read` execution. No
+   vendor-executing handler is shipped, and broker execution is a cooperative
+   API contract, not an OS sandbox.
 6. `plugin_handle` wire values are structurally reconstructable, but host
    authority comes only from the `PluginHandleTable` owner/run/generation
    check; untrusted plugin/foreign output containing a handle is rejected

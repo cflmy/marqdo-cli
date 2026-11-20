@@ -9,9 +9,12 @@ use std::collections::BTreeSet;
 use std::sync::{Arc, Mutex};
 
 use glob::Pattern;
+use marqdo_plugin_abi::abi::MAX_CAPABILITY_REPLY_BYTES;
 use marqdo_plugin_abi::PluginError;
 use marqdo_span::Span;
 use marqdo_value::{ErrorCategory, RuntimeError};
+
+use crate::fs::ProjectFs;
 
 /// One audited capability request from a plugin.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,6 +39,7 @@ pub struct CapabilityBroker {
     capabilities: Capabilities,
     vendor_policy: BTreeSet<String>,
     audit: Arc<Mutex<Vec<CapabilityAudit>>>,
+    fs: Option<ProjectFs>,
 }
 
 impl CapabilityBroker {
@@ -50,7 +54,15 @@ impl CapabilityBroker {
             capabilities,
             vendor_policy: BTreeSet::new(),
             audit,
+            fs: None,
         }
+    }
+
+    /// Attach the project filesystem used to execute granted `fs.read`
+    /// requests. Without it, `fs.read` is authorized but unavailable.
+    pub fn with_fs(mut self, fs: ProjectFs) -> Self {
+        self.fs = Some(fs);
+        self
     }
 
     /// Register a trusted vendor capability policy entry.
@@ -84,6 +96,85 @@ impl CapabilityBroker {
             });
         }
         result.map(|()| Vec::new())
+    }
+
+    /// Authorize and execute one capability request.
+    ///
+    /// Only `fs.read` has a real implementation in this build. Other
+    /// capabilities return `capability.unavailable` instead of pretending an
+    /// empty reply means success (ADR-0011, spec §12.2).
+    pub fn execute(
+        &mut self,
+        package: &str,
+        capability: &str,
+        request: &[u8],
+    ) -> Result<Vec<u8>, PluginError> {
+        if let Err(error) = self.decide(package, capability, request) {
+            let reason = format!("{}: {}", error.code, error.message);
+            self.record(package, capability, "denied", &reason);
+            return Err(error);
+        }
+        let result = match capability {
+            "fs.read" => {
+                let path = request_path(request)?;
+                let Some(fs) = &self.fs else {
+                    return self.unavailable(
+                        package,
+                        capability,
+                        "no project filesystem is attached",
+                    );
+                };
+                match fs.read(&path, None) {
+                    Ok(contents) => {
+                        if contents.len() > MAX_CAPABILITY_REPLY_BYTES {
+                            return self.unavailable(
+                                package,
+                                capability,
+                                "the file exceeds the capability reply limit",
+                            );
+                        }
+                        Ok(contents.into_bytes())
+                    }
+                    Err(error) => {
+                        let error = map_runtime(error);
+                        let reason = format!("{}: {}", error.code, error.message);
+                        self.record(package, capability, "denied", &reason);
+                        Err(error)
+                    }
+                }
+            }
+            _ => self.unavailable(
+                package,
+                capability,
+                "this capability has no executing handler in this build",
+            ),
+        };
+        if result.is_ok() {
+            self.record(package, capability, "granted", "");
+        }
+        result
+    }
+
+    fn unavailable<T>(
+        &mut self,
+        package: &str,
+        capability: &str,
+        message: &str,
+    ) -> Result<T, PluginError> {
+        let error = PluginError::capability("capability.unavailable", message.to_string());
+        self.record(package, capability, "unavailable", message);
+        Err(error)
+    }
+
+    fn record(&mut self, package: &str, capability: &str, decision: &'static str, reason: &str) {
+        if let Ok(mut audit) = self.audit.lock() {
+            audit.push(CapabilityAudit {
+                package: package.to_string(),
+                capability: capability.to_string(),
+                decision,
+                reason: reason.to_string(),
+            });
+        }
     }
 
     fn decide(&self, package: &str, capability: &str, request: &[u8]) -> Result<(), PluginError> {
@@ -422,5 +513,56 @@ mod tests {
         assert!(capabilities.check_read("secrets/key", None).is_err());
         assert!(capabilities.check_write("output/result.txt", None).is_ok());
         assert!(capabilities.check_write("data/a.csv", None).is_err());
+    }
+}
+
+#[cfg(test)]
+mod execute_tests {
+    use super::*;
+
+    #[test]
+    fn broker_executes_fs_read_and_reports_unavailable_for_other_capabilities() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("data")).unwrap();
+        std::fs::write(dir.path().join("data/allowed.txt"), "hello").unwrap();
+        std::fs::create_dir_all(dir.path().join("private")).unwrap();
+        std::fs::write(dir.path().join("private/secret.txt"), "secret").unwrap();
+        let fs = ProjectFs::new(dir.path());
+        let capabilities = Capabilities::project()
+            .allow_read("data/**")
+            .allow_write("data/**");
+        let mut broker = CapabilityBroker::new(capabilities).with_fs(fs);
+
+        let contents = broker
+            .execute("demo.solver", "fs.read", br#"{"path":"data/allowed.txt"}"#)
+            .unwrap();
+        assert_eq!(String::from_utf8(contents).unwrap(), "hello");
+
+        let denied = broker
+            .execute(
+                "demo.solver",
+                "fs.read",
+                br#"{"path":"private/secret.txt"}"#,
+            )
+            .unwrap_err();
+        assert_eq!(denied.code, "permission.denied");
+
+        let console = broker.execute("demo.solver", "console", b"{}").unwrap_err();
+        assert_eq!(console.code, "capability.unavailable");
+        let write = broker
+            .execute(
+                "demo.solver",
+                "fs.write",
+                br#"{"path":"data/x","contents":"x"}"#,
+            )
+            .unwrap_err();
+        assert_eq!(write.code, "capability.unavailable");
+
+        let audit = broker.audit();
+        let audit = audit.lock().unwrap();
+        assert!(audit.iter().any(|entry| entry.decision == "granted"));
+        assert!(audit.iter().any(|entry| entry.decision == "denied"));
+        assert!(audit.iter().any(|entry| entry.decision == "unavailable"));
+        assert!(!format!("{audit:?}").contains("hello"));
     }
 }

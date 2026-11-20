@@ -203,10 +203,13 @@ Foreign provider integrity and environment metadata:
 * The environment fields are metadata only. uv/npm environment materialization,
   environment-directory hashing and lock-v3 integration are **not**
   implemented.
-* H3-A (capability broker executing real operations) and H3-B (OS isolation)
-  remain open. `CapabilityBroker::authorize` is still policy/audit-only, Worker
-  capability requests are still denied, and `strict` is refused on every
-  platform. No G-C claim is made.
+* H3-A is **partially implemented**: the native plugin broker now executes a
+  granted `fs.read` through `ProjectFs` and returns real bytes, with audit;
+  unsupported capabilities return `capability.unavailable` rather than empty
+  success. H3-A remains open for the worker capability bridge, live session
+  identity in the ABI callback and broader service operations. H3-B (OS
+  isolation) remains open; Worker capability requests are still denied and
+  `strict` is refused on every platform. No G-C claim is made.
 
 ### M0.6 implementation progress
 
@@ -220,6 +223,7 @@ Foreign provider integrity and environment metadata:
 | S3-A/H2-C Tool protocol | **Done** | SemVer negotiation at install+dispatch, whole-bundle manifest/digest verification, atomic install/remove, reserved record file (see §S3-A/H2-C) |
 | S4-A/B-13 B-14 quality gates | **Partial** | real schema instance validation + negative mutations in CI; Windows/macOS runtime tests for core/Analysis/Trace and strict refusal. Tool/C-ABI/worker runtime evidence remains Unix-only (see §S4-A) |
 | S5-A/B-12 foreign integrity | **Done for metadata/integrity** | provider digest verified at registration and before spawn; environment descriptor fields; full uv/npm materialization and H3-A/B remain open (see §S5-A/B-12) |
+| S5-B/H3-A broker execution | **Partial** | native `fs.read` executes through `ProjectFs` with audit; unsupported capabilities fail unavailable. Worker bridge/session identity/H3-B OS isolation remain open and are not claimed |
 | R0 baseline + ADRs | **Done** | this section; `docs/adr/0008`–`0012`; full workspace gate |
 | R1 package-aware identity + callable registry | **Done for statics; superseded by S1 lock v3** | `ModuleId { instance, relative_path }`; `PackageResolver` path sources; lock v3 transitive graph (ADR-0016) replaces the flat v2 lock; `CallableRegistry` for builtins/marqdo/declared ABI exports; external manifest wiring is R2 |
 | R2 ABI/Kernel/Broker | **Done (worker = crash isolation)** | `KernelRegistry` external providers; complete-name export routing; `CapabilityBroker`; static `check --plugin`; multi-export C test; isolated worker with timeout/crash tests; host handle table. Native/worker are not an OS sandbox |

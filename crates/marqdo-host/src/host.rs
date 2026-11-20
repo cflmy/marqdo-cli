@@ -267,7 +267,8 @@ impl StdHost {
                 let mut broker = CapabilityBroker::with_audit(
                     self.capabilities.clone(),
                     Arc::clone(&self.broker_audit),
-                );
+                )
+                .with_fs(self.fs.clone());
                 for capability in &self.vendor_capabilities {
                     broker.allow_vendor(capability.clone());
                 }
@@ -275,7 +276,7 @@ impl StdHost {
                 let options = marqdo_plugin_abi::LoadOptions {
                     host_target: marqdo_plugin_abi::HostTarget::current(),
                     capability_handler: Some(Box::new(move |capability, request| {
-                        broker.authorize(&package, capability, request)
+                        broker.execute(&package, capability, request)
                     })),
                 };
                 PluginTransport::Native(
