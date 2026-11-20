@@ -367,7 +367,18 @@ impl ResourceTable {
                 provider, token, ..
             } => {
                 let mut provider = provider.lock().map_err(|_| provider_lock_error(span))?;
-                provider.read(*token, max_bytes, span)
+                let read = provider.read(*token, max_bytes, span)?;
+                if read.bytes.len() > max_bytes {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::ResourceFault,
+                        span,
+                        format!(
+                            "resource provider returned {} bytes for a {max_bytes}-byte read",
+                            read.bytes.len()
+                        ),
+                    ));
+                }
+                Ok(read)
             }
             Stream::Tcp { stream, .. } => {
                 let mut buffer = vec![0u8; max_bytes];
@@ -447,7 +458,18 @@ impl ResourceTable {
                 provider, token, ..
             } => {
                 let mut provider = provider.lock().map_err(|_| provider_lock_error(span))?;
-                provider.write(*token, bytes, span)
+                let count = provider.write(*token, bytes, span)?;
+                if count > bytes.len() {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::ResourceFault,
+                        span,
+                        format!(
+                            "resource provider reported {count} bytes written for a {}-byte request",
+                            bytes.len()
+                        ),
+                    ));
+                }
+                Ok(count)
             }
             Stream::Tcp { stream, .. } => stream.write(bytes).map_err(|error| {
                 RuntimeError::new(
@@ -678,6 +700,70 @@ mod tests {
         assert_eq!(
             table.write(stderr, b"x", None).unwrap_err().code(),
             "resource.closed"
+        );
+    }
+}
+
+#[cfg(test)]
+mod provider_tests {
+    use super::*;
+
+    struct OverReporting;
+
+    impl ResourceProvider for OverReporting {
+        fn name(&self) -> &str {
+            "over-reporting"
+        }
+        fn kinds(&self) -> &[&str] {
+            &["bad"]
+        }
+        fn open(
+            &mut self,
+            _kind: &str,
+            _descriptor: &str,
+            _rights: &[String],
+            _span: Option<Span>,
+        ) -> Result<u64, RuntimeError> {
+            Ok(1)
+        }
+        fn read(
+            &mut self,
+            _token: u64,
+            max_bytes: usize,
+            _span: Option<Span>,
+        ) -> Result<ResourceRead, RuntimeError> {
+            Ok(ResourceRead {
+                bytes: vec![0; max_bytes + 1],
+                eof: false,
+            })
+        }
+        fn write(
+            &mut self,
+            _token: u64,
+            bytes: &[u8],
+            _span: Option<Span>,
+        ) -> Result<usize, RuntimeError> {
+            Ok(bytes.len() + 1)
+        }
+        fn close(&mut self, _token: u64, _span: Option<Span>) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn provider_counts_are_bounded_by_the_request() {
+        let mut table = ResourceTable::new();
+        let provider: SharedResourceProvider = Arc::new(Mutex::new(Box::new(OverReporting)));
+        let handle = table
+            .open_provider(provider, "bad", "descriptor", &["read".to_string()], None)
+            .unwrap();
+        assert_eq!(
+            table.read(handle, 2, None).unwrap_err().code(),
+            "runtime.resource"
+        );
+        assert_eq!(
+            table.write(handle, b"x", None).unwrap_err().code(),
+            "runtime.resource"
         );
     }
 }
