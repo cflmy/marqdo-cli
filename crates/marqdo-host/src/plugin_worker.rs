@@ -12,7 +12,9 @@ use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use std::time::Duration;
 
-use marqdo_plugin_abi::worker::{read_frame, write_frame, WORKER_COMMAND};
+use marqdo_plugin_abi::worker::{
+    read_frame, write_frame, MAX_CAPABILITY_REQUESTS, MAX_CAPABILITY_REQUEST_BYTES, WORKER_COMMAND,
+};
 use marqdo_plugin_abi::{
     CapabilityHandler, PluginError, PluginManifest, WireRequest, WireResponse,
 };
@@ -214,6 +216,7 @@ impl WorkerPlugin {
             return Err(error);
         }
         let deadline = std::time::Instant::now() + CALL_TIMEOUT;
+        let mut capability_requests = 0usize;
         loop {
             let remaining = deadline.saturating_duration_since(std::time::Instant::now());
             if remaining.is_zero() {
@@ -239,6 +242,16 @@ impl WorkerPlugin {
             };
             match frame.get("kind").and_then(serde_json::Value::as_str) {
                 Some("capability_request") => {
+                    capability_requests += 1;
+                    if capability_requests > MAX_CAPABILITY_REQUESTS {
+                        self.mark_dead();
+                        return Err(PluginError::capability(
+                            "capability.budget_exceeded",
+                            format!(
+                                "plugin exceeded the limit of {MAX_CAPABILITY_REQUESTS} capability requests per invocation"
+                            ),
+                        ));
+                    }
                     if let Err(error) = self.handle_capability_request(&frame) {
                         self.mark_dead();
                         return Err(error);
@@ -286,6 +299,15 @@ impl WorkerPlugin {
         let request_value = frame.get("request").cloned().unwrap_or_else(|| json!({}));
         let request_bytes = serde_json::to_vec(&request_value)
             .map_err(|error| PluginError::wire("worker_encode_failed", error.to_string()))?;
+        if request_bytes.len() > MAX_CAPABILITY_REQUEST_BYTES {
+            return Err(PluginError::capability(
+                "capability.request_too_large",
+                format!(
+                    "capability request is {} bytes; limit is {MAX_CAPABILITY_REQUEST_BYTES}",
+                    request_bytes.len()
+                ),
+            ));
+        }
         let result = match &mut self.capability_handler {
             Some(handler) => handler(capability, &request_bytes),
             None => Err(PluginError::capability(

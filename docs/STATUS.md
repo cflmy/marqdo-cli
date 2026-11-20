@@ -212,8 +212,9 @@ Foreign provider integrity and environment metadata:
   return `capability.unavailable` rather than empty success. Worker
   request/reply frames are request-scoped and carry no trusted identity
   (ADR-0018).
-* H3-A remains open for live ABI session identity, resource budgets per
-  capability call, and broader executing services. H3-B (OS isolation) remains
+* Per-invocation capability budgets are enforced in both the worker handler
+  and the host: 64 requests and 64 KiB per request. H3-A remains open for live
+  ABI session identity and broader executing services. H3-B (OS isolation) remains
   open; `strict` is refused on every platform and no G-C claim is made.
 
 ### M0.6 implementation progress

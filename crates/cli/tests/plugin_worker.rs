@@ -155,12 +155,13 @@ fn worker_crash_is_isolated_from_the_host() {
     assert_eq!(survivor.status.code(), Some(0));
 }
 
-fn compile_capability(dir: &Path) -> PathBuf {
+fn compile_capability(dir: &Path, extra: &[&str]) -> PathBuf {
     let output = dir.join("capability.so");
     let status = Command::new("cc")
         .args(["-std=c11", "-O2", "-shared", "-fPIC"])
         .arg("-I")
         .arg(repo().join("include"))
+        .args(extra)
         .arg(repo().join("tests/abi/capability_plugin.c"))
         .arg("-o")
         .arg(&output)
@@ -226,7 +227,7 @@ fn worker_capability_bridge_reads_granted_file_and_denies_without_grant() {
         return;
     }
     let dir = TempDir::new("capability");
-    let artifact = compile_capability(dir.path());
+    let artifact = compile_capability(dir.path(), &[]);
     write_capability_manifest(dir.path(), &sha256_file(&artifact).unwrap());
 
     let output = run_capability(dir.path(), true);
@@ -246,4 +247,20 @@ fn worker_capability_bridge_reads_granted_file_and_denies_without_grant() {
         "{stderr}"
     );
     assert!(!String::from_utf8_lossy(&denied.stdout).contains("hello-worker"));
+}
+
+#[test]
+fn worker_capability_request_budget_stops_a_runaway_plugin() {
+    if !have_cc() {
+        eprintln!("skipping: cc is unavailable");
+        return;
+    }
+    let dir = TempDir::new("capability-budget");
+    let artifact = compile_capability(dir.path(), &["-DMQ_CAPABILITY_LOOP"]);
+    write_capability_manifest(dir.path(), &sha256_file(&artifact).unwrap());
+    let output = run_capability(dir.path(), true);
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("capability.budget_exceeded"), "{stderr}");
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("hello-worker"));
 }

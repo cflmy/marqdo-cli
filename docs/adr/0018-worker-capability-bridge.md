@@ -54,6 +54,11 @@ Rules:
   single deadline for the whole `invoke`, including capability round-trips.
 * Only the broker's executing capabilities are reachable. In this build that
   means `fs.read`; everything else returns `capability.unavailable`.
+* Budgets: at most 64 capability requests per invocation and 64 KiB per
+  serialized request. Exceeding either returns
+  `capability.budget_exceeded`/`capability.request_too_large`; the worker-side
+  handler and the host both enforce the limits, and a host violation kills the
+  worker.
 * The frames do not change the C ABI or `MqHostApi`. They are an internal IPC
   protocol between the host and its own worker binary.
 

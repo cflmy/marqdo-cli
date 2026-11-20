@@ -390,7 +390,10 @@ The id must match and is request-scoped; requests carry no trusted identity
 unknown/mismatched ids, non-text replies and other frame kinds are protocol
 errors. The invoke deadline covers the whole exchange. In this build only
 granted `fs.read` executes; other capabilities return `capability.unavailable`.
-These frames do not change the C ABI.
+At most 64 capability requests per invocation and 64 KiB per serialized
+request; exceeding either is `capability.budget_exceeded`/`request_too_large`.
+Both the worker handler and the host enforce the limits (the host kills the
+worker on a violation). These frames do not change the C ABI.
 
 ## 10. SDK usage (`crates/marqdo-plugin-sdk`)
 

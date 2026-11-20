@@ -8,7 +8,7 @@
 
 use std::io::{Read, Write};
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde_json::{json, Value};
@@ -22,6 +22,10 @@ use crate::wire::{WireRequest, WireResponse};
 pub const WORKER_COMMAND: &str = "__plugin-worker";
 /// Maximum frame size accepted by either side.
 pub const MAX_FRAME_BYTES: usize = 8 * 1024 * 1024;
+/// Maximum capability requests a plugin may make during one invocation.
+pub const MAX_CAPABILITY_REQUESTS: usize = 64;
+/// Maximum serialized bytes of one capability request.
+pub const MAX_CAPABILITY_REQUEST_BYTES: usize = 64 * 1024;
 
 /// Read one length-prefixed frame (4-byte big-endian length + JSON).
 ///
@@ -123,12 +127,31 @@ pub fn serve(manifest_path: &Path, base_dir: &Path) -> i32 {
     let stdin = Arc::new(Mutex::new(std::io::stdin()));
     let stdout = Arc::new(Mutex::new(std::io::stdout()));
     let next_request_id = Arc::new(AtomicU64::new(1));
+    let capability_calls = Arc::new(AtomicUsize::new(0));
 
     let handler_stdin = Arc::clone(&stdin);
     let handler_stdout = Arc::clone(&stdout);
     let handler_ids = Arc::clone(&next_request_id);
-    let capability_handler: crate::loader::CapabilityHandler =
-        Box::new(move |capability, request| {
+    let handler_calls = Arc::clone(&capability_calls);
+    let capability_handler: crate::loader::CapabilityHandler = Box::new(
+        move |capability, request| {
+            if handler_calls.fetch_add(1, Ordering::SeqCst) >= MAX_CAPABILITY_REQUESTS {
+                return Err(PluginError::capability(
+                    "capability.budget_exceeded",
+                    format!(
+                        "plugin exceeded the limit of {MAX_CAPABILITY_REQUESTS} capability requests per invocation"
+                    ),
+                ));
+            }
+            if request.len() > MAX_CAPABILITY_REQUEST_BYTES {
+                return Err(PluginError::capability(
+                    "capability.request_too_large",
+                    format!(
+                        "capability request is {} bytes; limit is {MAX_CAPABILITY_REQUEST_BYTES}",
+                        request.len()
+                    ),
+                ));
+            }
             let id = handler_ids.fetch_add(1, Ordering::SeqCst);
             let request_value: Value = serde_json::from_slice(request).map_err(|error| {
                 PluginError::capability(
@@ -201,7 +224,8 @@ pub fn serve(manifest_path: &Path, base_dir: &Path) -> i32 {
                     )),
                 }
             }
-        });
+        },
+    );
     let options = LoadOptions {
         host_target: crate::artifact::HostTarget::current(),
         capability_handler: Some(capability_handler),
@@ -259,6 +283,7 @@ pub fn serve(manifest_path: &Path, base_dir: &Path) -> i32 {
                         continue;
                     }
                 };
+                capability_calls.store(0, Ordering::SeqCst);
                 match plugin.invoke(&request) {
                     Ok(response) => {
                         let body = response

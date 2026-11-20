@@ -51,6 +51,24 @@ static int32_t capability_read(MqCallContext *ctx, MqBytes args_wire,
     name.len = sizeof("fs.read") - 1;
     request.data = (const uint8_t *)PATH_REQUEST;
     request.len = strlen(PATH_REQUEST);
+#ifdef MQ_CAPABILITY_LOOP
+    for (int i = 0; i < 100; i++) {
+        MqOwnedBytes loop_reply = {NULL, 0};
+        code = g_host->request_capability(ctx, name, request, &loop_reply);
+        if (loop_reply.data != NULL) {
+            g_host->free(g_host->host_data, loop_reply.data);
+        }
+        if (code != MQ_OK) {
+            static const char BUDGET_JSON[] =
+                "{\"wire_version\":1,\"kind\":\"response\",\"error\":"
+                "{\"kind\":\"capability\",\"code\":\"capability.budget_exceeded\","
+                "\"message\":\"capability request budget exceeded\"}}";
+            return emit(BUDGET_JSON, sizeof(BUDGET_JSON) - 1, error_wire) == MQ_OK
+                       ? code
+                       : MQ_ERR_OUT_OF_MEMORY;
+        }
+    }
+#endif
     code = g_host->request_capability(ctx, name, request, &reply);
     if (code != MQ_OK) {
         static const char ERROR_JSON[] =
