@@ -4,11 +4,13 @@
 //! diagnostics (`check`/`inspect`) or executes through the runtime and
 //! capability host (`run`/`call`). It never holds a second interpreter.
 
+mod analysis;
 mod args;
 mod commands;
 mod loader;
 mod output;
 mod tool;
+mod trace;
 
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -96,6 +98,9 @@ struct SandboxArgs {
     /// Explicitly trusted plugin manifest/directory to load (repeatable).
     #[arg(long = "plugin", value_name = "PATH")]
     plugin: Vec<PathBuf>,
+    /// Write a versioned Trace v1 file for this run.
+    #[arg(long = "trace-file", value_name = "PATH")]
+    trace_file: Option<PathBuf>,
     /// Explicitly trust in-process native plugin loading (unsafe by nature).
     #[arg(long = "trust-native-plugin")]
     trust_native_plugin: bool,
@@ -115,6 +120,7 @@ impl SandboxArgs {
             timeout: self.timeout,
             plugins: self.plugin.clone(),
             trust_native_plugin: self.trust_native_plugin,
+            trace_file: self.trace_file.clone(),
         }
     }
 }
@@ -162,6 +168,9 @@ struct CheckArgs {
     /// Declare a plugin manifest for static export-signature checking.
     #[arg(long = "plugin", value_name = "PATH")]
     plugin: Vec<PathBuf>,
+    /// Write the public Analysis v1 projection (only on successful check).
+    #[arg(long, value_name = "PATH")]
+    emit: Option<PathBuf>,
     /// Machine readable JSON output.
     #[arg(long)]
     json: bool,
@@ -313,9 +322,13 @@ fn main() {
     let cli = Cli::parse();
     let code = match cli.command {
         Command::Init(args) => commands::init(args.dir.as_deref()),
-        Command::Check(args) => {
-            commands::check(args.file.as_deref(), args.json, args.refs, &args.plugin)
-        }
+        Command::Check(args) => commands::check(
+            args.file.as_deref(),
+            args.json,
+            args.refs,
+            &args.plugin,
+            args.emit.as_deref(),
+        ),
         Command::Inspect(args) => {
             let flags = commands::InspectFlags {
                 ast: args.ast,

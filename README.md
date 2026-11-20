@@ -179,14 +179,15 @@ tests/                        conformance/negative corpus (see tests/README.md)
 * [`docs/adr/`](docs/adr/) — accepted decisions (crate graph, inert executables,
   `ref` ambiguity, strict refusal, AST normalization, CLI contract, BigInt/wire,
   package identity, callable resolution, plugin export routing, capability
-  broker, kernel providers, generic CLI tools, plugin-handle authority).
+  broker, kernel providers, generic CLI tools, plugin-handle authority, public Analysis/Trace v1).
 * Specs: [`markdown-profile.md`](spec/markdown-profile.md),
   [`mapping.md`](spec/mapping.md), [`expression.ebnf`](spec/expression.ebnf),
   [`evaluation.md`](spec/evaluation.md), [`references.md`](spec/references.md),
   [`value-wire.md`](spec/value-wire.md), [`security.md`](spec/security.md),
   [`package-format.md`](spec/package-format.md),
   [`plugin-abi.md`](spec/plugin-abi.md), [`math.md`](spec/math.md),
-  [`foreign.md`](spec/foreign.md), [`tool-v1.md`](spec/tool-v1.md).
+  [`foreign.md`](spec/foreign.md), [`tool-v1.md`](spec/tool-v1.md),
+  [`analysis-v1.md`](spec/analysis-v1.md), [`trace-v1.md`](spec/trace-v1.md).
 * [`tests/README.md`](tests/README.md) — conformance corpus and `UPDATE_GOLDENS`
   workflow.
 

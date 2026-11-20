@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 /// One recorded host effect.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TraceEntry {
+    /// Global event sequence within the run.
+    #[serde(default)]
+    pub seq: u64,
     /// Operation name (`print`, `fs.read`, `foreign.call`, ...).
     pub op: String,
     /// Module that initiated it.
@@ -41,6 +44,7 @@ impl EffectTrace {
     /// Record an effect.
     pub fn record(
         &mut self,
+        seq: u64,
         op: impl Into<String>,
         module: impl Into<String>,
         span: Option<Span>,
@@ -51,6 +55,7 @@ impl EffectTrace {
             return;
         }
         self.entries.push(TraceEntry {
+            seq,
             op: op.into(),
             module: module.into(),
             span,
@@ -63,4 +68,19 @@ impl EffectTrace {
     pub fn entries(&self) -> &[TraceEntry] {
         &self.entries
     }
+}
+
+/// One semantic event emitted by the interpreter (Trace v1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemanticEvent {
+    /// Global event sequence within the run.
+    pub seq: u64,
+    /// Stable event kind (`call.enter`, `call.exit`, `branch.eval`, ...).
+    pub kind: String,
+    /// Canonical function id, when inside a call.
+    pub function_id: Option<String>,
+    /// Source span, when known.
+    pub span: Option<Span>,
+    /// Non-sensitive detail (`ok`, `true`, `int`, an error code).
+    pub detail: Option<String>,
 }

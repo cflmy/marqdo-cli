@@ -38,6 +38,8 @@ pub struct SandboxSettings {
     pub plugins: Vec<PathBuf>,
     /// Explicit trust decision for in-process native plugin loading.
     pub trust_native_plugin: bool,
+    /// Optional Trace v1 output path.
+    pub trace_file: Option<PathBuf>,
 }
 
 impl SandboxSettings {
@@ -266,7 +268,13 @@ fn plugin_signature(raw: &str) -> Result<marqdo_ir::callable::CallableSignature,
 }
 
 /// `marqdo check`.
-pub fn check(file: Option<&Path>, json: bool, refs: bool, plugins: &[PathBuf]) -> i32 {
+pub fn check(
+    file: Option<&Path>,
+    json: bool,
+    refs: bool,
+    plugins: &[PathBuf],
+    emit: Option<&Path>,
+) -> i32 {
     let mut project = match load_project(file, json) {
         Ok(project) => project,
         Err(code) => return code,
@@ -284,6 +292,14 @@ pub fn check(file: Option<&Path>, json: bool, refs: bool, plugins: &[PathBuf]) -
         project.diagnostics.extend(ref_diagnostics);
     }
     let errors = output::error_count(&project.diagnostics);
+    if let Some(path) = emit {
+        if errors > 0 {
+            let _ = std::fs::remove_file(path);
+        } else if let Err(error) = crate::analysis::write(&project, path) {
+            eprintln!("error: {error}");
+            return 2;
+        }
+    }
     if json {
         output::print_json(&json!({
             "command": "check",
@@ -667,7 +683,7 @@ pub fn execute(
         }
     };
     let mut host = StdHost::new(mode, capabilities, project.root.clone());
-    if trace || json {
+    if trace || json || settings.trace_file.is_some() {
         host = host.with_trace();
     }
     if let Some(fuel) = settings.fuel {
@@ -745,6 +761,17 @@ pub fn execute(
         &function_name,
         runtime_args,
     );
+    if let Some(path) = &settings.trace_file {
+        let status = match &result {
+            Ok(_) => "ok",
+            Err(error) => error.code(),
+        };
+        let entry = format!("{}::{}", project.entry, function_name);
+        if let Err(error) = crate::trace::write(&project, &host, &entry, status, path) {
+            eprintln!("error: {error}");
+            return 1;
+        }
+    }
     let stdout = host.take_output();
     let stdout_text = String::from_utf8_lossy(&stdout).to_string();
     let trace_entries = host.trace().to_vec();

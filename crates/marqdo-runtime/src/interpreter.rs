@@ -122,9 +122,12 @@ impl<'a> Interpreter<'a> {
         call_span: Option<Span>,
     ) -> Result<Value, RuntimeError> {
         let display = function.id.name.clone();
+        let trace_id = function.id.to_string();
         if self.depth + 1 > 0 {
             self.host.check_stack(self.depth + 1, call_span)?;
         }
+        self.host
+            .record_semantic("call.enter", Some(&trace_id), call_span, None);
         let locals = self.bind_args(function, args, call_span)?;
         let mut frame = Frame {
             function: function.id.clone(),
@@ -134,6 +137,13 @@ impl<'a> Interpreter<'a> {
         self.depth += 1;
         let result = self.exec_stmts(program, &function.body, &mut frame);
         self.depth -= 1;
+        let status = match &result {
+            Ok(Flow::Next) => "ok",
+            Ok(Flow::Return(_)) => "return",
+            Err(error) => error.code(),
+        };
+        self.host
+            .record_semantic("call.exit", Some(&trace_id), call_span, Some(status));
         match result {
             Ok(Flow::Next) => Ok(Value::Unit),
             Ok(Flow::Return(value)) => Ok(value),
@@ -250,8 +260,14 @@ impl<'a> Interpreter<'a> {
                 Stmt::Call { call, span } => {
                     self.exec_call_site(program, call, *span, frame)?;
                 }
-                Stmt::Return { value, .. } => {
+                Stmt::Return { value, span } => {
                     let value = self.eval_expr(value, frame)?;
+                    self.host.record_semantic(
+                        "return",
+                        Some(&frame.function.to_string()),
+                        Some(*span),
+                        Some(value.type_name()),
+                    );
                     return Ok(Flow::Return(value));
                 }
                 Stmt::Branch { arms, .. } => {
@@ -267,6 +283,12 @@ impl<'a> Interpreter<'a> {
                                 ),
                             ));
                         };
+                        self.host.record_semantic(
+                            "branch.eval",
+                            Some(&frame.function.to_string()),
+                            Some(arm.condition_span),
+                            Some(if condition { "true" } else { "false" }),
+                        );
                         if condition {
                             match self.exec_stmts(program, &arm.body, frame)? {
                                 Flow::Next => break,
@@ -290,6 +312,12 @@ impl<'a> Interpreter<'a> {
                             format!("loop condition must be Bool, got {}", value.type_name()),
                         ));
                     };
+                    self.host.record_semantic(
+                        "loop.iteration",
+                        Some(&frame.function.to_string()),
+                        Some(*condition_span),
+                        Some(if value { "continue" } else { "exit" }),
+                    );
                     if !value {
                         break;
                     }

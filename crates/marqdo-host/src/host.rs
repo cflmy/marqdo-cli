@@ -17,7 +17,7 @@ use crate::capability::{Capabilities, CapabilityAudit, CapabilityBroker};
 use crate::context::ExecutionContext;
 use crate::fs::ProjectFs;
 use crate::handles::{contains_plugin_handle, PluginHandleTable};
-use crate::trace::{EffectTrace, TraceEntry};
+use crate::trace::{EffectTrace, SemanticEvent, TraceEntry};
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
 
 /// Host operations reachable from the language surface.
@@ -90,6 +90,21 @@ pub trait Host {
 
     /// Recorded effects.
     fn trace(&self) -> &[TraceEntry];
+
+    /// Record one semantic event (Trace v1). Default: ignored.
+    fn record_semantic(
+        &mut self,
+        _kind: &str,
+        _function_id: Option<&str>,
+        _span: Option<Span>,
+        _detail: Option<&str>,
+    ) {
+    }
+
+    /// Recorded semantic events. Default: empty.
+    fn semantic_events(&self) -> &[SemanticEvent] {
+        &[]
+    }
 }
 
 /// Default capability host implementation.
@@ -124,6 +139,8 @@ pub struct StdHost {
     broker_audit: Arc<Mutex<Vec<CapabilityAudit>>>,
     /// Host-issued opaque plugin handles.
     pub handles: PluginHandleTable,
+    semantic_events: Vec<SemanticEvent>,
+    next_event_seq: u64,
 }
 
 struct PluginSlot {
@@ -164,6 +181,8 @@ impl StdHost {
             vendor_capabilities: BTreeSet::new(),
             broker_audit: Arc::new(Mutex::new(Vec::new())),
             handles: PluginHandleTable::default(),
+            semantic_events: Vec::new(),
+            next_event_seq: 0,
         }
     }
 
@@ -268,6 +287,17 @@ impl StdHost {
         }
         exports.sort();
         exports
+    }
+
+    /// Recorded semantic events (Trace v1).
+    pub fn semantic_events(&self) -> &[SemanticEvent] {
+        &self.semantic_events
+    }
+
+    fn next_seq(&mut self) -> u64 {
+        let seq = self.next_event_seq;
+        self.next_event_seq += 1;
+        seq
     }
 
     /// Audited plugin capability decisions.
@@ -436,12 +466,14 @@ impl Host for StdHost {
         ctx: &ExecutionContext,
     ) -> Result<Value, RuntimeError> {
         let started = Instant::now();
+        let seq = self.next_seq();
         let result = self.dispatch(op, args, ctx);
         let summary = match &result {
             Ok(_) => "ok".to_string(),
             Err(error) => error.code().to_string(),
         };
         self.trace.record(
+            seq,
             op.name(),
             ctx.module_id.clone(),
             ctx.span,
@@ -469,6 +501,27 @@ impl Host for StdHost {
 
     fn trace(&self) -> &[TraceEntry] {
         self.trace.entries()
+    }
+
+    fn record_semantic(
+        &mut self,
+        kind: &str,
+        function_id: Option<&str>,
+        span: Option<Span>,
+        detail: Option<&str>,
+    ) {
+        let seq = self.next_seq();
+        self.semantic_events.push(SemanticEvent {
+            seq,
+            kind: kind.to_string(),
+            function_id: function_id.map(str::to_string),
+            span,
+            detail: detail.map(str::to_string),
+        });
+    }
+
+    fn semantic_events(&self) -> &[SemanticEvent] {
+        &self.semantic_events
     }
 }
 

@@ -18,7 +18,7 @@ marqdo-cli/
 │   ├── EXTENSIBILITY_AUDIT.md     source-backed E01–E16 audit for M0.6
 │   ├── STATUS.md                  implementation matrix (P0–P7)
 │   ├── contributor-guide.md       this file
-│   └── adr/0001..0014-*.md        accepted decisions
+│   └── adr/0001..0015-*.md        accepted decisions
 ├── spec/
 │   ├── markdown-profile.md        frozen parser profile `marqdo.md.v1`
 │   ├── mapping.md                 AST → program roles
@@ -31,7 +31,9 @@ marqdo-cli/
 │   ├── plugin-abi.md              C ABI v1, SDK, host lifecycle
 │   ├── math.md                    Formula subset and math.* semantics
 │   ├── foreign.md                 Python/Node kernel protocol
-│   └── tool-v1.md                 proposed generic external Tool Protocol
+│   ├── tool-v1.md                 generic external Tool Protocol v1
+│   ├── analysis-v1.md             public Analysis v1 projection
+│   └── trace-v1.md                public Trace v1 event stream
 ├── crates/
 │   ├── marqdo-span/               Span, LineCol, LineIndex (leaf)
 │   ├── marqdo-value/              Value, diagnostics, errors, wire encoding
