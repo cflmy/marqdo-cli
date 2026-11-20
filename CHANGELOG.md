@@ -125,6 +125,8 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   before module loading, a `std:marqdo-stdlib@<version>#<digest>` package
   instance id, `project.stdlib` in Analysis v2, and test coverage for
   `std:` resolution, tamper rejection and frozen-binary hash equality.
+- P2 closure gate: add a pure no-Foreign/no-Plugin lane for C01–C06/C11/C12
+  (20 fixtures + stdlib table), source shortcut scan and golden comparison.
 - CM-A08 GFM rendering: `stdlib/data/table.mq.md::转GFM` renders a logical
   Table as a GFM pipe table with cell escaping; CLI test added.
 - P5 HTTP parser fixture (C10): semantic fixture 71 parses HTTP/1.1 status,

@@ -184,6 +184,12 @@ and read/written through `resource.*` with a project-mode name grant; missing
 grant, pure/strict, bad protocol version, reserved kinds and duplicate kinds
 are rejected.
 
+RFC-CM P2 closure (C01–C06, C11, C12) is pinned by
+`crates/cli/tests/p2_closure.rs`: 20 semantic fixtures run through
+`run --mode pure --json`, sources are scanned for foreign/plugin/import
+shortcuts, and value/stdout are compared with the goldens; the stdlib table
+self-test also runs in pure mode.
+
 RFC-CM CM-A08 table stdlib (ADR-0032) is pinned by
 `crates/cli/tests/stdlib_table.rs`, which runs `stdlib/tests/table.mq.md` and
 checks select/filter/sort/append/set/join/group results plus original-table
