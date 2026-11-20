@@ -41,9 +41,10 @@ evidence, `12be02e` P4/P5 gates, `01f6fe4` worker provider, `b22a89e` C ABI,
 
 ## External / future items (not available or not claimed)
 
-1. **No GitHub credentials / remote CI URL.** Windows/macOS native lanes and a
-   self-hosted G-C CI URL cannot be produced from this host. Strict evidence is
-   local VM evidence, not CI-signed.
+1. **Native CI lanes are still unavailable.** The private Woodpecker Linux
+   Docker pipeline is green; Windows/macOS runners and a self-hosted G-C
+   security runner are not configured. Strict evidence is local VM evidence,
+   not CI-signed.
 2. **The stdlib is intentionally in-repo for now** (ADR-0039). The
    deterministic offline package and digest contract are extraction-ready;
    creating/publishing a separate repository is deferred until a documented

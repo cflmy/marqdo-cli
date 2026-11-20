@@ -29,6 +29,11 @@ plugin ABI v2 are not claimed to work here.
 > convergence plan is
 > [`docs/NEXT_RELEASE_CI_CONVERGENCE.md`](docs/NEXT_RELEASE_CI_CONVERGENCE.md).
 
+CI: the private remote [git.cflmy.cn/cflmy/marqdo-cli](https://git.cflmy.cn/cflmy/marqdo-cli)
+uses Woodpecker at [ci.cflmy.cn](https://ci.cflmy.cn); [`.woodpecker.yml`](.woodpecker.yml)
+runs fmt, clippy, workspace tests and a release build. The strict OS-isolation
+lane still requires the disposable VM described in [docs/ci.md](docs/ci.md).
+
 ## Build
 
 Requires Rust 1.82+.
