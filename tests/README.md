@@ -171,6 +171,11 @@ by:
 * fixture 55 additionally has a second-free detection path: freeing an
   already-free block returns `{ok:false, code:"alloc.double_free"}`.
 
+RFC-CM CM-A07 Compat-C (ADR-0031) is pinned by
+`crates/marqdo-runtime/tests/interpreter.rs::print_without_the_bundled_stdlib_is_a_structured_error`
+and the absence of any `HostOp::Print`/`op_print` reference. The semantic
+harness mirrors the loader's stdlib injection for direct-runtime fixtures.
+
 RFC-CM CM-A07 Compat-B (ADR-0030) is pinned by
 `crates/cli/tests/print_routing.rs`:
 

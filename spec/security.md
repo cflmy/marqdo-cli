@@ -55,7 +55,7 @@ set for one run:
 
 | Field | Default (`pure`/`project`) | Used by |
 |---|---|---|
-| `console: bool` | `true` | `op_print` and `resource.open("stdio","stdout",["write"])`; a missing grant is `permission.denied` and output is also bounded by the output budget |
+| `console: bool` | `true` | `resource.open("stdio","stdout",["write"])` and the stdlib print chain; a missing grant is `permission.denied` and output is also bounded by the output budget |
 | `math: bool` | `true` | `math.*` host ops |
 | `fs_read: Vec<String>` | empty | `fs.read` and project `resource.open("file", path, ["read"])` |
 | `fs_write: Vec<String>` | empty | `fs.write` and project `resource.open("file", path, ["write"])` |

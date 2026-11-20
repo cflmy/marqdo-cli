@@ -27,7 +27,8 @@ implementation status lives in `docs/STATUS.md`; frozen behavior is in
 | CM-A10 bundled stdlib / `std:` imports / digest | [0028](../adr/0028-bundled-stdlib-and-std-imports.md) | Accepted (first slice) |
 | Full-value stdlib formatting / FunctionRef+PluginHandle observation | [0029](../adr/0029-full-value-formatting-and-handle-observation.md) | Accepted |
 | CM-A07 Compat-B print routing | [0030](../adr/0030-print-compat-b-routing.md) | Accepted |
-| CM-A07 Compat-C, Table storage, generic providers, strict file/network resources | — | Not decided; do not implement by implication |
+| CM-A07 Compat-C remove legacy print formatting | [0031](../adr/0031-print-compat-c-remove-host-formatting.md) | Accepted |
+| Table storage, generic providers, strict file/network resources | — | Not decided; do not implement by implication |
 
 ## What a future phase must not do
 

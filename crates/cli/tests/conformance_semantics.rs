@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use marqdo_host::{Capabilities, Host, StdHost};
-use marqdo_ir::ModuleId;
+use marqdo_ir::{ModuleId, Program, ResolvedImport};
 use marqdo_runtime::{run, EvaluatedArg};
 use marqdo_sandbox::SandboxMode;
 
@@ -168,6 +168,7 @@ fn semantic_goldens_match_end_to_end_execution() {
         let mut program = marqdo_ir::Program::default();
         program.insert(analysis.module.clone());
         program.main_module = Some(module_id.clone());
+        install_stdlib_print(&mut program);
 
         let mut capabilities = Capabilities::pure();
         if grant_foreign {
@@ -262,4 +263,74 @@ fn semantic_goldens_match_end_to_end_execution() {
         "semantic conformance: {} fixture(s) checked, {skipped} skipped",
         fixtures.len()
     );
+}
+
+/// Load the bundled stdlib print modules for direct-runtime fixtures.
+///
+/// The CLI loader normally injects these for Compat-B. The semantic harness
+/// builds a Program directly, so it mirrors the same resolution here; without
+/// it, fixtures that call `打印` would hit the Compat-C "no bundle" error.
+fn install_stdlib_print(program: &mut Program) {
+    let root = repo_root().join("stdlib");
+    if !root.join("stdlib.json").is_file() {
+        return;
+    }
+    let mut loaded = std::collections::BTreeSet::new();
+    let io = match load_stdlib_module(&root, "io.mq.md", program, &mut loaded) {
+        Ok(id) => id,
+        Err(error) => panic!("cannot load bundled stdlib: {error}"),
+    };
+    let function = program
+        .module(&io)
+        .and_then(|module| module.function("写值"))
+        .unwrap_or_else(|| panic!("stdlib io has no 写值 function"));
+    program.print_override = Some(function.id.clone());
+}
+
+fn load_stdlib_module(
+    root: &Path,
+    relative: &str,
+    program: &mut Program,
+    loaded: &mut std::collections::BTreeSet<String>,
+) -> Result<ModuleId, String> {
+    if !loaded.insert(relative.to_string()) {
+        return Err(format!("stdlib import cycle at `{relative}`"));
+    }
+    let path = root.join(relative);
+    let source = fs::read_to_string(&path)
+        .map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
+    let module_id = ModuleId::new("std:test", relative.replace('\\', "/"));
+    let analysis = marqdo_frontend::analyze_source(&module_id.to_string(), &source);
+    if analysis.has_errors() {
+        return Err(format!("stdlib module `{relative}` has diagnostics"));
+    }
+    let imports: Vec<(String, String)> = analysis
+        .document
+        .frontmatter()
+        .and_then(|frontmatter| frontmatter.imports().ok())
+        .map(|mapping| mapping.into_iter().collect())
+        .unwrap_or_default();
+    for (alias, target) in imports {
+        let target = target.strip_prefix("std:").unwrap_or(&target);
+        let child = if target.starts_with("./") || target.starts_with("../") {
+            let base = Path::new(relative)
+                .parent()
+                .unwrap_or_else(|| Path::new(""));
+            base.join(target)
+                .components()
+                .map(|component| component.as_os_str().to_string_lossy().to_string())
+                .collect::<Vec<_>>()
+                .join("/")
+        } else {
+            target.to_string()
+        };
+        let to = load_stdlib_module(root, &child, program, loaded)?;
+        program.resolved_imports.push(ResolvedImport {
+            from: module_id.clone(),
+            alias,
+            to,
+        });
+    }
+    program.insert(analysis.module);
+    Ok(module_id)
 }

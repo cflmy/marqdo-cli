@@ -85,7 +85,7 @@ fn resource_handles_cannot_cross_the_generic_host_boundary() {
             .unwrap(),
     );
     let error = host
-        .invoke(HostOp::Print, vec![Value::Resource(handle)], &ctx)
+        .invoke(HostOp::FsRead, vec![Value::Resource(handle)], &ctx)
         .unwrap_err();
     assert_eq!(error.category, ErrorCategory::Type);
     assert!(error.message.contains("Resource handles"));

@@ -70,11 +70,10 @@ fn recursion_branch_and_return() {
 }
 
 #[test]
-fn loop_prints_and_returns_unit_for_fallthrough() {
-    let source = "## 倒计时\n\n**n = 3**\n\n- `n > 0`\n\n  > 打印(n)\n\n  **n = n - 1**\n";
-    let (result, output) = run_and_output(source, "倒计时");
+fn loop_mutates_and_returns_unit_for_fallthrough() {
+    let source = "## 倒计时\n\n**n = 3**\n\n- `n > 0`\n\n  **n = n - 1**\n";
+    let (result, _) = run_and_output(source, "倒计时");
     assert_eq!(result.unwrap(), Value::Unit);
-    assert_eq!(output, "3\n2\n1\n");
 }
 
 #[test]
@@ -117,14 +116,14 @@ fn function_reference_can_be_called() {
 
 #[test]
 fn non_bool_condition_is_a_runtime_error() {
-    let source = "## f\n\n**x = 1**\n\n- `x`\n\n  > 打印(1)\n\n*x*\n";
+    let source = "## f\n\n**x = 1**\n\n- `x`\n\n  **x = x + 1**\n\n*x*\n";
     let error = run_named(source, "f", &[]).unwrap_err();
     assert_eq!(error.code(), "runtime.type");
 }
 
 #[test]
 fn fuel_budget_is_enforced() {
-    let program = build("## f\n\n- `true`\n\n  > 打印(1)\n\n*0*\n");
+    let program = build("## f\n\n- `true`\n\n  **x = 1**\n\n*0*\n");
     let mut host = StdHost::new(
         SandboxMode::Project,
         Capabilities::pure(),
@@ -172,6 +171,18 @@ fn ambiguous_ref_resource_is_an_error() {
 }
 
 #[test]
+fn print_without_the_bundled_stdlib_is_a_structured_error() {
+    let source = "## f\n\n> 打印(1)\n\n*None*\n";
+    let error = run_named(source, "f", &[]).unwrap_err();
+    assert_eq!(error.code(), "kernel.unavailable");
+    assert!(
+        error.message.contains("bundled stdlib"),
+        "unexpected message: {}",
+        error.message
+    );
+}
+
+#[test]
 fn function_ref_and_resource_members_are_readable() {
     let source = "## 目标\n\n*1*\n\n## main\n\n### 公式\n\n$$a = 1$$\n\n### 代码\n\n```text\nx\n```\n\n**f = ref(\"#目标\")**\n\n**g = ref(\"#公式\")**\n\n**c = ref(\"#代码\")**\n\n*[f.module, f.name, g.latex, g.display, c.language, c.source]*\n";
     let value = run_named(source, "main", &[]).unwrap();
@@ -198,7 +209,7 @@ fn memory_region_is_shared_by_handle_identity() {
 
 #[test]
 fn memory_handle_cannot_reach_the_host_boundary() {
-    let source = "## f\n\n**m = memory.new(1, 1)**\n\n> 打印(m)\n\n*0*\n";
+    let source = "## f\n\n**m = memory.new(1, 1)**\n\n> fs.read(m)\n\n*0*\n";
     let error = run_named(source, "f", &[]).unwrap_err();
     assert_eq!(error.code(), "runtime.type");
     assert!(

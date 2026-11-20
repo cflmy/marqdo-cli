@@ -108,6 +108,9 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   an `fs_write` grant, buffers in the host, flushes only on `close`, never
   flushes on drop, has an 8 MiB ceiling, and is refused in pure/strict. A
   `.mq.md` chunked copy loop reproduces a file without a Rust `copy_file`.
+- Compat-C print completion (ADR-0031): remove `HostOp::Print` and
+  `StdHost::op_print`; the print builtin only routes to bundled `io.写值` or
+  returns `kernel.unavailable`; print traces contain only resource effects.
 - Compat-B `打印`/`print` routing (ADR-0030): a `Program.print_override` sends
   print calls to bundled `io.写值` when the program uses them; stdlib modules
   are injected lazily, resource operations appear as trace effects and the

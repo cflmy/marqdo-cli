@@ -77,8 +77,8 @@ resource ABI, not a new OS capability. File resources stay fail-closed.
   The human-readable `checked N module(s)` count excludes stdlib modules so
   bundle internals do not change the project count.
 * Compat-C (removing `HostOp::Print` and `Value::display()` formatting from the
-  public builtin) is **not** part of this ADR. The legacy path remains the
-  fallback when no bundle exists.
+  public builtin) is **not** part of this ADR; it is implemented by ADR-0031,
+  which supersedes the "legacy fallback" sentence above.
 
 ## Non-goals
 

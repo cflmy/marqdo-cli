@@ -257,7 +257,7 @@ host boundary. Names are stable; adding one requires a spec update.
 
 | Name | Signature | Notes |
 |---|---|---|
-| `打印` / `print` | `(x) -> Unit` | writes `Value::display()` + newline to stdout |
+| `打印` / `print` | `(x) -> Unit` | Compat-C: routed to bundled `io.写值`; no `HostOp` formatting path. Without the bundle, `kernel.unavailable` |
 | `长度` / `len` | `(x) -> Int` | Text scalar count, List/Map/Table size |
 | `类型` / `type` | `(x) -> Text` | value type name |
 | `文本` / `str` | `(x) -> Text` | explicit conversion |
@@ -288,13 +288,14 @@ host boundary. Names are stable; adding one requires a spec update.
 | `foreign.run/call` | see `spec/foreign.md` | P5, capability-gated |
 | `fs.read/write` | see `spec/security.md` | capability-gated |
 
-`打印/print` is **Compat-B** (ADR-0030): when the verified bundled stdlib is
-available and a loaded module calls the builtin, the loader injects
-`stdlib/io.mq.md` and sets a program-level `print_override`; the runtime calls
-`io.写值` instead of `HostOp::Print`. The stdlib chain formats every one of the
-15 value types, encodes UTF-8 into `Memory`, and writes via
-`resource.write(stdout)`. The legacy builtin remains the fallback when no bundle
-is available. Compat-C (removing the legacy formatting path) is not done.
+`打印/print` is **Compat-C** (ADR-0031): the legacy `HostOp::Print` and its
+`Value::display()` formatting path are removed. When a loaded module calls the
+builtin, the loader injects `stdlib/io.mq.md` and sets a program-level
+`print_override`; the runtime calls `io.写值`. The stdlib chain formats every
+one of the 15 value types, encodes UTF-8 into `Memory`, and writes via
+`resource.write(stdout)`. If the official bundle is unavailable, the builtin
+returns a structured `kernel.unavailable` error; there is no silent formatting
+fallback. The builtin name remains for arity validation and diagnostics.
 
 The `list.*`, `map.*`, `text.*` and `table.*` entries are observation and
 construction primitives, not algorithms (ADR-0023). They return new values and

@@ -27,8 +27,6 @@ use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
 /// Host operations reachable from the language surface.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HostOp {
-    /// Write a value to program stdout.
-    Print,
     /// Parse a formula.
     MathParse,
     /// Evaluate a formula.
@@ -55,7 +53,6 @@ impl HostOp {
     /// Stable operation name used in traces and diagnostics.
     pub const fn name(self) -> &'static str {
         match self {
-            HostOp::Print => "print",
             HostOp::MathParse => "math.parse",
             HostOp::MathEval => "math.eval",
             HostOp::MathSubstitute => "math.substitute",
@@ -480,7 +477,6 @@ impl StdHost {
         ctx: &ExecutionContext,
     ) -> Result<Value, RuntimeError> {
         match op {
-            HostOp::Print => self.op_print(args, ctx),
             HostOp::FsRead => self.op_fs_read(args, ctx),
             HostOp::FsWrite => self.op_fs_write(args, ctx),
             HostOp::MathParse
@@ -493,27 +489,6 @@ impl StdHost {
             }
             HostOp::PluginInvoke => self.op_plugin_invoke(args, ctx),
         }
-    }
-
-    fn op_print(
-        &mut self,
-        args: Vec<Value>,
-        ctx: &ExecutionContext,
-    ) -> Result<Value, RuntimeError> {
-        if !self.capabilities.console {
-            return Err(RuntimeError::new(
-                ErrorCategory::PermissionDenied,
-                ctx.span,
-                "program output (console) capability was not granted",
-            ));
-        }
-        if args.len() != 1 {
-            return Err(arity(ctx.span, "打印", 1, args.len()));
-        }
-        let text = format!("{}\n", args[0].display());
-        self.budget.consume_output(text.len(), ctx.span)?;
-        self.output.extend_from_slice(text.as_bytes());
-        Ok(Value::Unit)
     }
 
     fn op_fs_read(

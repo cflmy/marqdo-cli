@@ -27,10 +27,15 @@ pub(crate) fn dispatch(
     let module = frame.module().clone();
     match builtin.name {
         "打印" => {
-            let value = take(&bound, "值", builtin, span)?;
-            interpreter
-                .host_invoke(HostOp::Print, vec![value], span, &module)
-                .map(|_| Value::Unit)
+            // Compat-C (ADR-0031): the legacy HostOp::Print path is gone. On
+            // the official CLI the loader routes 打印/print to stdlib io.写值;
+            // reaching this builtin means the verified bundle was unavailable.
+            let _ = take(&bound, "值", builtin, span)?;
+            Err(RuntimeError::new(
+                ErrorCategory::KernelUnavailable,
+                span,
+                "打印 requires the bundled stdlib print module; install the official CLI bundle",
+            ))
         }
         "长度" => {
             let value = take(&bound, "值", builtin, span)?;
