@@ -39,21 +39,35 @@ impl std::fmt::Debug for WorkerPlugin {
 impl WorkerPlugin {
     /// Spawn a worker for `manifest` and wait for its ready frame.
     pub fn spawn(manifest: &PluginManifest, base_dir: &Path) -> Result<Self, PluginError> {
-        let manifest_path = if base_dir.join("plugin.yaml").is_file() {
-            base_dir.join("plugin.yaml")
-        } else {
-            return Err(PluginError::load(
-                "worker_manifest_missing",
-                format!("no plugin.yaml in `{}`", base_dir.display()),
-            ));
-        };
+        // The worker receives an explicit serialized manifest, so it does not
+        // depend on the manifest file being named `plugin.yaml`.
+        let manifest_path = std::env::temp_dir().join(format!(
+            "marqdo-plugin-worker-manifest-{}-{}.json",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or(0)
+        ));
+        let manifest_bytes = serde_json::to_vec(manifest).map_err(|error| {
+            PluginError::manifest(
+                "worker_manifest_encode_failed",
+                format!("cannot encode manifest for worker: {error}"),
+            )
+        })?;
+        std::fs::write(&manifest_path, manifest_bytes).map_err(|error| {
+            PluginError::load(
+                "worker_manifest_unwritable",
+                format!("cannot write worker manifest: {error}"),
+            )
+        })?;
         let executable = std::env::current_exe().map_err(|error| {
             PluginError::load(
                 "worker_spawn_failed",
                 format!("cannot find the current executable: {error}"),
             )
         })?;
-        let mut child = Command::new(executable)
+        let mut child = match Command::new(executable)
             .arg(WORKER_COMMAND)
             .arg(&manifest_path)
             .arg(base_dir)
@@ -61,12 +75,16 @@ impl WorkerPlugin {
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
             .spawn()
-            .map_err(|error| {
-                PluginError::load(
+        {
+            Ok(child) => child,
+            Err(error) => {
+                let _ = std::fs::remove_file(&manifest_path);
+                return Err(PluginError::load(
                     "worker_spawn_failed",
                     format!("cannot start plugin worker: {error}"),
-                )
-            })?;
+                ));
+            }
+        };
         let Some(stdin) = child.stdin.take() else {
             let _ = child.kill();
             return Err(PluginError::load(
@@ -98,10 +116,19 @@ impl WorkerPlugin {
                     format!("cannot start worker reader: {error}"),
                 )
             })?;
-        let ready = frames.recv_timeout(HANDSHAKE_TIMEOUT).map_err(|_| {
-            let _ = child.kill();
-            PluginError::invoke("plugin.timeout", "plugin worker handshake timed out")
-        })??;
+        let ready = match frames.recv_timeout(HANDSHAKE_TIMEOUT) {
+            Ok(frame) => frame,
+            Err(_) => {
+                let _ = std::fs::remove_file(&manifest_path);
+                let _ = child.kill();
+                return Err(PluginError::invoke(
+                    "plugin.timeout",
+                    "plugin worker handshake timed out",
+                ));
+            }
+        };
+        let _ = std::fs::remove_file(&manifest_path);
+        let ready = ready?;
         if ready.get("kind").and_then(serde_json::Value::as_str) != Some("ready") {
             let _ = child.kill();
             return Err(PluginError::load(

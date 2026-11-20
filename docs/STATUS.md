@@ -67,10 +67,10 @@ cargo clippy --workspace --all-targets -- -D warnings
 | **P1** Interpreter, expressions, control flow | **Done** | `marqdo-expression`, `marqdo-ir`, `marqdo-frontend`, `marqdo-runtime`; factorial/countdown examples run without Python (`examples/factorial.mq.md`, `examples/hello.mq.md`); 36 execution goldens in `tests/conformance/semantics/`; runtime tests `crates/marqdo-runtime/tests/interpreter.rs`; prose invariance `crates/cli/tests/properties.rs`. |
 | **P2** Modules, references, CLI experience | **Partial** | Imports/ModuleId/UnitId/anchor/cycle detection + `run/call/check/inspect/fmt` (`crates/cli`), multi-module example and `multi_module_imports_and_cycles` CLI test; `check --refs` reference validation (all loaded documents, on-demand static analysis of link targets) and `inspect --refs` static graph. Missing: cross-module link calls, rename/interface-lock tooling, canonical AST-preserving `fmt` (see §3). |
 | **P3** Package environment | **Partial** | `marqdo.yaml`/`marqdo.lock` types+validation, `init`, `add`/`remove`, deterministic `lock`, `sync --locked`; M0.6 adds pinned Git fetch/cache, transitive `@alias` resolution and atomic `.marqdo/env` materialization. Missing: registry, `tree/update/vendor`, `--offline`, full conflict solver. |
-| **P4** Security core and isolation | **Partial** | `CapabilityHost`, capabilities at execution points (console and math included), project-rooted FS with traversal rejection, budgets, effect trace, pure/project modes, **strict refuses without OS isolation** (`marqdo-sandbox`); CLI test `strict_mode_refuses_without_isolation`; host unit tests. Missing: OS isolation adapter, plugin worker, network enforcement. |
+| **P4** Security core and isolation | **Partial** | `CapabilityHost`, capabilities at execution points (console and math included), project-rooted FS with traversal rejection, budgets, effect trace, pure/project modes, **strict refuses without OS isolation** (`marqdo-sandbox`); CLI test `strict_mode_refuses_without_isolation`; host unit tests. Missing: OS isolation adapter and network enforcement; isolated plugin workers exist but are not an OS sandbox. |
 | **P5** Math and Foreign | **Partial (documented subset)** | `marqdo-math` exact-rational formula kernel for the grammar in `spec/math.md`; `math.parse/eval/substitute` host ops; `marqdo-foreign` Python/Node one-shot kernels with typed `foreign.call`; tests `crates/marqdo-math/tests/kernel.rs`, `crates/marqdo-foreign/tests/kernels.rs`; examples `math.mq.md`, `python-foreign.mq.md`. Missing: `simplify`/`differentiate`, matrices/series/symbolic algebra, foreign sessions, Python environment management. |
-| **P6** Plugin ABI and developer experience | **Partial** | Frozen `include/marqdo_plugin_abi_v1.h`; C ABI mirrors/layout assertions, version negotiation, `plugin.yaml` validation, target triple + sha256 verification, wire envelopes, native loader (`marqdo-plugin-abi`); Rust SDK macro (`marqdo-plugin-sdk`); C demo (`examples/plugin-demo`); CLI `plugin inspect` and explicitly trusted in-process invocation (`--plugin`, `--trust-native-plugin`, `--allow-plugin`); tests `plugin_inspect_and_explicit_trusted_invocation`, `crates/marqdo-plugin-abi/tests/loader_unix.rs`. Missing: isolated worker transport, plugin capability bridge, installation, Rust plugin example crate. |
-| **P7** Performance, release, CI | **Partial** | `.github/workflows/ci.yml` runs fmt/clippy/workspace tests plus CLI example smoke tests (including plugin inspect and invocation) on Linux x86_64. Missing: benchmarks, bytecode backend, cross-platform matrix, signed releases and supply-chain checks. Tree-walk interpreter only. |
+| **P6** Plugin ABI and developer experience | **Partial** | Frozen `include/marqdo_plugin_abi_v1.h`; C ABI mirrors/layout assertions, version negotiation, `plugin.yaml` validation, target triple + sha256 verification, wire envelopes, native loader; complete-name multi-export routing; `CapabilityBroker`; isolated worker transport with handshake/call timeouts; host handle table; Rust SDK; CLI `plugin inspect`, `check --plugin`, trusted native invocation. Missing: Wasm, vendor handlers, plugin installation, Rust plugin example crate. |
+| **P7** Performance, release, CI | **Partial** | `.github/workflows/ci.yml` runs fmt/clippy/workspace tests plus CLI example smoke tests (including plugin inspect and invocation) on Linux x86_64. Missing: benchmarks, bytecode backend, full cross-platform test matrix (Windows/macOS currently `cargo check` only), signed releases and supply-chain checks. Tree-walk interpreter only. |
 
 ## 2. Feature evidence (selected commands)
 
@@ -145,23 +145,23 @@ and `crates/cli/tests`.
 
 ### P3
 
-* Git dependencies can be declared (`git` + `rev`, validated) but cannot be
-  resolved or locked: `lock` errors "git dependencies are not supported by this
-  build".
-* No transitive dependency graph, conflict resolution, registry, publishing,
+* Pinned Git dependencies resolve through a content-addressed cache; floating
+  branches, submodules and dependency install scripts remain unsupported.
+* Transitive `@alias` imports resolve from each package's own manifest, but the
+  lock is still flat; there is no full conflict solver, registry, publishing,
   signing, `tree`, `update`, `vendor`, `--offline`, or `lock --locked`.
-* No environment materialization (`.marqdo/env`, caches, kernels, sessions);
-  `sync` verifies but never installs or rewrites.
-* `add`/`remove` are shallow manifest editors; adding a git dependency succeeds
-  at the manifest level even though `lock` will later refuse it.
+* `sync` materializes `.marqdo/env` atomically; kernel/session environments are
+  not materialized.
+* `add`/`remove` are shallow manifest editors.
 * JSON errors from `add`/`remove`/`lock`/`sync` are plain stderr even with
   `--json`.
 
 ### P4
 
 * **Strict mode cannot run at all**: no OS isolation adapter (Linux
-  namespaces/seccomp/cgroups, Windows Job Object/appcontainer, macOS sandbox)
-  and `worker_processes: false`; `run --mode strict` exits 1 (ADR-0004).
+  namespaces/seccomp/cgroups, Windows Job Object/appcontainer, macOS sandbox);
+  `run --mode strict` exits 1 (ADR-0004). Isolated plugin workers are
+  implemented but a child process is not an OS sandbox.
 * `console` is a capability checked in `op_print`; it is granted by default in
   `pure`/`project` mode and is not a bypass of the capability boundary.
 * Network capability (`net_hosts`, `check_net`) exists but no host operation
@@ -172,8 +172,9 @@ and `crates/cli/tests`.
   bounded only by fuel and available memory.
 * Effect trace does not record argument values or paths (privacy-positive, but
   less diagnostic detail); trace is opt-in and implicitly on for `--json`.
-* `plugin_handle` wire values are structurally reconstructable, not
-  unforgeable capability tokens.
+* `plugin_handle` wire values are structurally reconstructable; authority now
+  requires the host-owned owner/run/generation table, and untrusted output
+  containing handles is rejected (ADR-0014).
 
 ### P5
 
@@ -187,21 +188,23 @@ and `crates/cli/tests`.
   `MathErrorKind::Type`), not `runtime.division_by_zero`; documented divergence.
 * Foreign kernels are one-shot only: no sessions, state bridge, Python/Node
   environment management, or network policy for child processes.
-* Foreign child processes are terminated only when the direct child is killed;
-  grandchildren are not tracked.
+* Foreign child processes form a process group on Unix, so timeout/overflow
+  kills grandchildren too; non-Unix targets still track only the direct child.
 * Foreign per-call timeout (10 s) and output cap (1 MiB) are not CLI-configurable.
 
 ### P6
 
-* No isolated plugin worker (length-prefixed IPC) or Wasm transport; only
-  explicitly trusted in-process native loading. A native plugin crash is a host
-  crash (`spec/plugin-abi.md` §1/§9).
-* No plugin capability bridge from the CLI: plugins are loaded with no
-  capability handler, so every plugin `request_capability` is denied.
-* Plugin calls are not statically validated; unknown namespaces are runtime
-  `symbol.unknown`. Positional plugin arguments are rejected.
-* One namespace per plugin (first export prefix); multi-prefix manifests are not
-  reachable beyond the first prefix.
+* Native in-process loading still requires explicit trust and a crash is a host
+  crash. The isolated worker transport (length-prefixed IPC, handshake/call
+  timeouts) is implemented for crash isolation, not as an OS sandbox.
+* Wasm and hot unload/reload remain unsupported.
+* The `CapabilityBroker` enforces core grants and vendor policy entries, but no
+  concrete vendor handler or worker-side capability bridge is shipped.
+* Plugin calls are statically validated only with `check --plugin <manifest>`;
+  without a descriptor a missing export is a runtime `symbol.unknown`.
+  Positional plugin arguments are rejected.
+* Multi-prefix exports are registered by complete name; explicit alias syntax
+  for two packages using the same export is still pending.
 * No plugin installation/package management; `plugins:` in `marqdo.yaml` is
   declarative only. No Rust plugin example crate (SDK has doc examples/tests).
 * No hot unload/reload (ABI v1 design).
@@ -225,9 +228,9 @@ and `crates/cli/tests`.
 | No heuristic downgrade of execution semantics; accurate source locations for invalid execution nodes | **Mostly met** | hard errors with spans for function-body executable shapes and negative corpus. Gaps: inert executable outside functions is a warning by design (ADR-0002); cross-module runtime error spans resolve against the entry file only; some lazy nested nodes are inert without a warning. |
 | `check`/`inspect` side-effect free; imports, calls and static references verifiable across files | **Mostly met** | static load/analysis only; imports + cycle detection; cross-module calls validated; `check --refs` validates references across loaded documents and statically analyses link targets; `inspect --refs` prints the entry graph. |
 | Minimal manifest, lock file, path/Git dependencies and environment sync | **Partial** | manifest/lock/path works, `sync --locked` verifies; git resolution, transitive deps, environment materialization and `--offline` missing. |
-| All host side effects capability-authorized; untrusted code/native plugins cannot masquerade as strict sandbox | **Mostly met** | capability checks at execution points; strict refuses; native plugins require explicit trust and are documented as unsandboxed. Gaps: network enforcement not implemented (no network builtin is exposed), no worker isolation. |
+| All host side effects capability-authorized; untrusted code/native plugins cannot masquerade as strict sandbox | **Mostly met** | capability checks at execution points; strict refuses; native plugins require explicit trust and are documented as unsandboxed. Gaps: network enforcement not implemented (no network builtin is exposed); worker isolation is crash isolation, not an OS sandbox. |
 | Formula computational subset explicit/testable; Foreign I/O, timeout and permissions explicit | **Met for the documented subset** | `spec/math.md`, `spec/foreign.md`; math kernel tests; foreign tests (timeout, protocol, output cap, env); permission gating tests/smoke. Simplification/differentiation explicitly unsupported. |
-| Plugin C ABI v1, Rust SDK, C example, isolated worker basic path, ABI compat error tests | **Partial** | ABI/SDK/C example/loader/ABI-error tests exist; **isolated worker path missing**. |
+| Plugin C ABI v1, Rust SDK, C example, isolated worker basic path, ABI compat error tests | **Partial** | ABI/SDK/C example/loader/ABI-error tests exist; isolated worker with timeout/crash tests exists. Missing: Wasm, vendor handlers, plugin installation. |
 | CI has at least one full research pipeline: Markdown function → Math → Foreign → Plugin → controlled output | **Partial** | CI now runs fmt/clippy/tests and CLI smoke tests; individual math/foreign/plugin paths are covered by examples and tests, but no single end-to-end pipeline document/test exists yet. |
 | Examples, README, AGENTS and contributor docs allow a first change without legacy context | **Met** | `README.md`, `AGENTS.md`, this guide, `docs/STATUS.md`, specs, ADRs, `tests/README.md`, examples. |
 
@@ -243,8 +246,8 @@ end-to-end pipeline (P7).
   options/versions is a language change.
 * Strict mode is a refusal, not an isolation implementation. `project` mode is
   cooperative and in-process.
-* Native plugins are trusted in-process code; there is no isolated plugin
-  worker, and a plugin crash takes down the host.
+* Native plugins are trusted in-process code and a crash takes down the host.
+  `kind: worker` isolates crashes/timeouts but is not an OS sandbox.
 * Ints are arbitrary precision; finite floats are binary64 and wire round-trip
   is exact (`float_roundtrip` enabled), but decimal-vs-binary formatting still
   applies when displaying values.
