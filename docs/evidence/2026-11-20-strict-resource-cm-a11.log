@@ -1,5 +1,6 @@
 == adversarial helper matrix ==
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.90s
+   Compiling marqdo-sandbox v0.1.0 (/home/dev/marqdo-current/crates/marqdo-sandbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.97s
      Running tests/security_linux.rs (target/debug/build/marqdo-sandbox/73fdd38fdea71ea2/out/security_linux-73fdd38fdea71ea2)
 
 running 7 tests
@@ -11,10 +12,24 @@ test strict_child_identity_is_unprivileged_and_namespaced ... ok
 test strict_supervisor_enforces_fd_and_process_limits ... ok
 test strict_supervisor_enforces_memory_cpu_and_output_limits ... ok
 
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.80s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.52s
 
 == build CLI ==
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.67s
+   Compiling marqdo-span v0.1.0 (/home/dev/marqdo-current/crates/marqdo-span)
+   Compiling marqdo-sandbox v0.1.0 (/home/dev/marqdo-current/crates/marqdo-sandbox)
+   Compiling marqdo-package v0.1.0 (/home/dev/marqdo-current/crates/marqdo-package)
+   Compiling marqdo-value v0.1.0 (/home/dev/marqdo-current/crates/marqdo-value)
+   Compiling marqdo-expression v0.1.0 (/home/dev/marqdo-current/crates/marqdo-expression)
+   Compiling marqdo-markdown v0.1.0 (/home/dev/marqdo-current/crates/marqdo-markdown)
+   Compiling marqdo-ir v0.1.0 (/home/dev/marqdo-current/crates/marqdo-ir)
+   Compiling marqdo-plugin-abi v0.1.0 (/home/dev/marqdo-current/crates/marqdo-plugin-abi)
+   Compiling marqdo-math v0.1.0 (/home/dev/marqdo-current/crates/marqdo-math)
+   Compiling marqdo-foreign v0.1.0 (/home/dev/marqdo-current/crates/marqdo-foreign)
+   Compiling marqdo-host v0.1.0 (/home/dev/marqdo-current/crates/marqdo-host)
+   Compiling marqdo-frontend v0.1.0 (/home/dev/marqdo-current/crates/marqdo-frontend)
+   Compiling marqdo-runtime v0.1.0 (/home/dev/marqdo-current/crates/marqdo-runtime)
+   Compiling marqdo-cli v0.1.0 (/home/dev/marqdo-current/crates/cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 47.14s
 strict mechanism: bubblewrap 0.11.1 (user/mount/PID/net/UTS/IPC namespaces + no-new-privs + rlimits)
 == positive CLI contract ==
 == strict language resources are console-only ==

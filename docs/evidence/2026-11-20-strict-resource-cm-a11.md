@@ -2,7 +2,7 @@
 
 Date: 2026-11-20 (Asia/Shanghai)
 Repository: `marqdo-cli`
-Source under test: `git archive 00bdcad` (current HEAD)
+Source under test: `git archive b241d1d` (current HEAD)
 Related: [ADR-0021](../adr/0021-linux-strict-isolation.md),
 [ADR-0030](../adr/0030-print-compat-b-routing.md),
 [ADR-0034](../adr/0034-tcp-resource-endpoint.md),
@@ -62,7 +62,7 @@ Actions security URL and not Windows/macOS evidence.
 
 ## Limits
 
-* No remote CI URL for `00bdcad`; G-C remains VM-verified, not CI-signed.
+* No remote CI URL for `b241d1d`; G-C remains VM-verified, not CI-signed.
 * Windows/macOS strict behavior is not exercised here.
 * Strict L2 (Worker/Foreign/native plugin under real isolation) is still not
   implemented; L1 refuses those surfaces.
