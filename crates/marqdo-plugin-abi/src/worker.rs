@@ -8,11 +8,13 @@
 
 use std::io::{Read, Write};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 use serde_json::{json, Value};
 
 use crate::error::PluginError;
-use crate::loader::LoadedPlugin;
+use crate::loader::{LoadOptions, LoadedPlugin};
 use crate::manifest::{PluginKind, PluginManifest};
 use crate::wire::{WireRequest, WireResponse};
 
@@ -117,7 +119,94 @@ pub fn serve(manifest_path: &Path, base_dir: &Path) -> i32 {
     // natively inside this child process.
     let mut native_manifest = manifest.clone();
     native_manifest.plugin.kind = PluginKind::Native;
-    let mut plugin = match LoadedPlugin::open(&native_manifest, base_dir) {
+
+    let stdin = Arc::new(Mutex::new(std::io::stdin()));
+    let stdout = Arc::new(Mutex::new(std::io::stdout()));
+    let next_request_id = Arc::new(AtomicU64::new(1));
+
+    let handler_stdin = Arc::clone(&stdin);
+    let handler_stdout = Arc::clone(&stdout);
+    let handler_ids = Arc::clone(&next_request_id);
+    let capability_handler: crate::loader::CapabilityHandler =
+        Box::new(move |capability, request| {
+            let id = handler_ids.fetch_add(1, Ordering::SeqCst);
+            let request_value: Value = serde_json::from_slice(request).map_err(|error| {
+                PluginError::capability(
+                    "capability.request_invalid",
+                    format!("capability request is not valid JSON: {error}"),
+                )
+            })?;
+            {
+                let mut out = handler_stdout.lock().map_err(|_| {
+                    PluginError::invoke("plugin.crashed", "worker stdout lock is poisoned")
+                })?;
+                write_frame(
+                    &mut *out,
+                    &json!({
+                        "kind": "capability_request",
+                        "id": id,
+                        "capability": capability,
+                        "request": request_value,
+                    }),
+                )?;
+            }
+            {
+                let frame = {
+                    let mut input = handler_stdin.lock().map_err(|_| {
+                        PluginError::invoke("plugin.crashed", "worker stdin lock is poisoned")
+                    })?;
+                    read_frame(&mut *input).map_err(|error| {
+                        PluginError::invoke(
+                            error.code.as_str(),
+                            format!("worker capability reply failed: {}", error.message),
+                        )
+                    })?
+                };
+                let Some(frame) = frame else {
+                    return Err(PluginError::invoke(
+                        "plugin.crashed",
+                        "host closed the worker during a capability request",
+                    ));
+                };
+                if frame.get("id").and_then(Value::as_u64) != Some(id) {
+                    return Err(PluginError::wire(
+                        "worker_frame_invalid",
+                        "capability reply id does not match the request",
+                    ));
+                }
+                match frame.get("kind").and_then(Value::as_str) {
+                    Some("capability_reply") => {
+                        let data = frame.get("data").and_then(Value::as_str).ok_or_else(|| {
+                            PluginError::wire(
+                                "worker_frame_invalid",
+                                "capability reply has no text data",
+                            )
+                        })?;
+                        Ok(data.as_bytes().to_vec())
+                    }
+                    Some("capability_error") => Err(PluginError::capability(
+                        frame
+                            .get("code")
+                            .and_then(Value::as_str)
+                            .unwrap_or("capability.unavailable"),
+                        frame
+                            .get("message")
+                            .and_then(Value::as_str)
+                            .unwrap_or("capability request failed")
+                            .to_string(),
+                    )),
+                    _ => Err(PluginError::wire(
+                        "worker_frame_invalid",
+                        "expected a capability reply frame",
+                    )),
+                }
+            }
+        });
+    let options = LoadOptions {
+        host_target: crate::artifact::HostTarget::current(),
+        capability_handler: Some(capability_handler),
+    };
+    let mut plugin = match LoadedPlugin::open_with(&native_manifest, base_dir, options) {
         Ok(plugin) => plugin,
         Err(error) => {
             eprintln!("worker: {}: {}", error.code, error.message);
@@ -128,14 +217,11 @@ pub fn serve(manifest_path: &Path, base_dir: &Path) -> i32 {
         .exports()
         .map(|export| json!({"name": export.name(), "signature": export.signature()}))
         .collect();
-    let mut stdin = std::io::stdin();
-    let mut stdout = std::io::stdout();
-    if let Err(error) = write_frame(&mut stdout, &json!({"kind": "ready", "exports": exports})) {
-        eprintln!("worker: {}: {}", error.code, error.message);
+    if send_frame(&stdout, &json!({"kind": "ready", "exports": exports})).is_err() {
         return 1;
     }
     loop {
-        let frame = match read_frame(&mut stdin) {
+        let frame = match receive_frame(&stdin) {
             Ok(Some(frame)) => frame,
             Ok(None) => return 0,
             Err(error) => {
@@ -147,8 +233,8 @@ pub fn serve(manifest_path: &Path, base_dir: &Path) -> i32 {
             Some("shutdown") => return 0,
             Some("invoke") => {
                 let Some(request_value) = frame.get("request") else {
-                    let _ = write_frame(
-                        &mut stdout,
+                    let _ = send_frame(
+                        &stdout,
                         &json!({"kind":"error","code":"worker_request_invalid","message":"missing request"}),
                     );
                     continue;
@@ -156,8 +242,8 @@ pub fn serve(manifest_path: &Path, base_dir: &Path) -> i32 {
                 let request_bytes = match serde_json::to_vec(request_value) {
                     Ok(bytes) => bytes,
                     Err(error) => {
-                        let _ = write_frame(
-                            &mut stdout,
+                        let _ = send_frame(
+                            &stdout,
                             &json!({"kind":"error","code":"worker_request_invalid","message":error.to_string()}),
                         );
                         continue;
@@ -166,8 +252,8 @@ pub fn serve(manifest_path: &Path, base_dir: &Path) -> i32 {
                 let request = match WireRequest::from_json_bytes(&request_bytes) {
                     Ok(request) => request,
                     Err(error) => {
-                        let _ = write_frame(
-                            &mut stdout,
+                        let _ = send_frame(
+                            &stdout,
                             &json!({"kind":"error","code":error.code,"message":error.message}),
                         );
                         continue;
@@ -180,13 +266,13 @@ pub fn serve(manifest_path: &Path, base_dir: &Path) -> i32 {
                             .ok()
                             .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
                             .unwrap_or_else(|| json!({"wire_version":1,"kind":"response"}));
-                        if write_frame(&mut stdout, &json!({"kind":"response","response":body})).is_err() {
+                        if send_frame(&stdout, &json!({"kind":"response","response":body})).is_err() {
                             return 1;
                         }
                     }
                     Err(error) => {
-                        if write_frame(
-                            &mut stdout,
+                        if send_frame(
+                            &stdout,
                             &json!({"kind":"error","code":error.code,"message":error.message,"error_kind":error.kind.as_str()}),
                         )
                         .is_err()
@@ -197,8 +283,8 @@ pub fn serve(manifest_path: &Path, base_dir: &Path) -> i32 {
                 }
             }
             _ => {
-                if write_frame(
-                    &mut stdout,
+                if send_frame(
+                    &stdout,
                     &json!({"kind":"error","code":"worker_frame_invalid","message":"unknown frame kind"}),
                 )
                 .is_err()
@@ -210,7 +296,20 @@ pub fn serve(manifest_path: &Path, base_dir: &Path) -> i32 {
     }
 }
 
-/// Build a successful response from an embedded wire response value.
+fn send_frame(stdout: &Arc<Mutex<std::io::Stdout>>, value: &Value) -> Result<(), PluginError> {
+    let mut out = stdout
+        .lock()
+        .map_err(|_| PluginError::invoke("plugin.crashed", "worker stdout lock is poisoned"))?;
+    write_frame(&mut *out, value)
+}
+
+fn receive_frame(stdin: &Arc<Mutex<std::io::Stdin>>) -> Result<Option<Value>, PluginError> {
+    let mut input = stdin
+        .lock()
+        .map_err(|_| PluginError::invoke("plugin.crashed", "worker stdin lock is poisoned"))?;
+    read_frame(&mut *input)
+}
+
 pub fn response_from_frame(frame: &Value) -> Result<WireResponse, PluginError> {
     let body = frame
         .get("response")

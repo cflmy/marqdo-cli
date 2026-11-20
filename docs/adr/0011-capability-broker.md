@@ -1,6 +1,6 @@
 # ADR-0011: Capability broker and vendor-namespaced requests
 
-Status: **Accepted**
+Status: **Accepted** (extended by ADR-0018 for worker capability frames)
 Date: 2026-11-20
 
 ## Context

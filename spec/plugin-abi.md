@@ -374,6 +374,24 @@ Worker → host responses are `{"kind":"response","response":<wire response>}` o
 `{"kind":"error","code":...,"message":...}`. The worker validates that the
 declared manifest exports exactly match the library's registrations.
 
+While an invoke is in flight, the worker may also request host capabilities
+(ADR-0018):
+
+```text
+worker → host  {"kind":"capability_request","id":7,"capability":"fs.read",
+                "request":{"path":"data/allowed.txt"}}
+host → worker  {"kind":"capability_reply","id":7,"data":"<utf-8 text>"}
+host → worker  {"kind":"capability_error","id":7,"code":"permission.denied",
+                "message":"..."}
+```
+
+The id must match and is request-scoped; requests carry no trusted identity
+(the host binds package/session from the spawned worker). Non-JSON requests,
+unknown/mismatched ids, non-text replies and other frame kinds are protocol
+errors. The invoke deadline covers the whole exchange. In this build only
+granted `fs.read` executes; other capabilities return `capability.unavailable`.
+These frames do not change the C ABI.
+
 ## 10. SDK usage (`crates/marqdo-plugin-sdk`)
 
 The SDK hides the raw C layout and exports the entry symbol with

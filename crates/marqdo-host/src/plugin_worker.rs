@@ -13,7 +13,9 @@ use std::thread;
 use std::time::Duration;
 
 use marqdo_plugin_abi::worker::{read_frame, write_frame, WORKER_COMMAND};
-use marqdo_plugin_abi::{PluginError, PluginManifest, WireRequest, WireResponse};
+use marqdo_plugin_abi::{
+    CapabilityHandler, PluginError, PluginManifest, WireRequest, WireResponse,
+};
 use serde_json::json;
 
 /// A native plugin running in an isolated worker process.
@@ -23,6 +25,7 @@ pub struct WorkerPlugin {
     frames: Receiver<Result<serde_json::Value, PluginError>>,
     exports: BTreeMap<String, String>,
     dead: bool,
+    capability_handler: Option<CapabilityHandler>,
 }
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
@@ -39,7 +42,11 @@ impl std::fmt::Debug for WorkerPlugin {
 
 impl WorkerPlugin {
     /// Spawn a worker for `manifest` and wait for its ready frame.
-    pub fn spawn(manifest: &PluginManifest, base_dir: &Path) -> Result<Self, PluginError> {
+    pub fn spawn(
+        manifest: &PluginManifest,
+        base_dir: &Path,
+        capability_handler: Option<CapabilityHandler>,
+    ) -> Result<Self, PluginError> {
         // The worker receives an explicit serialized manifest, so it does not
         // depend on the manifest file being named `plugin.yaml`.
         let manifest_path = std::env::temp_dir().join(format!(
@@ -185,6 +192,7 @@ impl WorkerPlugin {
             frames,
             exports,
             dead: false,
+            capability_handler,
         })
     }
 
@@ -205,40 +213,108 @@ impl WorkerPlugin {
             self.mark_dead();
             return Err(error);
         }
-        let frame = match self.frames.recv_timeout(CALL_TIMEOUT) {
-            Ok(Ok(frame)) => frame,
-            Ok(Err(error)) => {
-                self.mark_dead();
-                return Err(error);
-            }
-            Err(_) => {
+        let deadline = std::time::Instant::now() + CALL_TIMEOUT;
+        loop {
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            if remaining.is_zero() {
                 self.mark_dead();
                 return Err(PluginError::invoke(
                     "plugin.timeout",
                     "plugin worker exceeded its invocation timeout",
                 ));
             }
-        };
-        match frame.get("kind").and_then(serde_json::Value::as_str) {
-            Some("response") => marqdo_plugin_abi::worker::response_from_frame(&frame),
-            Some("error") => Err(PluginError::invoke(
-                frame
-                    .get("code")
-                    .and_then(serde_json::Value::as_str)
-                    .unwrap_or("plugin_call_failed"),
-                frame
-                    .get("message")
-                    .and_then(serde_json::Value::as_str)
-                    .unwrap_or("worker reported an error"),
-            )),
-            _ => {
-                self.mark_dead();
-                Err(PluginError::invoke(
-                    "plugin.crashed",
-                    "plugin worker closed or violated the frame protocol",
-                ))
+            let frame = match self.frames.recv_timeout(remaining) {
+                Ok(Ok(frame)) => frame,
+                Ok(Err(error)) => {
+                    self.mark_dead();
+                    return Err(error);
+                }
+                Err(_) => {
+                    self.mark_dead();
+                    return Err(PluginError::invoke(
+                        "plugin.timeout",
+                        "plugin worker exceeded its invocation timeout",
+                    ));
+                }
+            };
+            match frame.get("kind").and_then(serde_json::Value::as_str) {
+                Some("capability_request") => {
+                    if let Err(error) = self.handle_capability_request(&frame) {
+                        self.mark_dead();
+                        return Err(error);
+                    }
+                }
+                Some("response") => {
+                    return marqdo_plugin_abi::worker::response_from_frame(&frame);
+                }
+                Some("error") => {
+                    return Err(PluginError::invoke(
+                        frame
+                            .get("code")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("plugin_call_failed"),
+                        frame
+                            .get("message")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("worker reported an error"),
+                    ))
+                }
+                _ => {
+                    self.mark_dead();
+                    return Err(PluginError::invoke(
+                        "plugin.crashed",
+                        "plugin worker closed or violated the frame protocol",
+                    ));
+                }
             }
         }
+    }
+
+    fn handle_capability_request(&mut self, frame: &serde_json::Value) -> Result<(), PluginError> {
+        let id = frame
+            .get("id")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or_else(|| {
+                PluginError::wire("worker_frame_invalid", "capability request has no id")
+            })?;
+        let capability = frame
+            .get("capability")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| {
+                PluginError::wire("worker_frame_invalid", "capability request has no name")
+            })?;
+        let request_value = frame.get("request").cloned().unwrap_or_else(|| json!({}));
+        let request_bytes = serde_json::to_vec(&request_value)
+            .map_err(|error| PluginError::wire("worker_encode_failed", error.to_string()))?;
+        let result = match &mut self.capability_handler {
+            Some(handler) => handler(capability, &request_bytes),
+            None => Err(PluginError::capability(
+                "capability.unavailable",
+                "this worker has no host capability bridge",
+            )),
+        };
+        let reply = match result {
+            Ok(data) => match String::from_utf8(data) {
+                Ok(data) => json!({"kind":"capability_reply","id":id,"data":data}),
+                Err(_) => json!({
+                    "kind":"capability_error",
+                    "id":id,
+                    "code":"capability.reply_invalid",
+                    "message":"capability reply is not UTF-8 text",
+                }),
+            },
+            Err(error) => json!({
+                "kind":"capability_error",
+                "id":id,
+                "code":error.code,
+                "message":error.message,
+            }),
+        };
+        if let Err(error) = write_frame(&mut self.stdin, &reply) {
+            self.mark_dead();
+            return Err(error);
+        }
+        Ok(())
     }
 
     fn mark_dead(&mut self) {

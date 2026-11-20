@@ -276,11 +276,12 @@ Neither command executes project code. Specifically:
 3. Network capability exists in the model but no host operation uses it; there
    is no `--allow-net` flag.
 4. Write-path symlink TOCTOU (see §2.1).
-5. Plugin **worker crash isolation** is implemented, but the worker capability
-   bridge is not: worker capability requests are still denied. Only trusted
-   in-process native plugins can use the broker's `fs.read` execution. No
-   vendor-executing handler is shipped, and broker execution is a cooperative
-   API contract, not an OS sandbox.
+5. Plugin **worker crash isolation** and the worker capability bridge are
+   implemented: both native and worker plugins can reach the broker's
+   `fs.read` execution when granted. Other core capabilities and vendor
+   handlers remain unavailable. Broker execution is a cooperative API
+   contract, not an OS sandbox; a worker and a native plugin can still issue
+   direct syscalls.
 6. `plugin_handle` wire values are structurally reconstructable, but host
    authority comes only from the `PluginHandleTable` owner/run/generation
    check; untrusted plugin/foreign output containing a handle is rejected

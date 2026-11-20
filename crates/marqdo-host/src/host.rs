@@ -284,9 +284,25 @@ impl StdHost {
                         .map_err(map_plugin_error)?,
                 )
             }
-            PluginKind::Worker => PluginTransport::Worker(
-                WorkerPlugin::spawn(manifest, base_dir).map_err(map_plugin_error)?,
-            ),
+            PluginKind::Worker => {
+                let mut broker = CapabilityBroker::with_audit(
+                    self.capabilities.clone(),
+                    Arc::clone(&self.broker_audit),
+                )
+                .with_fs(self.fs.clone());
+                for capability in &self.vendor_capabilities {
+                    broker.allow_vendor(capability.clone());
+                }
+                let package = manifest.plugin.name.clone();
+                let handler: marqdo_plugin_abi::CapabilityHandler =
+                    Box::new(move |capability, request| {
+                        broker.execute(&package, capability, request)
+                    });
+                PluginTransport::Worker(
+                    WorkerPlugin::spawn(manifest, base_dir, Some(handler))
+                        .map_err(map_plugin_error)?,
+                )
+            }
             PluginKind::Wasm => {
                 return Err(RuntimeError::new(
                     ErrorCategory::KernelUnavailable,

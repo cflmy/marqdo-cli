@@ -154,3 +154,96 @@ fn worker_crash_is_isolated_from_the_host() {
         .unwrap();
     assert_eq!(survivor.status.code(), Some(0));
 }
+
+fn compile_capability(dir: &Path) -> PathBuf {
+    let output = dir.join("capability.so");
+    let status = Command::new("cc")
+        .args(["-std=c11", "-O2", "-shared", "-fPIC"])
+        .arg("-I")
+        .arg(repo().join("include"))
+        .arg(repo().join("tests/abi/capability_plugin.c"))
+        .arg("-o")
+        .arg(&output)
+        .status()
+        .expect("cc");
+    assert!(status.success(), "cc failed");
+    output
+}
+
+fn write_capability_manifest(dir: &Path, sha: &str) {
+    std::fs::write(
+        dir.join("plugin.yaml"),
+        format!(
+            r#"plugin:
+  name: demo.capability
+  version: 0.1.0
+  abi: "^1.0"
+  kind: worker
+  exports:
+    - name: capability.read
+      signature: "() -> Text"
+  requires:
+    - fs.read
+  artifacts:
+    - target: {}
+      file: capability.so
+      sha256: "{}"
+"#,
+            HostTarget::current().triple(),
+            sha
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("doc.mq.md"),
+        "## main\n\n**结果 = capability.read()**\n\n> 打印(结果)\n",
+    )
+    .unwrap();
+    std::fs::create_dir_all(dir.join("data")).unwrap();
+    std::fs::write(dir.join("data/allowed.txt"), "hello-worker").unwrap();
+}
+
+fn run_capability(dir: &Path, allow_read: bool) -> Output {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_marqdo"));
+    command.args([
+        "run",
+        dir.join("doc.mq.md").to_str().unwrap(),
+        "--plugin",
+        dir.to_str().unwrap(),
+        "--allow-plugin",
+        "demo.capability",
+    ]);
+    if allow_read {
+        command.args(["--allow-read", "data/**"]);
+    }
+    command.output().unwrap()
+}
+
+#[test]
+fn worker_capability_bridge_reads_granted_file_and_denies_without_grant() {
+    if !have_cc() {
+        eprintln!("skipping: cc is unavailable");
+        return;
+    }
+    let dir = TempDir::new("capability");
+    let artifact = compile_capability(dir.path());
+    write_capability_manifest(dir.path(), &sha256_file(&artifact).unwrap());
+
+    let output = run_capability(dir.path(), true);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "hello-worker\n");
+
+    let denied = run_capability(dir.path(), false);
+    assert_eq!(denied.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&denied.stderr);
+    assert!(
+        stderr.contains("permission.denied") || stderr.contains("fs.read"),
+        "{stderr}"
+    );
+    assert!(!String::from_utf8_lossy(&denied.stdout).contains("hello-worker"));
+}
