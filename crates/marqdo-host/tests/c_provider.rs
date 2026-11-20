@@ -194,3 +194,48 @@ fn c_abi_version_mismatch_and_modes_fail_closed() {
         assert_eq!(error.category, ErrorCategory::PermissionDenied);
     }
 }
+
+#[test]
+fn provider_package_manifest_installs_a_c_abi_library() {
+    if !cc_available() {
+        eprintln!("skipping C provider test: cc is unavailable");
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let library = build_provider(dir.path());
+    let manifest = dir.path().join("provider.json");
+    let platform = if cfg!(target_os = "linux") {
+        "linux"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else {
+        "default"
+    };
+    std::fs::write(
+        &manifest,
+        serde_json::json!({
+            "schema": "marqdo.provider",
+            "schema_version": 1,
+            "name": "cabi",
+            "kinds": ["cabi.sensor"],
+            "abi": "c-abi-1",
+            "library": { platform: library.file_name().unwrap().to_string_lossy() }
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let project = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(
+        SandboxMode::Project,
+        Capabilities::project().allow_resource_provider("cabi"),
+        project.path(),
+    );
+    host.register_provider_package(&manifest).unwrap();
+    let ctx = context();
+    let handle = handle(
+        host.resource_open("cabi.sensor", "s", &["read".to_string()], &ctx)
+            .unwrap(),
+    );
+    let read = host.resource_read(handle, 2, &ctx).unwrap();
+    assert_eq!(read.bytes, b"c-");
+}

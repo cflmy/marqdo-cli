@@ -4,8 +4,9 @@
 //! and is explicitly not a sandbox; only explicitly trusted adapters may be
 //! registered.
 
+use std::collections::BTreeMap;
 use std::ffi::{c_char, CString};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use libloading::Library;
 use marqdo_span::Span;
@@ -22,6 +23,83 @@ type ReadFn = unsafe extern "C" fn(u64, *mut u8, u32, *mut u32, *mut i32) -> i32
 type WriteFn = unsafe extern "C" fn(u64, *const u8, u32, *mut u32) -> i32;
 type CloseFn = unsafe extern "C" fn(u64) -> i32;
 type LastErrorFn = unsafe extern "C" fn(*mut c_char, u32) -> i32;
+
+#[derive(Debug, serde::Deserialize)]
+struct ProviderPackage {
+    schema: String,
+    schema_version: u32,
+    name: String,
+    kinds: Vec<String>,
+    abi: String,
+    #[serde(default)]
+    library: BTreeMap<String, String>,
+}
+
+/// Load a C ABI provider from its package manifest (ADR-0037).
+pub(crate) fn load_package(manifest_path: &Path) -> Result<CResourceProvider, RuntimeError> {
+    let bytes = std::fs::read(manifest_path).map_err(|error| {
+        RuntimeError::new(
+            ErrorCategory::ResourceUnsupported,
+            None,
+            format!(
+                "cannot read provider manifest {}: {error}",
+                manifest_path.display()
+            ),
+        )
+    })?;
+    let package: ProviderPackage = serde_json::from_slice(&bytes).map_err(|error| {
+        RuntimeError::new(
+            ErrorCategory::ResourceUnsupported,
+            None,
+            format!(
+                "invalid provider manifest {}: {error}",
+                manifest_path.display()
+            ),
+        )
+    })?;
+    if package.schema != "marqdo.provider" || package.schema_version != 1 {
+        return Err(provider_error(
+            &package.name,
+            "manifest schema must be marqdo.provider version 1",
+        ));
+    }
+    if package.abi != "c-abi-1" {
+        return Err(provider_error(
+            &package.name,
+            &format!(
+                "unsupported provider ABI `{}` (expected c-abi-1)",
+                package.abi
+            ),
+        ));
+    }
+    let platform = if cfg!(target_os = "linux") {
+        "linux"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "windows") {
+        "windows"
+    } else {
+        "default"
+    };
+    let library_name = package
+        .library
+        .get(platform)
+        .or_else(|| package.library.get("default"))
+        .ok_or_else(|| {
+            provider_error(
+                &package.name,
+                &format!("manifest has no `{platform}` or `default` library entry"),
+            )
+        })?;
+    let base = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+    let library = PathBuf::from(library_name);
+    let library = if library.is_absolute() {
+        library
+    } else {
+        base.join(library)
+    };
+    CResourceProvider::open(&package.name, &package.kinds, &library)
+}
 
 pub(crate) struct CResourceProvider {
     name: String,

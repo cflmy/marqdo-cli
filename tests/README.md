@@ -180,7 +180,8 @@ grant/pure/strict/DNS refusal) and
 RFC-CM CM-A09 C ABI provider (ADR-0036) is pinned by
 `crates/marqdo-host/tests/c_provider.rs`, which compiles a small C shared
 library, registers it, round-trips `resource.*`, checks missing-library,
-wrong-ABI-version and pure/strict fail-closed behavior.
+wrong-ABI-version and pure/strict fail-closed behavior; the package-manifest
+test installs a C provider from `provider.json`.
 
 RFC-CM CM-A09 worker provider transport (ADR-0035) is pinned by
 `crates/marqdo-host/tests/worker_provider.rs`: a Python helper is spawned,

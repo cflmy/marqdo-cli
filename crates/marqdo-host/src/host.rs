@@ -21,7 +21,7 @@ use crate::context::ExecutionContext;
 use crate::fs::ProjectFs;
 use crate::handles::{contains_plugin_handle, PluginHandleTable};
 use crate::plugin_worker::WorkerPlugin;
-use crate::provider_c::CResourceProvider;
+use crate::provider_c::{load_package, CResourceProvider};
 use crate::provider_worker::WorkerResourceProvider;
 use crate::resource::{ResourceProvider, ResourceRead, ResourceTable, SharedResourceProvider};
 use crate::trace::{EffectTrace, SemanticEvent, TraceBudget, TraceEntry, TraceState};
@@ -599,6 +599,17 @@ impl StdHost {
             .map(|kind| (*kind).to_string())
             .collect::<Vec<_>>();
         let provider = CResourceProvider::open(name, &kinds, library)?;
+        self.register_provider_checked(Box::new(provider))
+    }
+
+    /// Register a trusted C ABI provider from a `marqdo.provider` manifest
+    /// (ADR-0037). The manifest is host-side installation metadata; language
+    /// imports cannot install or authorize a provider.
+    pub fn register_provider_package(
+        &mut self,
+        manifest_path: &std::path::Path,
+    ) -> Result<(), RuntimeError> {
+        let provider = load_package(manifest_path)?;
         self.register_provider_checked(Box::new(provider))
     }
 

@@ -136,6 +136,8 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   JSON report; no bytecode/JIT/native backend is introduced.
 - P4 cross-storage table equivalence: fixture 72 compares row-store Table
   sort/filter output with a `.mq.md` columnar store cell-by-cell.
+- CM-A09 provider package manifest v1 (ADR-0037): local manifest resolves a
+  trusted C ABI library and registers it; no registry/signatures/CLI install.
 - CM-A09 C ABI provider v1 (ADR-0036): trusted shared libraries implement
   open/read/write/close/version/last_error; host loads them with version and
   symbol checks, project-mode + name grant only. Plugin-Worker binding remains
