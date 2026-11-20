@@ -46,9 +46,16 @@ sha256sum examples/plugin-demo/solver.so
 
 ## Inspect
 
-Manifest validation and artifact verification are host-side library calls
-(`crates/marqdo-plugin-abi`); the CLI wrappers are part of the broader
-package/CLI workstream. A typical inspection flow is:
+Manifest validation and artifact verification are implemented by
+`crates/marqdo-plugin-abi` and exposed through `marqdo plugin inspect` (which
+never loads plugin code):
+
+```sh
+./examples/plugin-demo/build.sh           # builds solver.so and refreshes sha256
+marqdo plugin inspect examples/plugin-demo
+```
+
+A typical inspection flow is:
 
 1. parse `plugin.yaml`,
 2. validate name, semver-ish version, `^1.0` ABI requirement, kind, exports,
@@ -109,3 +116,36 @@ only) to keep the example dependency-free. A real plugin should use a proper
 JSON library and its language's SDK bindings (the Rust SDK is
 `crates/marqdo-plugin-sdk`). The demo also does not request capabilities; see
 `CallContext::capability_request` in the SDK for that path.
+
+
+## Call from a Marqdo document (implemented)
+
+Once the host has made the explicit in-process trust decision, plugin exports
+are callable through the namespace that prefixes their export names. Plugin
+calls take **named arguments only** in this build:
+
+```markdown
+## main
+
+**结果 = solver.add(a=20, b=22)**
+
+> 打印(结果)
+```
+
+```sh
+marqdo run examples/plugin-demo/plugin-call.mq.md \
+  --plugin examples/plugin-demo \
+  --trust-native-plugin \
+  --allow-plugin demo.solver
+# 42
+```
+
+- `--plugin <path>` loads one manifest/artifact (repeatable).
+- `--allow-plugin demo.solver` grants the plugin capability; without it the
+  call fails with `permission.denied`.
+- `--trust-native-plugin` acknowledges that in-process native code shares the
+  host address space and is not sandboxed. This build has no isolated worker
+  transport, and `--mode strict` refuses to run at all.
+- Plugin failures become structured runtime errors: `plugin.abi_mismatch`,
+  `plugin.failure`, `symbol.unknown` (namespace not loaded), or
+  `permission.denied`.
