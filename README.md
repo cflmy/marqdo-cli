@@ -16,11 +16,11 @@ plugin ABI v2 are not claimed to work here.
 > Analysis v2, Trace v2, Tool v1, Plugin ABI v1 (native + worker) and pinned
 > Foreign providers are implemented and covered by tests on Linux. The
 > macOS/Windows `E0433` platform-cfg failure and the Linux strict
-> probe→launch race are fixed in source at `f075c96`, but the native
+> probe→launch race are fixed in source at `8af7262`, but the native
 > Windows/macOS and GitHub Linux lanes have not been re-run from this
 > checkout. **`strict` OS isolation is available on Linux only when the
 > runtime Bubblewrap probe passes**; it was verified against the full
-> escape/resource matrix in a disposable Ubuntu 26.04 VM at `f075c96`
+> escape/resource matrix in a disposable Ubuntu 26.04 VM at `8af7262`
 > (ADR-0021). macOS/Windows fail closed, strict L2 (Worker/Foreign) is not
 > implemented, and the broker/worker are not a sandbox. The release decision
 > is **DO NOT RELEASE** until the remote gates have same-SHA URLs. See

@@ -1,6 +1,6 @@
 # Compatibility and support matrix
 
-Snapshot: workspace version **0.1.0**, code/security SHA **`f075c96`**, no
+Snapshot: workspace version **0.1.0**, code/security SHA **`8af7262`**, no
 release tag cut. This file records what was actually verified and separates it
 from what is only implemented.
 
@@ -85,4 +85,4 @@ reproduce the Windows checkout byte behavior.
 
 **DO NOT RELEASE.** G1/G2/G3 (native CI) and G9 (self-hosted security-lane CI
 URL) have no real remote PASS for this SHA. See
-[`docs/evidence/RELEASE_CANDIDATE_0.1.0_f075c96.md`](docs/evidence/RELEASE_CANDIDATE_0.1.0_f075c96.md).
+[`docs/evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md`](docs/evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md).

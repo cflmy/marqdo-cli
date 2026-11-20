@@ -88,7 +88,7 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   sandbox starts. Strict L2 inheritance is future work.
 - Capability brokers and worker processes remain cooperative
   authorization/crash isolation, not an OS sandbox.
-- The G-C lane was re-run at `f075c96` from a clean `git archive` in a
+- The G-C lane was re-run at `8af7262` from a clean `git archive` in a
   disposable Ubuntu 26.04 VM as ordinary user `dev`: 7/7 adversarial tests,
   positive CLI contract and forged-marker rejection PASS. This is still a local
   VM result, not a self-hosted GitHub security-lane URL.
