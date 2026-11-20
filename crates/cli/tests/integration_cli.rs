@@ -739,3 +739,28 @@ fn runtime_error_in_imported_module_reports_that_module() {
         .unwrap_or_default();
     assert!(primary.contains("physics.mq.md"), "{primary}");
 }
+
+#[test]
+fn platform_reports_strict_unavailable_until_security_gate_passes() {
+    let root = repo_root();
+    let hello = root.join("examples").join("hello.mq.md");
+    let output = cli(
+        &root,
+        &["inspect", hello.to_str().unwrap(), "--platform", "--json"],
+    );
+    assert_exit(&output, 0, "inspect --platform");
+    let value = json_stdout(&output);
+    let strict = &value["platform"]["strict"];
+    assert_eq!(
+        strict["state"], "unavailable",
+        "strict must stay unavailable until the ADR-0019 security gate passes: {strict}"
+    );
+    assert!(
+        strict["reason"]
+            .as_str()
+            .map(|reason| !reason.trim().is_empty())
+            .unwrap_or(false),
+        "unavailable strict needs an actionable reason: {strict}"
+    );
+    assert_eq!(value["platform"]["worker_processes"], true);
+}
