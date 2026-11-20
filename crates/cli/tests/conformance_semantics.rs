@@ -169,6 +169,7 @@ fn semantic_goldens_match_end_to_end_execution() {
         program.insert(analysis.module.clone());
         program.main_module = Some(module_id.clone());
         install_stdlib_print(&mut program);
+        install_entry_stdlib_imports(&mut program, &module_id, &analysis);
 
         let mut capabilities = Capabilities::pure();
         if grant_foreign {
@@ -333,4 +334,40 @@ fn load_stdlib_module(
     }
     program.insert(analysis.module);
     Ok(module_id)
+}
+
+/// Resolve `std:` imports declared by a direct-runtime fixture entry.
+fn install_entry_stdlib_imports(
+    program: &mut Program,
+    module_id: &ModuleId,
+    analysis: &marqdo_frontend::AnalysisResult,
+) {
+    let root = repo_root().join("stdlib");
+    let Some(imports) = analysis
+        .document
+        .frontmatter()
+        .and_then(|frontmatter| frontmatter.imports().ok())
+    else {
+        return;
+    };
+    let mut loaded = std::collections::BTreeSet::new();
+    for (alias, target) in imports {
+        let Some(relative) = target.strip_prefix("std:") else {
+            continue;
+        };
+        let relative = if relative.ends_with(".mq.md") {
+            relative.to_string()
+        } else {
+            format!("{relative}.mq.md")
+        };
+        let to = match load_stdlib_module(&root, &relative, program, &mut loaded) {
+            Ok(id) => id,
+            Err(error) => panic!("cannot load stdlib import `{target}`: {error}"),
+        };
+        program.resolved_imports.push(ResolvedImport {
+            from: module_id.clone(),
+            alias,
+            to,
+        });
+    }
 }

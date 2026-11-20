@@ -127,6 +127,8 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   `std:` resolution, tamper rejection and frozen-binary hash equality.
 - P2 closure gate: add a pure no-Foreign/no-Plugin lane for C01–C06/C11/C12
   (20 fixtures + stdlib table), source shortcut scan and golden comparison.
+- P4 cross-storage table equivalence: fixture 72 compares row-store Table
+  sort/filter output with a `.mq.md` columnar store cell-by-cell.
 - P5 HTTP framing/client: `stdlib/net/http.mq.md` parses status/headers/chunked
   responses and builds requests; `http_over_tcp.rs` runs a loopback TCP HTTP
   exchange through `resource.open("tcp")`. No host HTTP/TLS implementation.

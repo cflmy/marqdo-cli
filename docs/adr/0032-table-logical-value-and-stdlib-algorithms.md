@@ -65,6 +65,10 @@ through the verified `std:` bundle and its digest.
   their existing behavior; `表` still validates row width.
 * Table source spans and document addresses are unchanged; a rebuilt Table is
   a logical value, not a rewrite of the source document.
+* Cross-storage compatibility: a `.mq.md` columnar representation (List/Map of
+  columns) must produce the same headers/rows/cells as the T0 row-store Table
+  for the supported operations (fixture 72). This does not migrate the Rust
+  storage; it proves the logical contract is storage-independent.
 
 ### 4. What is deliberately not done
 
