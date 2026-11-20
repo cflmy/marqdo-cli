@@ -918,6 +918,105 @@ fn hash_tree(root: &Path) -> Result<String, String> {
     Ok(hex::encode(hasher.finalize()))
 }
 
+/// `marqdo add <name> --path <dir> [--git URL --rev SHA]`.
+pub fn add(
+    name: &str,
+    path: Option<&Path>,
+    git: Option<&str>,
+    rev: Option<&str>,
+    json: bool,
+) -> i32 {
+    let root = match discover_project_root() {
+        Ok(root) => root,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return 2;
+        }
+    };
+    let manifest_path = root.join(marqdo_package::MANIFEST_FILE);
+    let mut manifest = match marqdo_package::Manifest::load(&manifest_path) {
+        Ok(manifest) => manifest,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return 2;
+        }
+    };
+    let dependency = marqdo_package::Dependency {
+        path: path.map(|path| path.to_path_buf()),
+        git: git.map(str::to_string),
+        rev: rev.map(str::to_string),
+    };
+    if let Err(error) = dependency.validate(name) {
+        eprintln!("error: {error}");
+        return 2;
+    }
+    if manifest.dependencies.contains_key(name) {
+        eprintln!("error: dependency `{name}` already exists; remove it first");
+        return 1;
+    }
+    manifest.dependencies.insert(name.to_string(), dependency);
+    if let Err(error) = std::fs::write(&manifest_path, manifest.to_yaml()) {
+        eprintln!("error: cannot write {}: {error}", manifest_path.display());
+        return 1;
+    }
+    if json {
+        output::print_json(&json!({
+            "command": "add",
+            "success": true,
+            "dependency": name,
+            "manifest": manifest_path.display().to_string(),
+        }));
+    } else {
+        println!("added dependency `{name}` to {}", manifest_path.display());
+        println!("run `marqdo lock` to pin it in {}", marqdo_package::LOCK_FILE);
+    }
+    0
+}
+
+/// `marqdo remove <name>`.
+pub fn remove(name: &str, json: bool) -> i32 {
+    let root = match discover_project_root() {
+        Ok(root) => root,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return 2;
+        }
+    };
+    let manifest_path = root.join(marqdo_package::MANIFEST_FILE);
+    let mut manifest = match marqdo_package::Manifest::load(&manifest_path) {
+        Ok(manifest) => manifest,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return 2;
+        }
+    };
+    if manifest.dependencies.remove(name).is_none() {
+        eprintln!("error: dependency `{name}` is not declared");
+        return 1;
+    }
+    if let Err(error) = std::fs::write(&manifest_path, manifest.to_yaml()) {
+        eprintln!("error: cannot write {}: {error}", manifest_path.display());
+        return 1;
+    }
+    // Keep the lockfile consistent by removing the stale entry if present.
+    let lock_path = root.join(marqdo_package::LOCK_FILE);
+    if let Ok(lock) = marqdo_package::LockFile::load(&lock_path) {
+        let mut updated = lock.clone();
+        updated.packages.retain(|package| package.name != name);
+        let _ = std::fs::write(&lock_path, updated.to_yaml());
+    }
+    if json {
+        output::print_json(&json!({
+            "command": "remove",
+            "success": true,
+            "dependency": name,
+        }));
+    } else {
+        println!("removed dependency `{name}`");
+    }
+    0
+}
+
 /// Resolve `--arg` strings into typed arguments.
 pub fn parse_named_args(raw: &[String]) -> Result<Vec<(String, Value)>, String> {
     raw.iter()

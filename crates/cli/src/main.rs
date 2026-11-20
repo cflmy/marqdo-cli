@@ -41,6 +41,10 @@ enum Command {
     Fmt(FmtArgs),
     /// Plugin artifact inspection (never loads plugin code).
     Plugin(PluginArgs),
+    /// Add a dependency to marqdo.yaml.
+    Add(AddArgs),
+    /// Remove a dependency from marqdo.yaml.
+    Remove(RemoveArgs),
     /// Generate a deterministic marqdo.lock for the current project.
     Lock(LockArgs),
     /// Verify that path dependencies match the lockfile.
@@ -200,6 +204,33 @@ struct PluginInspectArgs {
 }
 
 #[derive(Args)]
+struct AddArgs {
+    /// Dependency name used by front-matter imports (`@name`).
+    name: String,
+    /// Project-relative path dependency.
+    #[arg(long)]
+    path: Option<PathBuf>,
+    /// Git URL dependency (requires --rev).
+    #[arg(long)]
+    git: Option<String>,
+    /// Exact git revision for a git dependency.
+    #[arg(long)]
+    rev: Option<String>,
+    /// Machine readable JSON output.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Args)]
+struct RemoveArgs {
+    /// Dependency name.
+    name: String,
+    /// Machine readable JSON output.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Args)]
 struct LockArgs {
     /// Machine readable JSON output.
     #[arg(long)]
@@ -258,6 +289,14 @@ fn main() {
         Command::Plugin(args) => match args.command {
             PluginCommand::Inspect(args) => commands::plugin_inspect(&args.target, args.json),
         },
+        Command::Add(args) => commands::add(
+            &args.name,
+            args.path.as_deref(),
+            args.git.as_deref(),
+            args.rev.as_deref(),
+            args.json,
+        ),
+        Command::Remove(args) => commands::remove(&args.name, args.json),
         Command::Lock(args) => commands::lock(args.json),
         Command::Sync(args) => commands::sync(args.locked, args.json),
     };

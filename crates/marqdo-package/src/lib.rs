@@ -69,11 +69,18 @@ pub struct CapabilityRequests {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fs: Option<FsRequests>,
     /// Allowed network hosts (empty means none).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub net: Option<NetRequests>,
     /// May the project request process execution.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub process: Option<bool>,
+}
+
+impl CapabilityRequests {
+    /// Whether the project requests nothing.
+    pub fn is_empty(&self) -> bool {
+        self.fs.is_none() && self.net.is_none() && self.process.is_none()
+    }
 }
 
 /// File system capability requests.
@@ -101,13 +108,13 @@ pub struct Manifest {
     /// Project identity.
     pub project: ProjectInfo,
     /// Dependencies keyed by local name.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub dependencies: BTreeMap<String, Dependency>,
     /// Plugin requirements keyed by plugin name.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub plugins: BTreeMap<String, PluginRequirement>,
     /// Capability requests.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "CapabilityRequests::is_empty")]
     pub capabilities: CapabilityRequests,
 }
 
