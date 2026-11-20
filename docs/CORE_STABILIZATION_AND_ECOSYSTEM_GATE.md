@@ -1,5 +1,11 @@
 # Marqdo CLI 核心稳定化、协议冻结与独立生态准入实施规范
 
+> **Historical review baseline (`0adebe4`, 2026-11-20).** The source review
+> and CI facts here are a snapshot, not current state. The current overview is
+> [`architecture/CURRENT.md`](architecture/CURRENT.md); executed status is in
+> [`STATUS.md`](STATUS.md).
+
+
 > **文档状态：Proposed / 可直接用作下一阶段工程实施基线**  
 > **源码审查基线：** [`cflmy/marqdo-cli@0adebe42f14d72a2a275564d03ff9558f197766e`](https://github.com/cflmy/marqdo-cli/commit/0adebe42f14d72a2a275564d03ff9558f197766e)，`master`，2026-11-20。  
 > **验证来源：** 对上述提交的 GitHub 源码、规范、测试、CI workflow 和 [CI run #44671025763](https://github.com/cflmy/marqdo-cli/actions/runs/44671025763) 日志的静态审阅；**未在本文写作环境重新本地编译、运行测试或验证 OS 沙箱**。  

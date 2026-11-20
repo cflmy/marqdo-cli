@@ -1,5 +1,10 @@
 # RFC-CM-0002：Marqdo 最小计算内核、标准库自举与系统能力迁移
 
+> **Design input / Proposed.** This RFC records target semantics, not
+> implemented behavior. The implemented first slice is described in
+> [`architecture/CURRENT.md`](architecture/CURRENT.md).
+
+
 > **状态**：Draft / 架构与迁移提案，未批准、未实施。所有代码均为目标语义草案，不能当作已运行示例。  
 > **日期**：2026-11-20  
 > **依赖与基线**：在《RFC-CM-0001：Marqdo 自主计算机器、可寻址内存与系统交互边界》之上细化，不代替其中的多内存区域与资源边界原则。  

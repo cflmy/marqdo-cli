@@ -1,5 +1,11 @@
 # Marqdo CLI：CI 收敛、语言边界回归与稳定发行实施规范
 
+> **Historical baseline (`c9f01aa8`, 2026-11-20).** The CI SHA and run
+> below are a snapshot. Refresh the remote SHA and CI evidence before use.
+> The current overview is [`architecture/CURRENT.md`](architecture/CURRENT.md);
+> executed status is in [`STATUS.md`](STATUS.md).
+
+
 > **文档性质：** 可直接入库的执行规范 / Release Convergence Plan。供未阅读任何历史聊天的维护者、贡献者与 DeepSeek Harness 使用。
 >
 > **仓库：** `https://github.com/cflmy/marqdo-cli`；开发者的本地 Git 远端可能是 Gitee，不应混淆远端提交、GitHub 镜像与真实 CI 状态。

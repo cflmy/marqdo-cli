@@ -1,5 +1,10 @@
 # RFC-CM-0001：Marqdo 自主计算机器、可寻址内存与系统交互边界
 
+> **Design input / Proposed.** This RFC records target semantics, not
+> implemented behavior. The implemented first slice is described in
+> [`architecture/CURRENT.md`](architecture/CURRENT.md).
+
+
 > **状态**：设计提案（Draft，未实施，未批准）  
 > **日期**：2026-11-20  
 > **建议归档路径**：`docs/architecture/RFC-CM-0001-compute-machine.md`  

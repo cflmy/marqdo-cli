@@ -1,22 +1,34 @@
 # Marqdo Implementation Status
 
-Snapshot: **2026-11-20**, workspace version `0.1.0`, no release tag.
+Snapshot: **2026-11-21**, workspace version `0.1.0`, no release tag.
+Current architecture overview:
+[`architecture/CURRENT.md`](architecture/CURRENT.md).
 Authoritative CI convergence plan:
-[`NEXT_RELEASE_CI_CONVERGENCE.md`](NEXT_RELEASE_CI_CONVERGENCE.md).
+[`NEXT_RELEASE_CI_CONVERGENCE.md`](NEXT_RELEASE_CI_CONVERGENCE.md) (historical
+baseline at `c9f01aa8`; refresh before use).
 Support matrix: [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
 
 This file records what was actually executed on the current tree. "Implemented"
 does not mean "verified on every platform"; the evidence column says which
-commands were run and where. The historical M0.5 snapshot is preserved at
+commands were run and where. Do not copy a running status into another plan;
+[`architecture/CURRENT.md`](architecture/CURRENT.md) is the single current
+overview. The historical M0.5 snapshot is preserved at
 [`history/STATUS-M0.5-snapshot.md`](history/STATUS-M0.5-snapshot.md) and must
 not be read as current status.
 
+Status is generated from executed commands and logs; a gate row without a command,
+log or source path is a defect, not a state.
+
 ## 1. Remote baseline and current evidence
 
-GitHub `master` is still `c9f01aa8fb127a2dcc125103ef794832984774ad`; the latest
-public CI is run
-[44692692318](https://github.com/cflmy/marqdo-cli/actions/runs/44692692318)
-and is **red**:
+The local baseline for this snapshot is
+`24c88bcc78b1c705eb2319e7aaa8822a415eb01f` (2026-11-21). The later
+documentation and test migration is recorded by its own commits; re-run the gate
+before making a release claim.
+
+The old GitHub `master` `c9f01aa8fb127a2dcc125103ef794832984774ad`
+and public CI [run 44692692318](https://github.com/cflmy/marqdo-cli/actions/runs/44692692318)
+are **historical (2026-11-20), not current**, and that run was red:
 
 - Linux `fmt + clippy + test`: FAIL —
   `strict_mode_enforces_isolation_or_refuses_closed` hit
@@ -26,11 +38,15 @@ and is **red**:
 - Schema instance validation + consumers: PASS.
 - Release candidate artifact: SKIPPED (upstream failure; tag/dispatch only).
 
+The remote SHA must be refreshed from CI after a push; do not read `c9f01aa8`
+as the current tree.
+
 This checkout's private remote is `https://git.cflmy.cn/cflmy/marqdo-cli` with
 Woodpecker CI at `https://ci.cflmy.cn` (`.woodpecker.yml`). The Linux Docker
-pipeline runs fmt/clippy/test/release-build. GitHub native lanes, Windows/macOS
-runners and a CI-attached strict VM runner are still unavailable; the G-C
-evidence below remains local VM evidence.
+pipeline runs fmt/clippy/test/release-build; the docs-consistency gate runs in
+`cargo test --workspace`. GitHub native lanes, Windows/macOS runners and a
+CI-attached strict VM runner are still unavailable; the G-C evidence below remains
+local VM evidence.
 
 Convergence code/security SHA: **`8af72620f12e2494a59830a23abb393768b610e9`**
 (the following docs commit only adds this report and release material; code is
@@ -42,8 +58,11 @@ byte-identical).
 cargo fmt --all -- --check                            PASS
 cargo clippy --workspace --all-targets -- -D warnings PASS
 cargo test --workspace --locked                       PASS
-  430 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
+  449 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
 ```
+
+The documentation and test migration is local work; re-run this block after it
+lands and update the count from the log rather than copying the number.
 
 ### G-C security lane (disposable Ubuntu 26.04 VM, ordinary user `dev`)
 

@@ -1,5 +1,12 @@
 # Marqdo CLI M0.6（扩展性审计修订 v3）— 轻量核心、开放能力注册与独立生态实施规范
 
+> **Historical planning input (M0.6).** This plan is superseded by
+> [`STABLE_RELEASE_IMPLEMENTATION.md`](STABLE_RELEASE_IMPLEMENTATION.md)
+> for next-phase work and is not current status. See
+> [`architecture/CURRENT.md`](architecture/CURRENT.md) for the tree as it is today.
+> Keep this file as design history; do not use it as an implementation claim.
+
+
 > **文档性质**：面向没有参与任何历史讨论的开发者的独立架构决策、实施计划及验收契约。  
 > **建议仓库路径**：`docs/NEXT_PHASE_IMPLEMENTATION.md`  
 > **设计状态**：**Proposed / v3 破坏性架构纠偏**（需要维护者批准并通过验收；基于源码进行的扩展性审计要求：Tool Protocol、可调用函数、外部内核、ABI 导出、模块来源均消除不必要的硬编码扩展瓶颈）。  

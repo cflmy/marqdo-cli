@@ -1,16 +1,24 @@
-# Architecture RFCs: compute machine and stdlib migration
+# Architecture RFCs: current state, decisions and design input
 
-Status: **Draft RFCs, partially implemented**. This page is an index; the
-normative RFC text stays at its reviewable path under `docs/`.
+Status: **index**. The single current architecture overview is
+[`CURRENT.md`](CURRENT.md). This page only indexes frozen decisions, design
+input and evidence. It is not a second running-status page.
 
-| Document | Status | Implemented part |
+- Current architecture and four state dimensions: [`CURRENT.md`](CURRENT.md).
+- Executed status and open blockers: [`../STATUS.md`](../STATUS.md).
+- Frozen behavior: [`../../spec/`](../../spec/); release gates: [`../security-gate.md`](../security-gate.md).
+- Historical planning snapshots: [`../history/README.md`](../history/README.md).
+
+## Design input RFCs (Proposed, not implemented behavior)
+
+| Document | Status | What it is |
 |---|---|---|
-| [RFC-CM-0001: compute machine, addressable memory and system boundary](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) | Draft / design input | R1 (P1): `Memory` value, `memory.new/size/grow`, byte read/write, Memory-index assignment, budgets, wire/host rejection. Implemented per [ADR-0022](../adr/0022-addressable-memory-and-place-assignment.md); see [STATUS §5](../STATUS.md). |
-| [RFC-CM-0002: minimal core, stdlib self-hosting and system capability migration](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) | Draft / design input | P0/P1, a **partial P2**, and a **partial P3** first slice (ADR-0025/0026/0040: stdin read, separate stdout/stderr write, granted project-file read and buffered project-file write via `resource.*`; strict permits only the stdio stdout console channel; ADR-0027/0030/0031 Compat-C print via bundled stdlib, no legacy host formatter). P2: fixtures 48–50 (`.mq.md` bump allocator, u32 codec, linked list/traversal, failed-allocation atomicity), CM-A04 structure primitives for List/Map/Text/Table (ADR-0023, fixtures 51–54), and a `.mq.md` first-fit free-list allocator with block splitting, address-adjacent coalescing and `Result` maps (ADR-0024, fixture 55), plus a `Memory`-backed binary tree with recursive insert/in-order traversal (fixture 56), a `.mq.md` CSV row splitter (fixture 57), an open-addressing hash table with linear probing (fixture 58), a `.mq.md` UTF-8 encoder and validating decoder (`utf8.truncated`/`invalid_continuation`/`invalid_scalar`) (fixtures 59–60), a `Memory`-backed graph adjacency list (fixture 61), a recursive JSON parser/formatter for arrays, objects, strings with escapes, ints/floats/booleans/null and error Results (fixture 62), a `Memory`-backed stack bytecode VM with PUSH/ADD/MUL/JMP/JZ/HALT (fixture 63), big-endian 16/32/64-bit plus LEB128 integer codecs (fixture 64), a `.mq.md` table sort rebuilding the table without mutating the input (fixture 65), a table join built from `table.row/columns/cell` (fixture 67), and a quoted/escaped CSV row parser (fixture 68), table group (fixture 69) and an Int matrix multiply (fixture 70). The stdlib intentionally remains in this repository for now (ADR-0039); no separate external repo, network/generic providers, P4 physical storage migration, P5 providers or P6 performance work. |
+| [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) | **Review input** | Responsibility convergence, stdio/file/stream correctness, CLI/Host split and the current migration order. It is not evidence that a phase is done. |
+| [Compute machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) | **Proposed** | Opaque `Memory`, addressable regions, wire/host rejection. |
+| [Core and stdlib migration RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) | **Proposed** | Minimum core, `.mq.md` stdlib and system-capability migration. |
 
-The RFCs are architecture constraints, not evidence that a feature exists. The
-implementation status lives in `docs/STATUS.md`; frozen behavior is in
-`spec/`; decisions are in `docs/adr/`.
+The implemented first slices of these RFCs are recorded in `CURRENT.md` and
+`../STATUS.md`; the RFC text itself never proves that code exists.
 
 ## Decisions already frozen
 
@@ -37,7 +45,15 @@ implementation status lives in `docs/STATUS.md`; frozen behavior is in
 | CM-A09 C ABI provider worker binding v1 | [0038](../adr/0038-c-abi-provider-worker-binding.md) | Accepted (trusted helper) |
 | Stdlib extraction deferral | [0039](../adr/0039-stdlib-extraction-intent.md) | Accepted (in-repo for now) |
 | Stdio stdin/stderr plus stdlib stream/console APIs | [0040](../adr/0040-stdio-stdin-stderr-and-stdlib-streams.md) | Accepted (stdin read, separate stdout/stderr, product stdlib) |
-| Table physical storage (T1/T2/T3), strict stdin/stderr/file/network resources | — | Not decided; do not implement by implication |
+| Table physical storage (T1/T2/T3), strict stdin/stderr/file/network resources | — | **Not decided**; do not implement by implication |
+
+## Evidence and status
+
+- Executed test counts, platform lanes and release blockers live in
+  [`../STATUS.md`](../STATUS.md). Do not repeat them here.
+- SHA-pinned fact snapshots live in [`../evidence/`](../evidence/).
+- Superseded planning input lives in [`../history/`](../history/), and its
+  remaining files carry a **Historical** banner.
 
 ## What a future phase must not do
 
@@ -48,4 +64,5 @@ implementation status lives in `docs/STATUS.md`; frozen behavior is in
   safety for user allocators;
 * make `strict` accept an unverified provider by default;
 * claim an RFC phase is complete without the closure and negative evidence its
-  phase gate requires.
+  phase gate requires;
+* edit a gate result in `../STATUS.md` without an executed log or a source path.
