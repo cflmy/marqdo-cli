@@ -7,9 +7,11 @@ C header is `include/marqdo_plugin_abi_v1.h`; the Rust mirrors are in
 
 > **A C ABI is not a sandbox.** A native plugin is loaded into the host
 > process. It can read host memory, call arbitrary syscalls, bypass the
-> capability model and crash the host. Loading requires an explicit trust
-> decision. The isolated worker transport described by the blueprint is **not
-> implemented** in this build.
+> capability model and crash the host. In-process loading requires an explicit
+> trust decision. `kind: worker` runs the same native library in an isolated
+> child process with length-prefixed JSON frames; that isolates crashes and
+> enforces a handshake/call timeout, but a plain child process is **not** an OS
+> sandbox. `strict` still refuses without a real isolation adapter.
 
 ## 1. Independent versions
 
@@ -164,8 +166,9 @@ Validation (`crates/marqdo-plugin-abi/src/manifest.rs::PluginManifest::validate`
 * `abi`: caret-style requirement `^1`, `^1.0`, `1` or `1.0`. Caret semantics:
   `^M.m` means `>=M.m, <M+1.0`; the `0.x` special case pins the minor. It must
   be compatible with the host's `1.0`;
-* `kind`: `native`, `worker` or `wasm`; only `native` is loadable in-process in
-  this build;
+* `kind`: `native`, `worker` or `wasm`. `native` loads in-process only with
+  explicit trust; `worker` loads in a child process without
+  `--trust-native-plugin`; `wasm` is explicitly unsupported;
 * `exports`: at least one, at most 256, unique, namespaced (must contain `.`),
   no reserved prefix (`marqdo.`, `builtin.`, `core.`, `std.`, `host.`),
   non-empty signature ≤ 4096 bytes, signature starts with `(` and contains
@@ -351,9 +354,22 @@ Semantics:
   cannot grant `--allow-plugin`, so loading fails with `permission.denied`.
 
 Trust boundary: `--trust-native-plugin` is an explicit unsafe decision; the
-process shares its address space with the plugin. In-process load is the only
-transport implemented — there is no worker process, Wasm component, hot
-unload, or plugin capability bridge. A native plugin crash is a host crash.
+process shares its address space with the plugin. `kind: worker` avoids sharing
+the address space: the core binary is re-invoked as `__plugin-worker`, loads
+one native library in the child, reports its complete export table, and serves
+length-prefixed invoke frames. Handshake and calls have timeouts; a crash/EOF
+becomes `plugin.crashed`/`plugin.timeout` in the host. This is crash isolation,
+not an OS sandbox: the worker still runs as the user. Wasm, hot unload and a
+full plugin capability broker for worker requests remain future work.
+
+### 9.1 Worker frames
+
+Frames are a 4-byte big-endian length followed by one JSON object (max 64 MiB).
+Worker → host: `{"kind":"ready","exports":[...]}`. Host → worker:
+`{"kind":"invoke","request":<wire request>}` and `{"kind":"shutdown"}`.
+Worker → host responses are `{"kind":"response","response":<wire response>}` or
+`{"kind":"error","code":...,"message":...}`. The worker validates that the
+declared manifest exports exactly match the library's registrations.
 
 ## 10. SDK usage (`crates/marqdo-plugin-sdk`)
 
@@ -410,9 +426,9 @@ when no C compiler is available.
 
 | Item | Status |
 |---|---|
-| Isolated plugin worker transport (length-prefixed IPC) | Not implemented; `PlatformCapabilities::worker_processes = false`. |
-| Wasm Component + WIT | Not implemented. |
-| Hot unload/reload | Not supported by ABI v1 (no shutdown callback). |
+| Isolated plugin worker transport (length-prefixed IPC) | Implemented for crash isolation with handshake/call timeouts; a child process is not an OS sandbox. |
+| Wasm Component + WIT | Not implemented; `kind: wasm` is rejected explicitly. |
+| Hot unload/reload | Not supported by ABI v1; the worker is killed on unload. |
 | Plugin installation by package manager | Not implemented; `marqdo.yaml` `plugins:` is declarative only. |
 | Vendor capability handlers | The broker and vendor-name validation exist; no concrete vendor handler is shipped in this build. |
 | Static validation without an explicit manifest | `check` needs `--plugin <path>`; descriptors are not discovered from the network. |

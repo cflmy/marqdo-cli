@@ -198,6 +198,11 @@ static int32_t solver_add(MqCallContext *ctx, MqBytes args_wire,
     }
     free(json);
 
+#ifdef MQ_SOLVER_CRASH
+    /* Test-only crash injection for isolated-worker crash tests. */
+    abort();
+#endif
+
     if (__builtin_add_overflow(a, b, &sum)) {
         return emit_error("integer_overflow", "solver.add overflowed i64",
                           error_wire, MQ_ERR_INTERNAL);

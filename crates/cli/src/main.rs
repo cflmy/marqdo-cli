@@ -58,6 +58,17 @@ enum Command {
     /// Unknown top-level command: dispatch to a registered external tool.
     #[command(external_subcommand)]
     External(Vec<OsString>),
+    /// Internal isolated plugin worker (not a user-facing command).
+    #[command(name = "__plugin-worker", hide = true)]
+    PluginWorker(PluginWorkerArgs),
+}
+
+#[derive(Args)]
+struct PluginWorkerArgs {
+    /// plugin.yaml path.
+    manifest: PathBuf,
+    /// Plugin package directory.
+    base_dir: PathBuf,
 }
 
 #[derive(Args)]
@@ -386,6 +397,9 @@ fn main() {
             ToolCommand::Remove(args) => tool::remove(&args.command, args.json),
         },
         Command::External(args) => tool::dispatch(&args),
+        Command::PluginWorker(args) => {
+            marqdo_plugin_abi::worker::serve(&args.manifest, &args.base_dir)
+        }
     };
     std::process::exit(code);
 }

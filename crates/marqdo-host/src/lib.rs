@@ -11,6 +11,7 @@ pub mod fs;
 pub mod handles;
 pub mod host;
 pub mod kernels;
+mod plugin_worker;
 pub mod trace;
 
 pub use budget::{Budget, DEFAULT_FUEL, DEFAULT_OUTPUT_BYTES, DEFAULT_STACK_LIMIT};

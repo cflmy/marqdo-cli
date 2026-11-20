@@ -41,7 +41,7 @@ providers).
 |---|---|---|
 | R0 baseline + ADRs | **Done** | this section; `docs/adr/0008`–`0012`; full workspace gate |
 | R1 package-aware identity + callable registry | **Done for statics** | `ModuleId { instance, relative_path }`; `PackageResolver` path sources; `lock_version: 2` with v1 migration; `CallableRegistry` for builtins/marqdo/declared ABI exports; external manifest wiring is R2 |
-| R2 ABI/Kernel/Broker | **In progress** | `KernelRegistry` external providers; complete-name plugin export routing; `CapabilityBroker` with vendor policy; static `check --plugin` signatures; multi-export C test; provider tests. Isolated worker and handle table still pending |
+| R2 ABI/Kernel/Broker | **Done (worker = crash isolation)** | `KernelRegistry` external providers; complete-name export routing; `CapabilityBroker`; static `check --plugin`; multi-export C test; isolated worker with timeout/crash tests; host handle table. Native/worker are not an OS sandbox |
 | R3 Tool Protocol | **Done** | `tool install/list/remove`; unknown-command fallback; atomic local install; SHA/tamper checks; black-box tests for arbitrary names, Unicode args, conflicts, traversal and PATH hijacking |
 | R4 Analysis/Trace v1 | **Done** | `check --emit` Analysis v1; `run/call --trace-file` Trace v1; deterministic schema tests; independent Python consumer; stale-artifact removal; value redaction |
 | R5 environment/isolation | **Partial** | Pinned Git fetch/cache, transitive `@alias` resolution, atomic `.marqdo/env` materialization, foreign process-group cleanup. Strict OS isolation remains explicitly unavailable (fail-closed) |

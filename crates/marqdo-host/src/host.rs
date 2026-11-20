@@ -8,7 +8,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use marqdo_plugin_abi::{ErrorKind as PluginErrorKind, LoadedPlugin, PluginError, PluginManifest};
+use marqdo_plugin_abi::{
+    ErrorKind as PluginErrorKind, LoadedPlugin, PluginError, PluginKind, PluginManifest,
+};
 use marqdo_span::Span;
 use marqdo_value::{ErrorCategory, RuntimeError, Value};
 
@@ -17,6 +19,7 @@ use crate::capability::{Capabilities, CapabilityAudit, CapabilityBroker};
 use crate::context::ExecutionContext;
 use crate::fs::ProjectFs;
 use crate::handles::{contains_plugin_handle, PluginHandleTable};
+use crate::plugin_worker::WorkerPlugin;
 use crate::trace::{EffectTrace, SemanticEvent, TraceEntry};
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
 
@@ -150,7 +153,24 @@ struct PluginSlot {
     manifest_digest: String,
     /// Complete export name -> declared signature.
     exports: BTreeMap<String, String>,
-    plugin: LoadedPlugin,
+    plugin: PluginTransport,
+}
+
+enum PluginTransport {
+    Native(LoadedPlugin),
+    Worker(WorkerPlugin),
+}
+
+impl PluginTransport {
+    fn invoke(
+        &mut self,
+        request: &marqdo_plugin_abi::WireRequest,
+    ) -> Result<marqdo_plugin_abi::WireResponse, PluginError> {
+        match self {
+            PluginTransport::Native(plugin) => plugin.invoke(request),
+            PluginTransport::Worker(plugin) => plugin.invoke(request),
+        }
+    }
 }
 
 impl StdHost {
@@ -199,18 +219,6 @@ impl StdHost {
         base_dir: &std::path::Path,
         trusted: bool,
     ) -> Result<Vec<String>, RuntimeError> {
-        if !trusted {
-            let mut error = RuntimeError::new(
-                ErrorCategory::PermissionDenied,
-                None,
-                "loading an in-process native plugin requires explicit trust",
-            );
-            error.effect_trace.push(
-                "hint: no isolated plugin worker transport is implemented in this build; in-process native code shares the host address space"
-                    .to_string(),
-            );
-            return Err(error);
-        }
         self.capabilities
             .check_plugin(&manifest.plugin.name, None)?;
         manifest.validate().map_err(map_plugin_error)?;
@@ -239,26 +247,56 @@ impl StdHost {
             .resolve_artifact(&marqdo_plugin_abi::HostTarget::current())
             .map_err(map_plugin_error)?;
         let manifest_digest = artifact.sha256.clone();
-        let mut broker =
-            CapabilityBroker::with_audit(self.capabilities.clone(), Arc::clone(&self.broker_audit));
-        for capability in &self.vendor_capabilities {
-            broker.allow_vendor(capability.clone());
-        }
-        let package = manifest.plugin.name.clone();
-        let options = marqdo_plugin_abi::LoadOptions {
-            host_target: marqdo_plugin_abi::HostTarget::current(),
-            capability_handler: Some(Box::new(move |capability, request| {
-                broker.authorize(&package, capability, request)
-            })),
+        let transport = match manifest.plugin.kind {
+            PluginKind::Native => {
+                if !trusted {
+                    let mut error = RuntimeError::new(
+                        ErrorCategory::PermissionDenied,
+                        None,
+                        "loading an in-process native plugin requires explicit trust",
+                    );
+                    error.effect_trace.push(
+                        "hint: use `kind: worker` for crash isolation, or pass --trust-native-plugin for in-process native code"
+                            .to_string(),
+                    );
+                    return Err(error);
+                }
+                let mut broker = CapabilityBroker::with_audit(
+                    self.capabilities.clone(),
+                    Arc::clone(&self.broker_audit),
+                );
+                for capability in &self.vendor_capabilities {
+                    broker.allow_vendor(capability.clone());
+                }
+                let package = manifest.plugin.name.clone();
+                let options = marqdo_plugin_abi::LoadOptions {
+                    host_target: marqdo_plugin_abi::HostTarget::current(),
+                    capability_handler: Some(Box::new(move |capability, request| {
+                        broker.authorize(&package, capability, request)
+                    })),
+                };
+                PluginTransport::Native(
+                    LoadedPlugin::open_with(manifest, base_dir, options)
+                        .map_err(map_plugin_error)?,
+                )
+            }
+            PluginKind::Worker => PluginTransport::Worker(
+                WorkerPlugin::spawn(manifest, base_dir).map_err(map_plugin_error)?,
+            ),
+            PluginKind::Wasm => {
+                return Err(RuntimeError::new(
+                    ErrorCategory::KernelUnavailable,
+                    None,
+                    "plugin kind `wasm` is not supported in this build",
+                ))
+            }
         };
-        let loaded =
-            LoadedPlugin::open_with(manifest, base_dir, options).map_err(map_plugin_error)?;
         let index = self.plugins.len();
         self.plugins.push(PluginSlot {
             package: manifest.plugin.name.clone(),
             manifest_digest,
             exports: exports.clone(),
-            plugin: loaded,
+            plugin: transport,
         });
         let names: Vec<String> = exports.keys().cloned().collect();
         for name in &names {

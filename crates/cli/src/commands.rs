@@ -883,9 +883,9 @@ fn load_plugin_into_host(
     manifest
         .validate()
         .map_err(|error| format!("{}: {}", error.code, error.message))?;
-    if !trusted {
+    if manifest.plugin.kind == marqdo_plugin_abi::PluginKind::Native && !trusted {
         return Err(format!(
-            "loading `{}` in-process requires --trust-native-plugin: no isolated worker transport is implemented in this build",
+            "loading `{}` in-process requires --trust-native-plugin; use `kind: worker` for crash isolation",
             manifest.plugin.name
         ));
     }

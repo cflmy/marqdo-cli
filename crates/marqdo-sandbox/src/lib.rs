@@ -98,10 +98,10 @@ pub struct PlatformCapabilities {
 impl PlatformCapabilities {
     /// Detect capabilities for the current build and platform.
     ///
-    /// M0.5 intentionally reports strict isolation as unavailable: no OS
-    /// isolation adapter is implemented yet, and pretending otherwise would
-    /// violate the security contract. The worker process transport is likewise
-    /// not implemented in this build.
+    /// Strict OS isolation remains intentionally unavailable: no OS isolation
+    /// adapter is implemented, and pretending otherwise would violate the
+    /// security contract. The isolated worker transport is implemented, but a
+    /// plain child process is not an OS sandbox.
     pub fn detect() -> Self {
         let reason = if cfg!(target_os = "linux") {
             "no OS isolation adapter (namespaces/seccomp/cgroups) is implemented in this build"
@@ -118,7 +118,7 @@ impl PlatformCapabilities {
             strict: StrictIsolation::Unavailable {
                 reason: reason.to_string(),
             },
-            worker_processes: false,
+            worker_processes: true,
         }
     }
 }

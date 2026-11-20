@@ -25,6 +25,7 @@ pub mod error;
 pub mod loader;
 pub mod manifest;
 pub mod wire;
+pub mod worker;
 
 pub use abi::result as result_code;
 pub use abi::{
