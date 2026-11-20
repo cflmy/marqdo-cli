@@ -18,6 +18,7 @@ steps:
       - cargo test --workspace --locked
       - cargo test -p marqdo-cli --test docs_consistency
       - cargo test -p marqdo-cli --test architecture_boundaries
+      - cargo test -p marqdo-cli --test stdlib_product
 
   build:
     image: rust:1.100-bookworm

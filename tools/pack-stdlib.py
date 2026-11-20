@@ -20,7 +20,9 @@ DIST = ROOT / "dist"
 
 def tree_digest() -> str:
     digest = hashlib.sha256()
-    for path in sorted(STDLIB.rglob("*.mq.md")):
+    for path in sorted(
+        STDLIB.rglob("*.mq.md"), key=lambda p: p.relative_to(STDLIB).as_posix()
+    ):
         relative = path.relative_to(STDLIB).as_posix()
         digest.update(relative.encode())
         digest.update(b"\0")

@@ -58,11 +58,13 @@ byte-identical).
 cargo fmt --all -- --check                            PASS
 cargo clippy --workspace --all-targets -- -D warnings PASS
 cargo test --workspace --locked                       PASS
-  449 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
+  463 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
 ```
 
 The documentation and test migration is local work; re-run this block after it
 lands and update the count from the log rather than copying the number.
+`docs_consistency`, `architecture_boundaries` and `stdlib_product` run inside
+this workspace suite.
 
 ### G-C security lane (disposable Ubuntu 26.04 VM, ordinary user `dev`)
 

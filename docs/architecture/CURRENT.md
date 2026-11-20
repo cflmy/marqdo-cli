@@ -18,7 +18,7 @@ platform".
 | Dimension | Current state | Source |
 |---|---|---|
 | Implemented | Rust workspace `0.1.0`: Markdown/frontend/IR, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, bundled stdlib, CLI composition root | `Cargo.toml`, `crates/`, `stdlib/` |
-| Tested locally | `cargo test --workspace --locked`: **449 passed, 0 failed, 2 ignored** on Linux x86_64 at the baseline | `docs/STATUS.md` §3 |
+| Tested locally | `cargo test --workspace --locked`: **463 passed, 0 failed, 2 ignored** on Linux x86_64 at the baseline | `docs/STATUS.md` §3 |
 | Bundled stdlib released | In-repo bundle `marqdo-stdlib@0.1.0`, SHA-256 digest verified before loading; it is **not** an external registry package | `stdlib/stdlib.json`, `stdlib/README.md` |
 | Multi-platform verified | Linux local gate is the only executed lane here; Windows/macOS native lanes are **UNVERIFIED**, and the GitHub security lane remains a **VM-only** gate | `docs/STATUS.md` §1, §4 |
 

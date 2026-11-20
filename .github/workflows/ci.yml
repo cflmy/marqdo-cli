@@ -29,6 +29,8 @@ jobs:
         run: cargo test -p marqdo-cli --test docs_consistency
       - name: Architecture boundaries
         run: cargo test -p marqdo-cli --test architecture_boundaries
+      - name: Whole stdlib product tests
+        run: cargo test -p marqdo-cli --test stdlib_product
       - name: Validate public JSON schemas
         run: |
           python3 - <<'PY'
