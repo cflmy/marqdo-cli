@@ -125,6 +125,10 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   before module loading, a `std:marqdo-stdlib@<version>#<digest>` package
   instance id, `project.stdlib` in Analysis v2, and test coverage for
   `std:` resolution, tamper rejection and frozen-binary hash equality.
+- P5 blocking TCP endpoint v1 (ADR-0034): `resource.open("tcp", ip:port,
+  ["read","write"])` with exact IP-literal grants, project mode only, 5s
+  connect/read/write timeouts; no DNS/TLS/UDP/server sockets. CLI `--allow-net
+  <IP>`; loopback host and `.mq.md` echo tests. Strict/pure refuse.
 - CM-A09 in-process ResourceProvider v1 (ADR-0033): `ResourceProvider` trait,
   `StdHost::register_resource_provider`, per-kind registration with protocol
   version/conflict checks and `Capabilities.allow_resource_provider`; provider

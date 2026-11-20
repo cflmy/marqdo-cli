@@ -5,6 +5,8 @@
 //! table validates run identity, slot identity and generation on every call.
 
 use std::collections::BTreeMap;
+use std::io::{Read, Write};
+use std::net::TcpStream;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -85,6 +87,10 @@ enum Stream {
         token: u64,
         closed: bool,
     },
+    Tcp {
+        stream: TcpStream,
+        closed: bool,
+    },
 }
 
 struct Slot {
@@ -99,6 +105,7 @@ impl Slot {
             Stream::File { closed, .. } => *closed,
             Stream::FileWriter { closed, .. } => *closed,
             Stream::Provider { closed, .. } => *closed,
+            Stream::Tcp { closed, .. } => *closed,
         }
     }
 }
@@ -151,6 +158,14 @@ impl ResourceTable {
         self.insert(Stream::FileWriter {
             relative: relative.into(),
             bytes: Vec::new(),
+            closed: false,
+        })
+    }
+
+    /// Register a connected TCP stream.
+    pub fn open_tcp(&mut self, stream: TcpStream) -> ResourceHandle {
+        self.insert(Stream::Tcp {
+            stream,
             closed: false,
         })
     }
@@ -272,6 +287,21 @@ impl ResourceTable {
                 let mut provider = provider.lock().map_err(|_| provider_lock_error(span))?;
                 provider.read(*token, max_bytes, span)
             }
+            Stream::Tcp { stream, .. } => {
+                let mut buffer = vec![0u8; max_bytes];
+                let count = stream.read(&mut buffer).map_err(|error| {
+                    RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("tcp read failed: {error}"),
+                    )
+                })?;
+                buffer.truncate(count);
+                Ok(ResourceRead {
+                    bytes: buffer,
+                    eof: count == 0,
+                })
+            }
         }
     }
 
@@ -332,6 +362,13 @@ impl ResourceTable {
                 let mut provider = provider.lock().map_err(|_| provider_lock_error(span))?;
                 provider.write(*token, bytes, span)
             }
+            Stream::Tcp { stream, .. } => stream.write(bytes).map_err(|error| {
+                RuntimeError::new(
+                    ErrorCategory::HostError,
+                    span,
+                    format!("tcp write failed: {error}"),
+                )
+            }),
         }
     }
 
@@ -361,6 +398,10 @@ impl ResourceTable {
             } => {
                 let mut provider = provider.lock().map_err(|_| provider_lock_error(span))?;
                 provider.close(*token, span)?;
+                *closed = true;
+            }
+            Stream::Tcp { stream, closed } => {
+                let _ = stream.shutdown(std::net::Shutdown::Both);
                 *closed = true;
             }
         }
@@ -400,6 +441,7 @@ impl ResourceTable {
             Stream::Stdout { .. } => "stdio".to_string(),
             Stream::File { .. } | Stream::FileWriter { .. } => "file".to_string(),
             Stream::Provider { kind, .. } => kind.clone(),
+            Stream::Tcp { .. } => "tcp".to_string(),
         })
     }
 }

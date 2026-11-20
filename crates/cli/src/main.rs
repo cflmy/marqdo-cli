@@ -86,6 +86,9 @@ struct SandboxArgs {
     /// Grant read access to a project-relative glob (repeatable).
     #[arg(long = "allow-read", value_name = "GLOB")]
     allow_read: Vec<String>,
+    /// Grant network access to an IP literal host (repeatable, ADR-0034).
+    #[arg(long = "allow-net", value_name = "IP")]
+    allow_net: Vec<String>,
     /// Grant write access to a project-relative glob (repeatable).
     #[arg(long = "allow-write", value_name = "GLOB")]
     allow_write: Vec<String>,
@@ -138,6 +141,7 @@ impl SandboxArgs {
         commands::SandboxSettings {
             mode: self.mode.clone(),
             allow_read: self.allow_read.clone(),
+            allow_net: self.allow_net.clone(),
             allow_write: self.allow_write.clone(),
             allow_foreign: self.allow_foreign,
             allow_plugin: self.allow_plugin.clone(),

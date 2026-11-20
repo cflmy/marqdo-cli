@@ -374,6 +374,12 @@ impl Capabilities {
         self
     }
 
+    /// Grant network access to one IP literal host (ADR-0034).
+    pub fn allow_net(mut self, host: impl Into<String>) -> Self {
+        self.net_hosts.push(host.into());
+        self
+    }
+
     /// Grant a registered resource provider by its stable name (ADR-0033).
     pub fn allow_resource_provider(mut self, name: impl Into<String>) -> Self {
         self.resource_providers.push(name.into());

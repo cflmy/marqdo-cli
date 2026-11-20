@@ -22,6 +22,8 @@ pub struct SandboxSettings {
     pub allow_read: Vec<String>,
     /// Write grants.
     pub allow_write: Vec<String>,
+    /// Network grants (IP literals, ADR-0034).
+    pub allow_net: Vec<String>,
     /// Foreign execution grant.
     pub allow_foreign: bool,
     /// Plugin grants.
@@ -70,6 +72,7 @@ impl SandboxSettings {
     pub fn strict_preflight(&self) -> Result<(), String> {
         let requested = self.allow_foreign
             || !self.allow_read.is_empty()
+            || !self.allow_net.is_empty()
             || !self.allow_write.is_empty()
             || !self.allow_plugin.is_empty()
             || !self.plugins.is_empty()
@@ -94,6 +97,7 @@ impl SandboxSettings {
         match mode {
             SandboxMode::Pure => {
                 if !self.allow_read.is_empty()
+                    || !self.allow_net.is_empty()
                     || !self.allow_write.is_empty()
                     || self.allow_foreign
                     || !self.allow_plugin.is_empty()
@@ -111,6 +115,9 @@ impl SandboxSettings {
                 }
                 for pattern in &self.allow_write {
                     capabilities = capabilities.allow_write(pattern.clone());
+                }
+                for host in &self.allow_net {
+                    capabilities = capabilities.allow_net(host.clone());
                 }
                 if self.allow_foreign {
                     capabilities = capabilities.allow_foreign();

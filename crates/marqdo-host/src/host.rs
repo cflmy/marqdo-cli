@@ -5,6 +5,7 @@
 //! execution, not at parse/compile time.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::net::{SocketAddr, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -754,6 +755,54 @@ impl StdHost {
                     ctx.span,
                     "project file streams support exactly [read] or [write] in this build",
                 ))
+            }
+            "tcp" => {
+                if self.mode != SandboxMode::Project {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::PermissionDenied,
+                        ctx.span,
+                        "tcp resources are available only in project mode",
+                    ));
+                }
+                if requested != BTreeSet::from(["read", "write"]) {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::ResourceUnsupported,
+                        ctx.span,
+                        "tcp resources require exactly [read, write] in this build",
+                    ));
+                }
+                let address: SocketAddr = descriptor.parse().map_err(|_| {
+                    RuntimeError::new(
+                        ErrorCategory::ResourceUnsupported,
+                        ctx.span,
+                        format!(
+                            "tcp descriptor `{descriptor}` must be an IP literal address:port                              (DNS names are not resolved in this build)"
+                        ),
+                    )
+                })?;
+                self.capabilities
+                    .check_net(&address.ip().to_string(), ctx.span)?;
+                let stream = TcpStream::connect_timeout(&address, Duration::from_secs(5)).map_err(
+                    |error| {
+                        RuntimeError::new(
+                            ErrorCategory::HostError,
+                            ctx.span,
+                            format!("cannot connect to {address}: {error}"),
+                        )
+                    },
+                )?;
+                let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+                let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
+                let handle = self.resources.open_tcp(stream);
+                self.record_semantic(
+                    "resource.open",
+                    None,
+                    Some(&ctx.module_id),
+                    ctx.span,
+                    Some(&format!("kind=tcp address={address}")),
+                );
+                self.record_resource_effect("resource.open", ctx, started, "ok");
+                Ok(Value::Resource(handle))
             }
             other => {
                 if self.mode != SandboxMode::Project {

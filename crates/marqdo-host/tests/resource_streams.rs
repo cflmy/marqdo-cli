@@ -375,3 +375,82 @@ fn provider_registration_rejects_versions_reserved_names_and_conflicts() {
         .unwrap_err();
     assert_eq!(conflict.category, ErrorCategory::ResourceUnsupported);
 }
+
+#[test]
+fn tcp_resource_round_trips_with_a_network_grant() {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut buffer = [0u8; 4];
+        stream.read_exact(&mut buffer).unwrap();
+        stream.write_all(&buffer).unwrap();
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(
+        SandboxMode::Project,
+        Capabilities::project().allow_net("127.0.0.1"),
+        dir.path(),
+    );
+    let ctx = context();
+    let handle = handle(
+        host.resource_open(
+            "tcp",
+            &address.to_string(),
+            &["read".to_string(), "write".to_string()],
+            &ctx,
+        )
+        .unwrap(),
+    );
+    assert_eq!(host.resource_write(handle, b"ping", &ctx).unwrap(), 4);
+    let read = host.resource_read(handle, 4, &ctx).unwrap();
+    assert_eq!(read.bytes, b"ping");
+    host.resource_close(handle, &ctx).unwrap();
+    server.join().unwrap();
+}
+
+#[test]
+fn tcp_requires_network_grant_and_rejects_dns_names() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(SandboxMode::Project, Capabilities::project(), dir.path());
+    let ctx = context();
+    let denied = host
+        .resource_open(
+            "tcp",
+            "127.0.0.1:9",
+            &["read".to_string(), "write".to_string()],
+            &ctx,
+        )
+        .unwrap_err();
+    assert_eq!(denied.category, ErrorCategory::PermissionDenied);
+    let dns = host
+        .resource_open(
+            "tcp",
+            "example.test:80",
+            &["read".to_string(), "write".to_string()],
+            &ctx,
+        )
+        .unwrap_err();
+    assert_eq!(dns.category, ErrorCategory::ResourceUnsupported);
+
+    for mode in [SandboxMode::Pure, SandboxMode::Strict] {
+        let mut host = StdHost::new(
+            mode,
+            Capabilities::project().allow_net("127.0.0.1"),
+            dir.path(),
+        );
+        let error = host
+            .resource_open(
+                "tcp",
+                "127.0.0.1:9",
+                &["read".to_string(), "write".to_string()],
+                &ctx,
+            )
+            .unwrap_err();
+        assert_eq!(error.category, ErrorCategory::PermissionDenied);
+    }
+}

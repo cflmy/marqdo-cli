@@ -223,6 +223,68 @@ fn file_copy_is_written_in_mqmd_through_chunked_streams() {
 }
 
 #[test]
+fn tcp_stream_round_trips_through_mqmd_with_a_network_grant() {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut buffer = [0u8; 4];
+        stream.read_exact(&mut buffer).unwrap();
+        stream.write_all(&buffer).unwrap();
+    });
+
+    let dir = TempDir::new("tcp");
+    let program = format!(
+        r#"## main
+
+**内存 = memory.new(1, 1)**
+
+**`内存[0] = 112`**
+
+**`内存[1] = 105`**
+
+**`内存[2] = 110`**
+
+**`内存[3] = 103`**
+
+**流 = resource.open("tcp", "{address}", ["read", "write"])**
+
+**写入 = resource.write(流, 内存, 0, 4)**
+
+**读出 = resource.read(流, 内存, 0, 4)**
+
+**关闭 = resource.close(流)**
+
+*[写入.value.count, 读出.value.count, 内存[0], 内存[1], 内存[2], 内存[3], 关闭.ok]*
+"#
+    );
+    write_file(&dir.path().join("index.mq.md"), &program);
+    let output = cli(
+        dir.path(),
+        &["run", "index.mq.md", "--allow-net", "127.0.0.1", "--json"],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
+    assert_eq!(report["success"], true);
+    let values = report["value"]["items"].as_array().expect("list");
+    assert_eq!(values[0]["decimal"], "4");
+    assert_eq!(values[1]["decimal"], "4");
+    for (index, expected) in ["112", "105", "110", "103"].into_iter().enumerate() {
+        assert_eq!(values[2 + index]["decimal"], expected);
+    }
+    assert_eq!(values[6]["value"], true);
+    server.join().unwrap();
+}
+
+#[test]
 fn file_stream_requires_a_read_grant() {
     let dir = TempDir::new("file-denied");
     write_file(&dir.path().join("data.txt"), "abcdef");

@@ -30,6 +30,7 @@ implementation status lives in `docs/STATUS.md`; frozen behavior is in
 | CM-A07 Compat-C remove legacy print formatting | [0031](../adr/0031-print-compat-c-remove-host-formatting.md) | Accepted |
 | CM-A08 table logical value / stdlib algorithms / T0 storage | [0032](../adr/0032-table-logical-value-and-stdlib-algorithms.md) | Accepted |
 | CM-A09 in-process ResourceProvider v1 | [0033](../adr/0033-in-process-resource-provider-v1.md) | Accepted (trusted in-process slice) |
+| P5 blocking TCP resource endpoint v1 | [0034](../adr/0034-tcp-resource-endpoint.md) | Accepted (IP-literal, no DNS/TLS) |
 | Table physical storage (T1/T2/T3), C/Worker provider transport, strict file/network resources | — | Not decided; do not implement by implication |
 
 ## What a future phase must not do

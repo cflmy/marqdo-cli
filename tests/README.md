@@ -171,6 +171,12 @@ by:
 * fixture 55 additionally has a second-free detection path: freeing an
   already-free block returns `{ok:false, code:"alloc.double_free"}`.
 
+P5 TCP endpoint v1 (ADR-0034) is pinned by two host tests in
+`crates/marqdo-host/tests/resource_streams.rs` (loopback echo with a grant;
+grant/pure/strict/DNS refusal) and
+`crates/cli/tests/resource_streams.rs::tcp_stream_round_trips_through_mqmd_with_a_network_grant`
+(`--allow-net 127.0.0.1`).
+
 RFC-CM CM-A09 in-process provider v1 (ADR-0033) is pinned by the three
 `registered_provider_streams_*` / `provider_*` tests in
 `crates/marqdo-host/tests/resource_streams.rs`: a mock provider is registered
