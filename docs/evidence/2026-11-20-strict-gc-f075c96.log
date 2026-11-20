@@ -1,0 +1,38 @@
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+== adversarial helper matrix ==
+   Compiling marqdo-sandbox v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-sandbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.71s
+     Running tests/security_linux.rs (/home/dev/marqdo-src/target/debug/build/marqdo-sandbox/73fdd38fdea71ea2/out/security_linux-73fdd38fdea71ea2)
+
+running 7 tests
+test strict_child_cannot_escape_via_proc_or_privileges ... ok
+test strict_child_cannot_reach_the_network ... ok
+test strict_child_cannot_read_host_files_but_reads_the_project ... ok
+test strict_child_cannot_write_outside_or_into_the_project ... ok
+test strict_child_identity_is_unprivileged_and_namespaced ... ok
+test strict_supervisor_enforces_fd_and_process_limits ... ok
+test strict_supervisor_enforces_memory_cpu_and_output_limits ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.12s
+
+== build CLI ==
+   Compiling marqdo-span v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-span)
+   Compiling marqdo-sandbox v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-sandbox)
+   Compiling marqdo-package v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-package)
+   Compiling marqdo-value v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-value)
+   Compiling marqdo-expression v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-expression)
+   Compiling marqdo-plugin-abi v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-plugin-abi)
+   Compiling marqdo-math v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-math)
+   Compiling marqdo-foreign v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-foreign)
+   Compiling marqdo-ir v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-ir)
+   Compiling marqdo-host v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-host)
+   Compiling marqdo-markdown v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-markdown)
+   Compiling marqdo-runtime v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-runtime)
+   Compiling marqdo-frontend v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-frontend)
+   Compiling marqdo-cli v0.1.0 (/home/dev/marqdo-f075c96/crates/cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 49s
+strict mechanism: bubblewrap 0.11.1 (user/mount/PID/net/UTS/IPC namespaces + no-new-privs + rlimits)
+== positive CLI contract ==
+== external-execution surfaces are refused ==
+== forged active marker is rejected ==
+G-C security lane: PASS

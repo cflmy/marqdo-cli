@@ -113,7 +113,14 @@ Each item must:
 2. have a `paragraph` as its **first** block;
 3. have an inline `code` node as the **first inline node** of that paragraph;
    its literal is the condition expression;
-4. any remaining inline content in that first paragraph is prose.
+4. any remaining inline content in that first paragraph is **inert prose**
+   (`text`, inline `code`, links, images, math, HTML, strikethrough and line
+   breaks). An executable `Strong`/`Emph` there is a hard
+   `markdown.invalid_construct` error, not silently ignored description.
+
+The condition literal is mapped from the bytes **inside** the code-span
+backticks. Delimiters are part of the Code node's source span, but condition
+expression spans and parse diagnostics point at the literal.
 
 The item's remaining blocks form the branch body. Items are tested in AST
 order; the first condition evaluating to `true` is executed once. No match
@@ -235,6 +242,8 @@ The following are compile errors with source spans, never prose fallbacks:
 * nested `strong`/`emph`/link inside an executable payload;
 * ordered list item whose first inline node is not a code span condition;
 * bullet list item without a condition header;
+* executable `Strong`/`Emph` in the description remainder of a condition
+  paragraph (it would otherwise be swallowed);
 * non-`Bool` condition (detected statically when the type is known, else at
   runtime as `runtime.type`);
 * block quote that is not exactly one complete call;

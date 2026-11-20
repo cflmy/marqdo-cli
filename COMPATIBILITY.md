@@ -1,7 +1,8 @@
 # Compatibility and support matrix
 
-Snapshot: workspace version **0.1.0**, no release tag cut. This file records
-what was actually verified and separates it from what is only implemented.
+Snapshot: workspace version **0.1.0**, code/security SHA **`f075c96`**, no
+release tag cut. This file records what was actually verified and separates it
+from what is only implemented.
 
 ## Public protocol versions
 
@@ -24,33 +25,48 @@ portable/tested locally but the native platform lane has not run here;
 
 | Feature | Ubuntu Linux x86_64 | macOS arm64 | Windows x86_64 |
 |---|---|---|---|
-| Markdown profile / AST goldens | PASS | UNVERIFIED (CRLF fix) | UNVERIFIED (CRLF fix) |
-| Rust interpreter / semantics | PASS | UNVERIFIED | UNVERIFIED |
+| Markdown profile / AST goldens (160) | PASS | UNVERIFIED (cfg fix + CRLF fix) | UNVERIFIED (cfg fix + CRLF fix) |
+| Rust interpreter / semantics (44) | PASS | UNVERIFIED | UNVERIFIED |
 | `run` / `call` / `check` / `inspect` / `fmt` | PASS | UNVERIFIED | UNVERIFIED |
-| lock v3 path/Git graph + sync | PASS | UNVERIFIED | UNVERIFIED |
-| Analysis v2 / Trace v2 + consumers | PASS | UNVERIFIED | UNVERIFIED |
-| Tool Protocol v1 | PASS | UNVERIFIED | UNVERIFIED |
-| Native ABI (`plugin inspect`, trusted call) | PASS (C fixture) | UNVERIFIED (host-native fixture) | UNSUPPORTED in CI lane (no `cc`) |
-| Worker ABI + `fs.read` bridge | PASS (Unix) | UNVERIFIED | UNSUPPORTED (tests are Unix-gated) |
+| lock v3 path/Git graph + sync + tamper | PASS | UNVERIFIED | UNVERIFIED |
+| Analysis v2 / Trace v2 + Python consumers | PASS | UNVERIFIED | UNVERIFIED |
+| Tool Protocol v1 + 3 independent consumers | PASS | UNVERIFIED | UNVERIFIED |
+| Native ABI (`plugin inspect`, trusted call) | PASS (C fixture) | UNVERIFIED (host-native fixture) | **UNSUPPORTED** |
+| Worker ABI + `fs.read` bridge | PASS (Unix) | UNVERIFIED | **UNSUPPORTED** (Unix-gated) |
 | Foreign Python/Node | PASS (system `python3`/`node`) | UNVERIFIED | UNVERIFIED |
 | Foreign pinned environment binding | PASS | UNVERIFIED | UNVERIFIED |
-| `strict` OS isolation | PASS when runtime probe passes (VM-verified); no CI URL yet | FAIL-CLOSED | FAIL-CLOSED |
+| `strict` Linux L1 (pure Marqdo + Math) | PASS, probe-gated, 7/7 VM lane | **FAIL-CLOSED** | **FAIL-CLOSED** |
+| `strict` L2 (Worker/Foreign/native) | **UNSUPPORTED** (flags refused) | **UNSUPPORTED** | **UNSUPPORTED** |
 
-The Ubuntu column is from this development host (Ubuntu 26.04 container). It is
-**not** a GitHub Actions result: this checkout has no GitHub remote or CI
+The Ubuntu column is from this development host (Ubuntu 26.04 container) and a
+disposable Ubuntu 26.04 QEMU/TCG VM for the security lane. It is **not** a
+GitHub Actions result: this checkout has a Gitee remote and no GitHub
 credentials. A fresh local clone with `core.autocrlf=true` was used to
 reproduce the Windows checkout byte behavior.
+
+## Strict L1 scope (ADR-0021)
+
+- Enabled only when the runtime Bubblewrap probe succeeds. Probe failure or a
+  probe→launch race exits non-zero with a diagnostic and **never** falls back
+  to `project`.
+- Inside the sandbox: user/mount/PID/net/UTS/IPC namespaces, no-new-privs,
+  empty capabilities, read-only `/project`, private `/proc`/`/dev`/`/tmp`,
+  rlimits and wall-clock/output supervision; the child verifies `PID 1`,
+  `NoNewPrivs`, `CapEff=0`, a non-initial uid map and no non-loopback network.
+- Refused before launch: `--allow-read`, `--allow-write`, `--allow-foreign`,
+  `--allow-plugin`, `--plugin`, `--trust-native-plugin`, `--kernel`,
+  `--trace-file`.
+- Strict L2 (letting Worker/Foreign/native plugin run inside the sandbox) is
+  not implemented and must not be inferred from L1 passing.
 
 ## Minimum environment
 
 - Rust 1.82+ (verified with 1.100.0).
 - Linux/macOS: a C compiler for Native ABI fixtures; Python/Node only for
-  Foreign kernels.
+  Foreign kernels; `git` for Git dependencies.
 - `strict` additionally requires Bubblewrap and a kernel/environment that
-  permits user, mount, PID and network namespaces. It is enabled only when the
-  runtime probe passes; the current development container fails that probe, so
-  strict is refused there. See [`docs/security-gate.md`](docs/security-gate.md)
-  and ADR-0021.
+  permits user, mount, PID and network namespaces. See
+  [`docs/security-gate.md`](docs/security-gate.md) and ADR-0021.
 
 ## Explicitly unsupported in this candidate
 
@@ -60,4 +76,13 @@ reproduce the Windows checkout byte behavior.
 - Automatic uv/npm/venv provisioning; only an explicitly provisioned, pinned
   directory is verified (and must contain a regular-file executable).
 - Registry/package publishing, JIT, Knowledge/Proof/View built-ins,
-  sessions, and general-purpose CAS.
+  sessions, and general-purpose CAS. The three `sample-*` tools are test
+  fixtures for the generic Tool protocol, not product features.
+- Windows/macOS release archives from this host; the GitHub release job may
+  build macOS but has not run for the convergence SHA.
+
+## Release decision
+
+**DO NOT RELEASE.** G1/G2/G3 (native CI) and G9 (self-hosted security-lane CI
+URL) have no real remote PASS for this SHA. See
+[`docs/evidence/RELEASE_CANDIDATE_0.1.0_f075c96.md`](docs/evidence/RELEASE_CANDIDATE_0.1.0_f075c96.md).

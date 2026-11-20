@@ -31,6 +31,18 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   Linux security-gate evidence report (`docs/security-gate.md`).
 - `check_never_spawns_a_foreign_kernel`: proves static `check` does not spawn a
   declared Foreign provider, while `run` on the same document does.
+- Power/control-flow corpus: 10 new AST goldens, 8 semantic goldens, 4
+  compile-negative fixtures and 2 runtime-negative fixtures covering
+  right-associative `**`, unary-minus precedence, parentheses, float negative
+  exponents, Strong+CodeSpan payloads, branch/loop conditions, inert prose and
+  code fences, and source spans inside one/two-backtick code spans.
+- Independent Tool Protocol v1 consumers `sample-view`, `sample-knowledge` and
+  `sample-proof` (analysis/trace readers) with install, dispatch and remove
+  tests; none is a hard-coded CLI command.
+- Locked path-dependency content-tamper test: a changed dependency is rejected
+  without rewriting `marqdo.lock` or the materialized `.marqdo/env`.
+- G-C lane honours `CARGO_TARGET_DIR`, so a run from a clean `git archive` with
+  an external target directory uses the binary it just built.
 
 ### Changed
 
@@ -41,6 +53,12 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   reporting an opaque mismatch.
 - Worker plugin fixtures use the platform dynamic-library name and compiler
   flags.
+- List-item condition paragraphs now accept only inert description; an
+  executable `Strong`/`Emph` there is a hard `markdown.invalid_construct`
+  error instead of being silently swallowed. Condition expression spans are
+  mapped from the literal bytes inside the code-span backticks.
+- Linux strict `inspect --platform` remains a snapshot, not a promise. A run
+  that loses namespace/resources between probe and launch must fail closed.
 
 ### Fixed
 
@@ -48,6 +66,17 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   goldens (reproduced with a fresh `core.autocrlf=true` clone).
 - macOS CI plugin failure caused by assuming a Linux `.so` and Linux-only
   manifest target.
+- macOS/Windows `E0433`: platform detection now uses `#[cfg]` functions
+  instead of `cfg!` around `linux::probe()`, so the Linux module is not
+  referenced on other targets.
+- Linux strict probe→launch race: the CLI contract and the sandbox seam now
+  require a non-zero, diagnosed, fail-closed refusal when the real supervisor
+  launch fails after a successful probe.
+- Parallel security tests shared process-id scratch paths and deleted each
+  other's project; every case now has a unique path and the helper is compiled
+  once.
+- Condition parse diagnostics pointed at the backtick instead of the missing
+  operand; the payload map now excludes delimiters.
 
 ### Security
 
@@ -59,6 +88,10 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   sandbox starts. Strict L2 inheritance is future work.
 - Capability brokers and worker processes remain cooperative
   authorization/crash isolation, not an OS sandbox.
+- The G-C lane was re-run at `f075c96` from a clean `git archive` in a
+  disposable Ubuntu 26.04 VM as ordinary user `dev`: 7/7 adversarial tests,
+  positive CLI contract and forged-marker rejection PASS. This is still a local
+  VM result, not a self-hosted GitHub security-lane URL.
 
 ## Baseline `0.1.0` (before this stabilization slice)
 

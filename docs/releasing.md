@@ -6,9 +6,9 @@ required CI matrix on the exact commit.
 
 ## 1. Preconditions
 
-- All applicable G-B gates in
-  [`STABLE_RELEASE_IMPLEMENTATION.md`](STABLE_RELEASE_IMPLEMENTATION.md) §16.1
-  are PASS with a CI URL for the same SHA.
+- All applicable gates in
+  [`NEXT_RELEASE_CI_CONVERGENCE.md`](NEXT_RELEASE_CI_CONVERGENCE.md) §7 are
+  PASS with a CI URL for the same SHA.
 - G-C is either PASS with a security-lane URL, or the release explicitly says
   strict isolation is unavailable. Never claim G-C from local root/sudo runs.
 - `git status --porcelain` is clean apart from intended release files.
@@ -27,7 +27,8 @@ cargo build --release --locked -p marqdo-cli
 ## 3. Artifact creation
 
 The artifact is a tarball containing the binary, license, README, changelog,
-compatibility matrix and specs. Build it from the repository root:
+compatibility matrix, specs, examples and the public protocol consumers. Build
+it from the repository root:
 
 ```bash
 version="$(cargo metadata --no-deps --format-version 1 \
@@ -38,7 +39,9 @@ rm -rf "$stage"
 mkdir -p "$stage"
 install -m 0755 target/release/marqdo "$stage/"
 cp LICENSE* CHANGELOG.md COMPATIBILITY.md README.md "$stage/"
-cp -r spec "$stage/"
+cp -r spec examples "$stage/"
+mkdir -p "$stage/tests"
+cp -r tests/consumers "$stage/tests/"
 tar -C dist -czf "dist/marqdo-${version}-${target}.tar.gz" "$(basename "$stage")"
 sha256sum "dist/marqdo-${version}-${target}.tar.gz" \
   | tee "dist/marqdo-${version}-${target}.tar.gz.sha256"
@@ -62,8 +65,10 @@ cd "$tmp"/marqdo-*
 ./marqdo call examples/factorial.mq.md 阶乘 --arg n=5
 ./marqdo check examples/multi-module/index.mq.md --refs --emit analysis.json
 ./marqdo run examples/multi-module/index.mq.md --trace-file trace.json
-python3 /path/to/tests/consumers/analysis_consumer.py analysis.json
-python3 /path/to/tests/consumers/trace_consumer.py analysis.json trace.json
+python3 tests/consumers/analysis_consumer.py analysis.json
+python3 tests/consumers/trace_consumer.py analysis.json trace.json
+python3 tests/consumers/validate_protocols.py analysis.json trace.json \
+  examples/tool-unknown-name/tool.json
 ```
 
 Also verify the SHA-256 file before extraction:
@@ -86,6 +91,11 @@ git push origin "v${version}"
 
 Do not force-push, do not tag a red commit, and do not upload macOS/Windows
 binaries unless those platform lanes actually passed.
+
+The current `0.1.0` candidate at `f075c96` is **not** releasable: it has local
+Linux/VM evidence and a checksummed Linux RC, but no same-SHA GitHub CI or
+self-hosted G-C URL. See
+[`evidence/RELEASE_CANDIDATE_0.1.0_f075c96.md`](evidence/RELEASE_CANDIDATE_0.1.0_f075c96.md).
 
 ## 6. Rollback
 

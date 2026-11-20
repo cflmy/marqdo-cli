@@ -168,6 +168,10 @@ jobs:
           install -m 0755 target/release/marqdo "$stage/"
           cp LICENSE-MIT LICENSE-APACHE CHANGELOG.md COMPATIBILITY.md README.md "$stage/"
           cp -r spec examples "$stage/"
+          mkdir -p "$stage/tests"
+          cp -r tests/consumers "$stage/tests/"
+          printf 'source_sha=%s\nversion=%s\ntarget=%s\n' "$GITHUB_SHA" "$version" "${{ matrix.target }}" > "$stage/SOURCE_SHA"
+          rustc -vV > "$stage/rustc-vV.txt"
           tar -C dist -czf "dist/marqdo-${version}-${{ matrix.target }}.tar.gz" "$(basename "$stage")"
           cd dist
           if command -v sha256sum >/dev/null 2>&1; then
@@ -181,12 +185,19 @@ jobs:
         run: |
           set -euo pipefail
           tmp="$(mktemp -d)"
-          tar -C "$tmp" -xzf dist/marqdo-*.tar.gz
-          cd "$tmp"/marqdo-*
+          cp dist/marqdo-*.tar.gz* "$tmp/"
+          cd "$tmp"
+          sha256sum -c marqdo-*.tar.gz.sha256 2>/dev/null || shasum -a 256 -c marqdo-*.tar.gz.sha256
+          tar -xzf marqdo-*.tar.gz
+          cd marqdo-*
           ./marqdo --version
           ./marqdo --help >/dev/null
-          ./marqdo check examples/multi-module/index.mq.md
+          ./marqdo check examples/multi-module/index.mq.md --refs --emit analysis.json
           ./marqdo run examples/hello.mq.md
+          ./marqdo run examples/multi-module/index.mq.md --trace-file trace.json
+          python3 tests/consumers/analysis_consumer.py analysis.json
+          python3 tests/consumers/trace_consumer.py analysis.json trace.json
+          python3 tests/consumers/validate_protocols.py analysis.json trace.json examples/tool-unknown-name/tool.json
       - uses: actions/upload-artifact@v4
         with:
           name: marqdo-${{ matrix.target }}

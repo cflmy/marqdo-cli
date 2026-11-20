@@ -15,16 +15,19 @@ plugin ABI v2 are not claimed to work here.
 > **Status: stabilization candidate, not released.** The language, lock v3,
 > Analysis v2, Trace v2, Tool v1, Plugin ABI v1 (native + worker) and pinned
 > Foreign providers are implemented and covered by tests on Linux. The
-> Windows AST and macOS plugin CI failures are fixed in source, but the native
-> Windows/macOS lanes have not been re-run from this checkout. **`strict` OS
-> isolation is available on Linux only when the runtime Bubblewrap probe
-> passes**; it was verified against the full escape/resource matrix in a
-> disposable Ubuntu VM (ADR-0021). macOS/Windows fail closed, strict L2
-> (Worker/Foreign) is not implemented, and the broker/worker are not a
-> sandbox. See
+> macOS/Windows `E0433` platform-cfg failure and the Linux strict
+> probe→launch race are fixed in source at `f075c96`, but the native
+> Windows/macOS and GitHub Linux lanes have not been re-run from this
+> checkout. **`strict` OS isolation is available on Linux only when the
+> runtime Bubblewrap probe passes**; it was verified against the full
+> escape/resource matrix in a disposable Ubuntu 26.04 VM at `f075c96`
+> (ADR-0021). macOS/Windows fail closed, strict L2 (Worker/Foreign) is not
+> implemented, and the broker/worker are not a sandbox. The release decision
+> is **DO NOT RELEASE** until the remote gates have same-SHA URLs. See
 > [`docs/STATUS.md`](docs/STATUS.md), [`COMPATIBILITY.md`](COMPATIBILITY.md)
-> and [`docs/security-gate.md`](docs/security-gate.md). The single next-phase
-> plan is [`docs/STABLE_RELEASE_IMPLEMENTATION.md`](docs/STABLE_RELEASE_IMPLEMENTATION.md).
+> and [`docs/security-gate.md`](docs/security-gate.md). The single current CI
+> convergence plan is
+> [`docs/NEXT_RELEASE_CI_CONVERGENCE.md`](docs/NEXT_RELEASE_CI_CONVERGENCE.md).
 
 ## Build
 
@@ -78,8 +81,9 @@ executes anything.
 ## What works (implemented and tested)
 
 * **P0 contracts** — frozen Markdown profile, AST → program mapping, strict
-  expression grammar, evaluation semantics; 150 AST goldens and 48 negative
-  compile-error fixtures (`tests/`).
+  expression grammar, evaluation semantics; 160 AST goldens, 44 semantic
+  goldens, 52 compile-error fixtures and 12 runtime-error fixtures
+  (`tests/`).
 * **P1 interpreter** — native Rust tree-walk interpreter: values, scopes,
   functions, static parameter inference, assignments, branches, loops,
   returns, recursion, structured errors, fuel/stack/output budgets.

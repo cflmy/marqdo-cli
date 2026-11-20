@@ -8,6 +8,7 @@ product.
 Build and install (any OS with a Rust toolchain):
 
 ```sh
+mkdir -p /tmp/marqdo-tool-sample-proof/bin
 rustc --edition 2021 examples/tool-samples/sample-proof/src/main.rs \
   -o /tmp/marqdo-tool-sample-proof/bin/sample-proof
 cp examples/tool-samples/sample-proof/tool.json /tmp/marqdo-tool-sample-proof/

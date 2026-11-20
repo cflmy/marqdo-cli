@@ -1,0 +1,672 @@
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+   Compiling marqdo-plugin-sdk v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-plugin-sdk)
+   Compiling marqdo-runtime v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-runtime)
+   Compiling marqdo-foreign v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-foreign)
+   Compiling marqdo-cli v0.1.0 (/home/dev/marqdo-f075c96/crates/cli)
+   Compiling marqdo-package v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-package)
+   Compiling marqdo-host v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-host)
+   Compiling marqdo-frontend v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-frontend)
+   Compiling marqdo-markdown v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-markdown)
+   Compiling marqdo-ir v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-ir)
+   Compiling marqdo-sandbox v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-sandbox)
+   Compiling marqdo-math v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-math)
+   Compiling marqdo-plugin-abi v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-plugin-abi)
+   Compiling marqdo-value v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-value)
+   Compiling marqdo-expression v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-expression)
+   Compiling marqdo-span v0.1.0 (/home/dev/marqdo-f075c96/crates/marqdo-span)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 35s
+     Running unittests src/main.rs (/home/dev/marqdo-src/target/debug/build/marqdo-cli/44db2e5fd6960968/out/marqdo-44db2e5fd6960968)
+
+running 2 tests
+test args::tests::rejects_non_constant_and_malformed_arguments ... ok
+test args::tests::parses_typed_arguments ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/analysis_trace.rs (/home/dev/marqdo-src/target/debug/build/marqdo-cli/8805c2b5d230266a/out/analysis_trace-8805c2b5d230266a)
+
+running 6 tests
+test failed_check_removes_stale_analysis ... ok
+test analysis_v2_projects_addressable_formula_and_code_resources ... ok
+test analysis_v2_identity_is_location_independent ... ok
+test trace_v2_budget_truncates_long_loops_without_failing_the_run ... ok
+test trace_records_calls_effects_and_status_without_secrets ... ok
+test analysis_is_deterministic_and_has_stable_semantic_nodes ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.69s
+
+     Running tests/conformance_ast.rs (/home/dev/marqdo-src/target/debug/build/marqdo-cli/4a86832a684510a9/out/conformance_ast-4a86832a684510a9)
+
+running 4 tests
+test byte_diff_helpers_distinguish_line_endings_from_semantics ... ok
+test ast_goldens_use_canonical_lf_bytes ... ok
+test crlf_fixture_is_preserved_as_bytes ... ok
+test ast_goldens_match_the_frozen_profile ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+
+     Running tests/conformance_semantics.rs (/home/dev/marqdo-src/target/debug/build/marqdo-cli/775a9ac61fe4e563/out/conformance_semantics-775a9ac61fe4e563)
+
+running 1 test
+test semantic_goldens_match_end_to_end_execution ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.21s
+
+     Running tests/examples_r6.rs (/home/dev/marqdo-src/target/debug/build/marqdo-cli/c12f7ae83e17dbbf/out/examples_r6-c12f7ae83e17dbbf)
+
+running 4 tests
+test public_schemas_are_valid_json_and_versioned ... ok
+test unknown_tool_name_installs_and_dispatches ... ok
+test multi_version_packages_run_without_an_implicit_override ... ok
+test external_kernel_provider_runs_without_core_changes ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.98s
+
+     Running tests/integration_cli.rs (/home/dev/marqdo-src/target/debug/build/marqdo-cli/1987735ce297336b/out/integration_cli-1987735ce297336b)
+
+running 20 tests
+test condition_parse_diagnostic_points_inside_the_code_span ... ok
+test check_exit_codes_and_diagnostics ... ok
+test fmt_normalises_line_endings_and_trailing_newlines ... ok
+test check_never_spawns_a_foreign_kernel ... ok
+test inspect_outputs_ast_units_signatures_ir_and_refs ... ok
+test init_creates_a_runnable_project ... ok
+test call_executes_examples_with_typed_arguments ... ok
+test lock_and_sync_locked_detect_dependency_tampering ... ok
+test platform_reports_strict_capability_truthfully ... ok
+test multi_module_imports_and_cycles ... ok
+test plugin_foreign_target_is_rejected_without_loading ... ok
+test examples_run_end_to_end_including_foreign_when_available ... ok
+test power_branch_loop_and_inert_code_end_to_end ... ok
+test run_json_embeds_program_stdout ... ok
+test run_refuses_documents_with_compile_errors ... ok
+test runtime_error_in_imported_module_reports_that_module ... ok
+test plugin_artifact_tampering_is_rejected_before_load ... ok
+test strict_mode_enforces_isolation_or_refuses_closed ... ok
+test plugin_abi_major_mismatch_is_rejected_before_execution ... ok
+test plugin_inspect_and_explicit_trusted_invocation ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.65s
+
+     Running tests/negative.rs (/home/dev/marqdo-src/target/debug/build/marqdo-cli/c746e5e201607331/out/negative-c746e5e201607331)
+
+running 3 tests
+test warning_goldens ... ok
+test compile_time_negative_goldens ... ok
+test runtime_negative_goldens ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.23s
+
+     Running tests/package_env.rs (/home/dev/marqdo-src/target/debug/build/marqdo-cli/ffe0eb54eae24ed0/out/package_env-ffe0eb54eae24ed0)
+
+running 8 tests
+test check_does_not_fetch_a_missing_git_revision ... ok
+test deleted_lock_edge_fails_check_and_run ... ok
+test run_and_check_require_a_lock_when_dependencies_exist ... ok
+test lock_records_transitive_closure_and_sync_materializes_it ... ok
+test sync_is_strict_and_never_rewrites_the_lock ... ok
+test tampered_path_dependency_content_is_rejected_by_locked_sync ... ok
+test transitive_path_dependency_resolves_from_its_own_manifest ... ok
+test pinned_git_dependency_locks_syncs_and_runs ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s
+
+     Running tests/plugin_worker.rs (/home/dev/marqdo-src/target/debug/build/marqdo-cli/d45a194c30207bdf/out/plugin_worker-d45a194c30207bdf)
+
+running 4 tests
+test worker_capability_request_budget_stops_a_runaway_plugin ... ok
+test worker_transport_runs_without_in_process_trust ... ok
+test worker_capability_bridge_reads_granted_file_and_denies_without_grant ... ok
+test worker_crash_is_isolated_from_the_host ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.10s
+
+     Running tests/properties.rs (/home/dev/marqdo-src/target/debug/build/marqdo-cli/90e4a82e1e9db60d/out/properties-90e4a82e1e9db60d)
+
+running 2 tests
+test narration_removal_preserves_execution ... ok
+test pure_prose_edits_do_not_change_executable_ir ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.64s
+
+     Running tests/tool_protocol.rs (/home/dev/marqdo-src/target/debug/build/marqdo-cli/53f82706fffb0ee3/out/tool_protocol-53f82706fffb0ee3)
+
+running 7 tests
+test a_root_record_json_in_the_source_package_is_rejected ... ok
+test invalid_manifests_and_path_escapes_are_rejected ... ok
+test tampered_binary_and_path_hijack_are_not_executed ... ok
+test install_dispatch_list_remove_without_core_knowledge_of_the_name ... ok
+test protocol_negotiation_accepts_declared_versions_and_rejects_disjoint_ones ... ok
+test tampering_any_bundle_file_or_adding_an_unlisted_file_is_rejected ... ok
+test independent_sample_tools_consume_public_analysis_and_trace ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 26.54s
+
+     Running unittests src/lib.rs (/home/dev/marqdo-src/target/debug/build/marqdo-expression/0c43a9e46f8c64a9/out/marqdo_expression-0c43a9e46f8c64a9)
+
+running 50 tests
+test ast::tests::spanless_variants_return_the_empty_span ... ok
+test lexer::tests::bad_text_lexing_reports_errors ... ok
+test ast::tests::span_accessor_covers_structural_nodes ... ok
+test ast::tests::span_serde_round_trips_inside_ast ... ok
+test lexer::tests::comments_are_not_supported ... ok
+test lexer::tests::text_escapes_decode ... ok
+test lexer::tests::number_lexing_rejects_invalid_forms ... ok
+test lexer::tests::tokenizes_keywords_separately_from_identifiers ... ok
+test lexer::tests::token_remembers_multibyte_spans ... ok
+test lexer::tests::tokenizes_operators_and_punctuation ... ok
+test lexer::tests::unicode_whitespace_is_skipped ... ok
+test parser::tests::assignment_statements_parse ... ok
+test parser::tests::additive_and_multiplicative_precedence ... ok
+test parser::tests::boolean_and_none_literals_parse ... ok
+test parser::tests::calls_parse_positional_and_named_arguments ... ok
+test parser::tests::comments_are_not_supported ... ok
+test parser::tests::comparisons_are_non_associative ... ok
+test parser::tests::call_argument_errors_are_rejected ... ok
+test parser::tests::comparisons_bind_looser_than_arithmetic ... ok
+test parser::tests::error_spans_point_at_the_offending_token ... ok
+test parser::tests::expression_statements_parse ... ok
+test parser::tests::expressions_reject_assignment_syntax ... ok
+test parser::tests::float_literals_cover_the_grammar ... ok
+test parser::tests::integer_literals_are_arbitrary_precision ... ok
+test parser::tests::invalid_float_literals_are_rejected ... ok
+test parser::tests::invalid_text_literals_are_rejected ... ok
+test parser::tests::invalid_statements_are_rejected ... ok
+test parser::tests::list_literal_errors_are_rejected ... ok
+test ast::tests::ast_types_serde_round_trip ... ok
+test parser::tests::list_literals_parse ... ok
+test parser::tests::member_and_index_access_chain ... ok
+test parser::tests::logical_operators_chain_left_associatively ... ok
+test parser::tests::member_and_index_errors_are_rejected ... ok
+test parser::tests::parse_arguments_matches_call_argument_semantics ... ok
+test parser::tests::parse_arguments_parses_a_leading_argument_list ... ok
+test parser::tests::parse_arguments_rejects_invalid_lists ... ok
+test parser::tests::power_is_right_associative_and_binds_tighter_than_unary_minus ... ok
+test parser::tests::record_literal_errors_are_rejected ... ok
+test parser::tests::reserved_keywords_cannot_be_identifiers ... ok
+test parser::tests::spans_are_byte_offsets_into_the_payload ... ok
+test parser::tests::record_literals_parse ... ok
+test parser::tests::text_literals_decode_escapes ... ok
+test parser::tests::unary_operators_stack ... ok
+test tests::ast_types_are_reachable_from_the_crate_root ... ok
+test parser::tests::unicode_identifiers_are_accepted ... ok
+test tests::empty_payloads_are_errors ... ok
+test tests::parse_error_displays_code_and_span_and_implements_error ... ok
+test tests::public_api_parses_expression_and_statement ... ok
+test parser::tests::adversarial_inputs_never_panic ... ok
+test parser::tests::nesting_depth_limit_is_enforced ... ok
+
+test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running unittests src/lib.rs (/home/dev/marqdo-src/target/debug/build/marqdo-foreign/5ae4cf14f713cad7/out/marqdo_foreign-5ae4cf14f713cad7)
+
+running 2 tests
+test tests::languages_are_normalized ... ok
+test tests::request_envelope_is_versioned ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/kernels.rs (/home/dev/marqdo-src/target/debug/build/marqdo-foreign/f8c333b5425a20ed/out/kernels-f8c333b5425a20ed)
+
+running 22 tests
+test call_rejects_non_json_stdout ... ok
+test call_rejects_stdout_noise ... ok
+test call_decodes_a_python_wire_value ... ok
+test call_reports_timeout_as_an_error ... ok
+test call_rejects_unknown_wire_types ... ok
+test error_messages_are_human_readable ... ok
+test child_environment_only_keeps_path ... ok
+test detect_finds_python_and_node_versions ... ok
+test kernel_that_ignores_stdin_does_not_hang ... ok
+test non_zero_exit_is_failed_and_keeps_stderr ... ok
+test non_zero_exit_is_preserved_by_call ... ok
+test oversized_output_is_an_error ... ok
+test node_commonjs_syntax_is_supported ... ok
+test oversized_stderr_is_an_error ... ok
+test relative_writes_happen_in_a_fresh_cleaned_directory ... ok
+test node_run_success_captures_stdout ... ok
+test call_decodes_a_node_wire_value ... ok
+test run_success_captures_stdout ... ok
+test unknown_language_is_unavailable ... ok
+test timeout_kills_the_kernel ... ok
+test stdin_envelope_carries_the_input ... ok
+test stdin_envelope_sends_null_for_missing_input ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.11s
+
+     Running tests/provider.rs (/home/dev/marqdo-src/target/debug/build/marqdo-foreign/789d5b736522dbbd/out/provider-789d5b736522dbbd)
+
+running 8 tests
+test builtin_provider_cannot_be_bound_to_an_environment ... ok
+test duplicate_language_labels_and_wire_versions_are_rejected ... ok
+test external_provider_timeout_is_enforced ... ok
+test pinned_environment_binds_the_provider_and_is_verified_before_execution ... ok
+test provider_outside_pinned_environment_is_rejected ... ok
+test external_provider_is_registered_without_core_changes ... ok
+test declared_interpreter_version_must_match_the_resolved_program ... ok
+test provider_digest_is_verified_at_registration_and_execution ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+     Running unittests src/lib.rs (/home/dev/marqdo-src/target/debug/build/marqdo-frontend/9ee456f4c9890a8d/out/marqdo_frontend-9ee456f4c9890a8d)
+
+running 35 tests
+test analyze::tests::invalid_list_header_is_a_hard_error ... ok
+test analyze::tests::invalid_strong_payload_is_a_hard_error ... ok
+test analyze::tests::maps_countdown_loop ... ok
+test calls::tests::builtin_arity_is_checked ... ok
+test analyze::tests::maps_recursive_factorial ... ok
+test calls::tests::inferred_signature_requires_named_arguments ... ok
+test calls::tests::explicit_signature_allows_positional_and_checks_arity ... ok
+test calls::tests::unknown_function_is_an_error ... ok
+test calls::tests::declared_plugin_export_is_checked_statically ... ok
+test infer::tests::explicit_signature_reports_unknown_reads ... ok
+test infer::tests::infers_free_reads ... ok
+test infer::tests::loop_counter_is_parameter ... ok
+test infer::tests::unconditional_entry_assignment_is_local ... ok
+test analyze::tests::prose_changes_do_not_change_ir ... ok
+test infer::tests::partial_branch_assignment_is_ambiguous ... ok
+test payload::extra_span_tests::double_backtick_code_span_maps_inside_both_delimiters ... ok
+test payload::extra_span_tests::condition_description_rejects_executable_roles ... ok
+test payload::extra_span_tests::condition_literal_span_excludes_backticks_for_one_and_two_ticks ... ok
+test payload::extra_span_tests::condition_description_allows_inert_inline_content ... ok
+test payload::extra_span_tests::utf8_prefix_and_multiline_payload_map_to_original_bytes ... ok
+test payload::tests::payload_and_spans_are_preserved ... ok
+test payload::tests::span_maps_across_text_and_code_segments ... ok
+test payload::tests::nested_markup_is_a_hard_error ... ok
+test signature::tests::parses_untyped_and_empty ... ok
+test signature::tests::parses_typed_signature_with_default ... ok
+test signature::tests::split_respects_nesting_and_strings ... ok
+test signature::tests::rejects_duplicates_and_bad_defaults ... ok
+test resources::tests::content_hash_is_stable ... ok
+test resources::tests::formulas_and_code_are_attributed_to_functions ... ok
+test units::tests::duplicate_function_names_are_errors ... ok
+test units::tests::empty_heading_is_an_error ... ok
+test units::tests::builds_function_ranges ... ok
+test units::tests::executable_outside_function_warns_but_does_not_execute ... ok
+test units::tests::root_level_function_without_namespace ... ok
+test units::tests::same_name_in_different_namespaces_is_allowed ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+     Running unittests src/lib.rs (/home/dev/marqdo-src/target/debug/build/marqdo-host/8baaeabbbfb903b3/out/marqdo_host-8baaeabbbfb903b3)
+
+running 10 tests
+test budget::tests::output_and_stack_limits ... ok
+test budget::tests::fuel_is_bounded ... ok
+test capability::tests::defaults_deny_external_io ... ok
+test capability::tests::explicit_grants_are_glob_scoped ... ok
+test fs::tests::rejects_traversal_and_absolute_paths ... ok
+test fs::tests::reads_and_writes_inside_root ... ok
+test capability::tests::broker_enforces_core_grants_and_vendor_policy ... ok
+test capability::execute_tests::broker_executes_fs_read_and_reports_unavailable_for_other_capabilities ... ok
+test handles::tests::forged_cross_owner_and_expired_handles_are_rejected ... ok
+test handles::tests::handles_inside_untrusted_values_are_detected ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/capability_broker.rs (/home/dev/marqdo-src/target/debug/build/marqdo-host/2c4ec063e83a0665/out/capability_broker-2c4ec063e83a0665)
+
+running 1 test
+test granted_fs_read_returns_real_bytes_and_denial_is_audited ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.06s
+
+     Running tests/plugin_exports.rs (/home/dev/marqdo-src/target/debug/build/marqdo-host/23f86a8716dc2ffd/out/plugin_exports-23f86a8716dc2ffd)
+
+running 1 test
+test every_export_is_registered_by_complete_name_and_conflicts_are_atomic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.76s
+
+     Running unittests src/lib.rs (/home/dev/marqdo-src/target/debug/build/marqdo-ir/0a42156cdf4add17/out/marqdo_ir-0a42156cdf4add17)
+
+running 7 tests
+test builtins::tests::lookup_aliases ... ok
+test builtins::tests::arity_validation ... ok
+test tests::ir_serializes_for_inspect ... ok
+test callable::tests::builtins_are_registered_with_aliases ... ok
+test callable::tests::external_names_must_be_unique_and_not_shadow_builtins ... ok
+test tests::module_lookup_helpers ... ok
+test tests::stmt_keeps_spans ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running unittests src/lib.rs (/home/dev/marqdo-src/target/debug/build/marqdo-markdown/bdef3a0717e05139/out/marqdo_markdown-bdef3a0717e05139)
+
+running 16 tests
+test frontmatter::tests::empty_frontmatter_is_null ... ok
+test frontmatter::tests::invalid_yaml_is_reported_not_panicked ... ok
+test frontmatter::tests::import_shapes_are_validated ... ok
+test frontmatter::tests::parses_import_mapping ... ok
+test profile::tests::bom_is_tolerated_and_spans_shift ... ok
+test profile::tests::profile_options_are_frozen ... ok
+test profile::tests::setext_headings_are_heading_nodes ... ok
+test profile::tests::math_nodes_are_native_and_inert ... ok
+test profile::tests::parse_maps_core_constructs ... ok
+test profile::tests::spans_are_byte_offsets_into_original_source ... ok
+test profile::tests::crlf_and_lf_sources_keep_structure_and_byte_spans ... ok
+test text::tests::payload_accepts_text_and_code ... ok
+test text::tests::payload_rejects_nested_markup ... ok
+test text::tests::plain_text_uses_alt_and_label ... ok
+test text::tests::normalize_collapses_whitespace_and_nfc ... ok
+test profile::tests::tables_and_task_lists_are_supported ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running unittests src/lib.rs (/home/dev/marqdo-src/target/debug/build/marqdo-math/1b48f3246f930605/out/marqdo_math-1b48f3246f930605)
+
+running 21 tests
+test error::tests::constructors_use_stable_kinds ... ok
+test error::tests::display_includes_kind_and_position ... ok
+test ast::tests::decimal_and_fraction_rendering_is_deterministic ... ok
+test ast::tests::variables_are_collected_without_constants ... ok
+test ast::tests::rendering_round_trips_through_parse ... ok
+test parse::tests::frac_and_sqrt_become_dedicated_nodes ... ok
+test parse::tests::empty_and_malformed_input_is_a_parse_error ... ok
+test parse::tests::implicit_multiplication_joins_adjacent_factors ... ok
+test parse::tests::left_and_right_parentheses_are_accepted ... ok
+test parse::tests::more_than_one_equals_is_a_parse_error ... ok
+test parse::tests::excessive_node_count_is_rejected ... ok
+test parse::tests::power_is_right_associative ... ok
+test parse::tests::precedence_matches_standard_arithmetic ... ok
+test parse::tests::single_equals_is_an_equation ... ok
+test parse::tests::unary_minus_binds_looser_than_power ... ok
+test parse::tests::unknown_characters_are_structured ... ok
+test parse::tests::unsupported_commands_are_structured ... ok
+test parse::tests::deep_nesting_is_rejected_without_stack_overflow ... ok
+test tests::public_api_round_trip ... ok
+test parse::tests::numeric_literal_bounds_are_enforced ... ok
+test parse::tests::very_long_chain_is_rejected_without_stack_overflow ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.26s
+
+     Running tests/kernel.rs (/home/dev/marqdo-src/target/debug/build/marqdo-math/015a83300848687b/out/kernel-015a83300848687b)
+
+running 37 tests
+test division_by_zero_is_a_structured_error ... ok
+test constants_and_their_ambiguity_rules ... ok
+test division_stays_exact_when_it_reduces_to_an_integer ... ok
+test decimal_literals_are_exact_rationals ... ok
+test dot_and_times_are_multiplication_operators ... ok
+test error_display_includes_kind_and_position ... ok
+test exponent_must_be_an_integer ... ok
+test equation_solving_requires_exactly_one_affine_occurrence ... ok
+test f_equals_m_a_solved_for_a ... ok
+test f_equals_m_a_solved_for_f ... ok
+test f_equals_m_a_solved_for_m ... ok
+test exact_big_integer_arithmetic ... ok
+test float_bindings_are_exact_numeric_values ... ok
+test frac_is_exact_division ... ok
+test huge_exponents_are_bounded_not_hung ... ok
+test hostile_inputs_never_panic ... ok
+test large_exact_results_are_returned_as_integers ... ok
+test left_right_parentheses_and_nesting ... ok
+test negative_integer_exponents_are_exact_reciprocals ... ok
+test malformed_latex_is_a_parse_error_with_position ... ok
+test linear_equation_solving_both_directions ... ok
+test non_numeric_bindings_are_type_errors ... ok
+test perfect_and_non_perfect_square_roots ... ok
+test pi_r_squared_area ... ok
+test scientific_notation_and_adjacent_numbers_are_rejected ... ok
+test precedence_and_parentheses ... ok
+test solve_target_on_the_left_of_a_product ... ok
+test substitute_rejects_unsupported_binding_types ... ok
+test substitute_leaves_unbound_variables_symbolic ... ok
+test substitute_replaces_bindings_deterministically ... ok
+test target_errors_are_structured ... ok
+test substitution_with_float_and_negative_bindings_reparses ... ok
+test undefined_variables_are_reported ... ok
+test unicode_identifiers ... ok
+test unsupported_constructs_are_structured ... ok
+test long_operator_chains_within_the_node_budget_still_evaluate ... ok
+test oversized_formulas_are_rejected_with_a_structured_error ... ok
+
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.52s
+
+     Running unittests src/lib.rs (/home/dev/marqdo-src/target/debug/build/marqdo-package/3349516ee391f20b/out/marqdo_package-3349516ee391f20b)
+
+running 19 tests
+test fileset::tests::excludes_git_and_marqdo_directories ... ok
+test fileset::tests::materialization_rejects_a_wrong_expected_digest ... ok
+test fileset::tests::digest_encoding_is_unambiguous ... ok
+test fileset::tests::materialization_uses_the_same_selection_and_digest ... ok
+test fileset::tests::rejects_symlinks ... ok
+test fileset::tests::target_directory_is_package_content ... ok
+test tests::discovers_project_root ... ok
+test tests::git_dependency_requires_rev ... ok
+test fileset::tests::rejects_special_files ... ok
+test tests::package_resolution_is_stable_across_path_moves ... ok
+test tests::lockfile_serialization_is_stable_and_sorted ... ok
+test tests::lock_graph_records_transitive_path_closure ... ok
+test tests::missing_locked_edge_fails_closed ... ok
+test tests::rejects_absolute_dependency_paths ... ok
+test tests::root_manifest_edit_invalidates_the_lock ... ok
+test tests::parses_manifest_and_validates_sources ... ok
+test tests::v1_and_v2_locks_are_rejected_with_a_relock_hint ... ok
+test tests::sync_materializes_a_content_checked_environment ... ok
+test tests::pinned_git_dependency_resolves_and_reuses_cache ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+
+     Running unittests src/lib.rs (/home/dev/marqdo-src/target/debug/build/marqdo-plugin-abi/90fd8b9216ff8955/out/marqdo_plugin_abi-90fd8b9216ff8955)
+
+running 27 tests
+test abi::tests::layout_matches_c_header_on_64_bit ... ok
+test abi::tests::negotiation_accepts_same_major_and_clamps_minor ... ok
+test abi::tests::negotiation_rejects_other_majors ... ok
+test artifact::tests::hex_validation_is_strict ... ok
+test abi::tests::metadata_rejects_empty_and_invalid ... ok
+test abi::tests::metadata_wire_roundtrip ... ok
+test artifact::tests::host_triple_is_parseable_and_matches_word_size ... ok
+test artifact::tests::target_triple_parsing_and_word_size ... ok
+test error::tests::optional_fields_are_omitted ... ok
+test manifest::tests::abi_requirement_caret_semantics ... ok
+test artifact::tests::sha256_matches_known_vector ... ok
+test error::tests::error_is_serializable_roundtrip ... ok
+test manifest::tests::malformed_yaml_is_rejected ... ok
+test manifest::tests::duplicate_and_reserved_exports_are_rejected ... ok
+test manifest::tests::valid_manifest_parses_and_validates ... ok
+test manifest::tests::artifact_resolution_requires_exact_host_target ... ok
+test manifest::tests::invalid_fields_are_rejected ... ok
+test wire::tests::request_rejects_wrong_version_or_kind ... ok
+test manifest::tests::vendor_capabilities_are_validated_but_not_granted ... ok
+test wire::tests::response_rejects_ambiguous_payloads_and_accepts_unit ... ok
+test wire::tests::response_success_and_error_roundtrip ... ok
+test worker::tests::frame_roundtrip_and_clean_eof ... ok
+test worker::tests::oversized_and_zero_length_frames_are_rejected ... ok
+test worker::tests::partial_header_is_an_error_not_eof ... ok
+test worker::tests::truncated_payload_is_rejected ... ok
+test wire::tests::request_roundtrip_preserves_type_tags ... ok
+test wire::tests::oversized_wire_is_rejected_before_json_parsing ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/loader_unix.rs (/home/dev/marqdo-src/target/debug/build/marqdo-plugin-abi/795cd8c1c3c5ea31/out/loader_unix-795cd8c1c3c5ea31)
+
+running 8 tests
+test malformed_manifest_is_rejected ... ok
+test example_manifest_parses_and_validates ... ok
+test artifact_target_must_match_host ... ok
+test missing_artifact_file_fails_resolution ... ok
+test missing_entry_symbol_fails_load ... ok
+test sha256_mismatch_fails_verification ... ok
+test wrong_abi_major_fails_load ... ok
+test c_plugin_roundtrips_wire_request ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.80s
+
+     Running unittests src/lib.rs (/home/dev/marqdo-src/target/debug/build/marqdo-plugin-sdk/a8c1ea2d42f1442c/out/marqdo_plugin_sdk-a8c1ea2d42f1442c)
+
+running 4 tests
+test tests::initialization_rejects_bad_host_major ... ok
+test tests::handler_error_is_written_as_error_envelope ... ok
+test tests::registered_export_roundtrips_wire_request ... ok
+test tests::macro_exports_and_registers ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running unittests src/lib.rs (/home/dev/marqdo-src/target/debug/build/marqdo-runtime/7e824000026d5c21/out/marqdo_runtime-7e824000026d5c21)
+
+running 6 tests
+test value_ops::tests::division_by_zero_is_an_error ... ok
+test value_ops::tests::floor_division_and_modulo_signs ... ok
+test value_ops::tests::division_always_yields_float ... ok
+test value_ops::tests::integer_arithmetic_is_exact ... ok
+test value_ops::tests::mixed_comparisons_are_exact ... ok
+test value_ops::tests::text_concatenation_and_power ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/interpreter.rs (/home/dev/marqdo-src/target/debug/build/marqdo-runtime/c19d767cfe9ce07e/out/interpreter-c19d767cfe9ce07e)
+
+running 10 tests
+test explicit_signature_supports_positional_arguments ... ok
+test fuel_budget_is_enforced ... ok
+test builtins_for_conversions_and_length ... ok
+test ambiguous_ref_resource_is_an_error ... ok
+test non_bool_condition_is_a_runtime_error ... ok
+test function_reference_can_be_called ... ok
+test loop_prints_and_returns_unit_for_fallthrough ... ok
+test recursion_branch_and_return ... ok
+test recursion_depth_is_bounded ... ok
+test return_inside_loop_propagates ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.69s
+
+     Running unittests src/lib.rs (/home/dev/marqdo-src/target/debug/build/marqdo-sandbox/bb72be089115133e/out/marqdo_sandbox-bb72be089115133e)
+
+running 4 tests
+test tests::mode_names_round_trip ... ok
+test linux::tests::launch_failure_never_falls_back_to_unrestricted_execution ... ok
+test tests::strict_refuses_when_isolation_is_unavailable ... ok
+test linux::tests::probe_success_then_launch_eagain_is_fail_closed ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/security_linux.rs (/home/dev/marqdo-src/target/debug/build/marqdo-sandbox/0bce0bec1aee4fec/out/security_linux-0bce0bec1aee4fec)
+
+running 7 tests
+test strict_child_cannot_read_host_files_but_reads_the_project ... ok
+test strict_child_cannot_write_outside_or_into_the_project ... ok
+test strict_child_cannot_reach_the_network ... ok
+test strict_child_cannot_escape_via_proc_or_privileges ... ok
+test strict_child_identity_is_unprivileged_and_namespaced ... ok
+test strict_supervisor_enforces_fd_and_process_limits ... ok
+test strict_supervisor_enforces_memory_cpu_and_output_limits ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.18s
+
+     Running unittests src/lib.rs (/home/dev/marqdo-src/target/debug/build/marqdo-span/320ae70514012226/out/marqdo_span-320ae70514012226)
+
+running 2 tests
+test tests::span_merge_and_shift ... ok
+test tests::line_index_maps_multibyte_text ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/lib.rs (/home/dev/marqdo-src/target/debug/build/marqdo-value/997168d51ecaf867/out/marqdo_value-997168d51ecaf867)
+
+running 10 tests
+test value::tests::big_integers_are_arbitrary_precision ... ok
+test error::tests::frames_are_rendered_as_related_diagnostics ... ok
+test value::tests::unit_and_none_are_distinct ... ok
+test diagnostic::tests::diagnostic_json_shape_is_stable ... ok
+test value::tests::display_is_stable ... ok
+test value::tests::float_to_bigint_requires_integral_value ... ok
+test wire::tests::big_integers_keep_all_digits ... ok
+test wire::tests::special_floats_are_tagged ... ok
+test wire::tests::scalar_roundtrip ... ok
+test wire::tests::untrusted_wire_is_validated ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+   Doc-tests marqdo_expression
+
+running 2 tests
+test crates/marqdo-expression/src/lib.rs - (line 64) ... ok
+test crates/marqdo-expression/src/lib.rs - (line 11) ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.08s
+
+   Doc-tests marqdo_foreign
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests marqdo_frontend
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests marqdo_host
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests marqdo_ir
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests marqdo_markdown
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests marqdo_math
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests marqdo_package
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests marqdo_plugin_abi
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests marqdo_plugin_sdk
+
+running 3 tests
+test crates/marqdo-plugin-sdk/src/lib.rs - mq_plugin_entry (line 68) ... ignored
+test crates/marqdo-plugin-sdk/src/wire.rs - wire (line 7) ... ignored
+test crates/marqdo-plugin-sdk/src/lib.rs - (line 8) ... ok
+
+test result: ok. 1 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 1.28s
+
+   Doc-tests marqdo_runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests marqdo_sandbox
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests marqdo_span
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests marqdo_value
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

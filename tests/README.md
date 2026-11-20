@@ -14,12 +14,12 @@ no test commits, copies or rewrites files outside a throw-away temp directory.
 ```text
 tests/
 ├── conformance/
-│   ├── ast/            150 × *.mq.md + sibling *.ast.json goldens
-│   └── semantics/       36 × *.mq.md + sibling *.expected.json goldens
+│   ├── ast/            160 × *.mq.md + sibling *.ast.json goldens
+│   └── semantics/       44 × *.mq.md + sibling *.expected.json goldens
 ├── negative/
-│   ├── *.mq.md          48 × compile-time hard-error fixtures + *.expected.json
+│   ├── *.mq.md          52 × compile-time hard-error fixtures + *.expected.json
 │   ├── warnings/         6 × inert-executable warning fixtures + *.expected.json
-│   └── runtime/         10 × runtime-error fixtures + *.expected.json
+│   └── runtime/         12 × runtime-error fixtures + *.expected.json
 └── README.md           this file
 ```
 
@@ -55,6 +55,19 @@ cargo test -p marqdo-cli --test negative
 cargo test -p marqdo-cli --test properties
 cargo test -p marqdo-cli --test integration_cli
 ```
+
+The power/control-flow slice is pinned by:
+
+* AST fixtures 151–160: code-span vs tight/spaced `**`, multi-backtick spans,
+  inert prose/code fences, branch/loop headers and math blocks;
+* semantic fixtures 37–44: right-associative power, unary-minus precedence,
+  parentheses, float negative exponents, Strong+CodeSpan assignment, branch,
+  loop and inert prose;
+* negative fixtures 49–52: missing power/condition operands and executable
+  nodes swallowed by a condition paragraph;
+* runtime negatives 11–12: negative integer exponent and exponent budget;
+* `crates/marqdo-frontend/src/payload.rs` span tests and
+  `crates/cli/tests/integration_cli.rs` CLI span/E2E assertions.
 
 Fixture discovery is directory-based and sorted by file name, so the order is
 deterministic on every platform. The AST and semantic suites fail loudly if the
