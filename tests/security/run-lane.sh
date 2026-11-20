@@ -33,7 +33,8 @@ cargo test -p marqdo-sandbox --test security_linux -- --test-threads=1
 echo "== build CLI =="
 cargo build -p marqdo-cli
 
-bin="$repo/target/debug/marqdo"
+target_dir="${CARGO_TARGET_DIR:-$repo/target}"
+bin="$target_dir/debug/marqdo"
 platform="$("$bin" inspect examples/hello.mq.md --platform --json)"
 python3 - "$platform" <<'PY'
 import json, sys
