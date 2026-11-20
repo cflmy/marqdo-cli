@@ -517,6 +517,10 @@ pub struct Program {
     /// metadata only: `check` never loads a library.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub external_callables: Vec<callable::CallableDescriptor>,
+    /// Compat-B `打印`/`print` destination (ADR-0030). When set, the runtime
+    /// calls this stdlib function instead of the legacy `HostOp::Print`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub print_override: Option<FunctionId>,
 }
 
 impl Program {

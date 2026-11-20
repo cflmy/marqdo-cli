@@ -590,6 +590,34 @@ impl StdHost {
         Ok(Value::Unit)
     }
 
+    fn record_resource_effect(
+        &mut self,
+        op: &str,
+        ctx: &ExecutionContext,
+        started: Instant,
+        summary: &str,
+    ) {
+        let estimate = TraceState::estimate(
+            "effect",
+            None,
+            Some(&ctx.module_id),
+            Some(summary),
+            Some(op),
+        );
+        if !self.trace_state.accept(estimate) {
+            return;
+        }
+        let seq = self.next_seq();
+        self.trace.record(
+            seq,
+            op,
+            ctx.module_id.clone(),
+            ctx.span,
+            started.elapsed(),
+            summary.to_string(),
+        );
+    }
+
     fn open_resource_stream(
         &mut self,
         kind: &str,
@@ -597,12 +625,21 @@ impl StdHost {
         rights: &[String],
         ctx: &ExecutionContext,
     ) -> Result<Value, RuntimeError> {
+        let started = Instant::now();
+        let requested: BTreeSet<&str> = rights.iter().map(String::as_str).collect();
         if self.mode == SandboxMode::Strict {
-            return Err(RuntimeError::new(
-                ErrorCategory::PermissionDenied,
-                ctx.span,
-                "resource streams are not verified in strict mode and are refused",
-            ));
+            // stdio/stdout is the existing console channel already permitted by
+            // strict L1 (CM-A11); file/network/process providers are not.
+            let stdio_console =
+                kind == "stdio" && descriptor == "stdout" && requested == BTreeSet::from(["write"]);
+            if !stdio_console {
+                return Err(RuntimeError::new(
+                    ErrorCategory::PermissionDenied,
+                    ctx.span,
+                    "strict mode permits only the existing stdio/stdout console channel; \
+                     other resource streams are refused",
+                ));
+            }
         }
         if self.mode == SandboxMode::Pure && kind == "file" {
             return Err(RuntimeError::new(
@@ -611,7 +648,6 @@ impl StdHost {
                 "pure mode does not provide project file resources",
             ));
         }
-        let requested: BTreeSet<&str> = rights.iter().map(String::as_str).collect();
         match kind {
             "stdio" => {
                 if descriptor != "stdout" || requested != BTreeSet::from(["write"]) {
@@ -636,6 +672,7 @@ impl StdHost {
                     ctx.span,
                     Some("kind=stdio descriptor=stdout"),
                 );
+                self.record_resource_effect("resource.open", ctx, started, "ok");
                 Ok(Value::Resource(handle))
             }
             "file" => {
@@ -651,6 +688,7 @@ impl StdHost {
                         ctx.span,
                         Some("kind=file rights=read"),
                     );
+                    self.record_resource_effect("resource.open", ctx, started, "ok");
                     return Ok(Value::Resource(handle));
                 }
                 if requested == BTreeSet::from(["write"]) {
@@ -664,6 +702,7 @@ impl StdHost {
                         ctx.span,
                         Some("kind=file rights=write"),
                     );
+                    self.record_resource_effect("resource.open", ctx, started, "ok");
                     return Ok(Value::Resource(handle));
                 }
                 Err(RuntimeError::new(
@@ -756,6 +795,7 @@ impl Host for StdHost {
         max_bytes: usize,
         ctx: &ExecutionContext,
     ) -> Result<ResourceRead, RuntimeError> {
+        let started = Instant::now();
         let kind = self.resources.kind(handle, ctx.span)?;
         let read = self.resources.read(handle, max_bytes, ctx.span)?;
         self.record_semantic(
@@ -769,6 +809,12 @@ impl Host for StdHost {
                 read.eof
             )),
         );
+        self.record_resource_effect(
+            "resource.read",
+            ctx,
+            started,
+            &format!("kind={kind} count={}", read.bytes.len()),
+        );
         Ok(read)
     }
 
@@ -778,6 +824,7 @@ impl Host for StdHost {
         bytes: &[u8],
         ctx: &ExecutionContext,
     ) -> Result<usize, RuntimeError> {
+        let started = Instant::now();
         let kind = self.resources.kind(handle, ctx.span)?;
         let count = self.resources.write(handle, bytes, ctx.span)?;
         if kind == "stdio" {
@@ -791,6 +838,12 @@ impl Host for StdHost {
             ctx.span,
             Some(&format!("kind={kind} count={count}")),
         );
+        self.record_resource_effect(
+            "resource.write",
+            ctx,
+            started,
+            &format!("kind={kind} count={count}"),
+        );
         Ok(count)
     }
 
@@ -799,6 +852,7 @@ impl Host for StdHost {
         handle: ResourceHandle,
         ctx: &ExecutionContext,
     ) -> Result<(), RuntimeError> {
+        let started = Instant::now();
         let pending = self.resources.pending_file_write(handle, ctx.span)?;
         let count = match pending {
             Some((relative, bytes)) => {
@@ -814,6 +868,12 @@ impl Host for StdHost {
             Some(&ctx.module_id),
             ctx.span,
             Some(&format!("flushed_bytes={count}")),
+        );
+        self.record_resource_effect(
+            "resource.close",
+            ctx,
+            started,
+            &format!("flushed_bytes={count}"),
         );
         Ok(())
     }

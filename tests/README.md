@@ -171,6 +171,13 @@ by:
 * fixture 55 additionally has a second-free detection path: freeing an
   already-free block returns `{ok:false, code:"alloc.double_free"}`.
 
+RFC-CM CM-A07 Compat-B (ADR-0030) is pinned by
+`crates/cli/tests/print_routing.rs`:
+
+* a print program's trace contains `resource.write` and no `print` effect;
+* stdlib modules are injected only for programs that call `打印/print`;
+* all existing semantic/CLI print goldens still pass byte-identically.
+
 RFC-CM CM-A10 bundled stdlib (ADR-0028) is pinned by
 `crates/cli/tests/stdlib_bundle.rs` (6 tests):
 
@@ -192,7 +199,8 @@ RFC-CM CM-A07 Compat-A (ADR-0027) is pinned by:
 * the demo covers Unit/None/Bool, Int, Float, Text, List, Map, Table,
   Formula, Code and FunctionRef; PluginHandle formatting uses the same
   observation members but needs a plugin to construct a value.
-  `打印` is not yet routed to the stdlib (Compat-B pending).
+  `打印` is routed to the stdlib by ADR-0030 Compat-B when the bundle is
+  present; this demo still calls the explicit `io.写值` to compare paths.
 
 RFC-CM CM-A06 resource streams (ADR-0025) are pinned by:
 

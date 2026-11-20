@@ -6,8 +6,8 @@ Baseline: `a113d89` plus the uncommitted RFC-CM P0–P3 changes.
 Decision record: [ADR-0027](../adr/0027-print-migration-compat-a.md)
 Related: [Resource P3](2026-11-20-resource-stream-p3.md),
 [file write](2026-11-20-resource-file-write-p3.md), [STATUS §5](../STATUS.md).
-Scope: **Compat-A only**. Builtin `打印` is not migrated; no alias routing and
-no removal of `HostOp::Print`.
+Scope: **Compat-A only** at the time of that slice. A later ADR-0030 step
+added Compat-B routing; this report remains the Compat-A baseline.
 
 ## Environment and gate
 
@@ -76,7 +76,8 @@ extension, not part of this slice. This is the explicit blocker for Compat-B.
 
 ## What is not migrated
 
-* `打印`/`print` still resolves to the existing builtin and `HostOp::Print`.
+* At the time of this slice, `打印`/`print` resolved to the builtin and
+  `HostOp::Print`; ADR-0030 later added Compat-B routing.
 * No alias table, no bundled stdlib resolution, no `std` package.
 * No stdlib version/digest or offline distribution (CM-A10).
 * No Compat-B/C comparison lane or removal of the Rust `Value::display()` path.

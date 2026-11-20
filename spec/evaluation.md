@@ -168,7 +168,8 @@ resource.close(handle)
     -> {ok:true, value:None} | {ok:false, code, message}
 ```
 
-* Providers: `stdio/stdout` with `["write"]` (pure/project, console grant);
+* Providers: `stdio/stdout` with `["write"]` (pure/project, and strict's
+  existing console channel, console grant);
   `file` with `["read"]` (project, `fs_read` grant, bounded by the 8 MiB file
   limit); `file` with `["write"]` (project, `fs_write` grant, 8 MiB buffered
   write flushed on `close`, ADR-0026). Mixed rights and other kinds are
@@ -287,12 +288,13 @@ host boundary. Names are stable; adding one requires a spec update.
 | `foreign.run/call` | see `spec/foreign.md` | P5, capability-gated |
 | `fs.read/write` | see `spec/security.md` | capability-gated |
 
-The legacy `打印/print` builtin remains the default and still uses the host
-output path. `stdlib/` (the bundled standard library, `std:` imports) contains an explicitly imported `.mq.md`
-`format/utf8/io` prototype (ADR-0027 Compat-A) whose output is comparison-tested
-against `打印` for Unit/None/Bool/Int/Float/Text/List/Map/Table; it does **not**
-replace the builtin, and Formula/Code/FunctionRef/PluginHandle formatting is not
-yet expressible in the standard library.
+`打印/print` is **Compat-B** (ADR-0030): when the verified bundled stdlib is
+available and a loaded module calls the builtin, the loader injects
+`stdlib/io.mq.md` and sets a program-level `print_override`; the runtime calls
+`io.写值` instead of `HostOp::Print`. The stdlib chain formats every one of the
+15 value types, encodes UTF-8 into `Memory`, and writes via
+`resource.write(stdout)`. The legacy builtin remains the fallback when no bundle
+is available. Compat-C (removing the legacy formatting path) is not done.
 
 The `list.*`, `map.*`, `text.*` and `table.*` entries are observation and
 construction primitives, not algorithms (ADR-0023). They return new values and

@@ -103,9 +103,12 @@ resource.close(handle: Resource)
   caller constructs a `Capabilities` set with a matching `fs_read` pattern.
   Network/process resources do not exist in this slice.
 * `project`: stdio stdout and explicitly granted project-file reads.
-* `strict`: **every** `resource.open` is refused with `permission.denied`.
-  Strict L1 is unchanged and no new provider is silently enabled. A future ADR
-  must add real OS-level evidence before strict accepts streams.
+* `strict`: only the existing **stdio/stdout** console channel is permitted
+  (`resource.open("stdio","stdout",["write"])`, console grant); every file,
+  network, process or device resource open is refused with
+  `permission.denied`. This is the existing console capability reached through
+  the resource ABI, not a new OS capability (ADR-0030). Strict L1 is otherwise
+  unchanged.
 * Manifest capability requests are not grants; only the operator-provided
   effective set is consulted.
 
@@ -143,8 +146,8 @@ file bytes or handles.
   process, clock, random or device operations.
 * No generic third-party provider registration; CM-A09 remains open.
 * No zero-copy, async, deadlines per stream, seek or shared memory.
-* No strict-mode resource support and no claim that host-in-process I/O is a
-  sandbox.
+* No strict-mode file/network/process resource support and no claim that
+  host-in-process I/O is a sandbox; strict stdio is the existing console.
 
 ## Compatibility
 

@@ -33,7 +33,8 @@ resource.open("file", "<project-relative path>", ["write"]) -> Resource
 * `project` mode only, with an `fs_write` glob grant matching the normalised
   relative path.
 * `pure` still refuses file resources by mode check; `strict` still refuses
-  every `resource.open` (CM-A11 fail-closed).
+  file resources (only the existing stdio console channel is permitted,
+  ADR-0030).
 * Absolute paths, `..`, symlink escapes and non-regular targets are rejected by
   `ProjectFs` exactly like the existing `fs.write`.
 * A writer owns an in-memory byte buffer. `resource.write` appends bytes and

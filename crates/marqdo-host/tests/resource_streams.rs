@@ -54,13 +54,25 @@ fn stdout_write_obeys_the_output_budget_atomically() {
 }
 
 #[test]
-fn strict_mode_refuses_every_resource_open() {
+fn strict_mode_allows_only_the_existing_stdio_console_channel() {
     let dir = tempfile::tempdir().unwrap();
     let mut host = StdHost::new(SandboxMode::Strict, Capabilities::pure(), dir.path());
-    let error = host
-        .resource_open("stdio", "stdout", &["write".to_string()], &context())
+    let ctx = context();
+    let handle = handle(
+        host.resource_open("stdio", "stdout", &["write".to_string()], &ctx)
+            .unwrap(),
+    );
+    assert_eq!(host.resource_write(handle, b"strict", &ctx).unwrap(), 6);
+    assert_eq!(host.take_output(), b"strict");
+
+    let file = host
+        .resource_open("file", "a.txt", &["read".to_string()], &ctx)
         .unwrap_err();
-    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+    assert_eq!(file.category, ErrorCategory::PermissionDenied);
+    let socket = host
+        .resource_open("socket", "example.test", &["read".to_string()], &ctx)
+        .unwrap_err();
+    assert_eq!(socket.category, ErrorCategory::PermissionDenied);
 }
 
 #[test]

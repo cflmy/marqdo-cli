@@ -102,8 +102,9 @@ executes anything.
 * **Bundled stdlib + print prototype (RFC-CM CM-A07/A10)** — offline
   `stdlib/` with explicit `std:io`/`std:format`/`std:text` imports, SHA-256
   digest verification, Analysis identity and a frozen-CLI closure test; the
-  `.mq.md` print chain matches builtin `打印` for all 15 value types, while `打印` remains the default
-  builtin (ADR-0027/0028/0029).
+  `.mq.md` print chain is the execution path for `打印`/`print` when the bundle is present (ADR-0030),
+  covering all 15 value types; the legacy builtin is only a no-bundle fallback
+  (ADR-0027/0028/0029/0030).
 * **Resource streams (RFC-CM CM-A06)** — opaque host-issued `Resource` handles;
   `resource.open/read/write/close` transfer bytes through `Memory`; stdout
   write in pure/project, granted project-file read, and buffered project-file

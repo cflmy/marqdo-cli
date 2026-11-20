@@ -151,7 +151,7 @@ Parsing rules (`crates/marqdo-markdown/src/frontmatter.rs::imports`):
 | Target | Resolution |
 |---|---|
 | `@dependency` | Look up the alias after `@` in `marqdo.yaml` `dependencies`. The dependency must declare a **path** source. Resolve `project_root / path`; if it is a directory, append `index.mq.md`; canonicalize. A git-only dependency cannot be resolved in this build (`dependency.path` is `None` → unresolved). |
-| `std:<relative>` | Resolve inside the verified bundled standard library (ADR-0028). The target must stay inside the bundle; `..`/absolute paths are rejected; `.mq.md` is appended when absent. The bundle's declared digest is verified before any module loads. No network/package manager is consulted. |
+| `std:<relative>` | Resolve inside the verified bundled standard library (ADR-0028). Print-using programs additionally get the bundled `io` module as the Compat-B `打印` destination (ADR-0030); this is not an implicit user import. The target must stay inside the bundle; `..`/absolute paths are rejected; `.mq.md` is appended when absent. The bundle's declared digest is verified before any module loads. No network/package manager is consulted. |
 | any other string (intended: `./file.mq.md`) | Join the string to the **importing file's directory**, then canonicalize. There is no extension inference, no search path and no fallback to a package directory. |
 
 The resulting file is loaded as a module. If it canonicalizes outside the

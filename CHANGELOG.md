@@ -108,6 +108,11 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   an `fs_write` grant, buffers in the host, flushes only on `close`, never
   flushes on drop, has an 8 MiB ceiling, and is refused in pure/strict. A
   `.mq.md` chunked copy loop reproduces a file without a Rust `copy_file`.
+- Compat-B `打印`/`print` routing (ADR-0030): a `Program.print_override` sends
+  print calls to bundled `io.写值` when the program uses them; stdlib modules
+  are injected lazily, resource operations appear as trace effects and the
+  legacy `HostOp::Print` path does not run. Strict permits only stdio/stdout
+  (existing console), not file/network resources. No Compat-C removal yet.
 - Full-value stdlib formatting (ADR-0029): FunctionRef `module/name` and
   PluginHandle `plugin/export` read-only members (host id private);
   `stdlib/format.mq.md` now reproduces builtin `打印`/`repr` for all 15 value

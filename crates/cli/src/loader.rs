@@ -13,8 +13,9 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use marqdo_expression::Expr;
 use marqdo_frontend::{analyze_source, AnalysisResult};
-use marqdo_ir::{ModuleId, Program, ResolvedImport};
+use marqdo_ir::{ModuleId, PlaceTarget, Program, ResolvedImport, Stmt};
 use marqdo_package::{
     discover_root, LockFile, Manifest, PackageResolver, ResolvedPackage, LOCK_FILE, MANIFEST_FILE,
 };
@@ -278,6 +279,23 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
     };
     let entry_id = loader.load_module(&entry_module.package, &entry_module.relative_path)?;
     loader.program.main_module = Some(entry_id.clone());
+
+    // Compat-B (ADR-0030): only programs that actually call 打印/print need the
+    // stdlib print module; injecting it for every program would change the
+    // module graph, analysis output and startup cost for no benefit.
+    if program_uses_print(&loader.program) {
+        if let Some(stdlib) = loader.stdlib.clone() {
+            let package = stdlib.package();
+            let io = loader.load_module(&package, "io.mq.md")?;
+            let Some(module) = loader.program.module(&io) else {
+                return Err("stdlib print module was not loaded".to_string());
+            };
+            let Some(function) = module.function("写值") else {
+                return Err("stdlib print module has no `写值` function".to_string());
+            };
+            loader.program.print_override = Some(function.id.clone());
+        }
+    }
     for (module_id, diagnostic) in marqdo_frontend::calls::validate_program(&loader.program) {
         if let Some(file) = loader.files.get(&module_id) {
             loader.diagnostics.push(FileDiagnostic {
@@ -497,5 +515,59 @@ impl Loader {
                 .insert(module_id.clone(), file.analysis.module.clone());
         }
         Ok(module_id)
+    }
+}
+
+/// Whether the loaded program calls the legacy `打印`/`print` builtin.
+fn program_uses_print(program: &Program) -> bool {
+    program.modules.values().any(|module| {
+        module
+            .functions
+            .iter()
+            .any(|function| stmts_use_print(&function.body))
+    })
+}
+
+fn stmts_use_print(stmts: &[Stmt]) -> bool {
+    stmts.iter().any(|stmt| match stmt {
+        Stmt::Assign { target, value, .. } => {
+            let target_uses = match target {
+                PlaceTarget::Local { .. } => false,
+                PlaceTarget::Index { base, index, .. } => {
+                    expr_uses_print(base) || expr_uses_print(index)
+                }
+            };
+            target_uses || expr_uses_print(value)
+        }
+        Stmt::Eval { expr, .. } | Stmt::Return { value: expr, .. } => expr_uses_print(expr),
+        Stmt::Call { call, .. } => call.args.iter().any(|arg| expr_uses_print(&arg.value)),
+        Stmt::Branch { arms, .. } => arms
+            .iter()
+            .any(|arm| expr_uses_print(&arm.condition) || stmts_use_print(&arm.body)),
+        Stmt::Loop {
+            condition, body, ..
+        } => expr_uses_print(condition) || stmts_use_print(body),
+    })
+}
+
+fn expr_uses_print(expr: &Expr) -> bool {
+    match expr {
+        Expr::Call { callee, args, .. } => {
+            matches!(callee.as_ref(), Expr::Ident(ident) if matches!(ident.name.as_str(), "打印" | "print"))
+                || expr_uses_print(callee)
+                || args.iter().any(|arg| expr_uses_print(&arg.value))
+        }
+        Expr::List(items) => items.iter().any(expr_uses_print),
+        Expr::Record(entries) => entries.iter().any(|entry| expr_uses_print(&entry.value)),
+        Expr::Unary { operand, .. } => expr_uses_print(operand),
+        Expr::Binary { left, right, .. } => expr_uses_print(left) || expr_uses_print(right),
+        Expr::Member { base, .. } => expr_uses_print(base),
+        Expr::Index { base, index, .. } => expr_uses_print(base) || expr_uses_print(index),
+        Expr::Int(_)
+        | Expr::Float(_)
+        | Expr::Text(_)
+        | Expr::Bool(_)
+        | Expr::None
+        | Expr::Ident(_) => false,
     }
 }

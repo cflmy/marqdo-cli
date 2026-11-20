@@ -656,6 +656,25 @@ impl<'a> Interpreter<'a> {
                     let args = self.eval_args(args, frame)?;
                     return self.call_value(program, value, args, Some(span), Some(&caller_module));
                 }
+                if matches!(ident.name.as_str(), "打印" | "print") {
+                    if let Some(target) = program.print_override.clone() {
+                        let args = self.eval_args(args, frame)?;
+                        let Some(function) = program.function(&target) else {
+                            return Err(RuntimeError::new(
+                                ErrorCategory::UnknownSymbol,
+                                Some(span),
+                                format!("print override `{target}` does not exist"),
+                            ));
+                        };
+                        return self.call_function(
+                            program,
+                            function,
+                            args,
+                            Some(span),
+                            Some(&caller_module),
+                        );
+                    }
+                }
                 if let Some(builtin) = builtins::find(&ident.name) {
                     let args = self.eval_args(args, frame)?;
                     return self.call_builtin(builtin, args, Some(span), frame);

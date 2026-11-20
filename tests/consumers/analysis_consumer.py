@@ -22,7 +22,8 @@ if not isinstance(project.get("root_id"), str) or not project["root_id"]:
 
 functions = []
 for module in analysis["modules"]:
-    if not module["id"].startswith("root:"):
+    module_id = module["id"]
+    if "::" not in module_id or not module_id.startswith(("root:", "dep:", "std:")):
         raise SystemExit("unexpected module identity")
     if not isinstance(module["source_digest"], str) or len(module["source_digest"]) != 64:
         raise SystemExit("bad source digest")

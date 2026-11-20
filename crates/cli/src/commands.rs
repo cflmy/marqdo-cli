@@ -353,7 +353,13 @@ pub fn check(
         let text = output::render_text(&project.diagnostics);
         eprint!("{text}");
         if errors == 0 {
-            println!("checked {} module(s): ok", project.program.modules.len());
+            let checked = project
+                .program
+                .modules
+                .keys()
+                .filter(|id| !id.instance.starts_with("std:"))
+                .count();
+            println!("checked {checked} module(s): ok");
         } else {
             eprintln!(
                 "check failed: {} error(s), {} warning(s)",
