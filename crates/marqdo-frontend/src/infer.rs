@@ -145,12 +145,13 @@ impl<'a> Analyzer<'a> {
                 match callee.as_ref() {
                     Expr::Ident(_) => {}
                     Expr::Member { base, name, .. } => {
-                        let is_builtin_namespace = matches!(
-                            base.as_ref(),
-                            Expr::Ident(ident)
-                                if marqdo_ir::builtins::find(&format!("{}.{name}", ident.name)).is_some()
-                        );
-                        if !is_builtin_namespace {
+                        // `ns.f(...)` bases are namespaces: builtin namespaces,
+                        // imported module aliases or explicitly trusted plugin
+                        // namespaces bound at run time. They are never inferred
+                        // parameters. Non-identifier bases are values and are
+                        // still read normally.
+                        let _ = name;
+                        if !matches!(base.as_ref(), Expr::Ident(_)) {
                             self.read_expr(base, state);
                         }
                     }

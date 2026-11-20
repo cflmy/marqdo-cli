@@ -36,6 +36,10 @@ pub struct SandboxSettings {
     pub max_output: Option<usize>,
     /// Wall-clock timeout in seconds.
     pub timeout: Option<u64>,
+    /// Explicitly trusted plugin manifests to load.
+    pub plugins: Vec<PathBuf>,
+    /// Explicit trust decision for in-process native plugin loading.
+    pub trust_native_plugin: bool,
 }
 
 impl SandboxSettings {
@@ -497,6 +501,18 @@ pub fn execute(
     if let Some(timeout) = settings.timeout {
         host.budget.deadline = Some(Instant::now() + Duration::from_secs(timeout));
     }
+    for plugin_path in &settings.plugins {
+        if let Err(message) =
+            load_plugin_into_host(&mut host, plugin_path, settings.trust_native_plugin)
+        {
+            if json {
+                output::print_json(&json!({"success": false, "error": message}));
+            } else {
+                eprintln!("error: {message}");
+            }
+            return 1;
+        }
+    }
     let function_name = function.unwrap_or("main").to_string();
     let entry_module = &project.program.modules[&project.entry];
     if entry_module.function(&function_name).is_none() {
@@ -564,6 +580,31 @@ pub fn execute(
             1
         }
     }
+}
+
+fn load_plugin_into_host(host: &mut StdHost, path: &Path, trusted: bool) -> Result<String, String> {
+    let manifest_path = if path.is_dir() {
+        path.join("plugin.yaml")
+    } else {
+        path.to_path_buf()
+    };
+    let base_dir = manifest_path
+        .parent()
+        .map(|parent| parent.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("."));
+    let manifest = marqdo_plugin_abi::PluginManifest::load(&manifest_path)
+        .map_err(|error| format!("{}: {}", error.code, error.message))?;
+    manifest
+        .validate()
+        .map_err(|error| format!("{}: {}", error.code, error.message))?;
+    if !trusted {
+        return Err(format!(
+            "loading `{}` in-process requires --trust-native-plugin: no isolated worker transport is implemented in this build",
+            manifest.plugin.name
+        ));
+    }
+    host.load_plugin(&manifest, &base_dir, trusted)
+        .map_err(|error| format!("{}: {}", error.code(), error.message))
 }
 
 fn runtime_error_json(error: &RuntimeError, project: &LoadedProject) -> serde_json::Value {
@@ -968,7 +1009,10 @@ pub fn add(
         }));
     } else {
         println!("added dependency `{name}` to {}", manifest_path.display());
-        println!("run `marqdo lock` to pin it in {}", marqdo_package::LOCK_FILE);
+        println!(
+            "run `marqdo lock` to pin it in {}",
+            marqdo_package::LOCK_FILE
+        );
     }
     0
 }

@@ -9,6 +9,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+marqdo-plugin-abi = { workspace = true }
 glob = { workspace = true }
 marqdo-span = { workspace = true }
 marqdo-value = { workspace = true }

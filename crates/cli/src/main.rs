@@ -86,6 +86,12 @@ struct SandboxArgs {
     /// Wall-clock timeout in seconds.
     #[arg(long)]
     timeout: Option<u64>,
+    /// Explicitly trusted plugin manifest/directory to load (repeatable).
+    #[arg(long = "plugin", value_name = "PATH")]
+    plugin: Vec<PathBuf>,
+    /// Explicitly trust in-process native plugin loading (unsafe by nature).
+    #[arg(long = "trust-native-plugin")]
+    trust_native_plugin: bool,
 }
 
 impl SandboxArgs {
@@ -100,6 +106,8 @@ impl SandboxArgs {
             stack: self.stack,
             max_output: self.max_output,
             timeout: self.timeout,
+            plugins: self.plugin.clone(),
+            trust_native_plugin: self.trust_native_plugin,
         }
     }
 }

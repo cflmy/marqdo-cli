@@ -500,6 +500,34 @@ impl<'a> Interpreter<'a> {
                         let args = self.eval_args(args, frame)?;
                         return self.call_builtin(builtin, args, Some(span), frame);
                     }
+                    if !frame.locals.contains_key(&alias.name) {
+                        // Not a local value or imported module: try an explicitly
+                        // trusted plugin namespace. Plugin calls take named
+                        // arguments only in this build.
+                        let evaluated = self.eval_args(args, frame)?;
+                        let mut named = std::collections::BTreeMap::new();
+                        for argument in evaluated {
+                            let Some(argument_name) = argument.name else {
+                                return Err(RuntimeError::new(
+                                    ErrorCategory::Type,
+                                    Some(argument.span),
+                                    "plugin calls require named arguments",
+                                ));
+                            };
+                            named.insert(argument_name, argument.value);
+                        }
+                        let module = frame.function.module.clone();
+                        return self.host_invoke(
+                            HostOp::PluginInvoke,
+                            vec![
+                                Value::Text(alias.name.clone()),
+                                Value::Text(name.clone()),
+                                Value::Map(named),
+                            ],
+                            Some(span),
+                            &module,
+                        );
+                    }
                 }
                 let callee_value = self.eval_expr(callee, frame)?;
                 let args = self.eval_args(args, frame)?;

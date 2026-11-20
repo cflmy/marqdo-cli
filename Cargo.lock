@@ -388,6 +388,7 @@ dependencies = [
  "glob",
  "marqdo-foreign",
  "marqdo-math",
+ "marqdo-plugin-abi",
  "marqdo-sandbox",
  "marqdo-span",
  "marqdo-value",

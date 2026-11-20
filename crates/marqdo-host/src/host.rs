@@ -6,6 +6,7 @@
 
 use std::time::{Duration, Instant};
 
+use marqdo_plugin_abi::{ErrorKind as PluginErrorKind, LoadedPlugin, PluginError, PluginManifest};
 use marqdo_span::Span;
 use marqdo_value::{ErrorCategory, RuntimeError, Value};
 
@@ -108,6 +109,16 @@ pub struct StdHost {
     pub foreign_output_limit: usize,
     output: Vec<u8>,
     trace_id: u64,
+    /// Explicitly trusted, in-process native plugins keyed by namespace.
+    plugins: Vec<PluginSlot>,
+}
+
+struct PluginSlot {
+    /// Call namespace (prefix of the export name, e.g. `solver`).
+    namespace: String,
+    /// Package name used for capability grants.
+    package: String,
+    plugin: LoadedPlugin,
 }
 
 impl StdHost {
@@ -132,7 +143,66 @@ impl StdHost {
             foreign_output_limit: 1024 * 1024,
             output: Vec::new(),
             trace_id,
+            plugins: Vec::new(),
         }
+    }
+
+    /// Load a native plugin in-process after an explicit trust decision.
+    ///
+    /// In-process native code shares the host address space and is **not**
+    /// sandboxed; this build has no isolated worker transport. The caller must
+    /// pass `trusted = true` and grant the plugin capability. Returns the call
+    /// namespace derived from the plugin's export names.
+    pub fn load_plugin(
+        &mut self,
+        manifest: &PluginManifest,
+        base_dir: &std::path::Path,
+        trusted: bool,
+    ) -> Result<String, RuntimeError> {
+        if !trusted {
+            let mut error = RuntimeError::new(
+                ErrorCategory::PermissionDenied,
+                None,
+                "loading an in-process native plugin requires explicit trust",
+            );
+            error.effect_trace.push(
+                "hint: no isolated plugin worker transport is implemented in this build; in-process native code shares the host address space"
+                    .to_string(),
+            );
+            return Err(error);
+        }
+        self.capabilities
+            .check_plugin(&manifest.plugin.name, None)?;
+        manifest.validate().map_err(map_plugin_error)?;
+        let namespace = manifest
+            .plugin
+            .exports
+            .first()
+            .and_then(|export| {
+                export
+                    .name
+                    .split_once('.')
+                    .map(|(namespace, _)| namespace.to_string())
+            })
+            .ok_or_else(|| {
+                RuntimeError::new(
+                    ErrorCategory::PluginAbi,
+                    None,
+                    "plugin manifest declares no namespaced exports",
+                )
+            })?;
+        let loaded = LoadedPlugin::open_with(
+            manifest,
+            base_dir,
+            marqdo_plugin_abi::LoadOptions::default(),
+        )
+        .map_err(map_plugin_error)?;
+        self.plugins.push(PluginSlot {
+            namespace: namespace.clone(),
+            package: manifest.plugin.name.clone(),
+            plugin: loaded,
+        });
+        Ok(namespace)
     }
 
     /// Enable effect tracing.
@@ -175,11 +245,7 @@ impl StdHost {
             HostOp::ForeignRun | HostOp::ForeignCall => {
                 crate::kernels::foreign(self, op, args, ctx)
             }
-            HostOp::PluginInvoke => Err(RuntimeError::new(
-                ErrorCategory::KernelUnavailable,
-                ctx.span,
-                "no plugin runtime is loaded in this build",
-            )),
+            HostOp::PluginInvoke => self.op_plugin_invoke(args, ctx),
         }
     }
 
@@ -207,6 +273,55 @@ impl StdHost {
         let contents = self.fs.read(&path, ctx.span)?;
         self.budget.consume_output(contents.len(), ctx.span)?;
         Ok(Value::Text(contents))
+    }
+
+    fn op_plugin_invoke(
+        &mut self,
+        args: Vec<Value>,
+        ctx: &ExecutionContext,
+    ) -> Result<Value, RuntimeError> {
+        if args.len() != 3 {
+            return Err(arity(ctx.span, "plugin.invoke", 3, args.len()));
+        }
+        let Value::Text(namespace) = &args[0] else {
+            return Err(RuntimeError::type_error(
+                ctx.span,
+                "plugin namespace must be Text",
+            ));
+        };
+        let Value::Text(export) = &args[1] else {
+            return Err(RuntimeError::type_error(
+                ctx.span,
+                "plugin export must be Text",
+            ));
+        };
+        let Value::Map(named_args) = &args[2] else {
+            return Err(RuntimeError::type_error(
+                ctx.span,
+                "plugin call arguments must be named",
+            ));
+        };
+        let slot = self
+            .plugins
+            .iter_mut()
+            .find(|slot| &slot.namespace == namespace)
+            .ok_or_else(|| {
+                RuntimeError::new(
+                    ErrorCategory::UnknownSymbol,
+                    ctx.span,
+                    format!("no plugin namespace `{namespace}` is loaded"),
+                )
+            })?;
+        self.capabilities
+            .check_plugin(&slot.package.clone(), ctx.span)?;
+        let function = format!("{namespace}.{export}");
+        let mut request = marqdo_plugin_abi::WireRequest::new(function.clone());
+        for (name, value) in named_args {
+            request = request.with_arg(name.clone(), value);
+        }
+        let response = slot.plugin.invoke(&request).map_err(map_plugin_error)?;
+        let value = response.typed_value().map_err(map_plugin_error)?;
+        Ok(value.unwrap_or(Value::Unit))
     }
 
     fn op_fs_write(
@@ -264,6 +379,17 @@ impl Host for StdHost {
     fn trace(&self) -> &[TraceEntry] {
         self.trace.entries()
     }
+}
+
+fn map_plugin_error(error: PluginError) -> RuntimeError {
+    let category = match error.kind {
+        PluginErrorKind::Abi => ErrorCategory::PluginAbi,
+        PluginErrorKind::Capability => ErrorCategory::PermissionDenied,
+        PluginErrorKind::Wire => ErrorCategory::Type,
+        PluginErrorKind::Unsupported => ErrorCategory::KernelUnavailable,
+        _ => ErrorCategory::PluginFailure,
+    };
+    RuntimeError::new(category, None, format!("{}: {}", error.code, error.message))
 }
 
 /// Type-checked argument helper.
