@@ -6,19 +6,21 @@
 > **仓库与审查基线**：[`cflmy/marqdo-cli`](https://github.com/cflmy/marqdo-cli)，`master`，commit [`0116160399fda6df69a72da438e04b0072566b0f`](https://github.com/cflmy/marqdo-cli/commit/0116160399fda6df69a72da438e04b0072566b0f)，检查日 2026-11-20。  
 > **语言身份**：独立 Rust 解释执行的 Markdown 原生语言，`.mq.md`；新项目不从旧 `cflmy/marqdo` 仓库迁移代码或承诺旧语法/API/ABI 兼容。  
 > **交付目标**：在**不扩张 CLI 顶层命令面**的前提下，先消除 M0.5 中阻碍第三方扩展与多版本依赖的结构性瓶颈，再将工具链整理为轻量稳定核心；提供足够小的、版本化的公共分析与执行接口，以及 `marqdo tool` 外部工具分发机制，从而允许 Knowledge、Proof、View 三个独立仓库和第三方工具开始独立开发。  
-> **判定用语**：`MUST/必须` 为本阶段规范；`SHOULD/建议` 为可经 ADR 调整的默认方案；`DEFER/后置` 不属于本轮完成门槛；`EXISTING/现有` 为仓库已有实现，不代表经本次现场构建验证。
+> **判定用语**：`MUST/必须` 为本阶段规范；`SHOULD/建议` 为可经 ADR 调整的默认方案；`DEFER/后置` 不属于本轮完成门槛；`EXISTING/现有` 为仓库已有实现，不代表经本次现场构建验证。  
+> **后续阶段基线**：`docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`（Proposed，审查基线 `0adebe4`）基于本计划之后的提交，重新审查 CI、锁图、源码身份、Analysis/Trace、Tool 与安全隔离，并定义 G-A/G-B/G-C 发布门槛。两者冲突时以该文为当前阶段基线；本文保留 M0.6 的设计与审计来源。
 
 ## 0. 阅读顺序、权威性与禁止误解
 
 本文件用于告诉陌生开发者“下一步为什么做、具体做什么、哪些不要做、怎样验收”，**不是**另起一套取代现有实现的语言规范。建议依次阅读：
 
-1. 本文件：产品边界、M0.6 实施次序与发布条件。
-2. `docs/STATUS.md`：M0.5 当前实现的阶段性记录；该文件可能因后续修复提交而局部滞后，存在冲突时以当前源码和回归测试为准，并同步修正状态表。
-3. `spec/markdown-profile.md`、`spec/mapping.md`、`spec/expression.ebnf`、`spec/evaluation.md`、`spec/references.md`：**现有语言行为的规范来源**。
-4. `spec/package-format.md`、`spec/value-wire.md`、`spec/security.md`、`spec/foreign.md`、`spec/math.md`、`spec/plugin-abi.md`：工程协议与边界。
-5. `docs/adr/0001-*.md` 至 `0007-*.md`：已经接受的决策；若本文件要求改变其行为，先提新 ADR，不能静默覆盖。
-6. `tests/README.md`、`tests/conformance/`、`tests/negative/`、`crates/cli/tests/`：通过测试展示真实行为。
-7. `docs/DEVELOPMENT_BLUEPRINT.md`：历史 M0.5 全量设想与设计依据；**在命令规模、能力注册、插件寻址、包身份、仓库解耦和发布门槛上以本文件为新的目标方案**，已接受的具体语义规范仍以 `spec/`、ADR 和测试为准。
+1. `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`：后续稳定化、协议冻结与独立生态准入的当前阶段规范（Proposed）；先用它刷新基线与发布门槛。
+2. 本文件：产品边界、M0.6 实施次序与发布条件。
+3. `docs/STATUS.md`：M0.5 当前实现的阶段性记录；该文件可能因后续修复提交而局部滞后，存在冲突时以当前源码和回归测试为准，并同步修正状态表。
+4. `spec/markdown-profile.md`、`spec/mapping.md`、`spec/expression.ebnf`、`spec/evaluation.md`、`spec/references.md`：**现有语言行为的规范来源**。
+5. `spec/package-format.md`、`spec/value-wire.md`、`spec/security.md`、`spec/foreign.md`、`spec/math.md`、`spec/plugin-abi.md`：工程协议与边界。
+6. `docs/adr/0001-*.md` 至 `0007-*.md`：已经接受的决策；若本文件要求改变其行为，先提新 ADR，不能静默覆盖。
+7. `tests/README.md`、`tests/conformance/`、`tests/negative/`、`crates/cli/tests/`：通过测试展示真实行为。
+8. `docs/DEVELOPMENT_BLUEPRINT.md`：历史 M0.5 全量设想与设计依据；**在命令规模、能力注册、插件寻址、包身份、仓库解耦和发布门槛上以本文件为新的目标方案**，已接受的具体语义规范仍以 `spec/`、ADR 和测试为准。
 
 **不要混淆四个不同的名称**：`marqdo-cli` 是本仓库和核心工具链；`marqdo` 是用户使用的命令；`marqdo tool` 通过统一清单管理**任意**独立 CLI 工具；运行时 C ABI 插件用于扩展程序函数，**不是**外部 CLI 工具。
 

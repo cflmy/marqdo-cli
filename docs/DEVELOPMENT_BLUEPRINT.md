@@ -10,6 +10,8 @@
 **这不是对 `cflmy/marqdo` 的兼容性重构。本项目必须从语言目标出发，独立建立 Marqdo 工具链。** 旧仓库只作为经验、算法、测试和可能的代码复用来源；旧语法、旧 ABI、旧插件体系不因名称相同而自动成为新版本的兼容契约。
 
 > **M0.6 规划说明**：`docs/NEXT_PHASE_IMPLEMENTATION.md`（Proposed）与 `docs/EXTENSIBILITY_AUDIT.md` 已在命令规模、能力注册、插件寻址、包身份、仓库解耦和发布门槛上提出新的目标方案；发生冲突时以该 M0.6 计划为准。`spec/`、已接受 ADR 与测试仍是已实现语言行为的规范来源，Proposed 内容不表示已实现。
+>
+> **当前阶段基线**：`docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`（Proposed，审查基线 `0adebe4`）基于 M0.6 计划之后的提交重新审查 CI、锁图、源码身份、Analysis/Trace、Tool 与安全隔离，并定义 G-A/G-B/G-C 发布门槛。该文在**当前基线、问题清单和发布门槛**上取代上述两份文档；冲突时以其为准，但同样不表示已实现。
 
 ---
 

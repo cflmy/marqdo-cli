@@ -16,10 +16,11 @@ plugin ABI v2 are not claimed to work here.
 > documented Math/Foreign subset are implemented and tested; modules/package/
 > security/plugin support is functional but partial; strict isolation, worker
 > plugins, git packages and performance/release work are not done. See
-> [`docs/STATUS.md`](docs/STATUS.md) and "Deliberate limits" below. The M0.6
-> extensibility plan in
-> [`docs/NEXT_PHASE_IMPLEMENTATION.md`](docs/NEXT_PHASE_IMPLEMENTATION.md) is a
-> **Proposed** next-phase design, not an implemented feature list.
+> [`docs/STATUS.md`](docs/STATUS.md) and "Deliberate limits" below. The
+> [stabilization and ecosystem-gate spec](docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md)
+> and the M0.6 extensibility plan in
+> [`docs/NEXT_PHASE_IMPLEMENTATION.md`](docs/NEXT_PHASE_IMPLEMENTATION.md) are
+> **Proposed** next-phase designs, not implemented feature lists.
 
 ## Build
 
@@ -167,6 +168,10 @@ tests/                        conformance/negative corpus (see tests/README.md)
   baseline (Chinese; the M0.6 plan below supersedes it on command-surface scope,
   extension registration, plugin addressing, package identity, repository
   decoupling and release gates).
+* [`docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`](docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md)
+  — proposed current-stage spec (Chinese, baseline `0adebe4`): CI/lock/source
+  identity/Tool/sandbox gaps B-01–B-18, H0–H3 workstreams, and the G-A/G-B/G-C
+  release gates. Newer than the M0.6 plan; still design input, not implemented.
 * [`docs/NEXT_PHASE_IMPLEMENTATION.md`](docs/NEXT_PHASE_IMPLEMENTATION.md) —
   proposed M0.6 plan (Chinese): extensibility fixes, callable/package/kernel
   registration, `marqdo tool`, Analysis/Trace v1, safety and release gates.

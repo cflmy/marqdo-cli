@@ -14,6 +14,7 @@ marqdo-cli/
 ├── README.md                   user-facing quickstart and limits
 ├── docs/
 │   ├── DEVELOPMENT_BLUEPRINT.md   architecture baseline
+│   ├── CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md  current-stage stabilization spec (Proposed)
 │   ├── NEXT_PHASE_IMPLEMENTATION.md  proposed M0.6 plan (Proposed, not implemented)
 │   ├── EXTENSIBILITY_AUDIT.md     source-backed E01–E16 audit for M0.6
 │   ├── STATUS.md                  implementation matrix (P0–P7)
@@ -256,10 +257,14 @@ file and function; root-only examples (for example `math.mq.md`) define no
 
 * `spec/` = normative contracts; `docs/` = architecture/decisions/status;
   `README.md` = user quickstart; `AGENTS.md` = contributor rules.
-* `docs/NEXT_PHASE_IMPLEMENTATION.md` and `docs/EXTENSIBILITY_AUDIT.md` are the
-  M0.6 planning/evidence pair. The plan is **Proposed**: it supersedes the
-  blueprint only on command-surface scope, extension registration, plugin
-  addressing, package identity, repository decoupling and release gates.
+* `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md` is the current-stage
+  stabilization spec (baseline `0adebe4`). It supersedes the M0.6 planning pair
+  on the current baseline, gap list (B-01–B-18) and the G-A/G-B/G-C release
+  gates. `docs/NEXT_PHASE_IMPLEMENTATION.md` and
+  `docs/EXTENSIBILITY_AUDIT.md` remain the M0.6 planning/evidence pair. All are
+  **Proposed**: the M0.6 plan supersedes the blueprint only on command-surface
+  scope, extension registration, plugin addressing, package identity, repository
+  decoupling and release gates.
   Language semantics remain normative in `spec/` + Accepted ADRs + tests, and
   `spec/tool-v1.md` is a candidate protocol until an ADR and implementation
   tests land. Never cite these proposed documents as evidence that a feature

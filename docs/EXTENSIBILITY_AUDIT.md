@@ -1,6 +1,6 @@
 # M0.6 扩展性审计：源码问题、改造路径与测试契约
 
-> 源文档 `docs/NEXT_PHASE_IMPLEMENTATION.md` §1A 的审计摘录，供开发者按问题创建 PR；具体开发次序和发布门槛请看主文档。
+> 源文档 `docs/NEXT_PHASE_IMPLEMENTATION.md` §1A 的审计摘录，供开发者按问题创建 PR；具体开发次序和发布门槛请看主文档。该审计之后的稳定化基线与 G-A/G-B/G-C 门槛见 `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`。
 
 ## 1A. **扩展性审计（v3 增补，优先级高于后续阶段）**
 
