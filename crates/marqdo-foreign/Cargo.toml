@@ -10,6 +10,8 @@ authors.workspace = true
 
 [dev-dependencies]
 tempfile = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
 
 [dependencies]
 marqdo-span = { workspace = true }
@@ -17,6 +19,8 @@ marqdo-value = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }

@@ -95,6 +95,15 @@ pub struct KernelDescriptor {
     /// descriptors must leave this false.
     #[serde(default)]
     pub builtin: bool,
+    /// Optional opaque environment id (for example a uv/npm lock id).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub environment_id: Option<String>,
+    /// Optional digest of the environment descriptor/closure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub environment_digest: Option<String>,
+    /// Optional expected interpreter version string.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interpreter_version: Option<String>,
 }
 
 impl KernelDescriptor {
@@ -111,6 +120,9 @@ impl KernelDescriptor {
             digest: None,
             permissions_requested: Vec::new(),
             builtin: true,
+            environment_id: None,
+            environment_digest: None,
+            interpreter_version: None,
         }
     }
 
@@ -131,6 +143,9 @@ impl KernelDescriptor {
             digest: None,
             permissions_requested: Vec::new(),
             builtin: false,
+            environment_id: None,
+            environment_digest: None,
+            interpreter_version: None,
         }
     }
 }
@@ -188,6 +203,47 @@ impl KernelRegistry {
                     marqdo_value::WIRE_VERSION
                 ),
             });
+        }
+        if let Some(environment) = &descriptor.environment_id {
+            if environment.trim().is_empty() {
+                return Err(ForeignError::Protocol {
+                    message: format!(
+                        "kernel provider `{}` has an empty environment_id",
+                        descriptor.provider_id
+                    ),
+                });
+            }
+        }
+        if let Some(digest) = &descriptor.environment_digest {
+            if !is_sha256_hex(digest) {
+                return Err(ForeignError::Protocol {
+                    message: format!(
+                        "kernel provider `{}` environment_digest must be 64 lowercase hex characters",
+                        descriptor.provider_id
+                    ),
+                });
+            }
+        }
+        if let Some(digest) = &descriptor.digest {
+            if !is_sha256_hex(digest) {
+                return Err(ForeignError::Protocol {
+                    message: format!(
+                        "kernel provider `{}` digest must be 64 lowercase hex characters",
+                        descriptor.provider_id
+                    ),
+                });
+            }
+        }
+        if !descriptor.builtin {
+            if !descriptor.entrypoint.is_absolute() {
+                return Err(ForeignError::Protocol {
+                    message: format!(
+                        "external kernel provider `{}` entrypoint must be absolute",
+                        descriptor.provider_id
+                    ),
+                });
+            }
+            verify_provider(&descriptor)?;
         }
         for language in &mut descriptor.languages {
             *language = language.trim().to_ascii_lowercase();
@@ -366,6 +422,16 @@ pub enum ForeignError {
         /// What went wrong.
         message: String,
     },
+    /// The external provider binary no longer matches its declared digest.
+    #[error("foreign kernel `{provider}` failed integrity verification: expected {expected}, got {actual}")]
+    Integrity {
+        /// Provider id.
+        provider: String,
+        /// Declared digest.
+        expected: String,
+        /// Actual digest.
+        actual: String,
+    },
     /// Captured stdout/stderr exceeded `max_output_bytes`; the child was
     /// killed and the partial output dropped.
     #[error("foreign kernel output exceeded the {limit} byte limit")]
@@ -373,6 +439,41 @@ pub enum ForeignError {
         /// Configured byte budget.
         limit: usize,
     },
+}
+
+fn is_sha256_hex(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+}
+
+fn sha256_file(path: &Path) -> Result<String, ForeignError> {
+    use sha2::{Digest, Sha256};
+    let bytes = fs::read(path).map_err(|error| ForeignError::Io {
+        message: format!("cannot read kernel provider `{}`: {error}", path.display()),
+    })?;
+    let mut hasher = Sha256::new();
+    hasher.update(&bytes);
+    Ok(hex::encode(hasher.finalize()))
+}
+
+fn verify_provider(descriptor: &KernelDescriptor) -> Result<(), ForeignError> {
+    if descriptor.builtin {
+        return Ok(());
+    }
+    let Some(expected) = &descriptor.digest else {
+        return Ok(());
+    };
+    let actual = sha256_file(&descriptor.entrypoint)?;
+    if &actual != expected {
+        return Err(ForeignError::Integrity {
+            provider: descriptor.provider_id.clone(),
+            expected: expected.clone(),
+            actual,
+        });
+    }
+    Ok(())
 }
 
 /// Detect a kernel for `language` by scanning `PATH`.
@@ -494,6 +595,9 @@ fn execute(request: &RunRequest, registry: &KernelRegistry) -> Result<RawRun, Fo
                     request.language
                 ),
             })?;
+    if !descriptor.builtin {
+        verify_provider(descriptor)?;
+    }
     let program = resolve_program(descriptor).ok_or_else(|| ForeignError::KernelUnavailable {
         language: descriptor.provider_id.clone(),
         hint: if descriptor.builtin {
@@ -593,6 +697,9 @@ fn is_executable_file(path: &Path) -> bool {
 
 fn resolve_program(descriptor: &KernelDescriptor) -> Option<PathBuf> {
     if !descriptor.builtin {
+        if !descriptor.entrypoint.is_absolute() {
+            return None;
+        }
         return descriptor
             .entrypoint
             .is_file()

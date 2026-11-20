@@ -1,7 +1,12 @@
 {
   "provider_id": "mocklang",
-  "languages": ["mocklang", "mock"],
+  "languages": [
+    "mocklang",
+    "mock"
+  ],
   "wire_version": 1,
   "entrypoint": "./mocklang",
-  "permissions_requested": []
+  "permissions_requested": [],
+  "digest": "9083fd340d06a9e3e0356a9f5b202ff8d61bcd22b2aaedd190f7c593bbeab23a",
+  "environment_id": "mocklang-env-1"
 }

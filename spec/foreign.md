@@ -44,7 +44,8 @@ heading text.
 
 `KernelRegistry` maps case-insensitive language labels to an explicit
 `KernelDescriptor` (`provider_id`, `languages`, `wire_version`, `entrypoint`,
-optional digest, advisory permission requests). Built-in providers are:
+`digest`, optional `environment_id`/`environment_digest`/`interpreter_version`,
+advisory permission requests). Built-in providers are:
 
 | Canonical | Accepted aliases | Interpreter lookup |
 |---|---|---|
@@ -53,10 +54,21 @@ optional digest, advisory permission requests). Built-in providers are:
 
 Additional providers are registered with
 `KernelDescriptor::external(provider_id, languages, entrypoint)` and an exact
-wire version (`1`). External entrypoints must be explicit executable files, not
-PATH names. Duplicate language labels and incompatible wire versions are
-rejected at registration. The host owns a registry (`StdHost::kernel_registry`,
-`StdHost::register_kernel`); the interpreter never hard-codes a language list.
+wire version (`1`). External entrypoints must be absolute executable files, not
+PATH names, and descriptors loaded by the CLI must declare a 64-character
+lowercase hex `digest` of the provider program. The digest is verified at
+registration and again immediately before every execution; a mismatch returns
+`ForeignError::Integrity` before spawn, so a provider tampered with after
+registration cannot run. Duplicate language labels and incompatible wire
+versions are rejected at registration. The host owns a registry
+(`StdHost::kernel_registry`, `StdHost::register_kernel`); the interpreter never
+hard-codes a language list.
+
+`environment_id`, `environment_digest` and `interpreter_version` record the
+intended reproducible environment. This build validates their shape and echoes
+`environment_id` through `KernelInfo`; it does **not** materialize uv/npm
+environments or integrate them into lock v3. A production descriptor should pin
+all three once a materializer exists.
 
 A `Code` value for an unregistered label is still valid inert data. Only an
 explicit `foreign.run`/`foreign.call` lookup can fail with

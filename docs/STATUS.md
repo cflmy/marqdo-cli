@@ -188,6 +188,26 @@ Tool Protocol hardening (`spec/tool-v1.md`):
   not counted as cross-platform evidence; `docs/STATUS.md` records this rather
   than treating `cargo test` skips as passes.
 
+### S5-A/B-12 record (current)
+
+Foreign provider integrity and environment metadata:
+
+* `KernelDescriptor` gains `environment_id`, `environment_digest` and
+  `interpreter_version`; external descriptors loaded by the CLI must declare a
+  full provider `digest` and an absolute executable entrypoint.
+* Descriptors are verified at registration and again before every spawn; a
+  post-registration binary change returns `ForeignError::Integrity` without
+  starting a process. Malformed digests and relative external paths fail closed.
+* The example provider pins its digest; tests cover success, post-registration
+  tampering and malformed descriptors.
+* The environment fields are metadata only. uv/npm environment materialization,
+  environment-directory hashing and lock-v3 integration are **not**
+  implemented.
+* H3-A (capability broker executing real operations) and H3-B (OS isolation)
+  remain open. `CapabilityBroker::authorize` is still policy/audit-only, Worker
+  capability requests are still denied, and `strict` is refused on every
+  platform. No G-C claim is made.
+
 ### M0.6 implementation progress
 
 | Step | State | Evidence |
@@ -199,12 +219,13 @@ Tool Protocol hardening (`spec/tool-v1.md`):
 | S2-C/H2-B Trace v2 | **Done** | logical root/digest, module-owned events, bounded/truncated trace, independent consumer, hardened worker frames (see §S2-C/H2-B) |
 | S3-A/H2-C Tool protocol | **Done** | SemVer negotiation at install+dispatch, whole-bundle manifest/digest verification, atomic install/remove, reserved record file (see §S3-A/H2-C) |
 | S4-A/B-13 B-14 quality gates | **Partial** | real schema instance validation + negative mutations in CI; Windows/macOS runtime tests for core/Analysis/Trace and strict refusal. Tool/C-ABI/worker runtime evidence remains Unix-only (see §S4-A) |
+| S5-A/B-12 foreign integrity | **Done for metadata/integrity** | provider digest verified at registration and before spawn; environment descriptor fields; full uv/npm materialization and H3-A/B remain open (see §S5-A/B-12) |
 | R0 baseline + ADRs | **Done** | this section; `docs/adr/0008`–`0012`; full workspace gate |
 | R1 package-aware identity + callable registry | **Done for statics; superseded by S1 lock v3** | `ModuleId { instance, relative_path }`; `PackageResolver` path sources; lock v3 transitive graph (ADR-0016) replaces the flat v2 lock; `CallableRegistry` for builtins/marqdo/declared ABI exports; external manifest wiring is R2 |
 | R2 ABI/Kernel/Broker | **Done (worker = crash isolation)** | `KernelRegistry` external providers; complete-name export routing; `CapabilityBroker`; static `check --plugin`; multi-export C test; isolated worker with timeout/crash tests; host handle table. Native/worker are not an OS sandbox |
 | R3 Tool Protocol | **Done (S3 hardened)** | `tool install/list/remove`; unknown-command fallback; SemVer + Analysis/Trace negotiation; whole-bundle digest verification; staged install and rename-based removal; black-box tests for arbitrary names, Unicode args, conflicts, traversal, PATH hijacking and bundle tampering |
 | R4 Analysis/Trace v2 | **Done** | `check --emit` Analysis v2 and `run/call --trace-file` Trace v2 with logical identity, resources, module-owned events, capacity bounds, schemas and independent Python consumers; stale-artifact removal; value redaction |
-| R5 environment/isolation | **Partial** | Pinned Git fetch with verified cache markers, transitive `@alias` resolution, full-closure atomic `.marqdo/env` materialization, foreign process-group cleanup. Strict OS isolation remains explicitly unavailable (fail-closed) |
+| R5 environment/isolation | **Partial** | Pinned Git fetch with verified cache markers, transitive `@alias` resolution, full-closure atomic `.marqdo/env` materialization, foreign process-group cleanup, verified foreign provider digests and environment descriptor metadata. Strict OS isolation and uv/npm environment materialization remain explicitly unavailable (fail-closed) |
 | R6 release/consumers | **Partial** | examples for unknown-name Tool, multi-export plugin, external kernel and multi-version packages; Analysis/Trace/Tool JSON Schemas with instance validation; Linux full gate + Windows/macOS workspace tests and portable analysis/trace smoke; Unix-only Tool/ABI/worker runtime evidence |
 
 Reproduce the evidence:

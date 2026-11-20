@@ -268,6 +268,16 @@ fn foreign_error(
             format!("foreign kernel exceeded its {seconds}s timeout"),
         ),
         ForeignError::Protocol { message } => (ErrorCategory::ForeignFailure, message),
+        ForeignError::Integrity {
+            provider,
+            expected,
+            actual,
+        } => (
+            ErrorCategory::KernelUnavailable,
+            format!(
+                "foreign kernel `{provider}` failed integrity verification: expected {expected}, got {actual}"
+            ),
+        ),
         ForeignError::OutputTooLarge { limit } => (
             ErrorCategory::ResourceExhausted,
             format!("foreign kernel exceeded the {limit} byte output limit"),

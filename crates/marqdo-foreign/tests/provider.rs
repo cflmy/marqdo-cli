@@ -98,3 +98,42 @@ fn external_provider_timeout_is_enforced() {
     assert!(matches!(error, ForeignError::Timeout { .. }));
     // The built-in path remains unchanged.
 }
+
+#[cfg(unix)]
+#[test]
+fn provider_digest_is_verified_at_registration_and_execution() {
+    use sha2::{Digest, Sha256};
+
+    let dir = tempfile::tempdir().unwrap();
+    let script = mock_provider(dir.path());
+    let digest = {
+        let mut hasher = Sha256::new();
+        hasher.update(std::fs::read(&script).unwrap());
+        hex::encode(hasher.finalize())
+    };
+    let mut registry = KernelRegistry::builtin();
+    let mut descriptor = KernelDescriptor::external("mocklang", &["mocklang", "mock"], &script);
+    descriptor.digest = Some(digest.clone());
+    descriptor.environment_id = Some("env-test".to_string());
+    registry.register(descriptor).unwrap();
+    assert_eq!(
+        registry
+            .descriptor("mocklang")
+            .unwrap()
+            .environment_id
+            .as_deref(),
+        Some("env-test")
+    );
+    let result = call_with_registry(&request("mocklang", "ignored"), &registry).unwrap();
+    assert_eq!(result.status, RunStatus::Success);
+
+    // Tampering after registration must be caught before spawn.
+    std::fs::write(&script, "#!/bin/sh\nexit 0\n").unwrap();
+    let error = call_with_registry(&request("mocklang", "ignored"), &registry).unwrap_err();
+    assert!(matches!(error, ForeignError::Integrity { .. }), "{error:?}");
+
+    // Malformed digests and relative external entrypoints are rejected.
+    let mut bad = KernelDescriptor::external("bad", &["bad"], "relative.sh");
+    bad.digest = Some("not-a-digest".to_string());
+    assert!(registry.register(bad).is_err());
+}

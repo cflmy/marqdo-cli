@@ -863,6 +863,12 @@ fn load_kernel_descriptor(host: &mut StdHost, path: &Path) -> Result<(), String>
     if descriptor.builtin {
         return Err("external kernel descriptors must not set `builtin: true`".to_string());
     }
+    if descriptor.digest.is_none() {
+        return Err(
+            "external kernel descriptors must declare a `digest` of the provider program"
+                .to_string(),
+        );
+    }
     if descriptor.entrypoint.is_relative() {
         let base = path.parent().unwrap_or_else(|| Path::new("."));
         descriptor.entrypoint = base.join(&descriptor.entrypoint);
