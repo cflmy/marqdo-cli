@@ -1,0 +1,25 @@
+# Example Marqdo plugin manifest (plugin ABI v1).
+#
+# Installing this package never grants permissions. Loading the native library
+# additionally requires an explicit trust decision by the host/user; a C ABI is
+# not a sandbox. Replace the sha256 below with the digest of the artifact you
+# actually build:
+#
+#   sha256sum examples/plugin-demo/solver.so
+#
+# and replace `target` with your host's Rust target triple if it is not
+# x86_64-unknown-linux-gnu (`rustc -vV | grep host`).
+plugin:
+  name: demo.solver
+  version: 0.1.0
+  abi: "^1.0"
+  kind: native
+  exports:
+    - name: solver.add
+      signature: "($a: Int, $b: Int) -> Int"
+  requires:
+    - math.compute
+  artifacts:
+    - target: x86_64-unknown-linux-gnu
+      file: solver.so
+      sha256: "0000000000000000000000000000000000000000000000000000000000000000"
