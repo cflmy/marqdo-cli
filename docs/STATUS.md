@@ -35,6 +35,18 @@ example smoke tests. The R0 ADRs are `docs/adr/0008`–`0012` (package identity,
 callable resolution, plugin export routing, capability broker, kernel
 providers).
 
+### M0.6 implementation progress
+
+| Step | State | Evidence |
+|---|---|---|
+| R0 baseline + ADRs | **Done** | this section; `docs/adr/0008`–`0012`; full workspace gate |
+| R1 package-aware identity | **In progress** | `ModuleId { instance, relative_path }`; `PackageResolver` path sources; `lock_version: 2` with v1 migration; tests in `marqdo-package` |
+| R2 ABI/Kernel/Broker | Not started | — |
+| R3 Tool Protocol | Not started | — |
+| R4 Analysis/Trace v1 | Not started | — |
+| R5 environment/isolation | Not started | — |
+| R6 release/consumers | Not started | — |
+
 Reproduce the evidence:
 
 ```bash

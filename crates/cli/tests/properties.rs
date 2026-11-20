@@ -379,7 +379,7 @@ fn narration_removal_preserves_execution() {
 
     let mut values = Vec::new();
     for source in [base.source, clean.as_str()] {
-        let analysis = marqdo_frontend::analyze_source(&module_id.0, source);
+        let analysis = marqdo_frontend::analyze_source(&module_id.to_string(), source);
         assert!(!analysis.has_errors(), "{:?}", analysis.diagnostics);
         let mut program = marqdo_ir::Program::default();
         program.insert(analysis.module.clone());

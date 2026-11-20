@@ -18,19 +18,89 @@ use serde::{Deserialize, Serialize};
 
 pub mod builtins;
 
-/// Canonical identity of a module: project-relative path with `/` separators.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ModuleId(pub String);
+/// Canonical logical identity of a module: package instance plus a path
+/// relative to that package's module root.
+///
+/// The instance prefix is **not** a physical cache path (ADR-0008). The display
+/// and wire form is `<instance>::<relative_path>`; a bare path is accepted for
+/// standalone tests and documents as `root:default`.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ModuleId {
+    /// Logical package instance (`root:...` or `dep:...`).
+    pub instance: String,
+    /// Path relative to the package module root, with `/` separators.
+    pub relative_path: String,
+}
+
+impl ModuleId {
+    /// Construct a module id from an explicit instance and relative path.
+    pub fn new(instance: impl Into<String>, relative_path: impl Into<String>) -> Self {
+        Self {
+            instance: instance.into(),
+            relative_path: relative_path.into(),
+        }
+    }
+
+    /// Construct a module id for the default/root package.
+    pub fn root_default(relative_path: impl Into<String>) -> Self {
+        Self::new("root:default", relative_path)
+    }
+
+    /// Parse the canonical `<instance>::<path>` form, accepting a bare path as
+    /// `root:default` for compatibility with standalone documents/tests.
+    pub fn parse(value: &str) -> Result<Self, String> {
+        if value.is_empty() {
+            return Err("module id must not be empty".to_string());
+        }
+        match value.split_once("::") {
+            Some((instance, path)) if !instance.is_empty() && !path.is_empty() => {
+                Ok(Self::new(instance, path))
+            }
+            Some(_) => Err(format!("invalid module id `{value}`")),
+            None => Ok(Self::root_default(value)),
+        }
+    }
+
+    /// The canonical string form.
+    pub fn canonical(&self) -> String {
+        format!("{}::{}", self.instance, self.relative_path)
+    }
+}
 
 impl fmt::Display for ModuleId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
+        write!(f, "{}::{}", self.instance, self.relative_path)
     }
 }
 
 impl From<&str> for ModuleId {
     fn from(value: &str) -> Self {
-        ModuleId(value.to_string())
+        ModuleId::parse(value).unwrap_or_else(|_| ModuleId::root_default(value))
+    }
+}
+
+impl From<String> for ModuleId {
+    fn from(value: String) -> Self {
+        ModuleId::from(value.as_str())
+    }
+}
+
+impl Serialize for ModuleId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.canonical())
+    }
+}
+
+impl<'de> Deserialize<'de> for ModuleId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        ModuleId::parse(&value).map_err(serde::de::Error::custom)
     }
 }
 
@@ -465,7 +535,7 @@ mod tests {
         };
         assert!(module.entry().is_none());
         assert_eq!(module.import("geometry").unwrap().target, "@geometry");
-        assert_eq!(module.id.to_string(), "index.mq.md");
+        assert_eq!(module.id.to_string(), "root:default::index.mq.md");
     }
 
     #[test]

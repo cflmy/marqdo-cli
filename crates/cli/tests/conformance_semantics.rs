@@ -156,7 +156,7 @@ fn semantic_goldens_match_end_to_end_execution() {
         let source = fs::read_to_string(fixture)
             .unwrap_or_else(|error| panic!("cannot read {}: {error}", fixture.display()));
         let module_id = ModuleId::from("index.mq.md");
-        let analysis = marqdo_frontend::analyze_source(&module_id.0, &source);
+        let analysis = marqdo_frontend::analyze_source(&module_id.to_string(), &source);
         if analysis.has_errors() {
             panic!(
                 "semantic fixture `{}` must compile without errors:\n{}",

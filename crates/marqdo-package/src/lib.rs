@@ -9,6 +9,10 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+
+/// Canonical instance id used by a standalone document without a manifest.
+pub const DEFAULT_INSTANCE: &str = "root:default";
 
 /// Manifest file name.
 pub const MANIFEST_FILE: &str = "marqdo.yaml";
@@ -182,16 +186,343 @@ impl Manifest {
     }
 }
 
+/// How a resolved package was obtained. Identity does not depend on this.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PackageOrigin {
+    /// The project entry package.
+    Root,
+    /// A project-relative path dependency.
+    Path {
+        /// The declared path from `marqdo.yaml` (may be relative).
+        declared: PathBuf,
+    },
+    /// A pinned Git revision (implemented in the environment milestone).
+    Git {
+        /// Repository URL.
+        url: String,
+        /// Exact revision.
+        rev: String,
+    },
+}
+
+impl PackageOrigin {
+    /// Stable lockfile source string.
+    pub fn source(&self) -> String {
+        match self {
+            PackageOrigin::Root => "root".to_string(),
+            PackageOrigin::Path { declared } => format!("path:{}", declared.display()),
+            PackageOrigin::Git { url, rev } => format!("git:{url}@{rev}"),
+        }
+    }
+}
+
+/// A dependency resolved from the project manifest.
+///
+/// `module_root` is a physical location; the `instance_id` is the logical
+/// identity used by [`PackageInstance`]/`ModuleId` and by Analysis v1.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedPackage {
+    /// Logical package instance (`root:...` or `dep:...`).
+    pub instance_id: String,
+    /// Package name (from the dependency manifest or the manifest alias).
+    pub name: String,
+    /// Package version (from the dependency manifest or `0.0.0`).
+    pub version: String,
+    /// How the package was obtained.
+    pub origin: PackageOrigin,
+    /// Exact Git revision, when applicable.
+    pub revision: Option<String>,
+    /// Content digest of the package tree, when computable.
+    pub content_digest: Option<String>,
+    /// Physical directory containing the package sources.
+    pub module_root: PathBuf,
+    /// Entry module relative to `module_root` (`@alias` default).
+    pub entry_module: String,
+    /// The dependency's own manifest, if present.
+    pub manifest: Option<Manifest>,
+}
+
+/// A module resolved inside a package.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedModule {
+    /// Owning package.
+    pub package: ResolvedPackage,
+    /// Path relative to the package's `module_root`.
+    pub relative_path: String,
+}
+
+/// Resolve the logical instance id of a root project.
+pub fn root_instance(manifest: Option<&Manifest>) -> String {
+    match manifest {
+        Some(manifest) => format!(
+            "root:{}@{}",
+            manifest.project.name, manifest.project.version
+        ),
+        None => DEFAULT_INSTANCE.to_string(),
+    }
+}
+
+/// Derive a content-addressed dependency instance id.
+pub fn dependency_instance_id(name: &str, version: &str, digest: Option<&str>) -> String {
+    let suffix = digest
+        .filter(|digest| !digest.is_empty())
+        .unwrap_or("unlocked");
+    let prefix: String = suffix.chars().take(12).collect();
+    format!("dep:{name}@{version}#{prefix}")
+}
+
+fn normalize_relative(path: &Path) -> Result<String, String> {
+    let mut parts = Vec::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::Normal(part) => {
+                parts.push(part.to_string_lossy().to_string());
+            }
+            _ => return Err(format!("unsafe package-relative path `{}`", path.display())),
+        }
+    }
+    Ok(parts.join("/"))
+}
+
+/// Deterministic content digest of a package tree (relative path + bytes).
+pub fn hash_tree(root: &Path) -> Result<String, String> {
+    if !root.exists() {
+        return Err(format!(
+            "dependency path `{}` does not exist",
+            root.display()
+        ));
+    }
+    let mut files = Vec::new();
+    for entry in walkdir::WalkDir::new(root)
+        .sort_by_file_name()
+        .into_iter()
+        .filter_map(Result::ok)
+    {
+        if entry.file_type().is_file() {
+            let relative = entry
+                .path()
+                .strip_prefix(root)
+                .map(|path| path.to_string_lossy().replace('\\', "/"))
+                .unwrap_or_default();
+            files.push((relative, entry.path().to_path_buf()));
+        }
+    }
+    files.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut hasher = Sha256::new();
+    for (relative, path) in files {
+        hasher.update(relative.as_bytes());
+        hasher.update([0u8]);
+        let bytes = std::fs::read(&path)
+            .map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
+        hasher.update(&bytes);
+        hasher.update([0u8]);
+    }
+    Ok(hex::encode(hasher.finalize()))
+}
+
+/// Resolve entry files and explicit `@dependency` imports.
+#[derive(Debug, Clone)]
+pub struct PackageResolver {
+    root: PathBuf,
+    manifest: Option<Manifest>,
+    lock: Option<LockFile>,
+}
+
+impl PackageResolver {
+    /// Build a resolver for a project root.
+    pub fn new(
+        root: impl Into<PathBuf>,
+        manifest: Option<Manifest>,
+        lock: Option<LockFile>,
+    ) -> Self {
+        Self {
+            root: root.into(),
+            manifest,
+            lock,
+        }
+    }
+
+    /// Project root.
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    /// The project manifest, if the entry is part of a project.
+    pub fn manifest(&self) -> Option<&Manifest> {
+        self.manifest.as_ref()
+    }
+
+    /// Resolve the package that owns `entry`.
+    pub fn resolve_entry(&self, entry: &Path) -> Result<ResolvedModule, String> {
+        let entry = entry
+            .canonicalize()
+            .map_err(|error| format!("cannot open `{}`: {error}", entry.display()))?;
+        let relative = entry.strip_prefix(&self.root).map_err(|_| {
+            format!(
+                "entry `{}` is outside the project root `{}`",
+                entry.display(),
+                self.root.display()
+            )
+        })?;
+        Ok(ResolvedModule {
+            package: ResolvedPackage {
+                instance_id: root_instance(self.manifest.as_ref()),
+                name: self
+                    .manifest
+                    .as_ref()
+                    .map(|manifest| manifest.project.name.clone())
+                    .unwrap_or_else(|| "default".to_string()),
+                version: self
+                    .manifest
+                    .as_ref()
+                    .map(|manifest| manifest.project.version.clone())
+                    .unwrap_or_else(|| "0.0.0".to_string()),
+                origin: PackageOrigin::Root,
+                revision: None,
+                content_digest: None,
+                module_root: self.root.clone(),
+                entry_module: normalize_relative(relative)?,
+                manifest: self.manifest.clone(),
+            },
+            relative_path: normalize_relative(relative)?,
+        })
+    }
+
+    /// Resolve a declared `@alias` dependency.
+    pub fn resolve_alias(&self, alias: &str) -> Result<ResolvedModule, String> {
+        let manifest = self
+            .manifest
+            .as_ref()
+            .ok_or_else(|| "no marqdo.yaml is available for dependency imports".to_string())?;
+        let dependency = manifest
+            .dependencies
+            .get(alias)
+            .ok_or_else(|| format!("unknown dependency `{alias}`"))?;
+        let declared = dependency.path.as_ref().ok_or_else(|| {
+            format!("dependency `{alias}` has no local path source in this build")
+        })?;
+        let declared_path = self.root.join(declared);
+        let canonical = declared_path.canonicalize().map_err(|error| {
+            format!(
+                "cannot open dependency `{alias}` at `{}`: {error}",
+                declared_path.display()
+            )
+        })?;
+        let (module_root, entry_module) = if canonical.is_dir() {
+            let entry = canonical.join("index.mq.md");
+            if !entry.is_file() {
+                return Err(format!(
+                    "dependency `{alias}` directory `{}` has no index.mq.md",
+                    canonical.display()
+                ));
+            }
+            (canonical, "index.mq.md".to_string())
+        } else {
+            let parent = canonical
+                .parent()
+                .ok_or_else(|| format!("dependency `{alias}` has no parent directory"))?
+                .to_path_buf();
+            let name = canonical
+                .file_name()
+                .map(|name| name.to_string_lossy().to_string())
+                .ok_or_else(|| format!("dependency `{alias}` has no file name"))?;
+            (parent, name)
+        };
+        let dependency_manifest = if module_root.join(MANIFEST_FILE).is_file() {
+            Some(Manifest::load(&module_root.join(MANIFEST_FILE))?)
+        } else {
+            None
+        };
+        let name = dependency_manifest
+            .as_ref()
+            .map(|manifest| manifest.project.name.clone())
+            .unwrap_or_else(|| alias.to_string());
+        let version = dependency_manifest
+            .as_ref()
+            .map(|manifest| manifest.project.version.clone())
+            .unwrap_or_else(|| "0.0.0".to_string());
+        let digest = hash_tree(&module_root)?;
+        let instance_id = dependency_instance_id(&name, &version, Some(&digest));
+        if let Some(lock) = &self.lock {
+            if let Some(locked) = lock.package(alias) {
+                if locked.sha256.as_deref().is_some_and(|sha| sha != digest) {
+                    return Err(format!(
+                        "dependency `{alias}` content changed since marqdo.lock; run `marqdo lock`"
+                    ));
+                }
+            }
+        }
+        Ok(ResolvedModule {
+            package: ResolvedPackage {
+                instance_id,
+                name,
+                version,
+                origin: PackageOrigin::Path {
+                    declared: declared.clone(),
+                },
+                revision: None,
+                content_digest: Some(digest),
+                module_root,
+                entry_module: entry_module.clone(),
+                manifest: dependency_manifest,
+            },
+            relative_path: entry_module,
+        })
+    }
+
+    /// Resolve a path relative to an already resolved package, rejecting
+    /// traversal outside that package's module root.
+    pub fn resolve_relative(
+        &self,
+        package: &ResolvedPackage,
+        importing: &Path,
+        target: &str,
+    ) -> Result<ResolvedModule, String> {
+        let base = importing
+            .parent()
+            .ok_or_else(|| "importing module has no parent directory".to_string())?;
+        let candidate = base.join(target);
+        let canonical = candidate
+            .canonicalize()
+            .map_err(|error| format!("cannot open `{}`: {error}", candidate.display()))?;
+        let relative = canonical.strip_prefix(&package.module_root).map_err(|_| {
+            format!(
+                "import `{target}` escapes package `{}`",
+                package.instance_id
+            )
+        })?;
+        Ok(ResolvedModule {
+            package: package.clone(),
+            relative_path: normalize_relative(relative)?,
+        })
+    }
+}
+
 /// One pinned dependency entry in `marqdo.lock`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LockedPackage {
     /// Local dependency name.
     pub name: String,
+    /// Logical package instance id (lock format v2).
+    #[serde(default)]
+    pub instance_id: String,
     /// Source description (`path:...` or `git:...@rev`).
     pub source: String,
-    /// SHA-256 of the resolved module tree, when computable.
+    /// SHA-256 of the resolved package tree, when computable.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sha256: Option<String>,
+}
+
+impl LockedPackage {
+    /// Fill a v1 entry's missing instance id deterministically.
+    fn migrate_instance_id(&mut self) {
+        if self.instance_id.is_empty() {
+            let digest = self.sha256.as_deref().unwrap_or("unlocked");
+            let prefix: String = digest.chars().take(12).collect();
+            self.instance_id = format!("dep:{}@0.0.0#{prefix}", self.name);
+        }
+    }
 }
 
 /// The `marqdo.lock` lockfile.
@@ -206,7 +537,7 @@ pub struct LockFile {
 impl Default for LockFile {
     fn default() -> Self {
         Self {
-            lock_version: 1,
+            lock_version: 2,
             packages: Vec::new(),
         }
     }
@@ -217,12 +548,18 @@ impl LockFile {
     pub fn from_yaml(yaml: &str) -> Result<Self, String> {
         let mut lock: LockFile =
             serde_yaml::from_str(yaml).map_err(|error| format!("invalid {LOCK_FILE}: {error}"))?;
-        if lock.lock_version != 1 {
+        if lock.lock_version != 1 && lock.lock_version != 2 {
             return Err(format!(
-                "unsupported lock_version {} (expected 1)",
+                "unsupported lock_version {} (expected 1 or 2)",
                 lock.lock_version
             ));
         }
+        // v1 had no logical instance id; derive one so callers always see the
+        // package-aware shape. Writers emit v2.
+        for package in &mut lock.packages {
+            package.migrate_instance_id();
+        }
+        lock.lock_version = 2;
         lock.packages.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(lock)
     }
@@ -311,15 +648,17 @@ capabilities:
     #[test]
     fn lockfile_serialization_is_stable_and_sorted() {
         let lock = LockFile {
-            lock_version: 1,
+            lock_version: 2,
             packages: vec![
                 LockedPackage {
                     name: "z".into(),
+                    instance_id: "dep:z@0.0.0#unlocked".into(),
                     source: "path:z".into(),
                     sha256: None,
                 },
                 LockedPackage {
                     name: "a".into(),
+                    instance_id: "dep:a@0.0.0#abc".into(),
                     source: "path:a".into(),
                     sha256: Some("abc".into()),
                 },
@@ -330,7 +669,61 @@ capabilities:
         assert_eq!(a, b);
         assert!(a.find("name: a").unwrap() < a.find("name: z").unwrap());
         let parsed = LockFile::from_yaml(&a).unwrap();
+        assert_eq!(parsed.lock_version, 2);
         assert_eq!(parsed.packages.len(), 2);
+    }
+
+    #[test]
+    fn v1_lock_migrates_to_logical_instance_ids() {
+        let v1 = "lock_version: 1\npackages:\n- name: geometry\n  source: path:./geometry\n  sha256: abcdef0123456789\n";
+        let lock = LockFile::from_yaml(v1).unwrap();
+        assert_eq!(lock.lock_version, 2);
+        assert_eq!(
+            lock.packages[0].instance_id,
+            "dep:geometry@0.0.0#abcdef012345"
+        );
+    }
+
+    #[test]
+    fn package_resolution_is_stable_across_path_moves() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("root");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(
+            root.join(MANIFEST_FILE),
+            "project:\n  name: p\n  version: 0.1.0\ndependencies:\n  geometry:\n    path: ./deps/geometry\n",
+        )
+        .unwrap();
+        let first = root.join("deps/geometry");
+        std::fs::create_dir_all(&first).unwrap();
+        std::fs::write(
+            first.join(MANIFEST_FILE),
+            "project:\n  name: geometry\n  version: 0.1.0\n",
+        )
+        .unwrap();
+        std::fs::write(first.join("index.mq.md"), "## f\n\n*1*\n").unwrap();
+        let manifest = Manifest::load(&root.join(MANIFEST_FILE)).unwrap();
+        let resolver = PackageResolver::new(root.clone(), Some(manifest.clone()), None);
+        let before = resolver
+            .resolve_alias("geometry")
+            .unwrap()
+            .package
+            .instance_id;
+
+        let second = root.join("moved/geometry");
+        std::fs::create_dir_all(second.parent().unwrap()).unwrap();
+        std::fs::rename(&first, &second).unwrap();
+        let mut manifest = manifest;
+        manifest.dependencies.get_mut("geometry").unwrap().path = Some("./moved/geometry".into());
+        std::fs::write(root.join(MANIFEST_FILE), manifest.to_yaml()).unwrap();
+        let resolver = PackageResolver::new(root, Some(manifest), None);
+        let after = resolver
+            .resolve_alias("geometry")
+            .unwrap()
+            .package
+            .instance_id;
+        assert_eq!(before, after);
+        assert!(after.starts_with("dep:geometry@0.1.0#"));
     }
 
     #[test]

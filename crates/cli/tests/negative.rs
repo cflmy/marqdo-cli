@@ -209,7 +209,7 @@ fn runtime_negative_goldens() {
         let source = fs::read_to_string(fixture)
             .unwrap_or_else(|error| panic!("cannot read {}: {error}", fixture.display()));
         let module_id = ModuleId::from("index.mq.md");
-        let analysis = marqdo_frontend::analyze_source(&module_id.0, &source);
+        let analysis = marqdo_frontend::analyze_source(&module_id.to_string(), &source);
         assert!(
             !analysis.has_errors(),
             "runtime fixture `{}` must compile; diagnostics: {:?}",

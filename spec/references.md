@@ -46,21 +46,28 @@ These types live in `crates/marqdo-ir/src/lib.rs`.
 ### 2.1 `ModuleId`
 
 ```rust
-pub struct ModuleId(pub String);
+pub struct ModuleId {
+    pub instance: String,      // logical package instance
+    pub relative_path: String, // path inside the package module root
+}
 ```
 
-* A canonical **project-root-relative path with `/` separators**, for example
-  `index.mq.md`, `packages/geometry/index.mq.md`.
-* Computed in `crates/cli/src/loader.rs::Loader::module_id_for` by taking the
-  canonicalized file path, stripping the project root, and joining the path
-  components with `/`.
-* There is no "module name" identity separate from the path: the module id is
-  the file location inside the project. Imported `@dependency` modules keep
-  their project-root-relative path (for example
-  `packages/geometry/index.mq.md`).
-* A file that canonicalizes outside the project root is rejected with
-  "outside the project root" (entry: fatal load error; imported module:
-  `module.unresolved` diagnostic).
+* Canonical display/wire form: `<instance>::<relative_path>`, for example
+  `root:default::index.mq.md` or
+  `dep:geometry@0.1.0#0123456789ab::index.mq.md`.
+* A bare path without `::` is accepted by the parser as `root:default` for
+  standalone documents and tests, but writers always emit the canonical form.
+* The instance is a **logical** identity (ADR-0008):
+  `root:<project-name>@<version>`, `root:default` without a manifest, or
+  `dep:<name>@<version>#<content-digest-prefix>` for a resolved dependency.
+  Physical cache paths and source kinds (`path`/`git`) are not part of identity;
+  moving a cache does not change a module id, while a different locked version
+  or content does.
+* `crates/marqdo-package::PackageResolver` resolves path/Git sources and returns
+  `ResolvedPackage`; `crates/cli/src/loader.rs` consumes that result and rejects
+  paths outside the package's `module_root` (entry: fatal load error; imported
+  module: `module.unresolved` diagnostic). The loader never branches on
+  `path`/`git` itself.
 * Module ids use `BTreeMap` ordering, so program iteration and JSON output are
   deterministic.
 

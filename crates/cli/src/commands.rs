@@ -4,12 +4,10 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use marqdo_host::{Capabilities, Host, StdHost};
-use marqdo_ir::ModuleId;
 use marqdo_runtime::{run, EvaluatedArg, RuntimeError, Value};
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
 use marqdo_span::Span;
 use serde_json::json;
-use sha2::{Digest, Sha256};
 
 use crate::args;
 use crate::loader::{self, FileDiagnostic, LoadedProject};
@@ -215,7 +213,7 @@ pub fn inspect(file: Option<&Path>, flags: &InspectFlags, json: bool) -> i32 {
     if json {
         let mut object = serde_json::Map::new();
         object.insert("command".into(), json!("inspect"));
-        object.insert("module".into(), json!(entry.module_id.0));
+        object.insert("module".into(), json!(entry.module_id.to_string()));
         if !selected_any {
             object.insert("summary".into(), summary_json(&project));
         }
@@ -253,7 +251,7 @@ pub fn inspect(file: Option<&Path>, flags: &InspectFlags, json: bool) -> i32 {
         return 0;
     }
     if !selected_any {
-        println!("module: {}", entry.module_id.0);
+        println!("module: {}", entry.module_id);
         println!("path: {}", entry.path.display());
         println!("project root: {}", project.root.display());
         println!("functions:");
@@ -396,7 +394,7 @@ fn refs_json(project: &LoadedProject) -> serde_json::Value {
         let (resolved, target_module, target_unit) =
             resolve_link(project, &entry.analysis.units, parent, url);
         edges.push(json!({
-            "source": entry.module_id.0,
+            "source": entry.module_id.to_string(),
             "url": url,
             "span": node.span,
             "resolved": resolved,
@@ -422,7 +420,11 @@ fn resolve_link(
                 .map(|unit| &unit.id)
         });
         return match unit {
-            Some(unit) => (true, Some(project.entry.0.clone()), Some(unit.to_string())),
+            Some(unit) => (
+                true,
+                Some(project.entry.to_string()),
+                Some(unit.to_string()),
+            ),
             None => (false, None, None),
         };
     }
@@ -437,16 +439,9 @@ fn resolve_link(
     let Ok(candidate) = candidate.canonicalize() else {
         return (false, None, None);
     };
-    let Ok(relative) = candidate.strip_prefix(&project.root) else {
+    let Some(module_id) = project.module_id_for_path(&candidate) else {
         return (false, None, None);
     };
-    let module_id = ModuleId(
-        relative
-            .components()
-            .map(|component| component.as_os_str().to_string_lossy().to_string())
-            .collect::<Vec<_>>()
-            .join("/"),
-    );
     let analyzed;
     let target_units = match project.files.get(&module_id) {
         Some(target_file) => &target_file.analysis.units,
@@ -456,12 +451,12 @@ fn resolve_link(
             let Ok(source) = std::fs::read_to_string(&candidate) else {
                 return (false, None, None);
             };
-            analyzed = marqdo_frontend::analyze_source(&module_id.0, &source);
+            analyzed = marqdo_frontend::analyze_source(&module_id.to_string(), &source);
             &analyzed.units
         }
     };
     let Some(fragment) = fragment else {
-        return (true, Some(module_id.0), None);
+        return (true, Some(module_id.to_string()), None);
     };
     let resolved = target_units.anchors.get(fragment).or_else(|| {
         target_units
@@ -471,8 +466,8 @@ fn resolve_link(
             .map(|unit| &unit.id)
     });
     match resolved {
-        Some(unit) => (true, Some(module_id.0), Some(unit.to_string())),
-        None => (false, Some(module_id.0), None),
+        Some(unit) => (true, Some(module_id.to_string()), Some(unit.to_string())),
+        None => (false, Some(module_id.to_string()), None),
     }
 }
 
@@ -950,64 +945,22 @@ fn build_lockfile(
     root: &Path,
     manifest: &marqdo_package::Manifest,
 ) -> Result<marqdo_package::LockFile, String> {
+    let resolver = marqdo_package::PackageResolver::new(root, Some(manifest.clone()), None);
     let mut packages = Vec::new();
-    for (name, dependency) in &manifest.dependencies {
-        if dependency.git.is_some() {
-            return Err(format!(
-                "dependency `{name}` uses a git source; git dependencies are not supported by this build (path dependencies only)"
-            ));
-        }
-        let Some(path) = &dependency.path else {
-            return Err(format!("dependency `{name}` has no path source"));
-        };
-        let dependency_root = root.join(path);
-        let hash = hash_tree(&dependency_root)?;
+    for name in manifest.dependencies.keys() {
+        let resolved = resolver.resolve_alias(name)?;
         packages.push(marqdo_package::LockedPackage {
             name: name.clone(),
-            source: format!("path:{}", path.display()),
-            sha256: Some(hash),
+            instance_id: resolved.package.instance_id,
+            source: resolved.package.origin.source(),
+            sha256: resolved.package.content_digest,
         });
     }
     packages.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(marqdo_package::LockFile {
-        lock_version: 1,
+        lock_version: 2,
         packages,
     })
-}
-
-fn hash_tree(root: &Path) -> Result<String, String> {
-    if !root.exists() {
-        return Err(format!(
-            "dependency path `{}` does not exist",
-            root.display()
-        ));
-    }
-    let mut files = Vec::new();
-    for entry in walkdir::WalkDir::new(root)
-        .sort_by_file_name()
-        .into_iter()
-        .filter_map(Result::ok)
-    {
-        if entry.file_type().is_file() {
-            let relative = entry
-                .path()
-                .strip_prefix(root)
-                .map(|path| path.to_string_lossy().replace('\\', "/"))
-                .unwrap_or_default();
-            files.push((relative, entry.path().to_path_buf()));
-        }
-    }
-    files.sort_by(|a, b| a.0.cmp(&b.0));
-    let mut hasher = Sha256::new();
-    for (relative, path) in files {
-        hasher.update(relative.as_bytes());
-        hasher.update([0u8]);
-        let bytes = std::fs::read(&path)
-            .map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
-        hasher.update(&bytes);
-        hasher.update([0u8]);
-    }
-    Ok(hex::encode(hasher.finalize()))
 }
 
 /// `marqdo add <name> --path <dir> [--git URL --rev SHA]`.

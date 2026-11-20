@@ -66,7 +66,7 @@ pub fn diagnostic_json(item: &FileDiagnostic) -> Json {
         .unwrap_or((Json::Null, Json::Null));
     json!({
         "file": item.path.display().to_string(),
-        "module": item.module_id.0,
+        "module": item.module_id.to_string(),
         "line": line,
         "column": column,
         "severity": severity_name(diagnostic),

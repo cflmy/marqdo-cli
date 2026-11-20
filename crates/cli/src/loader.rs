@@ -4,18 +4,25 @@
 //! come only from explicit YAML front matter and are resolved exactly as
 //! declared (`@dependency` or a relative `.mq.md` path); nothing is searched
 //! implicitly.
+//!
+//! Module identity is package-aware (ADR-0008): a module is
+//! `PackageInstanceId::relative_path`, never a physical cache path. The
+//! package layer resolves path/Git sources; this loader consumes
+//! `ResolvedPackage` and does not branch on the source kind.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use marqdo_frontend::{analyze_source, AnalysisResult};
 use marqdo_ir::{ModuleId, Program, ResolvedImport};
-use marqdo_package::{discover_root, Manifest, MANIFEST_FILE};
+use marqdo_package::{
+    discover_root, LockFile, Manifest, PackageResolver, ResolvedPackage, LOCK_FILE, MANIFEST_FILE,
+};
 use marqdo_value::{codes, Diagnostic};
 
 /// One analysed source file.
 pub struct LoadedFile {
-    /// Canonical module identity (project-relative path).
+    /// Canonical module identity (package instance + package-relative path).
     pub module_id: ModuleId,
     /// Absolute path on disk.
     pub path: PathBuf,
@@ -66,6 +73,8 @@ pub struct LoadedProject {
     pub program: Program,
     /// Analysed files keyed by module id.
     pub files: BTreeMap<ModuleId, LoadedFile>,
+    /// Package root per logical instance.
+    pub packages: BTreeMap<String, PathBuf>,
     /// All diagnostics in deterministic order.
     pub diagnostics: Vec<FileDiagnostic>,
 }
@@ -82,11 +91,34 @@ impl LoadedProject {
     pub fn entry_file(&self) -> &LoadedFile {
         &self.files[&self.entry]
     }
+
+    /// Resolve a physical path to its loaded or statically addressable module.
+    pub fn module_id_for_path(&self, path: &Path) -> Option<ModuleId> {
+        let canonical = path.canonicalize().ok()?;
+        let mut best: Option<(&String, &PathBuf)> = None;
+        for (instance, root) in &self.packages {
+            if canonical.starts_with(root)
+                && best
+                    .as_ref()
+                    .map(|(_, current)| root.components().count() > current.components().count())
+                    .unwrap_or(true)
+            {
+                best = Some((instance, root));
+            }
+        }
+        let (instance, root) = best?;
+        let relative = canonical.strip_prefix(root).ok()?;
+        let mut parts = Vec::new();
+        for component in relative.components() {
+            parts.push(component.as_os_str().to_string_lossy().to_string());
+        }
+        Some(ModuleId::new(instance.clone(), parts.join("/")))
+    }
 }
 
 struct Loader {
-    root: PathBuf,
-    manifest: Option<Manifest>,
+    resolver: PackageResolver,
+    packages: BTreeMap<String, PathBuf>,
     files: BTreeMap<ModuleId, LoadedFile>,
     program: Program,
     diagnostics: Vec<FileDiagnostic>,
@@ -113,15 +145,22 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
     } else {
         None
     };
+    let lock = if root.join(LOCK_FILE).is_file() {
+        Some(LockFile::load(&root.join(LOCK_FILE))?)
+    } else {
+        None
+    };
+    let resolver = PackageResolver::new(root.clone(), manifest, lock);
+    let entry_module = resolver.resolve_entry(&entry)?;
     let mut loader = Loader {
-        root,
-        manifest,
+        resolver,
+        packages: BTreeMap::new(),
         files: BTreeMap::new(),
         program: Program::default(),
         diagnostics: Vec::new(),
         stack: Vec::new(),
     };
-    let entry_id = loader.load_module(&entry)?;
+    let entry_id = loader.load_module(&entry_module.package, &entry_module.relative_path)?;
     loader.program.main_module = Some(entry_id.clone());
     for (module_id, diagnostic) in marqdo_frontend::calls::validate_program(&loader.program) {
         if let Some(file) = loader.files.get(&module_id) {
@@ -134,31 +173,47 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
         }
     }
     Ok(LoadedProject {
-        root: loader.root,
+        root: loader.resolver.root().to_path_buf(),
         entry: entry_id,
         program: loader.program,
         files: loader.files,
+        packages: loader.packages,
         diagnostics: loader.diagnostics,
     })
 }
 
 impl Loader {
-    fn module_id_for(&self, path: &Path) -> Option<ModuleId> {
-        let relative = path.strip_prefix(&self.root).ok()?;
+    fn load_module(
+        &mut self,
+        package: &ResolvedPackage,
+        relative_path: &str,
+    ) -> Result<ModuleId, String> {
+        let package_root = package
+            .module_root
+            .canonicalize()
+            .unwrap_or_else(|_| package.module_root.clone());
+        let path = package_root
+            .join(relative_path)
+            .canonicalize()
+            .map_err(|error| format!("cannot open `{relative_path}`: {error}"))?;
+        if !path.starts_with(&package_root) {
+            return Err(format!(
+                "module `{relative_path}` escapes package `{}`",
+                package.instance_id
+            ));
+        }
+        let relative = path.strip_prefix(&package_root).map_err(|_| {
+            format!(
+                "module `{}` is outside package `{}`",
+                path.display(),
+                package.instance_id
+            )
+        })?;
         let mut parts = Vec::new();
         for component in relative.components() {
             parts.push(component.as_os_str().to_string_lossy().to_string());
         }
-        Some(ModuleId(parts.join("/")))
-    }
-
-    fn load_module(&mut self, path: &Path) -> Result<ModuleId, String> {
-        let path = path
-            .canonicalize()
-            .map_err(|error| format!("cannot open `{}`: {error}", path.display()))?;
-        let module_id = self
-            .module_id_for(&path)
-            .ok_or_else(|| format!("`{}` is outside the project root", path.display()))?;
+        let module_id = ModuleId::new(&package.instance_id, parts.join("/"));
         if self.files.contains_key(&module_id) {
             return Ok(module_id);
         }
@@ -169,9 +224,12 @@ impl Loader {
             ));
         }
         self.stack.push(path.clone());
+        self.packages
+            .entry(package.instance_id.clone())
+            .or_insert_with(|| package_root.clone());
         let source = std::fs::read_to_string(&path)
             .map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
-        let analysis = analyze_source(&module_id.0, &source);
+        let analysis = analyze_source(&module_id.to_string(), &source);
         let imports: Vec<(String, String, marqdo_span::Span)> = analysis
             .document
             .frontmatter()
@@ -195,8 +253,34 @@ impl Loader {
             .unwrap_or_default();
 
         for (alias, target, span) in imports {
-            match self.resolve_import(&path, &target) {
-                Some(target_path) => {
+            let resolved = if let Some(alias_name) = target.strip_prefix('@') {
+                self.resolver.resolve_alias(alias_name)
+            } else {
+                self.resolver.resolve_relative(package, &path, &target)
+            };
+            match resolved {
+                Ok(resolved) => {
+                    let target_path = match resolved
+                        .package
+                        .module_root
+                        .join(&resolved.relative_path)
+                        .canonicalize()
+                    {
+                        Ok(path) => path,
+                        Err(error) => {
+                            self.diagnostics.push(FileDiagnostic {
+                                module_id: module_id.clone(),
+                                path: path.clone(),
+                                source: source.clone(),
+                                diagnostic: Diagnostic::error(
+                                    codes::MODULE_UNRESOLVED,
+                                    Some(span),
+                                    format!("cannot open imported module `{target}`: {error}"),
+                                ),
+                            });
+                            continue;
+                        }
+                    };
                     if self.stack.contains(&target_path) {
                         self.diagnostics.push(FileDiagnostic {
                             module_id: module_id.clone(),
@@ -211,7 +295,7 @@ impl Loader {
                         });
                         continue;
                     }
-                    match self.load_module(&target_path) {
+                    match self.load_module(&resolved.package, &resolved.relative_path) {
                         Ok(target_id) => {
                             self.program.resolved_imports.push(ResolvedImport {
                                 from: module_id.clone(),
@@ -231,7 +315,7 @@ impl Loader {
                         }),
                     }
                 }
-                None => {
+                Err(error) => {
                     self.diagnostics.push(FileDiagnostic {
                         module_id: module_id.clone(),
                         path: path.clone(),
@@ -239,7 +323,7 @@ impl Loader {
                         diagnostic: Diagnostic::error(
                             codes::MODULE_UNRESOLVED,
                             Some(span),
-                            format!("cannot resolve imported module `{target}`"),
+                            format!("cannot resolve imported module `{target}`: {error}"),
                         )
                         .with_hint(
                             "use `@dependency` for marqdo.yaml dependencies or `./file.mq.md` for project files",
@@ -267,30 +351,11 @@ impl Loader {
                 analysis,
             },
         );
-        // Move the analysed module into the program.
         if let Some(file) = self.files.get(&module_id) {
             self.program
                 .modules
                 .insert(module_id.clone(), file.analysis.module.clone());
         }
         Ok(module_id)
-    }
-
-    fn resolve_import(&self, importing: &Path, target: &str) -> Option<PathBuf> {
-        if let Some(alias) = target.strip_prefix('@') {
-            let manifest = self.manifest.as_ref()?;
-            let dependency = manifest.dependencies.get(alias)?;
-            let path = dependency.path.as_ref()?;
-            let dependency_path = self.root.join(path);
-            let candidate = if dependency_path.is_dir() {
-                dependency_path.join("index.mq.md")
-            } else {
-                dependency_path
-            };
-            return candidate.canonicalize().ok();
-        }
-        let base = importing.parent()?;
-        let candidate = base.join(target);
-        candidate.canonicalize().ok()
     }
 }

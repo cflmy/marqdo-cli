@@ -1,8 +1,9 @@
-# Marqdo Project Package Format v1
+# Marqdo Project Package Format v2
 
-Status: **v1 format as implemented in M0.5.** Git resolution, registries,
-transitive dependency solving and environment materialization are **not**
-implemented; see §8.
+Status: **lock_version 2 as implemented by M0.6 R1.** Path sources and
+package-instance identity are implemented; pinned Git sources, registries,
+transitive dependency solving and environment materialization are added in R5
+or later; see §8.
 
 Implementation: `crates/marqdo-package/src/lib.rs` (manifest/lock types and
 validation), `crates/cli/src/commands.rs` (`init`, `add`, `remove`, `lock`,
@@ -15,8 +16,9 @@ contains `marqdo.yaml` (`marqdo_package::discover_root`). If no manifest exists
 anywhere above the entry, the entry file's parent directory is used as the
 root (a document can be checked/run without a project).
 
-`ModuleId`s are project-root-relative paths (`spec/references.md` §2.1), so the
-root choice affects import identity. `add`/`remove`/`lock`/`sync` discover the
+`ModuleId`s are package-instance + package-relative paths (`spec/references.md`
+§2.1), so the project root selects the entry package instance; physical paths do
+not form module identity. `add`/`remove`/`lock`/`sync` discover the
 root from the **current working directory**, not from a document path. There is
 no `--project` flag in this build.
 
@@ -89,21 +91,23 @@ grants (`spec/security.md` §2). `net` has no implementing host op, and
 
 ## 3. `marqdo.lock`
 
-`lock_version: 1`, packages sorted by name:
+`lock_version: 2`, packages sorted by name:
 
 ```yaml
-lock_version: 1
+lock_version: 2
 packages:
 - name: geo
+  instance_id: dep:geo@0.1.0#101a6f6db4cc
   source: path:./packages/geo
   sha256: 101a6f6db4cc48d8c138b4716028da9bc8934b5f02b2235e020fbcabba15b757
 ```
 
 | Field | Semantics |
 |---|---|
-| `lock_version` | must be `1`; any other value is rejected ("unsupported lock_version N (expected 1)") |
+| `lock_version` | writers emit `2`; readers accept `1` and `2` and migrate v1 entries by deriving an instance id |
 | `packages[].name` | dependency name from the manifest |
-| `packages[].source` | `path:<manifest path as written>`; a git source would be `git:...@rev`, but git is not implemented in this build |
+| `packages[].instance_id` | logical `dep:<name>@<version>#<digest-prefix>` identity (ADR-0008) |
+| `packages[].source` | `path:<manifest path as written>`; a Git source is `git:<url>@<rev>` |
 | `packages[].sha256` | optional; lowercase hex SHA-256 of the dependency tree |
 
 ### 3.1 Deterministic serialization
@@ -249,7 +253,7 @@ inconsistency to fix).
 | Environment materialization (`.marqdo/env`, `cache`, `kernels`, `sessions`) | Not implemented; `init` only writes `.marqdo/` to `.gitignore`. |
 | Dependency signatures / trusted publishers / supply-chain scanning | Not implemented. |
 | Multiple/nested project boundary diagnostics | Not implemented; nearest `marqdo.yaml` wins. |
-| Lock file migration between `lock_version`s | Only version 1 is accepted. |
+| Lock file migration between `lock_version`s | v1 is read and migrated; writers emit v2. |
 | Plugin installation / plugin dependency management | Not implemented; `plugins:` in the manifest is declarative only. |
 
 The lock/package format is deliberately small and deterministic so these can

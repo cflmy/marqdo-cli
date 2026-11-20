@@ -3,7 +3,7 @@
   "function": "main",
   "stdout": "",
   "value": {
-    "module": "index.mq.md",
+    "module": "root:default::index.mq.md",
     "name": "加一",
     "type": "function_ref"
   }

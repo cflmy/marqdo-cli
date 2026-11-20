@@ -551,7 +551,7 @@ impl<'a> Interpreter<'a> {
         match callee {
             Value::FunctionRef(reference) => {
                 let id = FunctionId {
-                    module: ModuleId(reference.module),
+                    module: ModuleId::from(reference.module),
                     name: reference.name,
                 };
                 let Some(function) = program.function(&id) else {
@@ -596,7 +596,7 @@ impl<'a> Interpreter<'a> {
         span: Option<Span>,
         module: &ModuleId,
     ) -> Result<Value, RuntimeError> {
-        let context = ExecutionContext::new(module.0.clone(), span);
+        let context = ExecutionContext::new(module.to_string(), span);
         self.host.invoke(op, args, &context)
     }
 }

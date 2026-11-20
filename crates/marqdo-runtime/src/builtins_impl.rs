@@ -329,7 +329,7 @@ fn resolve_ref(
         0 => {
             if let Some(function) = module.functions.iter().find(|f| f.unit == unit_id) {
                 return Ok(Value::FunctionRef(FunctionRef {
-                    module: function.id.module.0.clone(),
+                    module: function.id.module.to_string(),
                     name: function.id.name.clone(),
                 }));
             }
