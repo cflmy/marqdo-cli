@@ -6,11 +6,54 @@
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 use marqdo_span::Span;
 use marqdo_value::{ErrorCategory, ResourceHandle, RuntimeError};
 
 static NEXT_RUN_ID: AtomicU64 = AtomicU64::new(1);
+
+/// A versioned trusted provider of additional resource kinds (ADR-0033).
+///
+/// In-process providers share the host address space and are **not** a
+/// sandbox; only explicitly trusted code may be registered.
+pub trait ResourceProvider: Send {
+    /// Stable grant name.
+    fn name(&self) -> &str;
+    /// Protocol version; must be 1 in this build.
+    fn protocol_version(&self) -> u32 {
+        1
+    }
+    /// Resource kinds served by this provider.
+    fn kinds(&self) -> &[&str];
+    /// Open one descriptor, returning a provider-private token.
+    fn open(
+        &mut self,
+        kind: &str,
+        descriptor: &str,
+        rights: &[String],
+        span: Option<Span>,
+    ) -> Result<u64, RuntimeError>;
+    /// Read up to `max_bytes` from a token.
+    fn read(
+        &mut self,
+        token: u64,
+        max_bytes: usize,
+        span: Option<Span>,
+    ) -> Result<ResourceRead, RuntimeError>;
+    /// Write bytes to a token; return the accepted count.
+    fn write(
+        &mut self,
+        token: u64,
+        bytes: &[u8],
+        span: Option<Span>,
+    ) -> Result<usize, RuntimeError>;
+    /// Close a token.
+    fn close(&mut self, token: u64, span: Option<Span>) -> Result<(), RuntimeError>;
+}
+
+/// Shared provider handle registered on the host.
+pub type SharedResourceProvider = Arc<Mutex<Box<dyn ResourceProvider>>>;
 
 /// Bytes returned by one stream read.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,6 +79,12 @@ enum Stream {
         bytes: Vec<u8>,
         closed: bool,
     },
+    Provider {
+        kind: String,
+        provider: SharedResourceProvider,
+        token: u64,
+        closed: bool,
+    },
 }
 
 struct Slot {
@@ -49,6 +98,7 @@ impl Slot {
             Stream::Stdout { closed } => *closed,
             Stream::File { closed, .. } => *closed,
             Stream::FileWriter { closed, .. } => *closed,
+            Stream::Provider { closed, .. } => *closed,
         }
     }
 }
@@ -103,6 +153,27 @@ impl ResourceTable {
             bytes: Vec::new(),
             closed: false,
         })
+    }
+
+    /// Open a provider token and wrap it in a host-issued handle.
+    pub fn open_provider(
+        &mut self,
+        provider: SharedResourceProvider,
+        kind: &str,
+        descriptor: &str,
+        rights: &[String],
+        span: Option<Span>,
+    ) -> Result<ResourceHandle, RuntimeError> {
+        let token = {
+            let mut provider = provider.lock().map_err(|_| provider_lock_error(span))?;
+            provider.open(kind, descriptor, rights, span)?
+        };
+        Ok(self.insert(Stream::Provider {
+            kind: kind.to_string(),
+            provider,
+            token,
+            closed: false,
+        }))
     }
 
     fn insert(&mut self, stream: Stream) -> ResourceHandle {
@@ -195,6 +266,12 @@ impl ResourceTable {
                 span,
                 "a file write stream does not support resource.read",
             )),
+            Stream::Provider {
+                provider, token, ..
+            } => {
+                let mut provider = provider.lock().map_err(|_| provider_lock_error(span))?;
+                provider.read(*token, max_bytes, span)
+            }
         }
     }
 
@@ -249,6 +326,12 @@ impl ResourceTable {
                 buffer.extend_from_slice(bytes);
                 Ok(bytes.len())
             }
+            Stream::Provider {
+                provider, token, ..
+            } => {
+                let mut provider = provider.lock().map_err(|_| provider_lock_error(span))?;
+                provider.write(*token, bytes, span)
+            }
         }
     }
 
@@ -270,6 +353,16 @@ impl ResourceTable {
             Stream::Stdout { closed } => *closed = true,
             Stream::File { closed, .. } => *closed = true,
             Stream::FileWriter { closed, .. } => *closed = true,
+            Stream::Provider {
+                provider,
+                token,
+                closed,
+                ..
+            } => {
+                let mut provider = provider.lock().map_err(|_| provider_lock_error(span))?;
+                provider.close(*token, span)?;
+                *closed = true;
+            }
         }
         Ok(())
     }
@@ -301,17 +394,22 @@ impl ResourceTable {
     }
 
     /// Descriptor kind for diagnostics/trace, if the handle is valid.
-    pub fn kind(
-        &self,
-        handle: ResourceHandle,
-        span: Option<Span>,
-    ) -> Result<&'static str, RuntimeError> {
+    pub fn kind(&self, handle: ResourceHandle, span: Option<Span>) -> Result<String, RuntimeError> {
         let slot = self.slot(handle, span)?;
-        Ok(match slot.stream {
-            Stream::Stdout { .. } => "stdio",
-            Stream::File { .. } | Stream::FileWriter { .. } => "file",
+        Ok(match &slot.stream {
+            Stream::Stdout { .. } => "stdio".to_string(),
+            Stream::File { .. } | Stream::FileWriter { .. } => "file".to_string(),
+            Stream::Provider { kind, .. } => kind.clone(),
         })
     }
+}
+
+fn provider_lock_error(span: Option<Span>) -> RuntimeError {
+    RuntimeError::new(
+        ErrorCategory::HostError,
+        span,
+        "resource provider lock is poisoned",
+    )
 }
 
 fn unknown_handle(span: Option<Span>) -> RuntimeError {

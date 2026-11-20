@@ -125,6 +125,12 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   before module loading, a `std:marqdo-stdlib@<version>#<digest>` package
   instance id, `project.stdlib` in Analysis v2, and test coverage for
   `std:` resolution, tamper rejection and frozen-binary hash equality.
+- CM-A09 in-process ResourceProvider v1 (ADR-0033): `ResourceProvider` trait,
+  `StdHost::register_resource_provider`, per-kind registration with protocol
+  version/conflict checks and `Capabilities.allow_resource_provider`; provider
+  streams reuse `resource.*` and are project-mode only. A mock read/write
+  provider test runs without parser/runtime/`HostOp` changes. C/Worker provider
+  transport remains open.
 - CM-A08 table logical/stdlib slice (ADR-0032): `stdlib/data/table.mq.md`
   adds select/filter/sort/append/set-cell/join/group as value-returning
   `.mq.md` functions; `Value::Table` semantics and GFM AST laziness unchanged;

@@ -215,3 +215,163 @@ fn traversal_and_unsupported_rights_are_refused() {
         .unwrap_err();
     assert_eq!(unknown_kind.category, ErrorCategory::ResourceUnsupported);
 }
+
+struct MockProvider {
+    data: Vec<u8>,
+    position: usize,
+    written: Vec<u8>,
+    version: u32,
+    kinds: Vec<&'static str>,
+}
+
+impl MockProvider {
+    fn new(data: &[u8], version: u32, kinds: Vec<&'static str>) -> Self {
+        Self {
+            data: data.to_vec(),
+            position: 0,
+            written: Vec::new(),
+            version,
+            kinds,
+        }
+    }
+}
+
+impl marqdo_host::ResourceProvider for MockProvider {
+    fn name(&self) -> &str {
+        "mock"
+    }
+    fn protocol_version(&self) -> u32 {
+        self.version
+    }
+    fn kinds(&self) -> &[&str] {
+        &self.kinds
+    }
+    fn open(
+        &mut self,
+        _kind: &str,
+        _descriptor: &str,
+        _rights: &[String],
+        _span: Option<marqdo_span::Span>,
+    ) -> Result<u64, marqdo_value::RuntimeError> {
+        self.position = 0;
+        Ok(7)
+    }
+    fn read(
+        &mut self,
+        token: u64,
+        max_bytes: usize,
+        _span: Option<marqdo_span::Span>,
+    ) -> Result<marqdo_host::ResourceRead, marqdo_value::RuntimeError> {
+        assert_eq!(token, 7);
+        let start = self.position;
+        let end = start.saturating_add(max_bytes).min(self.data.len());
+        self.position = end;
+        Ok(marqdo_host::ResourceRead {
+            bytes: self.data[start..end].to_vec(),
+            eof: end >= self.data.len(),
+        })
+    }
+    fn write(
+        &mut self,
+        token: u64,
+        bytes: &[u8],
+        _span: Option<marqdo_span::Span>,
+    ) -> Result<usize, marqdo_value::RuntimeError> {
+        assert_eq!(token, 7);
+        self.written.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+    fn close(
+        &mut self,
+        token: u64,
+        _span: Option<marqdo_span::Span>,
+    ) -> Result<(), marqdo_value::RuntimeError> {
+        assert_eq!(token, 7);
+        Ok(())
+    }
+}
+
+#[test]
+fn registered_provider_streams_work_with_a_grant_in_project_mode() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(
+        SandboxMode::Project,
+        Capabilities::project().allow_resource_provider("mock"),
+        dir.path(),
+    );
+    host.register_resource_provider(Box::new(MockProvider::new(
+        b"abcdef",
+        1,
+        vec!["mock.sensor"],
+    )))
+    .unwrap();
+    let ctx = context();
+    let handle = handle(
+        host.resource_open("mock.sensor", "sensor-1", &["read".to_string()], &ctx)
+            .unwrap(),
+    );
+    let first = host.resource_read(handle, 2, &ctx).unwrap();
+    assert_eq!(first.bytes, b"ab");
+    assert!(!first.eof);
+    let rest = host.resource_read(handle, 16, &ctx).unwrap();
+    assert_eq!(rest.bytes, b"cdef");
+    assert!(rest.eof);
+    assert_eq!(host.resource_write(handle, b"x", &ctx).unwrap(), 1);
+    host.resource_close(handle, &ctx).unwrap();
+    assert_eq!(
+        host.resource_close(handle, &ctx).unwrap_err().code(),
+        "resource.closed"
+    );
+}
+
+#[test]
+fn provider_requires_a_name_grant_and_project_mode() {
+    let dir = tempfile::tempdir().unwrap();
+    let ctx = context();
+    let mut denied = StdHost::new(SandboxMode::Project, Capabilities::project(), dir.path());
+    denied
+        .register_resource_provider(Box::new(MockProvider::new(b"x", 1, vec!["mock.sensor"])))
+        .unwrap();
+    let error = denied
+        .resource_open("mock.sensor", "s", &["read".to_string()], &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+
+    for mode in [SandboxMode::Pure, SandboxMode::Strict] {
+        let mut host = StdHost::new(
+            mode,
+            Capabilities::pure().allow_resource_provider("mock"),
+            dir.path(),
+        );
+        host.register_resource_provider(Box::new(MockProvider::new(b"x", 1, vec!["mock.sensor"])))
+            .unwrap();
+        let error = host
+            .resource_open("mock.sensor", "s", &["read".to_string()], &ctx)
+            .unwrap_err();
+        assert_eq!(error.category, ErrorCategory::PermissionDenied);
+    }
+}
+
+#[test]
+fn provider_registration_rejects_versions_reserved_names_and_conflicts() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(
+        SandboxMode::Project,
+        Capabilities::project().allow_resource_provider("mock"),
+        dir.path(),
+    );
+    let bad_version = host
+        .register_resource_provider(Box::new(MockProvider::new(b"x", 2, vec!["mock.sensor"])))
+        .unwrap_err();
+    assert_eq!(bad_version.category, ErrorCategory::ResourceUnsupported);
+    let reserved = host
+        .register_resource_provider(Box::new(MockProvider::new(b"x", 1, vec!["stdio"])))
+        .unwrap_err();
+    assert_eq!(reserved.category, ErrorCategory::ResourceUnsupported);
+    host.register_resource_provider(Box::new(MockProvider::new(b"x", 1, vec!["mock.sensor"])))
+        .unwrap();
+    let conflict = host
+        .register_resource_provider(Box::new(MockProvider::new(b"y", 1, vec!["mock.sensor"])))
+        .unwrap_err();
+    assert_eq!(conflict.category, ErrorCategory::ResourceUnsupported);
+}

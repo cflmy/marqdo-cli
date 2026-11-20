@@ -27,7 +27,7 @@ Normative implementation:
 | Mode | Intended guarantee | Actual status in this build |
 |---|---|---|
 | `pure` | No external I/O; memory computation and budgets only. | **Enforced.** `Capabilities::pure()` = `console`, `math` only; every FS/foreign/plugin grant flag makes the CLI exit 2 with "pure mode prohibits external I/O grants". |
-| `project` | Operator-approved project resources under `CapabilityHost` + bounded resources. | **Enforced for the implemented operations.** Defaults equal `pure`; `--allow-read`, `--allow-write`, `--allow-foreign`, `--allow-plugin` add grants. `resource.open` supports stdout write, granted project-file read and granted buffered project-file write (ADR-0025/0026); network/process remain unsupported. Sandboxing is cooperative (in-process checks), not OS isolation. |
+| `project` | Operator-approved project resources under `CapabilityHost` + bounded resources. | **Enforced for the implemented operations.** Defaults equal `pure`; `--allow-read`, `--allow-write`, `--allow-foreign`, `--allow-plugin` add grants. `resource.open` supports stdout write, granted project-file read/write (ADR-0025/0026) and granted in-process provider kinds (ADR-0033); network/process remain unsupported. Sandboxing is cooperative (in-process checks), not OS isolation; in-process providers are trusted, not sandboxed. |
 | `strict` | Untrusted documents under real OS isolation. | **Linux: enforced when the runtime probe passes (ADR-0021).** `resource.open` is **refused** in strict except for the existing `stdio/stdout` console channel (console grant); file/network/process resources remain refused until a provider passes the isolation lane (CM-A11, ADR-0030). `PlatformCapabilities::detect()` runs a real Bubblewrap smoke test; success reports `Available { mechanism }`, failure reports `Unavailable { reason }`. Strict L1 supports the interpreter, console and native Math only; `--allow-read/--allow-write/--allow-foreign/--allow-plugin/--plugin/--trust-native-plugin/--kernel/--trace-file` are rejected with exit 2. macOS/Windows and Linux hosts without the mechanisms remain `Unavailable`; there is **no fallback** to an unrestricted process. |
 
 `marqdo inspect <file> --platform` prints the detection report, for example:
@@ -63,6 +63,7 @@ set for one run:
 | `process: bool` | `false` | required together with `foreign` for `foreign.run`/`foreign.call` |
 | `foreign: bool` | `false` | foreign kernels |
 | `plugins: Vec<String>` | empty | `plugin.invoke` and `StdHost::load_plugin` |
+| `resource_providers: Vec<String>` | empty | registered in-process `ResourceProvider` kinds; project mode only (ADR-0033) |
 
 Requests versus grants:
 

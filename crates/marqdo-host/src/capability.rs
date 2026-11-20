@@ -323,6 +323,8 @@ pub struct Capabilities {
     pub foreign: bool,
     /// Allowed plugin names.
     pub plugins: Vec<String>,
+    /// Allowed resource-provider names (ADR-0033).
+    pub resource_providers: Vec<String>,
 }
 
 impl Capabilities {
@@ -337,6 +339,7 @@ impl Capabilities {
             process: false,
             foreign: false,
             plugins: Vec::new(),
+            resource_providers: Vec::new(),
         }
     }
 
@@ -369,6 +372,33 @@ impl Capabilities {
     pub fn allow_plugin(mut self, name: impl Into<String>) -> Self {
         self.plugins.push(name.into());
         self
+    }
+
+    /// Grant a registered resource provider by its stable name (ADR-0033).
+    pub fn allow_resource_provider(mut self, name: impl Into<String>) -> Self {
+        self.resource_providers.push(name.into());
+        self
+    }
+
+    /// Check a resource-provider grant.
+    pub fn check_resource_provider(
+        &self,
+        name: &str,
+        span: Option<Span>,
+    ) -> Result<(), RuntimeError> {
+        if self
+            .resource_providers
+            .iter()
+            .any(|allowed| allowed == name)
+        {
+            Ok(())
+        } else {
+            Err(denied(
+                span,
+                format!("resource provider `{name}` was not granted"),
+                format!("grant it with Capabilities::allow_resource_provider({name:?})"),
+            ))
+        }
     }
 
     /// Whether a project-relative path matches a granted pattern.

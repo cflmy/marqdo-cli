@@ -171,6 +171,13 @@ by:
 * fixture 55 additionally has a second-free detection path: freeing an
   already-free block returns `{ok:false, code:"alloc.double_free"}`.
 
+RFC-CM CM-A09 in-process provider v1 (ADR-0033) is pinned by the three
+`registered_provider_streams_*` / `provider_*` tests in
+`crates/marqdo-host/tests/resource_streams.rs`: a mock provider is registered
+and read/written through `resource.*` with a project-mode name grant; missing
+grant, pure/strict, bad protocol version, reserved kinds and duplicate kinds
+are rejected.
+
 RFC-CM CM-A08 table stdlib (ADR-0032) is pinned by
 `crates/cli/tests/stdlib_table.rs`, which runs `stdlib/tests/table.mq.md` and
 checks select/filter/sort/append/set/join/group results plus original-table

@@ -20,7 +20,7 @@ use crate::context::ExecutionContext;
 use crate::fs::ProjectFs;
 use crate::handles::{contains_plugin_handle, PluginHandleTable};
 use crate::plugin_worker::WorkerPlugin;
-use crate::resource::{ResourceRead, ResourceTable};
+use crate::resource::{ResourceProvider, ResourceRead, ResourceTable, SharedResourceProvider};
 use crate::trace::{EffectTrace, SemanticEvent, TraceBudget, TraceEntry, TraceState};
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
 
@@ -202,6 +202,8 @@ pub struct StdHost {
     pub handles: PluginHandleTable,
     /// Host-owned resource/stream table (ADR-0025).
     resources: ResourceTable,
+    /// Registered in-process providers keyed by resource kind (ADR-0033).
+    resource_providers: BTreeMap<String, (String, SharedResourceProvider)>,
     semantic_events: Vec<SemanticEvent>,
     next_event_seq: u64,
     trace_state: TraceState,
@@ -263,6 +265,7 @@ impl StdHost {
             broker_audit: Arc::new(Mutex::new(Vec::new())),
             handles: PluginHandleTable::default(),
             resources: ResourceTable::new(),
+            resource_providers: BTreeMap::new(),
             semantic_events: Vec::new(),
             next_event_seq: 0,
             trace_state: TraceState::default(),
@@ -565,6 +568,72 @@ impl StdHost {
         Ok(Value::Unit)
     }
 
+    /// Register an explicitly trusted in-process provider (ADR-0033).
+    ///
+    /// In-process providers share the host address space and are not a
+    /// sandbox; only trusted adapters may be registered. Registration is not a
+    /// language operation and does not grant access by itself.
+    pub fn register_resource_provider(
+        &mut self,
+        provider: Box<dyn ResourceProvider>,
+    ) -> Result<(), RuntimeError> {
+        if provider.protocol_version() != 1 {
+            return Err(RuntimeError::new(
+                ErrorCategory::ResourceUnsupported,
+                None,
+                format!(
+                    "resource provider `{}` uses unsupported protocol version {}",
+                    provider.name(),
+                    provider.protocol_version()
+                ),
+            ));
+        }
+        let name = provider.name().to_string();
+        if name.is_empty() || name == "stdio" || name == "file" {
+            return Err(RuntimeError::new(
+                ErrorCategory::ResourceUnsupported,
+                None,
+                format!("resource provider name `{name}` is reserved or empty"),
+            ));
+        }
+        let kinds = provider
+            .kinds()
+            .iter()
+            .map(|kind| kind.to_string())
+            .collect::<Vec<_>>();
+        if kinds.is_empty() {
+            return Err(RuntimeError::new(
+                ErrorCategory::ResourceUnsupported,
+                None,
+                format!("resource provider `{name}` declares no kinds"),
+            ));
+        }
+        for kind in &kinds {
+            if kind.is_empty() || kind == "stdio" || kind == "file" {
+                return Err(RuntimeError::new(
+                    ErrorCategory::ResourceUnsupported,
+                    None,
+                    format!("resource provider `{name}` declares reserved kind `{kind}`"),
+                ));
+            }
+            if let Some((existing, _)) = self.resource_providers.get(kind) {
+                return Err(RuntimeError::new(
+                    ErrorCategory::ResourceUnsupported,
+                    None,
+                    format!(
+                        "resource kind `{kind}` is already registered by provider `{existing}`"
+                    ),
+                ));
+            }
+        }
+        let provider: SharedResourceProvider = std::sync::Arc::new(std::sync::Mutex::new(provider));
+        for kind in kinds {
+            self.resource_providers
+                .insert(kind, (name.clone(), std::sync::Arc::clone(&provider)));
+        }
+        Ok(())
+    }
+
     fn record_resource_effect(
         &mut self,
         op: &str,
@@ -686,11 +755,37 @@ impl StdHost {
                     "project file streams support exactly [read] or [write] in this build",
                 ))
             }
-            other => Err(RuntimeError::new(
-                ErrorCategory::ResourceUnsupported,
-                ctx.span,
-                format!("resource kind `{other}` is not implemented in this build"),
-            )),
+            other => {
+                if self.mode != SandboxMode::Project {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::PermissionDenied,
+                        ctx.span,
+                        "resource providers are available only in project mode",
+                    ));
+                }
+                let Some((provider_name, provider)) = self.resource_providers.get(other).cloned()
+                else {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::ResourceUnsupported,
+                        ctx.span,
+                        format!("resource kind `{other}` is not registered"),
+                    ));
+                };
+                self.capabilities
+                    .check_resource_provider(&provider_name, ctx.span)?;
+                let handle = self
+                    .resources
+                    .open_provider(provider, other, descriptor, rights, ctx.span)?;
+                self.record_semantic(
+                    "resource.open",
+                    None,
+                    Some(&ctx.module_id),
+                    ctx.span,
+                    Some(&format!("kind={other} provider={provider_name}")),
+                );
+                self.record_resource_effect("resource.open", ctx, started, "ok");
+                Ok(Value::Resource(handle))
+            }
         }
     }
 }
