@@ -111,6 +111,8 @@ executes anything.
 * **Blocking TCP endpoint (RFC-CM P5 first slice)** — `resource.open("tcp",
   "<ip>:<port>", ["read","write"])` with exact IP grants, project mode and
   5-second timeouts; DNS/TLS/UDP/server sockets excluded (ADR-0034).
+* **C ABI provider worker (RFC-CM CM-A09)** — `marqdo-provider-worker` loads a
+  trusted C ABI library in a separate framed-JSON helper process (ADR-0038).
 * **Provider package manifest v1 (RFC-CM CM-A09)** — local `marqdo.provider`
   manifest installs a trusted C ABI provider; no registry/signature/CLI install
   (ADR-0037).

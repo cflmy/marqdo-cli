@@ -138,6 +138,9 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   JSON report; no bytecode/JIT/native backend is introduced.
 - P4 cross-storage table equivalence: fixture 72 compares row-store Table
   sort/filter output with a `.mq.md` columnar store cell-by-cell.
+- CM-A09 C ABI provider worker binding (ADR-0038): add the separate
+  `marqdo-provider-worker` helper that loads a trusted C ABI library and serves
+  the ADR-0035 framed-JSON protocol; crash isolation but not a sandbox.
 - CM-A09 provider package manifest v1 (ADR-0037): local manifest resolves a
   trusted C ABI library and registers it; no registry/signatures/CLI install.
 - CM-A09 C ABI provider v1 (ADR-0036): trusted shared libraries implement

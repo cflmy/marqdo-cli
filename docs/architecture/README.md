@@ -34,6 +34,7 @@ implementation status lives in `docs/STATUS.md`; frozen behavior is in
 | CM-A09 worker resource-provider transport v1 | [0035](../adr/0035-worker-resource-provider-transport.md) | Accepted (trusted helper) |
 | CM-A09 C ABI ResourceProvider v1 | [0036](../adr/0036-c-abi-resource-provider.md) | Accepted (trusted native adapter) |
 | CM-A09 provider package manifest v1 | [0037](../adr/0037-provider-package-manifest.md) | Accepted (host-side install) |
+| CM-A09 C ABI provider worker binding v1 | [0038](../adr/0038-c-abi-provider-worker-binding.md) | Accepted (trusted helper) |
 | Table physical storage (T1/T2/T3), C/Worker provider transport, strict file/network resources | — | Not decided; do not implement by implication |
 
 ## What a future phase must not do

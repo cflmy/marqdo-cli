@@ -477,6 +477,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "marqdo-provider-worker"
+version = "0.1.0"
+dependencies = [
+ "libloading",
+ "marqdo-host",
+ "marqdo-sandbox",
+ "marqdo-value",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "marqdo-runtime"
 version = "0.1.0"
 dependencies = [
