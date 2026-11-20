@@ -30,14 +30,23 @@ fn mqmd_stdlib_print_output_matches_builtin_print() {
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.lines().collect();
-    assert_eq!(lines.len(), 4, "{stdout:?}");
-    assert_eq!(lines[0], lines[1], "list formatting differs from 打印");
-    assert_eq!(lines[2], lines[3], "table formatting differs from 打印");
+    assert_eq!(lines.len(), 6, "{stdout:?}");
+    for pair in [(0, 1), (2, 3), (4, 5)] {
+        assert_eq!(
+            lines[pair.0], lines[pair.1],
+            "stdlib formatting differs from 打印 at line {}",
+            pair.0
+        );
+    }
     assert_eq!(
         lines[0],
         r#"["文本", 2, 1.5, [3, true], {a: 1, b: "x"}, None]"#
     );
     assert_eq!(lines[2], "Table[名称 | 分数]{甲 | 87; 乙 | 92}");
+    assert_eq!(
+        lines[4],
+        r#"[Formula("a = 1"), Code("text", 9 bytes), FunctionRef(root:default::demo.mq.md::演示函数)]"#
+    );
 }
 
 #[test]

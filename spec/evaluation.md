@@ -23,6 +23,16 @@ Changes to observable behaviour require an ADR.
 | `Memory` | opaque runtime-owned addressable byte region (ADR-0022); copies share identity, offsets are region-relative |
 | `Resource` | opaque host-issued resource/stream handle (ADR-0025); not indexable, not wire-transferable, rendered as `Resource` |
 
+Read-only observation members:
+
+| Value | Members |
+|---|---|
+| Formula | `latex`, `display`, `unit` |
+| Code | `language`, `source`, `content_hash`, `unit` |
+| FunctionRef | `module`, `name` (ADR-0029) |
+| PluginHandle | `plugin`, `export` (ADR-0029); the numeric host id stays private |
+| Memory, Resource | no fields (opaque) |
+
 There is no truthiness: `if`-like conditions accept `Bool` only. There are no
 implicit string↔number conversions; conversion builtins must be called.
 

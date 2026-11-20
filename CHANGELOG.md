@@ -108,6 +108,10 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   an `fs_write` grant, buffers in the host, flushes only on `close`, never
   flushes on drop, has an 8 MiB ceiling, and is refused in pure/strict. A
   `.mq.md` chunked copy loop reproduces a file without a Rust `copy_file`.
+- Full-value stdlib formatting (ADR-0029): FunctionRef `module/name` and
+  PluginHandle `plugin/export` read-only members (host id private);
+  `stdlib/format.mq.md` now reproduces builtin `打印`/`repr` for all 15 value
+  types, including Formula/Code and UTF-8 byte length for Code.
 - CM-A10 bundled stdlib (ADR-0028): a fixed `stdlib/` tree with
   `format/text/io`, explicit `std:<path>` imports, SHA-256 digest verification
   before module loading, a `std:marqdo-stdlib@<version>#<digest>` package

@@ -1,10 +1,44 @@
+## 字节长度
+
+`(文本)`
+
+**点 = text.codepoints(文本)**
+
+**总字节 = 0**
+
+**下标 = 0**
+
+- `下标 < 长度(点)`
+
+  **码点 = 点[下标]**
+
+  1. `码点 < 128`
+
+     **总字节 = 总字节 + 1**
+
+  2. `码点 < 2048`
+
+     **总字节 = 总字节 + 2**
+
+  3. `码点 < 65536`
+
+     **总字节 = 总字节 + 3**
+
+  4. `true`
+
+     **总字节 = 总字节 + 4**
+
+  **下标 = 下标 + 1**
+
+*总字节*
+
 ## 显示
 
 `(值)`
 
 按语言值语义格式化，用于与内置 `打印` 的输出对照。
-当前只覆盖 Unit/None/Bool/Int/Float/Text/List/Map/Table；Formula/Code/
-FunctionRef/PluginHandle 仍缺少公开观察接口。
+覆盖 Unit/None/Bool/Int/Float/Text/List/Map/Table/Formula/Code/
+FunctionRef/PluginHandle/Memory/Resource。
 
 **类别 = 类型(值)**
 
@@ -32,9 +66,33 @@ FunctionRef/PluginHandle 仍缺少公开观察接口。
 
    *表格显示(值)*
 
-7. `true`
+7. `类别 == "Formula"`
 
-   *文本(值)*
+   *"Formula(" + 转义文本(值.latex) + ")"*
+
+8. `类别 == "Code"`
+
+   *"Code(" + 转义文本(值.language) + ", " + 文本(字节长度(值.source)) + " bytes)"*
+
+9. `类别 == "FunctionRef"`
+
+   *"FunctionRef(" + 值.module + "::" + 值.name + ")"*
+
+10. `类别 == "PluginHandle"`
+
+    *"PluginHandle(" + 值.plugin + "::" + 值.export + ")"*
+
+11. `类别 == "Memory"`
+
+    *"Memory"*
+
+12. `类别 == "Resource"`
+
+    *"Resource"*
+
+13. `true`
+
+    *文本(值)*
 
 ## 列表显示
 

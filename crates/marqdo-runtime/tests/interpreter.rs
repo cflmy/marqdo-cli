@@ -172,6 +172,21 @@ fn ambiguous_ref_resource_is_an_error() {
 }
 
 #[test]
+fn function_ref_and_resource_members_are_readable() {
+    let source = "## 目标\n\n*1*\n\n## main\n\n### 公式\n\n$$a = 1$$\n\n### 代码\n\n```text\nx\n```\n\n**f = ref(\"#目标\")**\n\n**g = ref(\"#公式\")**\n\n**c = ref(\"#代码\")**\n\n*[f.module, f.name, g.latex, g.display, c.language, c.source]*\n";
+    let value = run_named(source, "main", &[]).unwrap();
+    let Value::List(items) = value else {
+        panic!("expected list");
+    };
+    assert!(matches!(&items[0], Value::Text(module) if module.ends_with("index.mq.md")));
+    assert_eq!(items[1], Value::text("目标"));
+    assert_eq!(items[2], Value::text("a = 1"));
+    assert_eq!(items[3], Value::Bool(true));
+    assert_eq!(items[4], Value::text("text"));
+    assert_eq!(items[5], Value::text("x\n"));
+}
+
+#[test]
 fn memory_region_is_shared_by_handle_identity() {
     let source = "## f\n\n**m = memory.new(1, 2)**\n\n**n = m**\n\n**`m[3] = 7`**\n\n*[n[3], m == n, memory.size(n)]*\n";
     let value = run_named(source, "f", &[]).unwrap();

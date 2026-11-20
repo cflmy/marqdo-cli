@@ -1019,6 +1019,24 @@ fn member_of(value: Value, name: &str, span: Option<Span>) -> Result<Value, Runt
                 format!("Code has no field `{name}`"),
             )),
         },
+        Value::FunctionRef(reference) => match name {
+            "module" => Ok(Value::Text(reference.module)),
+            "name" => Ok(Value::Text(reference.name)),
+            _ => Err(RuntimeError::new(
+                ErrorCategory::UnknownField,
+                span,
+                format!("FunctionRef has no field `{name}`"),
+            )),
+        },
+        Value::PluginHandle(handle) => match name {
+            "plugin" => Ok(Value::Text(handle.plugin)),
+            "export" => Ok(Value::Text(handle.export)),
+            _ => Err(RuntimeError::new(
+                ErrorCategory::UnknownField,
+                span,
+                format!("PluginHandle has no field `{name}`"),
+            )),
+        },
         other => Err(RuntimeError::new(
             ErrorCategory::UnknownField,
             span,

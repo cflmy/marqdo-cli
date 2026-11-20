@@ -189,9 +189,10 @@ RFC-CM CM-A07 Compat-A (ADR-0027) is pinned by:
 * `crates/cli/tests/examples_r6.rs::mqmd_stdlib_print_output_matches_builtin_print`,
   which runs the demo and asserts `io.写值` and builtin `打印` lines are
   byte-identical for a nested List/Map/None value and a Table;
-* the demo covers Unit/None/Bool? (Bool appears inside the nested list),
-  Int, Float, Text, List, Map and Table. Formula/Code/FunctionRef/PluginHandle
-  are explicitly not covered; `打印` is not yet routed to the stdlib.
+* the demo covers Unit/None/Bool, Int, Float, Text, List, Map, Table,
+  Formula, Code and FunctionRef; PluginHandle formatting uses the same
+  observation members but needs a plugin to construct a value.
+  `打印` is not yet routed to the stdlib (Compat-B pending).
 
 RFC-CM CM-A06 resource streams (ADR-0025) are pinned by:
 
