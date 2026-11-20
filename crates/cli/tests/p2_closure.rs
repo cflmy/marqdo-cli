@@ -122,3 +122,38 @@ fn p2_stdlib_table_also_runs_in_pure_mode() {
         "| 名称 | 分数 |\n| --- | --- |\n| 甲 | 87 |\n| 乙 | 92 |\n| 丙 | 71 |"
     );
 }
+
+#[test]
+fn foreign_and_plugin_shortcuts_are_unavailable_in_the_pure_lane() {
+    let dir = tempfile::tempdir().unwrap();
+    let foreign = dir.path().join("foreign.mq.md");
+    std::fs::write(
+        &foreign,
+        "## 代码\n\n```python\nprint(1)\n```\n\n## main\n\n*foreign.call(ref(\"#代码\"), None)*\n",
+    )
+    .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
+        .args(["run", foreign.to_str().unwrap(), "--mode", "pure", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .expect("run foreign fixture");
+    assert_eq!(output.status.code(), Some(1));
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json");
+    assert_eq!(report["success"], false);
+    assert_eq!(report["error"]["code"], "permission.denied");
+
+    let plugin = dir.path().join("plugin.mq.md");
+    std::fs::write(
+        &plugin,
+        "## main\n\n> plugin.invoke(\"missing.export\", {})\n\n*None*\n",
+    )
+    .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
+        .args(["run", plugin.to_str().unwrap(), "--mode", "pure", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .expect("run plugin fixture");
+    assert_eq!(output.status.code(), Some(1));
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json");
+    assert_eq!(report["success"], false);
+}

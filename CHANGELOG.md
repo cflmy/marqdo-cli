@@ -130,6 +130,8 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
 - CM-A10 offline packaging: `tools/pack-stdlib.py` emits a deterministic
   `marqdo-stdlib-0.1.0.tar.gz` plus tree/archive digests and a file manifest;
   the archive is for the future external repository, not the CLI loader.
+- P2 anti-evasion: explicit pure-lane negative tests prove `foreign.call` is
+  `permission.denied` and `plugin.invoke` fails, alongside the 21 fixture lane.
 - C12 sparse matrix: fixture 73 adds triple-list sparse multiply and dense
   conversion, included in the P2 pure closure lane.
 - P6 baseline profile: add `tools/perf/bench.py` and a checked-in 7-workload

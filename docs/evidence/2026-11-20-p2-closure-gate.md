@@ -28,6 +28,16 @@ The independently-run conformance harness (`conformance_semantics.rs`) also
 builds `StdHost` with `SandboxMode::Pure` and `Capabilities::pure()` for every
 fixture.
 
+Negative shortcuts:
+
+```text
+foreign.call in pure -> permission.denied
+plugin.invoke in pure -> structured failure
+```
+
+so the lane proves both that the algorithms run without host shortcuts and that
+the shortcuts are actually unavailable.
+
 ## Criterion mapping
 
 | Criterion | Fixtures | What is proven |

@@ -206,7 +206,8 @@ the cargo gate).
 `crates/cli/tests/p2_closure.rs`: 21 semantic fixtures run through
 `run --mode pure --json`, sources are scanned for foreign/plugin/import
 shortcuts, and value/stdout are compared with the goldens; the stdlib table
-self-test also runs in pure mode.
+self-test also runs in pure mode. Negative cases prove `foreign.call` is
+`permission.denied` and `plugin.invoke` fails in the pure lane.
 
 RFC-CM CM-A08 table stdlib (ADR-0032) is pinned by
 `crates/cli/tests/stdlib_table.rs`, which runs `stdlib/tests/table.mq.md` and
