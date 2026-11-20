@@ -27,8 +27,8 @@ Normative implementation:
 | Mode | Intended guarantee | Actual status in this build |
 |---|---|---|
 | `pure` | No external I/O; memory computation and budgets only. | **Enforced.** `Capabilities::pure()` = `console`, `math` only; every FS/foreign/plugin grant flag makes the CLI exit 2 with "pure mode prohibits external I/O grants". |
-| `project` | Operator-approved project resources under `CapabilityHost` + bounded resources. | **Enforced for the implemented operations.** Defaults equal `pure`; `--allow-read`, `--allow-write`, `--allow-foreign`, `--allow-plugin` add grants. `resource.open` supports stdout write, granted project-file read/write (ADR-0025/0026), granted in-process provider kinds (ADR-0033) and granted IP-literal TCP streams (ADR-0034); process/device remain unsupported. Sandboxing is cooperative (in-process checks), not OS isolation; in-process providers are trusted, not sandboxed. |
-| `strict` | Untrusted documents under real OS isolation. | **Linux: enforced when the runtime probe passes (ADR-0021).** `resource.open` is **refused** in strict except for the existing `stdio/stdout` console channel (console grant); file/TCP/provider/process resources remain refused until a provider passes the isolation lane (CM-A11, ADR-0030/0034). `PlatformCapabilities::detect()` runs a real Bubblewrap smoke test; success reports `Available { mechanism }`, failure reports `Unavailable { reason }`. Strict L1 supports the interpreter, console, native Math and the read-only bundled stdlib (published at `/run/marqdo-stdlib` for the Compat-C print chain); `--allow-read/--allow-write/--allow-foreign/--allow-plugin/--plugin/--trust-native-plugin/--kernel/--trace-file` are rejected with exit 2. macOS/Windows and Linux hosts without the mechanisms remain `Unavailable`; there is **no fallback** to an unrestricted process. |
+| `project` | Operator-approved project resources under `CapabilityHost` + bounded resources. | **Enforced for the implemented operations.** Defaults equal `pure`; `--allow-read`, `--allow-write`, `--allow-foreign`, `--allow-plugin` add grants. `resource.open` supports stdin read, separate stdout/stderr write, granted project-file read/write (ADR-0025/0026/0040), granted in-process provider kinds (ADR-0033) and granted IP-literal TCP streams (ADR-0034); process/device remain unsupported. Sandboxing is cooperative (in-process checks), not OS isolation; in-process providers are trusted, not sandboxed. |
+| `strict` | Untrusted documents under real OS isolation. | **Linux: enforced when the runtime probe passes (ADR-0021).** `resource.open` is **refused** in strict except for the existing `stdio/stdout` console channel (console grant); stdin/stderr, file/TCP/provider/process resources remain refused until a provider passes the isolation lane (CM-A11, ADR-0030/0034/0040). `PlatformCapabilities::detect()` runs a real Bubblewrap smoke test; success reports `Available { mechanism }`, failure reports `Unavailable { reason }`. Strict L1 supports the interpreter, console, native Math and the read-only bundled stdlib (published at `/run/marqdo-stdlib` for the Compat-C print chain); `--allow-read/--allow-write/--allow-foreign/--allow-plugin/--plugin/--trust-native-plugin/--kernel/--trace-file` are rejected with exit 2. macOS/Windows and Linux hosts without the mechanisms remain `Unavailable`; there is **no fallback** to an unrestricted process. |
 
 `marqdo inspect <file> --platform` prints the detection report, for example:
 
@@ -55,7 +55,7 @@ set for one run:
 
 | Field | Default (`pure`/`project`) | Used by |
 |---|---|---|
-| `console: bool` | `true` | `resource.open("stdio","stdout",["write"])` and the stdlib print chain; a missing grant is `permission.denied` and output is also bounded by the output budget |
+| `console: bool` | `true` | `resource.open("stdio","stdin",["read"])`, `resource.open("stdio","stdout"/"stderr",["write"])` and the stdlib console chain; a missing grant is `permission.denied` and stdout/stderr are also bounded by the output budget |
 | `math: bool` | `true` | `math.*` host ops |
 | `fs_read: Vec<String>` | empty | `fs.read` and project `resource.open("file", path, ["read"])` |
 | `fs_write: Vec<String>` | empty | `fs.write` and project `resource.open("file", path, ["write"])` |
@@ -143,10 +143,10 @@ no host bypass for tests: tests use the same `StdHost`/`Capabilities` types.
 |---|---|---|
 | evaluation fuel | `DEFAULT_FUEL = 5_000_000` | 1 unit per statement, 1 per expression node, 1 per branch condition, 1 per loop iteration; exhaustion → `resource.exhausted` |
 | call stack depth | `DEFAULT_STACK_LIMIT = 256` | checked before every function call → `resource.exhausted` |
-| program output bytes | `DEFAULT_OUTPUT_BYTES = 1 MiB` | `print` output and `fs.read` contents are charged; overflow → `resource.exhausted` |
+| program output bytes | `DEFAULT_OUTPUT_BYTES = 1 MiB` | `print`, `stdio/stdout` and `stdio/stderr` output plus `fs.read` contents are charged; overflow → `resource.exhausted` |
 | wall clock | none by default | `--timeout <seconds>` sets a deadline; checked between statements/iterations and before loop conditions → `resource.exhausted`. It does **not** preempt a running host call. |
 | addressable memory | 64 MiB committed total, 16 MiB per region, 64 KiB pages; `--max-memory` / `--max-region-memory` override | Runtime-owned `MemoryStore` (ADR-0022); create/grow checks both budgets before allocation and failed growth is atomic → `resource.exhausted`. Memory is pure computation and needs no capability grant in any mode. |
-| resource streams | stdout writes charged to the existing output budget; file reads and writer buffers bounded by the 8 MiB per-file limit | Host-owned resource table (ADR-0025/0026); output budget is checked before a stdout write is buffered; a failed check produces no bytes; writer buffers flush only on `close`. No separate I/O byte budget yet. |
+| resource streams | stdin reads over a shared run cursor; stdout/stderr writes charged to the existing output budget; file reads and writer buffers bounded by the 8 MiB per-file limit | Host-owned resource table (ADR-0025/0026/0040); output budget is checked before a stdout/stderr write is buffered; a failed check produces no bytes; writer buffers flush only on `close`. No separate I/O byte budget yet. |
 
 CLI overrides (`run`/`call`): `--fuel`, `--stack`, `--max-output`,
 `--timeout`. Additional fixed limits:
@@ -181,8 +181,9 @@ overflow). In-process math and native plugins are not OS-limited.
 * argument values and file contents are **not** recorded, so ordinary secrets
   do not leak into traces by design. Paths are also not recorded today.
 * In text mode trace entries are printed to stderr (`trace: ...`); in JSON
-  mode they are a `trace` array next to the program stdout string. Program
-  output is always separate from diagnostics/trace (stdout vs stderr).
+  mode they are a `trace` array next to separate program `stdout`/`stderr`
+  strings. Program output is always separate from diagnostics/trace, and
+  `stdio/stderr` never shares the `stdout` buffer.
 
 ## 5. Foreign kernels: process isolation, not a sandbox
 

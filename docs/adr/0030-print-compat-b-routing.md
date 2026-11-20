@@ -61,9 +61,9 @@ legacy `HostOp::Print` effect does not appear in Compat-B runs.
 
 Strict L1 already permits the console channel. Compat-B needs stdout writes in
 strict so the same print implementation works there. Therefore strict mode
-permits **only** `stdio/stdout` write with the console grant; project-file,
-network, process and device resource opens remain refused, and no new provider
-is enabled. This is the existing console capability reached through the
+permits **only** `stdio/stdout` write with the console grant; stdin/stderr,
+project-file, network, process and device resource opens remain refused, and no new
+provider is enabled (ADR-0040 keeps the later stdin/stderr slice separate). This is the existing console capability reached through the
 resource ABI, not a new OS capability. File resources stay fail-closed.
 
 ### 5. Compatibility and fallback

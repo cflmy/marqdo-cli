@@ -261,12 +261,14 @@ RFC-CM CM-A06 resource streams (ADR-0025) are pinned by:
   `stdio/stdout` resource, closed, then re-used to prove
   `{ok:false,code:"resource.closed"}`; the expected `stdout` is the decoded
   text;
-* `crates/marqdo-host/tests/resource_streams.rs` (9): pure-mode stdout write,
-  output-budget atomicity, strict refusal, project-file chunking/EOF, missing
-  grant, traversal rejection and unsupported rights/kinds;
+* `crates/marqdo-host/tests/resource_streams.rs` (17): pure-mode stdin read,
+  stdout/stderr separation, output-budget atomicity, strict refusal of
+  stdin/stderr/file, project-file chunking/EOF, missing grant, traversal
+  rejection and unsupported rights/kinds;
 * `crates/cli/tests/resource_streams.rs`: real `marqdo run` with
-  `--allow-read data.txt`, three chunked reads into `Memory` plus EOF, the same
-  document failing with `permission.denied` without the grant, and a
+  `--allow-read data.txt`, three chunked reads into `Memory` plus EOF, piped
+  stdin line reads through `std:io/console`, separate stdout/stderr capture,
+  the same document failing with `permission.denied` without the grant, and a
   write-then-read program with `--allow-write/--allow-read out.bin` proving the
   file is created only at `resource.close`, and a chunked `.mq.md` file copy
   (`resource.read` → `resource.write`) that reproduces `data.txt` in `out.bin`;

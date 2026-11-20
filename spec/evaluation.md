@@ -168,18 +168,19 @@ resource.close(handle)
     -> {ok:true, value:None} | {ok:false, code, message}
 ```
 
-* Providers: `stdio/stdout` with `["write"]` (pure/project, and strict's
-  existing console channel, console grant);
-  `file` with `["read"]` (project, `fs_read` grant, bounded by the 8 MiB file
-  limit); `file` with `["write"]` (project, `fs_write` grant, 8 MiB buffered
-  write flushed on `close`, ADR-0026). Mixed rights and other kinds are
-  `resource.unsupported`.
+* Providers: `stdio/stdin` with `["read"]` and `stdio/stdout`/`stdio/stderr`
+  with `["write"]` (pure/project; one shared stdin cursor and separate stdout
+  and stderr buffers; console grant). Strict permits only the existing
+  `stdio/stdout` channel. `file` with `["read"]` (project, `fs_read` grant,
+  bounded by the 8 MiB file limit); `file` with `["write"]` (project,
+  `fs_write` grant, 8 MiB buffered write flushed on `close`, ADR-0026).
+  Mixed rights and other kinds are `resource.unsupported`.
 * `resource.read` checks the destination `Memory` range before calling the
   provider, caps the request to the remaining buffer, writes the returned bytes
   and reports the actual count plus `eof`. EOF is success, not an error.
 * `resource.write` copies bytes out of `Memory` for the call only; a short write
-  is a count. stdout output is charged to the output budget and delivered to
-  the program stdout channel. A project-file write stream appends to a bounded
+  is a count. stdout/stderr output is charged to the output budget and delivered
+  to separate program channels. A project-file write stream appends to a bounded
   host buffer and does not touch the filesystem until `close`; a failed close
   leaves the handle open with its buffer, and an unclosed writer never creates
   the file.
@@ -247,8 +248,9 @@ refuses to run (see `security.md`).
 
 For a fixed source, mode, capabilities and budget, evaluation is
 deterministic. Stdout/stderr from host operations are separated: program
-output goes to stdout, diagnostics/traces go to stderr, and `--json` output
-never mixes with program output.
+stdout and program stderr are captured separately, diagnostics/traces go to the
+CLI stderr, and `--json` output never mixes with any program output. JSON
+reports `stdout` and `stderr` as separate strings.
 
 ## 8. Builtins v1
 
