@@ -16,6 +16,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MdNode {
     /// Structural kind and its small attribute set.
+    ///
+    /// Flattened into the node object so the JSON view is
+    /// `{"kind":"heading","level":2,...}` rather than a nested object.
+    #[serde(flatten)]
     pub kind: MdKind,
     /// Byte span in the original source (UTF-8, half open).
     pub span: Span,
