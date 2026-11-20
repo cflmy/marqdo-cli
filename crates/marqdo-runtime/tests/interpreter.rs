@@ -1,0 +1,172 @@
+//! End-to-end interpreter tests: Markdown source → frontend IR → execution.
+
+use marqdo_host::{Capabilities, Host, StdHost};
+use marqdo_ir::{ModuleId, Program};
+use marqdo_runtime::{run, EvaluatedArg, RuntimeError, Value};
+use marqdo_sandbox::SandboxMode;
+use marqdo_span::Span;
+
+fn build(source: &str) -> Program {
+    let result = marqdo_frontend::analyze_source("index.mq.md", source);
+    assert!(
+        !result.has_errors(),
+        "unexpected compile diagnostics: {:#?}",
+        result.diagnostics
+    );
+    let module_id = ModuleId::from("index.mq.md");
+    let mut program = Program {
+        main_module: Some(module_id.clone()),
+        ..Program::default()
+    };
+    program.insert(result.module);
+    program
+}
+
+fn host() -> StdHost {
+    StdHost::new(
+        SandboxMode::Project,
+        Capabilities::pure(),
+        std::env::temp_dir(),
+    )
+}
+
+fn run_named(source: &str, function: &str, args: &[(&str, Value)]) -> Result<Value, RuntimeError> {
+    let program = build(source);
+    let mut host = host();
+    let args = args
+        .iter()
+        .map(|(name, value)| EvaluatedArg::named(*name, value.clone(), Span::default()))
+        .collect();
+    run(
+        &program,
+        &mut host,
+        &ModuleId::from("index.mq.md"),
+        function,
+        args,
+    )
+    .map(|outcome| outcome.value)
+}
+
+fn run_and_output(source: &str, function: &str) -> (Result<Value, RuntimeError>, String) {
+    let program = build(source);
+    let mut host = host();
+    let result = run(
+        &program,
+        &mut host,
+        &ModuleId::from("index.mq.md"),
+        function,
+        Vec::new(),
+    )
+    .map(|outcome| outcome.value);
+    let output = String::from_utf8(host.take_output()).unwrap();
+    (result, output)
+}
+
+#[test]
+fn recursion_branch_and_return() {
+    let source = "## 阶乘\n\n1. `n <= 1`\n\n   *1*\n\n2. `n > 1`\n\n   **结果 = n * 阶乘(n=n-1)**\n\n   *结果*\n";
+    let value = run_named(source, "阶乘", &[("n", Value::int(5))]).unwrap();
+    assert_eq!(value, Value::int(120));
+}
+
+#[test]
+fn loop_prints_and_returns_unit_for_fallthrough() {
+    let source = "## 倒计时\n\n**n = 3**\n\n- `n > 0`\n\n  > 打印(n)\n\n  **n = n - 1**\n";
+    let (result, output) = run_and_output(source, "倒计时");
+    assert_eq!(result.unwrap(), Value::Unit);
+    assert_eq!(output, "3\n2\n1\n");
+}
+
+#[test]
+fn return_inside_loop_propagates() {
+    let source = "## 找\n\n**i = 0**\n\n- `true`\n\n  **i = i + 1**\n\n  - `i >= 3`\n\n    *i*\n";
+    let (result, _) = run_and_output(source, "找");
+    assert_eq!(result.unwrap(), Value::int(3));
+}
+
+#[test]
+fn explicit_signature_supports_positional_arguments() {
+    let source = "## 加\n\n`(a: Int, b: Int = 10)`\n\n*a + b*\n";
+    let program = build(source);
+    let mut host = host();
+    let result = run(
+        &program,
+        &mut host,
+        &ModuleId::from("index.mq.md"),
+        "加",
+        vec![EvaluatedArg::positional(Value::int(2), Span::default())],
+    )
+    .unwrap();
+    assert_eq!(result.value, Value::int(12));
+}
+
+#[test]
+fn builtins_for_conversions_and_length() {
+    let source = "## f\n\n*长度(\"你好\") + 整数(\"40\") + 整数(2.0)*\n";
+    let value = run_named(source, "f", &[]).unwrap();
+    assert_eq!(value, Value::int(44));
+}
+
+#[test]
+fn function_reference_can_be_called() {
+    let source =
+        "## 平方\n\n`(n: Int)`\n\n*n * n*\n\n## 主\n\n**f = ref(\"#平方\")**\n\n*f(n=4)*\n";
+    let value = run_named(source, "主", &[]).unwrap();
+    assert_eq!(value, Value::int(16));
+}
+
+#[test]
+fn non_bool_condition_is_a_runtime_error() {
+    let source = "## f\n\n**x = 1**\n\n- `x`\n\n  > 打印(1)\n\n*x*\n";
+    let error = run_named(source, "f", &[]).unwrap_err();
+    assert_eq!(error.code(), "runtime.type");
+}
+
+#[test]
+fn fuel_budget_is_enforced() {
+    let program = build("## f\n\n- `true`\n\n  > 打印(1)\n\n*0*\n");
+    let mut host = StdHost::new(
+        SandboxMode::Project,
+        Capabilities::pure(),
+        std::env::temp_dir(),
+    );
+    host.budget.fuel = 200;
+    let error = run(
+        &program,
+        &mut host,
+        &ModuleId::from("index.mq.md"),
+        "f",
+        Vec::new(),
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), "resource.exhausted");
+}
+
+#[test]
+fn recursion_depth_is_bounded() {
+    let source = "## f\n\n*f(n=n + 1)*\n";
+    let program = build(source);
+    let mut host = StdHost::new(
+        SandboxMode::Project,
+        Capabilities::pure(),
+        std::env::temp_dir(),
+    );
+    host.budget.stack_limit = 8;
+    let error = run(
+        &program,
+        &mut host,
+        &ModuleId::from("index.mq.md"),
+        "f",
+        vec![EvaluatedArg::named("n", Value::int(0), Span::default())],
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), "resource.exhausted");
+    assert!(error.frames.len() >= 2);
+}
+
+#[test]
+fn ambiguous_ref_resource_is_an_error() {
+    let source = "## f\n\n### 公式\n\n$$a = 1$$\n\n$$b = 2$$\n\n**x = ref(\"#公式\")**\n\n*x*\n";
+    let error = run_named(source, "f", &[]).unwrap_err();
+    assert_eq!(error.code(), "ref.ambiguous");
+}
