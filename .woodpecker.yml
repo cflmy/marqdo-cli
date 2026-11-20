@@ -17,6 +17,7 @@ steps:
       - cargo clippy --workspace --all-targets -- -D warnings
       - cargo test --workspace --locked
       - cargo test -p marqdo-cli --test docs_consistency
+      - cargo test -p marqdo-cli --test architecture_boundaries
 
   build:
     image: rust:1.100-bookworm

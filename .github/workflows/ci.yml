@@ -27,6 +27,8 @@ jobs:
         run: cargo test --workspace
       - name: Documentation consistency
         run: cargo test -p marqdo-cli --test docs_consistency
+      - name: Architecture boundaries
+        run: cargo test -p marqdo-cli --test architecture_boundaries
       - name: Validate public JSON schemas
         run: |
           python3 - <<'PY'
