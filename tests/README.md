@@ -15,7 +15,7 @@ no test commits, copies or rewrites files outside a throw-away temp directory.
 tests/
 ├── conformance/
 │   ├── ast/            160 × *.mq.md + sibling *.ast.json goldens
-│   └── semantics/       68 × *.mq.md + sibling *.expected.json goldens
+│   └── semantics/       70 × *.mq.md + sibling *.expected.json goldens
 ├── negative/
 │   ├── *.mq.md          52 × compile-time hard-error fixtures + *.expected.json
 │   ├── warnings/         6 × inert-executable warning fixtures + *.expected.json
@@ -163,7 +163,13 @@ by:
   tables remain unchanged;
 * semantic fixture 68: a quoted/escaped CSV single-row parser using Unicode
   scalar primitives; `""` is a literal quote and commas inside quotes are
-  preserved. Multi-line fields and whitespace trimming are out of scope.
+  preserved. Multi-line fields and whitespace trimming are out of scope;
+* semantic fixture 69: table group by a Text key column into a `Map` of value
+  lists, using `table.row/cell`, `map.has/get/set` and `list.append`;
+* semantic fixture 70: Int matrix multiply over list-of-list row-major data,
+  covering C12's layout/iteration shape without a numeric backend;
+* fixture 55 additionally has a second-free detection path: freeing an
+  already-free block returns `{ok:false, code:"alloc.double_free"}`.
 
 RFC-CM CM-A07 Compat-A (ADR-0027) is pinned by:
 

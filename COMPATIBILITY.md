@@ -26,7 +26,7 @@ portable/tested locally but the native platform lane has not run here;
 | Feature | Ubuntu Linux x86_64 | macOS arm64 | Windows x86_64 |
 |---|---|---|---|
 | Markdown profile / AST goldens (160) | PASS | UNVERIFIED (cfg fix + CRLF fix) | UNVERIFIED (cfg fix + CRLF fix) |
-| Rust interpreter / semantics (68) | PASS | UNVERIFIED | UNVERIFIED |
+| Rust interpreter / semantics (70) | PASS | UNVERIFIED | UNVERIFIED |
 | Addressable `Memory` P1 (ADR-0022) | PASS | UNVERIFIED | UNVERIFIED |
 | Resource streams CM-A06 (ADR-0025/0026: stdout + project file read/write) | PASS | UNVERIFIED | **FAIL-CLOSED** (`strict` refuses resource opens) |
 | `run` / `call` / `check` / `inspect` / `fmt` | PASS | UNVERIFIED | UNVERIFIED |

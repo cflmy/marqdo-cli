@@ -339,9 +339,31 @@ a,,c                 -> ["a", "", "c"]
 
 No Rust CSV parser or new `Value` type was added.
 
+## Table group fixture 69
+
+`tests/conformance/semantics/69-table-group-stdlib.mq.md` groups a table by a
+Text key column into a `Map` of value lists using `table.row`, `map.has/get/set`
+and `list.append`. Input rows `a1,b2,a3,b4,a5` yield
+`{a:[1,3,5], b:[2,4]}`; the source table is unchanged.
+
+## Matrix multiply fixture 70
+
+`tests/conformance/semantics/70-matrix-multiply.mq.md` implements Int
+list-of-list row-major matrix multiplication with three explicit loops
+(C12's layout/iteration shape). `[[1,2,3],[4,5,6]] × [[7,8],[9,10],[11,12]]`
+yields `[[58,64],[139,154]]`; no numeric backend or Rust matrix code is used.
+
+## Duplicate-free allocator path
+
+`tests/conformance/semantics/55-first-fit-free-list-allocator.mq.md` now
+scans the free list before insertion and returns
+`{ok:false, code:"alloc.double_free", ...}` when a block is freed twice. The
+second free in fixture 55 returns that Result instead of corrupting the list.
+
 ## What remains open
 
-* JSON floats, table group, and an independent `marqdo-stdlib` repository;
+* JSON floats/formatter, and an independent `marqdo-stdlib` repository plus
+  frozen-CLI closure lane;
 * CM-A06 `Resource`/`Stream` byte-transfer ABI; EOF/partial semantics are
   reserved by ADR-0024 but not implemented;
 * CM-A07–CM-A11 (stdlib naming, Table storage, provider ABI, packaging,

@@ -221,6 +221,35 @@
         "type": "map"
       },
       {
+        "entries": {
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "type": "none"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "entries": {
+          "code": {
+            "type": "text",
+            "value": "alloc.double_free"
+          },
+          "message": {
+            "type": "text",
+            "value": "块已在空闲链表"
+          },
+          "ok": {
+            "type": "bool",
+            "value": false
+          }
+        },
+        "type": "map"
+      },
+      {
         "decimal": "33",
         "type": "int"
       },

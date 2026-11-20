@@ -1,0 +1,104 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "items": [
+      {
+        "header": [
+          "类别",
+          "值"
+        ],
+        "rows": [
+          [
+            {
+              "type": "text",
+              "value": "a"
+            },
+            {
+              "decimal": "1",
+              "type": "int"
+            }
+          ],
+          [
+            {
+              "type": "text",
+              "value": "b"
+            },
+            {
+              "decimal": "2",
+              "type": "int"
+            }
+          ],
+          [
+            {
+              "type": "text",
+              "value": "a"
+            },
+            {
+              "decimal": "3",
+              "type": "int"
+            }
+          ],
+          [
+            {
+              "type": "text",
+              "value": "b"
+            },
+            {
+              "decimal": "4",
+              "type": "int"
+            }
+          ],
+          [
+            {
+              "type": "text",
+              "value": "a"
+            },
+            {
+              "decimal": "5",
+              "type": "int"
+            }
+          ]
+        ],
+        "type": "table"
+      },
+      {
+        "entries": {
+          "a": {
+            "items": [
+              {
+                "decimal": "1",
+                "type": "int"
+              },
+              {
+                "decimal": "3",
+                "type": "int"
+              },
+              {
+                "decimal": "5",
+                "type": "int"
+              }
+            ],
+            "type": "list"
+          },
+          "b": {
+            "items": [
+              {
+                "decimal": "2",
+                "type": "int"
+              },
+              {
+                "decimal": "4",
+                "type": "int"
+              }
+            ],
+            "type": "list"
+          }
+        },
+        "type": "map"
+      }
+    ],
+    "type": "list"
+  }
+}
