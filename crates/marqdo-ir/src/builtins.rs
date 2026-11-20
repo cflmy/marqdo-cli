@@ -115,14 +115,14 @@ const MATH_EVAL: Builtin = Builtin {
     name: "math.eval",
     aliases: &[],
     params: &[req("formula"), req("bindings"), opt("target")],
-    named_only: true,
+    named_only: false,
     effectful: false,
 };
 const MATH_SUBSTITUTE: Builtin = Builtin {
     name: "math.substitute",
     aliases: &[],
     params: &[req("formula"), req("bindings")],
-    named_only: true,
+    named_only: false,
     effectful: false,
 };
 const MATH_SIMPLIFY: Builtin = Builtin {
@@ -136,21 +136,21 @@ const MATH_DIFFERENTIATE: Builtin = Builtin {
     name: "math.differentiate",
     aliases: &[],
     params: &[req("formula"), req("变量")],
-    named_only: true,
+    named_only: false,
     effectful: false,
 };
 const FOREIGN_RUN: Builtin = Builtin {
     name: "foreign.run",
     aliases: &[],
     params: &[req("ref"), opt("input")],
-    named_only: true,
+    named_only: false,
     effectful: true,
 };
 const FOREIGN_CALL: Builtin = Builtin {
     name: "foreign.call",
     aliases: &[],
     params: &[req("ref"), req("input")],
-    named_only: true,
+    named_only: false,
     effectful: true,
 };
 const FS_READ: Builtin = Builtin {
@@ -254,7 +254,7 @@ mod tests {
     fn lookup_aliases() {
         assert_eq!(find("print").unwrap().name, "打印");
         assert_eq!(find("打印").unwrap().name, "打印");
-        assert!(find("math.eval").unwrap().named_only);
+        assert!(!find("math.eval").unwrap().named_only);
         assert!(find("nope").is_none());
     }
 
@@ -270,8 +270,9 @@ mod tests {
             &parse_arguments("(formula=ref(\"#x\"), bindings={}, target=\"A\")").unwrap()
         )
         .is_ok());
-        // math.eval is named-only: positional arguments are rejected.
-        assert!(validate_args(eval, &parse_arguments("(ref(\"#x\"), {})").unwrap()).is_err());
-        assert!(validate_args(eval, &parse_arguments("(1, 2)").unwrap()).is_err());
+        // math.eval accepts positional arguments followed by named ones.
+        assert!(validate_args(eval, &parse_arguments("(ref(\"#x\"), {})").unwrap()).is_ok());
+        assert!(validate_args(eval, &parse_arguments("(formula=1, nope=2)").unwrap()).is_err());
+        assert!(validate_args(eval, &parse_arguments("(1, 2, 3, 4)").unwrap()).is_err());
     }
 }

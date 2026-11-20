@@ -35,6 +35,9 @@ pub enum ErrorCategory {
     MathUnsupported,
     /// Plugin ABI negotiation failed.
     PluginAbi,
+    /// A resource reference matches more than one resource (S-07: never pick
+    /// the first silently).
+    RefAmbiguous,
     /// A plugin reported an execution failure.
     PluginFailure,
     /// A foreign kernel failed (non-zero exit, protocol violation).
@@ -62,6 +65,7 @@ impl ErrorCategory {
             ErrorCategory::KernelUnavailable => codes::KERNEL_UNAVAILABLE,
             ErrorCategory::MathUnsupported => codes::MATH_UNSUPPORTED,
             ErrorCategory::PluginAbi => codes::PLUGIN_ABI_MISMATCH,
+            ErrorCategory::RefAmbiguous => "ref.ambiguous",
             ErrorCategory::PluginFailure => "plugin.failure",
             ErrorCategory::ForeignFailure => "foreign.failure",
             ErrorCategory::HostError => "host.error",
