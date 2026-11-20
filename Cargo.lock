@@ -360,6 +360,7 @@ dependencies = [
 name = "marqdo-foreign"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "marqdo-span",
  "marqdo-value",
  "serde_json",
@@ -437,6 +438,7 @@ version = "0.1.0"
 dependencies = [
  "hex",
  "serde",
+ "serde_json",
  "serde_yaml",
  "sha2",
  "tempfile",

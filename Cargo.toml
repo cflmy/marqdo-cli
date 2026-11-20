@@ -55,5 +55,6 @@ thiserror = "2"
 clap = { version = "4", features = ["derive"] }
 walkdir = "2"
 glob = "0.3"
+libc = "0.2"
 unicode-normalization = "0.1"
 unicode-ident = "1"

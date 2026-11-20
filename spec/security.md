@@ -185,10 +185,10 @@ overflow). In-process math and native plugins are not OS-limited.
 * direct `argv` exec (no shell, no interpolation); stdin carries the versioned
   request envelope; stdout/stderr are always piped and captured;
 * the environment is cleared except `PATH`;
-* the wall-clock deadline is enforced by polling `try_wait` and killing the
-  direct child; output flooding kills the child once the combined byte budget
-  is exceeded; a 2-second reader grace prevents a grandchild holding the pipes
-  from hanging the host;
+* on Unix the child is a process-group leader (`setpgid`) and the wall-clock
+  deadline/output overflow kills the whole group, including grandchildren; a
+  2-second reader grace prevents a surviving pipe holder from hanging the
+  host. Non-Unix targets only kill the direct child;
 * a non-zero exit is data (`RunStatus::Failed`, stderr preserved); a timeout is
   `TimedOut` for `run` and an error for the typed `call`.
 

@@ -120,8 +120,8 @@ order-insensitive.
 
 ### 3.2 Tree hash
 
-For a path dependency, `lock` hashes the dependency tree
-(`crates/cli/src/commands.rs::hash_tree`):
+For a path or Git dependency, `lock` hashes the resolved package tree
+(`marqdo_package::hash_tree`):
 
 1. walk the dependency directory with `walkdir` (`sort_by_file_name`), keeping
    regular files only (symlinks are not followed and are skipped);
@@ -141,15 +141,18 @@ detects content changes and additions/removals of regular files.
 1. discovers the project root from the cwd;
 2. loads and validates `marqdo.yaml`;
 3. for each manifest dependency, in map (sorted) order:
-   * a git source → error "git dependencies are not supported by this build
-     (path dependencies only)"; no lock is written;
-   * no path source → error;
-   * the dependency path must exist; the tree is hashed;
-4. writes `marqdo.lock` (exit 0, `locked N package(s)`).
+   * a `path` source: the directory/file must exist; its tree is hashed;
+   * a `git` source: an exact `rev` is required. `lock` clones it into
+     `.marqdo/cache/git/<url-digest>-<rev>`, checks out that revision, strips
+     `.git`, and hashes the tree. Install hooks and submodules are not run;
+   * no source → error;
+4. records `instance_id`, `source` and `sha256` for each package;
+5. writes `marqdo.lock` (exit 0, `locked N package(s)`).
 
-What it does **not** do: resolve semver ranges, traverse a dependency's own
-`marqdo.yaml`/transitive dependencies, clone git repositories, download
-registries, verify package signatures, or install anything.
+What it does **not** do: resolve SemVer ranges, download a registry, verify
+package signatures, install packages or run dependency scripts. A dependency's
+own `marqdo.yaml` is used for transitive `@alias` imports (R1/R5); the lock is
+still a flat direct-dependency record.
 
 ## 4. `sync`
 
@@ -157,18 +160,22 @@ registries, verify package signatures, or install anything.
 
 1. discovers the root; loads the manifest and the existing `marqdo.lock`
    (missing lock → error "run `marqdo lock` first", exit 1);
-2. recomputes the expected lock file exactly as `lock` would (including tree
-   hashes);
+2. recomputes the expected lock file exactly as `lock` would (including Git
+   cache resolution and tree hashes);
 3. with `--locked`, compares the expected lock with the on-disk lock; a
-   difference (manifest change or dependency content change) prints
-   "lockfile is out of date or dependency contents changed; run `marqdo lock`"
-   and exits 1;
-4. without `--locked`, prints `synchronized N package(s)` and exits 0.
+   difference (manifest change, source change or dependency content change)
+   prints "lockfile is out of date or dependency contents changed; run
+   `marqdo lock`" and exits 1;
+4. materializes the locked packages into a project-private
+   `.marqdo/env/<instance-id>/` tree, writes `.marqdo/env/env.json`, and
+   publishes it atomically (staging + rename, old env restored on failure);
+5. without `--locked`, also refreshes the env; with `--locked`, the materialized
+   content must match the lock. `run`/`check` prefer a materialized copy only
+   when its tree digest matches the resolved package digest.
 
-Current behavior: `sync` **never rewrites** the lock file and never materializes
-a `.marqdo/env` directory. It is a verification command only. There is no
-`--offline` flag and no `lock --locked` flag (the blueprint example
-`marqdo lock --locked` is not implemented; use `sync --locked`).
+`sync` never rewrites the lock file. There is no `--offline` flag yet; a
+missing Git cache causes a clear "not cached; run sync/lock" error rather than
+an implicit network fetch during `check`/`run`.
 
 ## 5. `init`
 
@@ -215,8 +222,7 @@ stale lock entry). They do not fetch, install, resolve or authorize anything.
   `marqdo add <name> --git <url> --rev <sha>`:
   validate the dependency shape (same rules as §2.2), refuse an existing name
   (exit 1), insert it, write the manifest, and tell the user to run
-  `marqdo lock`. Adding a git dependency is allowed at the manifest level even
-  though `lock` will refuse it later.
+  `marqdo lock`. A pinned Git dependency is lockable/resolvable in R5.
 * `marqdo remove <name>`: remove the dependency from the manifest (exit 1 if
   absent), and drop a same-named entry from an existing lock file. It does not
   re-hash or re-lock the rest of the project.
@@ -245,12 +251,12 @@ inconsistency to fix).
 
 | Capability | Status |
 |---|---|
-| Git dependency resolution (clone/fetch/checkout) | Not implemented. Manifest accepts `git`+`rev`; `lock` refuses it. |
+| Git dependency resolution (pinned rev, clone/fetch/checkout) | Implemented for exact revisions; no floating branches, submodules or dependency scripts. |
 | Registry / package publishing / SemVer resolution | Not implemented. |
-| Transitive dependency graph and conflict resolution | Not implemented; only direct manifest dependencies are hashed. |
+| Transitive dependency graph and conflict resolution | Transitive `@alias` imports resolve from the dependency's own manifest; the lock remains flat and a full conflict solver is not implemented. |
 | `tree`, `update`, `vendor`, `package` commands | Not implemented. |
-| `--offline`, `--locked` on `lock` | Not implemented. |
-| Environment materialization (`.marqdo/env`, `cache`, `kernels`, `sessions`) | Not implemented; `init` only writes `.marqdo/` to `.gitignore`. |
+| `--offline`, `--locked` on `lock` | Not implemented; missing cache fails instead of fetching during check/run. |
+| Environment materialization (`.marqdo/env`, `cache`) | Implemented: `sync` writes `.marqdo/env` atomically and `lock` populates the Git cache. Kernels/sessions are not materialized. |
 | Dependency signatures / trusted publishers / supply-chain scanning | Not implemented. |
 | Multiple/nested project boundary diagnostics | Not implemented; nearest `marqdo.yaml` wins. |
 | Lock file migration between `lock_version`s | v1 is read and migrated; writers emit v2. |

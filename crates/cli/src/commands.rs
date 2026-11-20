@@ -1111,6 +1111,13 @@ pub fn sync(locked: bool, json: bool) -> i32 {
         );
         return 1;
     }
+    let resolver =
+        marqdo_package::PackageResolver::new(root, Some(manifest.clone()), Some(lockfile))
+            .with_fetch(true);
+    if let Err(error) = resolver.materialize_env(&manifest, &expected) {
+        eprintln!("error: cannot materialize project environment: {error}");
+        return 1;
+    }
     if json {
         output::print_json(&json!({
             "command": "sync",
@@ -1120,9 +1127,10 @@ pub fn sync(locked: bool, json: bool) -> i32 {
         }));
     } else {
         println!(
-            "synchronized {} package(s){}",
+            "synchronized {} package(s){} into {}",
             expected.packages.len(),
-            if locked { " (locked)" } else { "" }
+            if locked { " (locked)" } else { "" },
+            resolver.env_root().display()
         );
     }
     0
@@ -1143,7 +1151,8 @@ fn build_lockfile(
     root: &Path,
     manifest: &marqdo_package::Manifest,
 ) -> Result<marqdo_package::LockFile, String> {
-    let resolver = marqdo_package::PackageResolver::new(root, Some(manifest.clone()), None);
+    let resolver =
+        marqdo_package::PackageResolver::new(root, Some(manifest.clone()), None).with_fetch(true);
     let mut packages = Vec::new();
     for name in manifest.dependencies.keys() {
         let resolved = resolver.resolve_alias(name)?;

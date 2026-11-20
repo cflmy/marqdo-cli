@@ -321,26 +321,59 @@ pub fn hash_tree(root: &Path) -> Result<String, String> {
     Ok(hex::encode(hasher.finalize()))
 }
 
+/// Sanitize a logical instance id into one filesystem component.
+pub fn env_dir_name(instance: &str) -> String {
+    instance
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric()
+                || character == '.'
+                || character == '-'
+                || character == '_'
+            {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
 /// Resolve entry files and explicit `@dependency` imports.
 #[derive(Debug, Clone)]
 pub struct PackageResolver {
     root: PathBuf,
     manifest: Option<Manifest>,
     lock: Option<LockFile>,
+    cache_root: PathBuf,
+    env_root: PathBuf,
+    fetch: bool,
 }
 
 impl PackageResolver {
-    /// Build a resolver for a project root.
+    /// Build a resolver for a project root. Fetching is disabled; `check` and
+    /// `run` only read path sources, the Git cache and the materialized env.
     pub fn new(
         root: impl Into<PathBuf>,
         manifest: Option<Manifest>,
         lock: Option<LockFile>,
     ) -> Self {
+        let root = root.into();
         Self {
-            root: root.into(),
+            cache_root: root.join(".marqdo/cache"),
+            env_root: root.join(".marqdo/env"),
+            root,
             manifest,
             lock,
+            fetch: false,
         }
+    }
+
+    /// Allow `lock`/`sync` to fetch pinned Git revisions (never install
+    /// scripts, never submodules).
+    pub fn with_fetch(mut self, fetch: bool) -> Self {
+        self.fetch = fetch;
+        self
     }
 
     /// Project root.
@@ -351,6 +384,16 @@ impl PackageResolver {
     /// The project manifest, if the entry is part of a project.
     pub fn manifest(&self) -> Option<&Manifest> {
         self.manifest.as_ref()
+    }
+
+    /// Content-addressed cache root.
+    pub fn cache_root(&self) -> &Path {
+        &self.cache_root
+    }
+
+    /// Materialized environment root.
+    pub fn env_root(&self) -> &Path {
+        &self.env_root
     }
 
     /// Resolve the package that owns `entry`.
@@ -366,102 +409,165 @@ impl PackageResolver {
             )
         })?;
         Ok(ResolvedModule {
-            package: ResolvedPackage {
-                instance_id: root_instance(self.manifest.as_ref()),
-                name: self
-                    .manifest
-                    .as_ref()
-                    .map(|manifest| manifest.project.name.clone())
-                    .unwrap_or_else(|| "default".to_string()),
-                version: self
-                    .manifest
-                    .as_ref()
-                    .map(|manifest| manifest.project.version.clone())
-                    .unwrap_or_else(|| "0.0.0".to_string()),
-                origin: PackageOrigin::Root,
-                revision: None,
-                content_digest: None,
-                module_root: self.root.clone(),
-                entry_module: normalize_relative(relative)?,
-                manifest: self.manifest.clone(),
-            },
+            package: self.root_package()?,
             relative_path: normalize_relative(relative)?,
         })
     }
 
-    /// Resolve a declared `@alias` dependency.
+    fn root_package(&self) -> Result<ResolvedPackage, String> {
+        Ok(ResolvedPackage {
+            instance_id: root_instance(self.manifest.as_ref()),
+            name: self
+                .manifest
+                .as_ref()
+                .map(|manifest| manifest.project.name.clone())
+                .unwrap_or_else(|| "default".to_string()),
+            version: self
+                .manifest
+                .as_ref()
+                .map(|manifest| manifest.project.version.clone())
+                .unwrap_or_else(|| "0.0.0".to_string()),
+            origin: PackageOrigin::Root,
+            revision: None,
+            content_digest: None,
+            module_root: self.root.clone(),
+            entry_module: "index.mq.md".to_string(),
+            manifest: self.manifest.clone(),
+        })
+    }
+
+    /// Resolve a declared `@alias` dependency from the root project.
     pub fn resolve_alias(&self, alias: &str) -> Result<ResolvedModule, String> {
-        let manifest = self
+        self.resolve_alias_from(&self.root_package()?, alias)
+    }
+
+    /// Resolve `@alias` from the manifest of the package containing the
+    /// importing module. This supports transitive dependencies without
+    /// implicit searching.
+    pub fn resolve_alias_from(
+        &self,
+        from: &ResolvedPackage,
+        alias: &str,
+    ) -> Result<ResolvedModule, String> {
+        let manifest = from
             .manifest
             .as_ref()
-            .ok_or_else(|| "no marqdo.yaml is available for dependency imports".to_string())?;
+            .ok_or_else(|| format!("package `{}` has no marqdo.yaml", from.instance_id))?;
         let dependency = manifest
             .dependencies
             .get(alias)
-            .ok_or_else(|| format!("unknown dependency `{alias}`"))?;
-        let declared = dependency.path.as_ref().ok_or_else(|| {
-            format!("dependency `{alias}` has no local path source in this build")
-        })?;
-        let declared_path = self.root.join(declared);
-        let canonical = declared_path.canonicalize().map_err(|error| {
-            format!(
-                "cannot open dependency `{alias}` at `{}`: {error}",
-                declared_path.display()
-            )
-        })?;
-        let (module_root, entry_module) = if canonical.is_dir() {
-            let entry = canonical.join("index.mq.md");
-            if !entry.is_file() {
-                return Err(format!(
-                    "dependency `{alias}` directory `{}` has no index.mq.md",
-                    canonical.display()
-                ));
-            }
-            (canonical, "index.mq.md".to_string())
-        } else {
-            let parent = canonical
-                .parent()
-                .ok_or_else(|| format!("dependency `{alias}` has no parent directory"))?
-                .to_path_buf();
-            let name = canonical
-                .file_name()
-                .map(|name| name.to_string_lossy().to_string())
-                .ok_or_else(|| format!("dependency `{alias}` has no file name"))?;
-            (parent, name)
-        };
-        let dependency_manifest = if module_root.join(MANIFEST_FILE).is_file() {
-            Some(Manifest::load(&module_root.join(MANIFEST_FILE))?)
-        } else {
-            None
-        };
-        let name = dependency_manifest
-            .as_ref()
-            .map(|manifest| manifest.project.name.clone())
-            .unwrap_or_else(|| alias.to_string());
-        let version = dependency_manifest
-            .as_ref()
-            .map(|manifest| manifest.project.version.clone())
-            .unwrap_or_else(|| "0.0.0".to_string());
-        let digest = hash_tree(&module_root)?;
-        let instance_id = dependency_instance_id(&name, &version, Some(&digest));
-        if let Some(lock) = &self.lock {
-            if let Some(locked) = lock.package(alias) {
-                if locked.sha256.as_deref().is_some_and(|sha| sha != digest) {
-                    return Err(format!(
-                        "dependency `{alias}` content changed since marqdo.lock; run `marqdo lock`"
-                    ));
+            .ok_or_else(|| format!("unknown dependency `{alias}` in package `{}`", from.name))?;
+        self.resolve_dependency(
+            &from.module_root,
+            manifest,
+            alias,
+            dependency,
+            &from.instance_id,
+        )
+    }
+
+    fn resolve_dependency(
+        &self,
+        base: &Path,
+        _manifest: &Manifest,
+        alias: &str,
+        dependency: &Dependency,
+        from_instance: &str,
+    ) -> Result<ResolvedModule, String> {
+        if let Some(path) = &dependency.path {
+            let declared_path = base.join(path);
+            let canonical = declared_path.canonicalize().map_err(|error| {
+                format!(
+                    "cannot open dependency `{alias}` at `{}`: {error}",
+                    declared_path.display()
+                )
+            })?;
+            let (module_root, entry_module) = package_root_for(&canonical, alias)?;
+            let dependency_manifest = load_optional_manifest(&module_root)?;
+            let (name, version) = package_name_version(&dependency_manifest, alias);
+            let digest = hash_tree(&module_root)?;
+            let instance_id = dependency_instance_id(&name, &version, Some(&digest));
+            self.check_lock(
+                alias,
+                &PackageOrigin::Path {
+                    declared: path.clone(),
                 }
-            }
+                .source(),
+                Some(&digest),
+            )?;
+            // Prefer a materialized env copy only when it is the same content.
+            let env_candidate = self.env_root.join(env_dir_name(&instance_id));
+            let module_root = if env_candidate.is_dir()
+                && hash_tree(&env_candidate).ok().as_deref() == Some(&digest)
+            {
+                env_candidate
+            } else {
+                module_root
+            };
+            return Ok(ResolvedModule {
+                package: ResolvedPackage {
+                    instance_id,
+                    name,
+                    version,
+                    origin: PackageOrigin::Path {
+                        declared: path.clone(),
+                    },
+                    revision: None,
+                    content_digest: Some(digest),
+                    module_root,
+                    entry_module: entry_module.clone(),
+                    manifest: dependency_manifest,
+                },
+                relative_path: entry_module,
+            });
         }
+        let (url, rev) = match (&dependency.git, &dependency.rev) {
+            (Some(url), Some(rev)) => (url.clone(), rev.clone()),
+            (Some(_), None) => {
+                return Err(format!(
+                    "dependency `{alias}` uses git without an exact rev"
+                ))
+            }
+            _ => return Err(format!("dependency `{alias}` has no source")),
+        };
+        let checkout = self.git_checkout(&url, &rev, from_instance)?;
+        let dependency_manifest = load_optional_manifest(&checkout)?;
+        let (name, version) = package_name_version(&dependency_manifest, alias);
+        let digest = hash_tree(&checkout)?;
+        let instance_id = dependency_instance_id(&name, &version, Some(&digest));
+        // Prefer a materialized env copy when sync produced one.
+        let env_candidate = self.env_root.join(env_dir_name(&instance_id));
+        let module_root = if env_candidate.is_dir() {
+            env_candidate
+        } else {
+            checkout
+        };
+        let entry_module = "index.mq.md".to_string();
+        if !module_root.join(&entry_module).is_file() {
+            return Err(format!(
+                "dependency `{alias}` has no {entry_module} at `{}`",
+                module_root.display()
+            ));
+        }
+        self.check_lock(
+            alias,
+            &PackageOrigin::Git {
+                url: url.clone(),
+                rev: rev.clone(),
+            }
+            .source(),
+            Some(&digest),
+        )?;
         Ok(ResolvedModule {
             package: ResolvedPackage {
                 instance_id,
                 name,
                 version,
-                origin: PackageOrigin::Path {
-                    declared: declared.clone(),
+                origin: PackageOrigin::Git {
+                    url,
+                    rev: rev.clone(),
                 },
-                revision: None,
+                revision: Some(rev),
                 content_digest: Some(digest),
                 module_root,
                 entry_module: entry_module.clone(),
@@ -469,6 +575,172 @@ impl PackageResolver {
             },
             relative_path: entry_module,
         })
+    }
+
+    fn check_lock(&self, alias: &str, source: &str, digest: Option<&str>) -> Result<(), String> {
+        let Some(lock) = &self.lock else {
+            return Ok(());
+        };
+        let Some(locked) = lock.package(alias) else {
+            return Ok(());
+        };
+        if locked.source != source {
+            return Err(format!(
+                "dependency `{alias}` source changed from `{}` to `{source}` since marqdo.lock",
+                locked.source
+            ));
+        }
+        if let (Some(expected), Some(actual)) = (locked.sha256.as_deref(), digest) {
+            if expected != actual {
+                return Err(format!(
+                    "dependency `{alias}` content changed since marqdo.lock; run `marqdo lock`"
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn git_checkout(&self, url: &str, rev: &str, _from_instance: &str) -> Result<PathBuf, String> {
+        let digest = {
+            let mut hasher = Sha256::new();
+            hasher.update(url.as_bytes());
+            hex::encode(hasher.finalize())
+        };
+        let target =
+            self.cache_root
+                .join("git")
+                .join(format!("{}-{}", &digest[..16], safe_component(rev)));
+        if target.is_dir() {
+            return Ok(target);
+        }
+        if !self.fetch {
+            return Err(format!(
+                "Git dependency `{url}` at `{rev}` is not cached; run `marqdo sync` (or `marqdo lock`) first"
+            ));
+        }
+        let parent = target
+            .parent()
+            .ok_or_else(|| "invalid Git cache path".to_string())?;
+        std::fs::create_dir_all(parent)
+            .map_err(|error| format!("cannot create Git cache: {error}"))?;
+        let staging = parent.join(format!(
+            ".tmp-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or(0)
+        ));
+        let _ = std::fs::remove_dir_all(&staging);
+        let result = (|| -> Result<(), String> {
+            let status = std::process::Command::new("git")
+                .args([
+                    "clone",
+                    "--quiet",
+                    "--no-checkout",
+                    "--config",
+                    "core.hooksPath=/dev/null",
+                    url,
+                ])
+                .arg(&staging)
+                .env("GIT_TERMINAL_PROMPT", "0")
+                .status()
+                .map_err(|error| format!("cannot execute git: {error}"))?;
+            if !status.success() {
+                return Err(format!("git clone failed for `{url}`"));
+            }
+            let status = std::process::Command::new("git")
+                .args(["checkout", "--quiet", "--detach", rev])
+                .current_dir(&staging)
+                .env("GIT_TERMINAL_PROMPT", "0")
+                .status()
+                .map_err(|error| format!("cannot execute git checkout: {error}"))?;
+            if !status.success() {
+                return Err(format!(
+                    "git checkout of revision `{rev}` failed for `{url}`"
+                ));
+            }
+            let _ = std::fs::remove_dir_all(staging.join(".git"));
+            std::fs::rename(&staging, &target)
+                .map_err(|error| format!("cannot publish Git cache: {error}"))?;
+            Ok(())
+        })();
+        if result.is_err() {
+            let _ = std::fs::remove_dir_all(&staging);
+        }
+        result.map(|()| target)
+    }
+
+    /// Materialize the locked path/Git packages into `.marqdo/env`.
+    pub fn materialize_env(&self, manifest: &Manifest, lock: &LockFile) -> Result<(), String> {
+        let fetch_resolver = PackageResolver {
+            fetch: true,
+            lock: Some(lock.clone()),
+            ..self.clone()
+        };
+        let mut packages = Vec::new();
+        for name in manifest.dependencies.keys() {
+            let resolved = fetch_resolver.resolve_alias(name)?;
+            packages.push((name.clone(), resolved.package));
+        }
+        let staging = self.env_root.with_file_name(format!(
+            "env.tmp-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or(0)
+        ));
+        let _ = std::fs::remove_dir_all(&staging);
+        std::fs::create_dir_all(&staging)
+            .map_err(|error| format!("cannot create environment staging: {error}"))?;
+        let result = (|| -> Result<(), String> {
+            let mut records = Vec::new();
+            for (alias, package) in &packages {
+                let directory = staging.join(env_dir_name(&package.instance_id));
+                copy_tree(&package.module_root, &directory)?;
+                records.push(serde_json::json!({
+                    "alias": alias,
+                    "instance_id": package.instance_id,
+                    "source": package.origin.source(),
+                    "sha256": package.content_digest,
+                }));
+            }
+            let index = serde_json::json!({
+                "schema": "marqdo.env",
+                "schema_version": 1,
+                "packages": records,
+            });
+            std::fs::write(
+                staging.join("env.json"),
+                serde_json::to_vec_pretty(&index).unwrap_or_default(),
+            )
+            .map_err(|error| format!("cannot write env index: {error}"))?;
+            let backup = self.env_root.with_file_name(format!(
+                "env.old-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|duration| duration.as_nanos())
+                    .unwrap_or(0)
+            ));
+            if self.env_root.exists() {
+                std::fs::rename(&self.env_root, &backup)
+                    .map_err(|error| format!("cannot replace old environment: {error}"))?;
+            }
+            if let Err(error) = std::fs::rename(&staging, &self.env_root) {
+                if backup.exists() {
+                    let _ = std::fs::rename(&backup, &self.env_root);
+                }
+                return Err(format!("cannot publish environment: {error}"));
+            }
+            let _ = std::fs::remove_dir_all(&backup);
+            Ok(())
+        })();
+        if result.is_err() {
+            let _ = std::fs::remove_dir_all(&staging);
+        }
+        result
     }
 
     /// Resolve a path relative to an already resolved package, rejecting
@@ -497,6 +769,102 @@ impl PackageResolver {
             relative_path: normalize_relative(relative)?,
         })
     }
+}
+
+fn package_root_for(canonical: &Path, alias: &str) -> Result<(PathBuf, String), String> {
+    if canonical.is_dir() {
+        let entry = canonical.join("index.mq.md");
+        if !entry.is_file() {
+            return Err(format!(
+                "dependency `{alias}` directory `{}` has no index.mq.md",
+                canonical.display()
+            ));
+        }
+        Ok((canonical.to_path_buf(), "index.mq.md".to_string()))
+    } else {
+        let parent = canonical
+            .parent()
+            .ok_or_else(|| format!("dependency `{alias}` has no parent directory"))?
+            .to_path_buf();
+        let name = canonical
+            .file_name()
+            .map(|name| name.to_string_lossy().to_string())
+            .ok_or_else(|| format!("dependency `{alias}` has no file name"))?;
+        Ok((parent, name))
+    }
+}
+
+fn load_optional_manifest(root: &Path) -> Result<Option<Manifest>, String> {
+    if root.join(MANIFEST_FILE).is_file() {
+        Ok(Some(Manifest::load(&root.join(MANIFEST_FILE))?))
+    } else {
+        Ok(None)
+    }
+}
+
+fn package_name_version(manifest: &Option<Manifest>, alias: &str) -> (String, String) {
+    (
+        manifest
+            .as_ref()
+            .map(|manifest| manifest.project.name.clone())
+            .unwrap_or_else(|| alias.to_string()),
+        manifest
+            .as_ref()
+            .map(|manifest| manifest.project.version.clone())
+            .unwrap_or_else(|| "0.0.0".to_string()),
+    )
+}
+
+fn safe_component(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| {
+            character.is_ascii_alphanumeric() || *character == '-' || *character == '_'
+        })
+        .collect()
+}
+
+fn copy_tree(source: &Path, target: &Path) -> Result<(), String> {
+    if !source.is_dir() {
+        return Err(format!(
+            "package source `{}` is not a directory",
+            source.display()
+        ));
+    }
+    for entry in walkdir::WalkDir::new(source).follow_links(false) {
+        let entry = entry.map_err(|error| format!("cannot walk package: {error}"))?;
+        let relative = entry
+            .path()
+            .strip_prefix(source)
+            .map_err(|_| "package path escaped its root".to_string())?;
+        if relative.as_os_str() == ".git" || relative.starts_with(".git/") {
+            continue;
+        }
+        let destination = target.join(relative);
+        if entry.file_type().is_symlink() {
+            return Err(format!(
+                "package contains a symlink `{}`; refusing to materialize it",
+                entry.path().display()
+            ));
+        }
+        if entry.file_type().is_dir() {
+            std::fs::create_dir_all(&destination)
+                .map_err(|error| format!("cannot create `{}`: {error}", destination.display()))?;
+        } else if entry.file_type().is_file() {
+            if let Some(parent) = destination.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|error| format!("cannot create `{}`: {error}", parent.display()))?;
+            }
+            std::fs::copy(entry.path(), &destination).map_err(|error| {
+                format!(
+                    "cannot copy `{}` to `{}`: {error}",
+                    entry.path().display(),
+                    destination.display()
+                )
+            })?;
+        }
+    }
+    Ok(())
 }
 
 /// One pinned dependency entry in `marqdo.lock`.
@@ -554,8 +922,6 @@ impl LockFile {
                 lock.lock_version
             ));
         }
-        // v1 had no logical instance id; derive one so callers always see the
-        // package-aware shape. Writers emit v2.
         for package in &mut lock.packages {
             package.migrate_instance_id();
         }
@@ -730,6 +1096,128 @@ capabilities:
     fn rejects_absolute_dependency_paths() {
         let yaml = "project:\n  name: p\n  version: 0.1.0\ndependencies:\n  x:\n    path: /tmp/x\n";
         assert!(Manifest::from_yaml(yaml).is_err());
+    }
+
+    fn have_git() -> bool {
+        std::process::Command::new("git")
+            .arg("--version")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
+    }
+
+    fn git(dir: &Path, args: &[&str]) {
+        let status = std::process::Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .env("GIT_AUTHOR_NAME", "test")
+            .env("GIT_AUTHOR_EMAIL", "test@example.invalid")
+            .env("GIT_COMMITTER_NAME", "test")
+            .env("GIT_COMMITTER_EMAIL", "test@example.invalid")
+            .status()
+            .expect("git");
+        assert!(status.success(), "git {args:?} failed");
+    }
+
+    #[test]
+    fn pinned_git_dependency_resolves_and_reuses_cache() {
+        if !have_git() {
+            eprintln!("skipping: git is unavailable");
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("root");
+        let dep = dir.path().join("dep");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::create_dir_all(&dep).unwrap();
+        std::fs::write(
+            dep.join(MANIFEST_FILE),
+            "project:\n  name: remote\n  version: 0.2.0\n",
+        )
+        .unwrap();
+        std::fs::write(dep.join("index.mq.md"), "## hello\n\n*1*\n").unwrap();
+        git(&dep, &["init", "-q"]);
+        git(&dep, &["add", "."]);
+        git(&dep, &["commit", "-q", "-m", "initial"]);
+        let rev = String::from_utf8(
+            std::process::Command::new("git")
+                .args(["rev-parse", "HEAD"])
+                .current_dir(&dep)
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap();
+        std::fs::write(
+            root.join(MANIFEST_FILE),
+            format!(
+                "project:\n  name: p\n  version: 0.1.0\ndependencies:\n  remote:\n    git: {}\n    rev: {}\n",
+                dep.display(),
+                rev.trim()
+            ),
+        )
+        .unwrap();
+        let manifest = Manifest::load(&root.join(MANIFEST_FILE)).unwrap();
+        let resolver =
+            PackageResolver::new(root.clone(), Some(manifest.clone()), None).with_fetch(true);
+        let resolved = resolver.resolve_alias("remote").unwrap();
+        assert_eq!(resolved.package.name, "remote");
+        assert_eq!(resolved.package.version, "0.2.0");
+        assert!(resolved
+            .package
+            .instance_id
+            .starts_with("dep:remote@0.2.0#"));
+        assert_eq!(resolved.package.revision.as_deref(), Some(rev.trim()));
+        assert!(resolved.package.module_root.join("index.mq.md").is_file());
+
+        // A later resolver without fetch reads the content-addressed cache.
+        let offline = PackageResolver::new(root, Some(manifest), None);
+        let again = offline.resolve_alias("remote").unwrap();
+        assert_eq!(again.package.instance_id, resolved.package.instance_id);
+    }
+
+    #[test]
+    fn sync_materializes_a_content_checked_environment() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("root");
+        let dep = root.join("deps/geometry");
+        std::fs::create_dir_all(&dep).unwrap();
+        std::fs::write(
+            dep.join(MANIFEST_FILE),
+            "project:\n  name: geometry\n  version: 0.1.0\n",
+        )
+        .unwrap();
+        std::fs::write(dep.join("index.mq.md"), "## area\n\n*1*\n").unwrap();
+        std::fs::write(
+            root.join(MANIFEST_FILE),
+            "project:\n  name: p\n  version: 0.1.0\ndependencies:\n  geometry:\n    path: ./deps/geometry\n",
+        )
+        .unwrap();
+        let manifest = Manifest::load(&root.join(MANIFEST_FILE)).unwrap();
+        let resolver =
+            PackageResolver::new(root.clone(), Some(manifest.clone()), None).with_fetch(true);
+        let resolved = resolver.resolve_alias("geometry").unwrap();
+        let lock = LockFile {
+            lock_version: 2,
+            packages: vec![LockedPackage {
+                name: "geometry".into(),
+                instance_id: resolved.package.instance_id.clone(),
+                source: resolved.package.origin.source(),
+                sha256: resolved.package.content_digest.clone(),
+            }],
+        };
+        resolver.materialize_env(&manifest, &lock).unwrap();
+        let env = root.join(".marqdo/env");
+        assert!(env.join("env.json").is_file());
+        assert!(env
+            .join(env_dir_name(&resolved.package.instance_id))
+            .join("index.mq.md")
+            .is_file());
+        // A resolver with the lock reads the materialized copy.
+        let read = PackageResolver::new(root, Some(manifest), Some(lock));
+        let again = read.resolve_alias("geometry").unwrap();
+        assert_eq!(again.package.instance_id, resolved.package.instance_id);
+        assert!(again.package.module_root.starts_with(env));
     }
 
     #[test]

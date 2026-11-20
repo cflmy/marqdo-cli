@@ -254,7 +254,7 @@ impl Loader {
 
         for (alias, target, span) in imports {
             let resolved = if let Some(alias_name) = target.strip_prefix('@') {
-                self.resolver.resolve_alias(alias_name)
+                self.resolver.resolve_alias_from(package, alias_name)
             } else {
                 self.resolver.resolve_relative(package, &path, &target)
             };

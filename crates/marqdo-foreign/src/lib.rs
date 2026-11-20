@@ -827,6 +827,20 @@ fn spawn_and_capture(
         })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        // SAFETY: setpgid is async-signal-safe and only touches the child
+        // process between fork and exec.
+        unsafe {
+            command.pre_exec(|| {
+                if libc::setpgid(0, 0) == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+    }
 
     let start = Instant::now();
     let mut child = command.spawn().map_err(|error| ForeignError::Spawn {
@@ -970,6 +984,19 @@ fn collect_reader(state: ReaderState) -> Vec<u8> {
 }
 
 fn kill_and_reap(child: &mut Child) {
+    #[cfg(unix)]
+    {
+        // The child is its own process-group leader (setpgid in pre_exec), so
+        // the negative pid terminates surviving grandchildren too.
+        let pid = child.id() as i32;
+        if pid > 0 {
+            // SAFETY: kill(2) with a negative pid targets that process group;
+            // failure is harmless (the child may already be gone).
+            unsafe {
+                libc::kill(-pid, libc::SIGKILL);
+            }
+        }
+    }
     let _ = child.kill();
     let _ = child.wait();
 }
