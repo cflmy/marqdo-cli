@@ -1,0 +1,926 @@
+//! Command implementations.
+
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
+
+use marqdo_host::{Capabilities, Host, StdHost};
+use marqdo_ir::ModuleId;
+use marqdo_runtime::{run, EvaluatedArg, RuntimeError, Value};
+use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
+use marqdo_span::Span;
+use serde_json::json;
+use sha2::{Digest, Sha256};
+
+use crate::args;
+use crate::loader::{self, LoadedProject};
+use crate::output;
+
+/// Effective sandbox settings from the command line.
+#[derive(Debug, Clone, Default)]
+pub struct SandboxSettings {
+    /// Mode name.
+    pub mode: String,
+    /// Read grants.
+    pub allow_read: Vec<String>,
+    /// Write grants.
+    pub allow_write: Vec<String>,
+    /// Foreign execution grant.
+    pub allow_foreign: bool,
+    /// Plugin grants.
+    pub allow_plugin: Vec<String>,
+    /// Fuel override.
+    pub fuel: Option<u64>,
+    /// Stack depth override.
+    pub stack: Option<usize>,
+    /// Output limit override.
+    pub max_output: Option<usize>,
+    /// Wall-clock timeout in seconds.
+    pub timeout: Option<u64>,
+}
+
+impl SandboxSettings {
+    /// Parse the mode string.
+    pub fn sandbox_mode(&self) -> Result<SandboxMode, String> {
+        SandboxMode::parse(&self.mode).ok_or_else(|| {
+            format!(
+                "unknown sandbox mode `{}` (expected pure, project or strict)",
+                self.mode
+            )
+        })
+    }
+
+    /// Build the effective capability set.
+    pub fn capabilities(&self) -> Result<Capabilities, String> {
+        let mode = self.sandbox_mode()?;
+        match mode {
+            SandboxMode::Pure => {
+                if !self.allow_read.is_empty()
+                    || !self.allow_write.is_empty()
+                    || self.allow_foreign
+                    || !self.allow_plugin.is_empty()
+                {
+                    return Err(
+                        "pure mode prohibits external I/O grants; use --mode project".to_string(),
+                    );
+                }
+                Ok(Capabilities::pure())
+            }
+            SandboxMode::Project => {
+                let mut capabilities = Capabilities::project();
+                for pattern in &self.allow_read {
+                    capabilities = capabilities.allow_read(pattern.clone());
+                }
+                for pattern in &self.allow_write {
+                    capabilities = capabilities.allow_write(pattern.clone());
+                }
+                if self.allow_foreign {
+                    capabilities = capabilities.allow_foreign();
+                }
+                for plugin in &self.allow_plugin {
+                    capabilities = capabilities.allow_plugin(plugin.clone());
+                }
+                Ok(capabilities)
+            }
+            SandboxMode::Strict => Ok(Capabilities::project()),
+        }
+    }
+}
+
+/// `marqdo init`.
+pub fn init(dir: Option<&Path>) -> i32 {
+    let dir = dir.unwrap_or_else(|| Path::new("."));
+    if dir.join(marqdo_package::MANIFEST_FILE).exists() {
+        eprintln!(
+            "error: `{}` already contains {}",
+            dir.display(),
+            marqdo_package::MANIFEST_FILE
+        );
+        return 1;
+    }
+    let name = dir
+        .canonicalize()
+        .ok()
+        .and_then(|path| {
+            path.file_name()
+                .map(|name| name.to_string_lossy().to_string())
+        })
+        .unwrap_or_else(|| "example".to_string());
+    if let Err(error) = std::fs::create_dir_all(dir) {
+        eprintln!("error: cannot create {}: {error}", dir.display());
+        return 1;
+    }
+    let manifest = marqdo_package::Manifest::template(&name);
+    if let Err(error) = std::fs::write(dir.join(marqdo_package::MANIFEST_FILE), manifest.to_yaml())
+    {
+        eprintln!("error: cannot write manifest: {error}");
+        return 1;
+    }
+    let entry = dir.join("index.mq.md");
+    if let Err(error) = std::fs::write(&entry, INIT_TEMPLATE) {
+        eprintln!("error: cannot write {}: {error}", entry.display());
+        return 1;
+    }
+    let _ = std::fs::write(dir.join(".gitignore"), ".marqdo/\n");
+    println!("Initialized Marqdo project `{name}` in {}", dir.display());
+    println!("Next: marqdo check index.mq.md && marqdo run index.mq.md");
+    0
+}
+
+const INIT_TEMPLATE: &str = "## main\n\n**问候 = \"你好，Marqdo\"**\n\n> 打印(问候)\n\n*问候*\n";
+
+fn load_project(file: Option<&Path>, json: bool) -> Result<LoadedProject, i32> {
+    let file = file.unwrap_or_else(|| Path::new("index.mq.md"));
+    match loader::load(file) {
+        Ok(project) => Ok(project),
+        Err(error) => {
+            if json {
+                output::print_json(&json!({"success": false, "error": error}));
+            } else {
+                eprintln!("error: {error}");
+            }
+            Err(2)
+        }
+    }
+}
+
+/// `marqdo check`.
+pub fn check(file: Option<&Path>, json: bool) -> i32 {
+    let project = match load_project(file, json) {
+        Ok(project) => project,
+        Err(code) => return code,
+    };
+    let errors = output::error_count(&project.diagnostics);
+    if json {
+        output::print_json(&json!({
+            "command": "check",
+            "success": errors == 0,
+            "errors": errors,
+            "diagnostics": output::diagnostics_json(&project.diagnostics),
+        }));
+    } else {
+        let text = output::render_text(&project.diagnostics);
+        eprint!("{text}");
+        if errors == 0 {
+            println!("checked {} module(s): ok", project.program.modules.len());
+        } else {
+            eprintln!(
+                "check failed: {} error(s), {} warning(s)",
+                errors,
+                project.diagnostics.len() - errors
+            );
+        }
+    }
+    if errors == 0 {
+        0
+    } else {
+        1
+    }
+}
+
+/// Options for `marqdo inspect`.
+#[derive(Debug, Clone, Default)]
+pub struct InspectFlags {
+    /// Show the Markdown AST.
+    pub ast: bool,
+    /// Show heading units.
+    pub units: bool,
+    /// Show inferred/explicit signatures.
+    pub signature: bool,
+    /// Show executable IR.
+    pub ir: bool,
+    /// Show link reference edges.
+    pub refs: bool,
+    /// Show platform capability report.
+    pub platform: bool,
+}
+
+/// `marqdo inspect`.
+pub fn inspect(file: Option<&Path>, flags: &InspectFlags, json: bool) -> i32 {
+    let project = match load_project(file, json) {
+        Ok(project) => project,
+        Err(code) => return code,
+    };
+    let entry = project.entry_file();
+    let module = &entry.analysis.module;
+    let selected_any =
+        flags.ast || flags.units || flags.signature || flags.ir || flags.refs || flags.platform;
+    if json {
+        let mut object = serde_json::Map::new();
+        object.insert("command".into(), json!("inspect"));
+        object.insert("module".into(), json!(entry.module_id.0));
+        if !selected_any {
+            object.insert("summary".into(), summary_json(&project));
+        }
+        if flags.ast {
+            object.insert(
+                "ast".into(),
+                serde_json::to_value(&entry.analysis.document.root).unwrap_or_default(),
+            );
+        }
+        if flags.units {
+            object.insert(
+                "units".into(),
+                serde_json::to_value(&entry.analysis.units.units).unwrap_or_default(),
+            );
+        }
+        if flags.signature {
+            object.insert("signatures".into(), signatures_json(module));
+        }
+        if flags.ir {
+            object.insert(
+                "ir".into(),
+                serde_json::to_value(&module.functions).unwrap_or_default(),
+            );
+        }
+        if flags.refs {
+            object.insert("refs".into(), json!(refs_json(&project)));
+        }
+        if flags.platform {
+            object.insert(
+                "platform".into(),
+                serde_json::to_value(PlatformCapabilities::detect()).unwrap_or_default(),
+            );
+        }
+        output::print_json(&serde_json::Value::Object(object));
+        return 0;
+    }
+    if !selected_any {
+        println!("module: {}", entry.module_id.0);
+        println!("path: {}", entry.path.display());
+        println!("project root: {}", project.root.display());
+        println!("functions:");
+        for function in &module.functions {
+            let params = function
+                .params
+                .iter()
+                .map(|param| param.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let kind = match function.signature {
+                marqdo_ir::SignatureKind::Explicit => "explicit",
+                marqdo_ir::SignatureKind::Inferred => "inferred",
+            };
+            println!("  {} ({params}) [{kind}]", function.id.name);
+        }
+        println!(
+            "resources: {} formula/code block(s)",
+            module.resources.len()
+        );
+        return 0;
+    }
+    if flags.ast {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&entry.analysis.document.root).unwrap_or_default()
+        );
+    }
+    if flags.units {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&entry.analysis.units.units).unwrap_or_default()
+        );
+    }
+    if flags.signature {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&signatures_json(module)).unwrap_or_default()
+        );
+    }
+    if flags.ir {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&module.functions).unwrap_or_default()
+        );
+    }
+    if flags.refs {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&refs_json(&project)).unwrap_or_default()
+        );
+    }
+    if flags.platform {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&PlatformCapabilities::detect()).unwrap_or_default()
+        );
+    }
+    0
+}
+
+fn summary_json(project: &LoadedProject) -> serde_json::Value {
+    let entry = project.entry_file();
+    json!({
+        "modules": project.program.modules.len(),
+        "functions": entry.analysis.module.functions.len(),
+        "units": entry.analysis.units.units.len(),
+        "resources": entry.analysis.module.resources.len(),
+    })
+}
+
+fn signatures_json(module: &marqdo_ir::Module) -> serde_json::Value {
+    serde_json::Value::Array(
+        module
+            .functions
+            .iter()
+            .map(|function| {
+                json!({
+                    "name": function.id.name,
+                    "local_name": function.local_name,
+                    "signature": match function.signature {
+                        marqdo_ir::SignatureKind::Explicit => "explicit",
+                        marqdo_ir::SignatureKind::Inferred => "inferred",
+                    },
+                    "params": function.params.iter().map(|param| json!({
+                        "name": param.name,
+                        "type": param.type_annotation,
+                        "has_default": param.default.is_some(),
+                    })).collect::<Vec<_>>(),
+                })
+            })
+            .collect(),
+    )
+}
+
+fn refs_json(project: &LoadedProject) -> serde_json::Value {
+    let entry = project.entry_file();
+    let parent = entry.path.parent().unwrap_or_else(|| Path::new("."));
+    let mut edges = Vec::new();
+    entry.analysis.document.root.walk(&mut |node| {
+        let marqdo_markdown::MdKind::Link { url, .. } = &node.kind else {
+            return;
+        };
+        let (resolved, target_module, target_unit) =
+            resolve_link(project, &entry.analysis.units, parent, url);
+        edges.push(json!({
+            "source": entry.module_id.0,
+            "url": url,
+            "span": node.span,
+            "resolved": resolved,
+            "target_module": target_module,
+            "target_unit": target_unit,
+        }));
+    });
+    serde_json::Value::Array(edges)
+}
+
+fn resolve_link(
+    project: &LoadedProject,
+    units: &marqdo_frontend::UnitIndex,
+    parent: &Path,
+    url: &str,
+) -> (bool, Option<String>, Option<String>) {
+    if let Some(fragment) = url.strip_prefix('#') {
+        let unit = units.anchors.get(fragment).or_else(|| {
+            units
+                .units
+                .iter()
+                .find(|unit| unit.name == fragment)
+                .map(|unit| &unit.id)
+        });
+        return match unit {
+            Some(unit) => (true, Some(project.entry.0.clone()), Some(unit.to_string())),
+            None => (false, None, None),
+        };
+    }
+    if url.starts_with("http://") || url.starts_with("https://") {
+        return (true, None, None);
+    }
+    let (path_part, fragment) = match url.split_once('#') {
+        Some((path, fragment)) => (path, Some(fragment)),
+        None => (url, None),
+    };
+    let candidate = parent.join(path_part);
+    let Ok(candidate) = candidate.canonicalize() else {
+        return (false, None, None);
+    };
+    let Ok(relative) = candidate.strip_prefix(&project.root) else {
+        return (false, None, None);
+    };
+    let module_id = ModuleId(
+        relative
+            .components()
+            .map(|component| component.as_os_str().to_string_lossy().to_string())
+            .collect::<Vec<_>>()
+            .join("/"),
+    );
+    let analyzed;
+    let target_units = match project.files.get(&module_id) {
+        Some(target_file) => &target_file.analysis.units,
+        None => {
+            // Links may reference documents that are not imported. Analyse the
+            // target statically for reference checking; nothing executes.
+            let Ok(source) = std::fs::read_to_string(&candidate) else {
+                return (false, None, None);
+            };
+            analyzed = marqdo_frontend::analyze_source(&module_id.0, &source);
+            &analyzed.units
+        }
+    };
+    let Some(fragment) = fragment else {
+        return (true, Some(module_id.0), None);
+    };
+    let resolved = target_units.anchors.get(fragment).or_else(|| {
+        target_units
+            .units
+            .iter()
+            .find(|unit| unit.name == fragment)
+            .map(|unit| &unit.id)
+    });
+    match resolved {
+        Some(unit) => (true, Some(module_id.0), Some(unit.to_string())),
+        None => (false, Some(module_id.0), None),
+    }
+}
+
+/// `marqdo run` / `marqdo call`.
+pub fn execute(
+    file: Option<&Path>,
+    function: Option<&str>,
+    named_args: &[(String, Value)],
+    settings: &SandboxSettings,
+    json: bool,
+    trace: bool,
+) -> i32 {
+    let project = match load_project(file, json) {
+        Ok(project) => project,
+        Err(code) => return code,
+    };
+    if project.has_errors() {
+        if json {
+            output::print_json(&json!({
+                "command": "run",
+                "success": false,
+                "diagnostics": output::diagnostics_json(&project.diagnostics),
+            }));
+        } else {
+            eprint!("{}", output::render_text(&project.diagnostics));
+            eprintln!("error: refusing to run a project with compile errors");
+        }
+        return 1;
+    }
+    let mode = match settings.sandbox_mode() {
+        Ok(mode) => mode,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return 2;
+        }
+    };
+    let platform = PlatformCapabilities::detect();
+    if let Err(error) = marqdo_sandbox::enforce(mode, &platform) {
+        if json {
+            output::print_json(&json!({"success": false, "error": error.to_string()}));
+        } else {
+            eprintln!("error: {error}");
+        }
+        return 1;
+    }
+    let capabilities = match settings.capabilities() {
+        Ok(capabilities) => capabilities,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return 2;
+        }
+    };
+    let mut host = StdHost::new(mode, capabilities, project.root.clone());
+    if trace || json {
+        host = host.with_trace();
+    }
+    if let Some(fuel) = settings.fuel {
+        host.budget.fuel = fuel;
+    }
+    if let Some(stack) = settings.stack {
+        host.budget.stack_limit = stack;
+    }
+    if let Some(max_output) = settings.max_output {
+        host.budget.max_output_bytes = max_output;
+    }
+    if let Some(timeout) = settings.timeout {
+        host.budget.deadline = Some(Instant::now() + Duration::from_secs(timeout));
+    }
+    let function_name = function.unwrap_or("main").to_string();
+    let entry_module = &project.program.modules[&project.entry];
+    if entry_module.function(&function_name).is_none() {
+        eprintln!(
+            "error: no function named `{function_name}` in {}",
+            project.entry_file().path.display()
+        );
+        return 1;
+    }
+    let runtime_args: Vec<EvaluatedArg> = named_args
+        .iter()
+        .map(|(name, value)| EvaluatedArg::named(name.clone(), value.clone(), Span::default()))
+        .collect();
+    let result = run(
+        &project.program,
+        &mut host,
+        &project.entry,
+        &function_name,
+        runtime_args,
+    );
+    let stdout = host.take_output();
+    let stdout_text = String::from_utf8_lossy(&stdout).to_string();
+    let trace_entries = host.trace().to_vec();
+    match result {
+        Ok(outcome) => {
+            if json {
+                output::print_json(&json!({
+                    "command": "run",
+                    "success": true,
+                    "value": marqdo_value::to_wire(&outcome.value),
+                    "stdout": stdout_text,
+                    "trace": trace_entries,
+                }));
+            } else {
+                use std::io::Write;
+                let _ = std::io::stdout().write_all(&stdout);
+                if function.is_some() && outcome.value != Value::Unit {
+                    println!("{}", outcome.value.display());
+                }
+                if trace {
+                    for entry in &trace_entries {
+                        eprintln!(
+                            "trace: {} {} {}us {}",
+                            entry.op, entry.module, entry.duration_micros, entry.result
+                        );
+                    }
+                }
+            }
+            0
+        }
+        Err(error) => {
+            if json {
+                output::print_json(&json!({
+                    "command": "run",
+                    "success": false,
+                    "stdout": stdout_text,
+                    "error": runtime_error_json(&error, &project),
+                    "trace": trace_entries,
+                }));
+            } else {
+                use std::io::Write;
+                let _ = std::io::stdout().write_all(&stdout);
+                eprint!("{}", render_runtime_error(&error, &project));
+            }
+            1
+        }
+    }
+}
+
+fn runtime_error_json(error: &RuntimeError, project: &LoadedProject) -> serde_json::Value {
+    let entry = project.entry_file();
+    let span = error.span.map(|span| {
+        let position = marqdo_span::LineIndex::new(&entry.source).line_col(span.start);
+        json!({"line": position.line, "column": position.column, "file": entry.path.display().to_string()})
+    });
+    json!({
+        "code": error.code(),
+        "message": error.message,
+        "span": span,
+        "frames": error.frames,
+    })
+}
+
+fn render_runtime_error(error: &RuntimeError, project: &LoadedProject) -> String {
+    let entry = project.entry_file();
+    let mut out = String::new();
+    out.push_str(&format!(
+        "runtime error[{}]: {}\n",
+        error.code(),
+        error.message
+    ));
+    if let Some(span) = error.span {
+        let position = marqdo_span::LineIndex::new(&entry.source).line_col(span.start);
+        out.push_str(&format!(
+            "  at {}:{}:{}\n",
+            entry.path.display(),
+            position.line,
+            position.column
+        ));
+    }
+    for frame in &error.frames {
+        out.push_str(&format!("  in function `{}`\n", frame.function));
+    }
+    out
+}
+
+/// `marqdo fmt`.
+pub fn fmt(file: Option<&Path>, check_only: bool) -> i32 {
+    let file = file.unwrap_or_else(|| Path::new("index.mq.md"));
+    let Ok(source) = std::fs::read_to_string(file) else {
+        eprintln!("error: cannot read `{}`", file.display());
+        return 2;
+    };
+    let mut formatted = source.replace("\r\n", "\n");
+    while formatted.ends_with("\n\n") {
+        formatted.pop();
+    }
+    if !formatted.ends_with('\n') {
+        formatted.push('\n');
+    }
+    if formatted == source {
+        return 0;
+    }
+    if check_only {
+        eprintln!(
+            "error: `{}` is not formatted (trailing whitespace/newlines or CRLF)",
+            file.display()
+        );
+        return 1;
+    }
+    if let Err(error) = std::fs::write(file, formatted) {
+        eprintln!("error: cannot write `{}`: {error}", file.display());
+        return 1;
+    }
+    0
+}
+
+/// `marqdo plugin inspect`.
+pub fn plugin_inspect(target: &Path, json: bool) -> i32 {
+    let manifest_path = if target.is_dir() {
+        target.join("plugin.yaml")
+    } else {
+        target.to_path_buf()
+    };
+    let base_dir = manifest_path
+        .parent()
+        .map(|parent| parent.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("."));
+    let manifest = match marqdo_plugin_abi::PluginManifest::load(&manifest_path) {
+        Ok(manifest) => manifest,
+        Err(error) => {
+            report_plugin_error(&error, json);
+            return 1;
+        }
+    };
+    if let Err(error) = manifest.validate() {
+        report_plugin_error(&error, json);
+        return 1;
+    }
+    let host_target = marqdo_plugin_abi::HostTarget::current();
+    let artifact = match manifest.verify_artifact(&base_dir, &host_target) {
+        Ok((path, artifact)) => {
+            let abi = match manifest.abi_requirement() {
+                Ok(requirement) => {
+                    if requirement.is_compatible_with(marqdo_plugin_abi::AbiVersion::current()) {
+                        "compatible"
+                    } else {
+                        "incompatible"
+                    }
+                }
+                Err(error) => {
+                    report_plugin_error(&error, json);
+                    return 1;
+                }
+            };
+            (path, artifact, abi)
+        }
+        Err(error) => {
+            report_plugin_error(&error, json);
+            return 1;
+        }
+    };
+    let (artifact_path, artifact_info, abi) = artifact;
+    if json {
+        output::print_json(&json!({
+            "command": "plugin.inspect",
+            "success": true,
+            "plugin": manifest.plugin.name,
+            "version": manifest.plugin.version,
+            "abi": manifest.plugin.abi,
+            "abi_compatibility": abi,
+            "target": host_target.triple().as_str(),
+            "artifact": {
+                "file": artifact_info.file,
+                "path": artifact_path.display().to_string(),
+                "sha256": artifact_info.sha256,
+                "verified": true,
+            },
+            "exports": manifest.plugin.exports.iter().map(|export| json!({
+                "name": export.name,
+                "signature": export.signature,
+            })).collect::<Vec<_>>(),
+            "loaded": false,
+        }));
+    } else {
+        println!(
+            "plugin: {} {}",
+            manifest.plugin.name, manifest.plugin.version
+        );
+        println!("abi: {} ({abi})", manifest.plugin.abi);
+        println!("target: {}", host_target.triple().as_str());
+        println!(
+            "artifact: {} (sha256 verified: {})",
+            artifact_path.display(),
+            artifact_info.sha256
+        );
+        println!("exports:");
+        for export in &manifest.plugin.exports {
+            println!("  {} {}", export.name, export.signature);
+        }
+        println!("loaded: false (inspection never executes plugin code)");
+    }
+    0
+}
+
+fn report_plugin_error(error: &marqdo_plugin_abi::PluginError, json: bool) {
+    if json {
+        output::print_json(&json!({
+            "command": "plugin.inspect",
+            "success": false,
+            "error": {
+                "kind": error.kind,
+                "code": error.code,
+                "message": error.message,
+            }
+        }));
+    } else {
+        eprintln!("error[{}]: {}", error.code, error.message);
+    }
+}
+
+/// `marqdo lock`.
+pub fn lock(json: bool) -> i32 {
+    let root = match discover_project_root() {
+        Ok(root) => root,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return 2;
+        }
+    };
+    let manifest = match marqdo_package::Manifest::load(&root.join(marqdo_package::MANIFEST_FILE)) {
+        Ok(manifest) => manifest,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return 2;
+        }
+    };
+    let lockfile = match build_lockfile(&root, &manifest) {
+        Ok(lockfile) => lockfile,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return 1;
+        }
+    };
+    let path = root.join(marqdo_package::LOCK_FILE);
+    if let Err(error) = std::fs::write(&path, lockfile.to_yaml()) {
+        eprintln!("error: cannot write {}: {error}", path.display());
+        return 1;
+    }
+    if json {
+        output::print_json(&json!({
+            "command": "lock",
+            "success": true,
+            "packages": lockfile.packages,
+        }));
+    } else {
+        println!(
+            "locked {} package(s) in {}",
+            lockfile.packages.len(),
+            path.display()
+        );
+    }
+    0
+}
+
+/// `marqdo sync [--locked]`.
+pub fn sync(locked: bool, json: bool) -> i32 {
+    let root = match discover_project_root() {
+        Ok(root) => root,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return 2;
+        }
+    };
+    let manifest = match marqdo_package::Manifest::load(&root.join(marqdo_package::MANIFEST_FILE)) {
+        Ok(manifest) => manifest,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return 2;
+        }
+    };
+    let lock_path = root.join(marqdo_package::LOCK_FILE);
+    if !lock_path.is_file() {
+        eprintln!(
+            "error: {} is missing; run `marqdo lock` first",
+            lock_path.display()
+        );
+        return 1;
+    }
+    let lockfile = match marqdo_package::LockFile::load(&lock_path) {
+        Ok(lockfile) => lockfile,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return 1;
+        }
+    };
+    let expected = match build_lockfile(&root, &manifest) {
+        Ok(lockfile) => lockfile,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return 1;
+        }
+    };
+    if locked && expected != lockfile {
+        eprintln!(
+            "error: lockfile is out of date or dependency contents changed; run `marqdo lock`"
+        );
+        return 1;
+    }
+    if json {
+        output::print_json(&json!({
+            "command": "sync",
+            "success": true,
+            "locked": locked,
+            "packages": expected.packages,
+        }));
+    } else {
+        println!(
+            "synchronized {} package(s){}",
+            expected.packages.len(),
+            if locked { " (locked)" } else { "" }
+        );
+    }
+    0
+}
+
+fn discover_project_root() -> Result<PathBuf, String> {
+    let cwd = std::env::current_dir().map_err(|error| error.to_string())?;
+    marqdo_package::discover_root(&cwd).ok_or_else(|| {
+        format!(
+            "no {} found in {} or any parent",
+            marqdo_package::MANIFEST_FILE,
+            cwd.display()
+        )
+    })
+}
+
+fn build_lockfile(
+    root: &Path,
+    manifest: &marqdo_package::Manifest,
+) -> Result<marqdo_package::LockFile, String> {
+    let mut packages = Vec::new();
+    for (name, dependency) in &manifest.dependencies {
+        if dependency.git.is_some() {
+            return Err(format!(
+                "dependency `{name}` uses a git source; git dependencies are not supported by this build (path dependencies only)"
+            ));
+        }
+        let Some(path) = &dependency.path else {
+            return Err(format!("dependency `{name}` has no path source"));
+        };
+        let dependency_root = root.join(path);
+        let hash = hash_tree(&dependency_root)?;
+        packages.push(marqdo_package::LockedPackage {
+            name: name.clone(),
+            source: format!("path:{}", path.display()),
+            sha256: Some(hash),
+        });
+    }
+    packages.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(marqdo_package::LockFile {
+        lock_version: 1,
+        packages,
+    })
+}
+
+fn hash_tree(root: &Path) -> Result<String, String> {
+    if !root.exists() {
+        return Err(format!(
+            "dependency path `{}` does not exist",
+            root.display()
+        ));
+    }
+    let mut files = Vec::new();
+    for entry in walkdir::WalkDir::new(root)
+        .sort_by_file_name()
+        .into_iter()
+        .filter_map(Result::ok)
+    {
+        if entry.file_type().is_file() {
+            let relative = entry
+                .path()
+                .strip_prefix(root)
+                .map(|path| path.to_string_lossy().replace('\\', "/"))
+                .unwrap_or_default();
+            files.push((relative, entry.path().to_path_buf()));
+        }
+    }
+    files.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut hasher = Sha256::new();
+    for (relative, path) in files {
+        hasher.update(relative.as_bytes());
+        hasher.update([0u8]);
+        let bytes = std::fs::read(&path)
+            .map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
+        hasher.update(&bytes);
+        hasher.update([0u8]);
+    }
+    Ok(hex::encode(hasher.finalize()))
+}
+
+/// Resolve `--arg` strings into typed arguments.
+pub fn parse_named_args(raw: &[String]) -> Result<Vec<(String, Value)>, String> {
+    raw.iter()
+        .map(|entry| args::parse_named_arg(entry))
+        .collect()
+}

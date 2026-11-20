@@ -325,6 +325,7 @@ name = "marqdo-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "hex",
  "marqdo-expression",
  "marqdo-foreign",
  "marqdo-frontend",
@@ -340,7 +341,8 @@ dependencies = [
  "marqdo-value",
  "serde",
  "serde_json",
- "thiserror",
+ "sha2",
+ "walkdir",
 ]
 
 [[package]]
@@ -348,7 +350,7 @@ name = "marqdo-expression"
 version = "0.1.0"
 dependencies = [
  "marqdo-span",
- "num-bigint 0.5.1",
+ "num-bigint",
  "serde",
  "serde_json",
  "unicode-ident",
@@ -358,6 +360,7 @@ dependencies = [
 name = "marqdo-foreign"
 version = "0.1.0"
 dependencies = [
+ "marqdo-span",
  "marqdo-value",
  "serde_json",
  "thiserror",
@@ -385,7 +388,6 @@ dependencies = [
  "glob",
  "marqdo-foreign",
  "marqdo-math",
- "marqdo-plugin-abi",
  "marqdo-sandbox",
  "marqdo-span",
  "marqdo-value",
@@ -421,7 +423,7 @@ name = "marqdo-math"
 version = "0.1.0"
 dependencies = [
  "marqdo-value",
- "num-bigint 0.5.1",
+ "num-bigint",
  "num-rational",
  "num-traits",
  "serde",
@@ -431,14 +433,9 @@ dependencies = [
 name = "marqdo-package"
 version = "0.1.0"
 dependencies = [
- "hex",
- "marqdo-span",
  "serde",
- "serde_json",
  "serde_yaml",
- "sha2",
- "thiserror",
- "walkdir",
+ "tempfile",
 ]
 
 [[package]]
@@ -470,10 +467,17 @@ name = "marqdo-runtime"
 version = "0.1.0"
 dependencies = [
  "marqdo-expression",
+ "marqdo-frontend",
  "marqdo-host",
  "marqdo-ir",
+ "marqdo-sandbox",
  "marqdo-span",
  "marqdo-value",
+ "num-bigint",
+ "num-rational",
+ "num-traits",
+ "serde_json",
+ "tempfile",
  "thiserror",
 ]
 
@@ -481,9 +485,7 @@ dependencies = [
 name = "marqdo-sandbox"
 version = "0.1.0"
 dependencies = [
- "marqdo-span",
  "serde",
- "thiserror",
 ]
 
 [[package]]
@@ -498,7 +500,7 @@ name = "marqdo-value"
 version = "0.1.0"
 dependencies = [
  "marqdo-span",
- "num-bigint 0.5.1",
+ "num-bigint",
  "num-traits",
  "serde",
  "serde_json",
@@ -528,16 +530,6 @@ checksum = "c89e69e7e0f03bea5ef08013795c25018e101932225a656383bd384495ecc367"
 dependencies = [
  "num-integer",
  "num-traits",
-]
-
-[[package]]
-name = "num-bigint"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93e7820bc0a80a0238e650327316f929ba18d5be054b647490a3a6a339f3e7c0"
-dependencies = [
- "num-integer",
- "num-traits",
  "serde",
 ]
 
@@ -556,7 +548,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f83d14da390562dca69fc84082e73e548e1ad308d24accdedd2720017cb37824"
 dependencies = [
- "num-bigint 0.4.8",
+ "num-bigint",
  "num-integer",
  "num-traits",
  "serde",

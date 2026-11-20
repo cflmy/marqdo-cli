@@ -3,3 +3,6 @@
 **/*.rs.bk
 *.profraw
 .DS_Store
+
+# Built plugin artifacts
+examples/plugin-demo/solver.so
