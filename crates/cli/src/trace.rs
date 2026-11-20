@@ -7,7 +7,6 @@ use std::path::Path;
 
 use marqdo_host::{Host, SemanticEvent, StdHost, TraceEntry};
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 
 use crate::loader::LoadedProject;
 
@@ -32,10 +31,7 @@ pub fn write(
             .unwrap_or(0)
     );
     let analysis_digest = crate::analysis::digest(project);
-    let root_id = format!(
-        "sha256:{}",
-        sha256_hex(project.root.to_string_lossy().as_bytes())
-    );
+    let root_id = project.identity.root_id();
     let mut events: Vec<Value> = host
         .semantic_events()
         .iter()
@@ -98,10 +94,4 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
         return Err(format!("cannot publish `{}`: {error}", path.display()));
     }
     Ok(())
-}
-
-fn sha256_hex(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    hex::encode(hasher.finalize())
 }

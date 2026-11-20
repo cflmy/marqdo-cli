@@ -33,7 +33,7 @@ marqdo-cli/
 │   ├── math.md                    Formula subset and math.* semantics
 │   ├── foreign.md                 Python/Node kernel protocol
 │   ├── tool-v1.md                 generic external Tool Protocol v1
-│   ├── analysis-v1.md             public Analysis v1 projection
+│   ├── analysis-v2.md             public Analysis v2 projection (v1 historical)
 │   └── trace-v1.md                public Trace v1 event stream
 ├── crates/
 │   ├── marqdo-span/               Span, LineCol, LineIndex (leaf)

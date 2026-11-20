@@ -63,6 +63,58 @@ impl FileDiagnostic {
     }
 }
 
+/// Logical project identity used by public Analysis/Trace artifacts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProjectIdentity {
+    /// A project with `marqdo.yaml`: the logical root package instance.
+    Manifest {
+        /// `root:<name>@<version>`.
+        instance: String,
+    },
+    /// No manifest: a content-derived snapshot id with no rename guarantee.
+    WorkspaceSnapshot {
+        /// Lowercase hex digest of the sorted module/source pairs.
+        digest: String,
+    },
+}
+
+impl ProjectIdentity {
+    /// Canonical `root_id` string used in Analysis/Trace.
+    pub fn root_id(&self) -> String {
+        match self {
+            ProjectIdentity::Manifest { instance } => instance.clone(),
+            ProjectIdentity::WorkspaceSnapshot { digest } => format!("sha256:{digest}"),
+        }
+    }
+
+    /// Wire discriminator (`manifest` or `workspace_snapshot`).
+    pub fn kind(&self) -> &'static str {
+        match self {
+            ProjectIdentity::Manifest { .. } => "manifest",
+            ProjectIdentity::WorkspaceSnapshot { .. } => "workspace_snapshot",
+        }
+    }
+}
+
+fn workspace_snapshot_digest(files: &BTreeMap<ModuleId, LoadedFile>) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    for (module_id, file) in files {
+        hasher.update(module_id.canonical().as_bytes());
+        hasher.update(b"\n");
+        hasher.update(source_digest(&file.source).as_bytes());
+        hasher.update(b"\n");
+    }
+    hex::encode(hasher.finalize())
+}
+
+fn source_digest(source: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(source.as_bytes());
+    hex::encode(hasher.finalize())
+}
+
 /// A resolved source location inside a loaded file.
 pub struct LocatedSource<'a> {
     /// The owning file.
@@ -79,6 +131,8 @@ pub struct LoadedProject {
     pub root: PathBuf,
     /// Entry module.
     pub entry: ModuleId,
+    /// Logical project identity (path-independent).
+    pub identity: ProjectIdentity,
     /// All modules.
     pub program: Program,
     /// Analysed files keyed by module id.
@@ -194,7 +248,7 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
         }
         None
     };
-    let resolver = PackageResolver::new(root.clone(), manifest, lock);
+    let resolver = PackageResolver::new(root.clone(), manifest.clone(), lock);
     let entry_module = resolver.resolve_entry(&entry)?;
     let mut loader = Loader {
         resolver,
@@ -216,9 +270,18 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
             });
         }
     }
+    let identity = match &manifest {
+        Some(_) => ProjectIdentity::Manifest {
+            instance: entry_id.instance.clone(),
+        },
+        None => ProjectIdentity::WorkspaceSnapshot {
+            digest: workspace_snapshot_digest(&loader.files),
+        },
+    };
     Ok(LoadedProject {
         root: loader.resolver.root().to_path_buf(),
         entry: entry_id,
+        identity,
         program: loader.program,
         files: loader.files,
         packages: loader.packages,

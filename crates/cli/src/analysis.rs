@@ -1,4 +1,4 @@
-//! Public Analysis v1 projection (spec/analysis-v1.md).
+//! Public Analysis v2 projection (spec/analysis-v2.md).
 //!
 //! This is deliberately not a serde dump of `marqdo-ir`: the schema and node
 //! kinds are the public contract, while internal Rust types may change. The
@@ -8,7 +8,7 @@
 use std::path::Path;
 
 use marqdo_expression::{BinaryOp, Expr, UnaryOp};
-use marqdo_ir::{CallTarget, Function, Module, SignatureKind, Stmt, UnitKind};
+use marqdo_ir::{CallTarget, Function, Module, ModuleId, Resource, SignatureKind, Stmt, UnitKind};
 use marqdo_span::Span;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -17,7 +17,7 @@ use crate::loader::LoadedProject;
 
 /// Schema name and version.
 pub const SCHEMA: &str = "marqdo.analysis";
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// Build the deterministic public projection.
 pub fn build(project: &LoadedProject) -> Value {
@@ -39,7 +39,7 @@ pub fn build(project: &LoadedProject) -> Value {
             })).collect::<Vec<_>>(),
             "references": reference_edges(project, module_id),
             "calls": module.functions.iter().flat_map(|function| calls_json(project, module, function)).collect::<Vec<_>>(),
-            "resources": module.resources.len(),
+            "resources": resources_json(module_id, module),
         }));
     }
     modules.sort_by(|a, b| {
@@ -56,26 +56,32 @@ pub fn build(project: &LoadedProject) -> Value {
             "markdown_profile": "marqdo.md.v1",
         },
         "project": {
-            "root_id": format!("sha256:{}", sha256_hex(project.root.to_string_lossy().as_bytes())),
+            "root_id": project.identity.root_id(),
+            "identity_kind": project.identity.kind(),
             "lock_digest": lock_digest(project),
         },
         "modules": modules,
-        "diagnostics": crate::output::diagnostics_json(&project.diagnostics),
+        "diagnostics": diagnostics_json(project),
     })
 }
 
-/// Digest of the serialized projection (used by Trace v1 to detect staleness).
+/// Encode exactly the bytes written by `check --emit`.
+fn encode(project: &LoadedProject) -> Result<Vec<u8>, String> {
+    serde_json::to_vec_pretty(&build(project))
+        .map_err(|error| format!("cannot encode analysis: {error}"))
+}
+
+/// SHA-256 of the exact emitted Analysis bytes (Trace binds to this digest).
 pub fn digest(project: &LoadedProject) -> String {
-    let bytes = serde_json::to_vec(&build(project)).unwrap_or_default();
-    sha256_hex(&bytes)
+    encode(project)
+        .map(|bytes| sha256_hex(&bytes))
+        .unwrap_or_else(|_| sha256_hex(b""))
 }
 
 /// Atomically write the projection. An error must not leave a stale success
 /// artifact behind.
 pub fn write(project: &LoadedProject, path: &Path) -> Result<(), String> {
-    let value = build(project);
-    let bytes = serde_json::to_vec_pretty(&value)
-        .map_err(|error| format!("cannot encode analysis: {error}"))?;
+    let bytes = encode(project)?;
     let parent = path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
@@ -104,6 +110,77 @@ fn lock_digest(project: &LoadedProject) -> Value {
         Ok(bytes) => Value::String(format!("sha256:{}", sha256_hex(&bytes))),
         Err(_) => Value::String(String::new()),
     }
+}
+
+fn resources_json(module_id: &ModuleId, module: &Module) -> Vec<Value> {
+    let mut formula_index = 0usize;
+    let mut code_index = 0usize;
+    module
+        .resources
+        .iter()
+        .map(|resource| match resource {
+            Resource::Formula {
+                unit,
+                latex,
+                display,
+                span,
+            } => {
+                formula_index += 1;
+                json!({
+                    "id": format!("{module_id}#resource:formula-{formula_index}"),
+                    "module_id": module_id.to_string(),
+                    "unit_id": unit.to_string(),
+                    "kind": "formula",
+                    "span": span_json(*span),
+                    "content_digest": sha256_hex(latex.as_bytes()),
+                    "language": null,
+                    "display": display,
+                })
+            }
+            Resource::Code {
+                unit,
+                language,
+                source: _,
+                content_hash,
+                span,
+            } => {
+                code_index += 1;
+                json!({
+                    "id": format!("{module_id}#resource:code-{code_index}"),
+                    "module_id": module_id.to_string(),
+                    "unit_id": unit.to_string(),
+                    "kind": "code",
+                    "span": span_json(*span),
+                    "content_digest": content_hash,
+                    "language": language,
+                })
+            }
+        })
+        .collect()
+}
+
+fn diagnostics_json(project: &LoadedProject) -> Vec<Value> {
+    project
+        .diagnostics
+        .iter()
+        .map(|item| {
+            let (line, column) = item
+                .line_col()
+                .map(|(line, column)| (Value::from(line), Value::from(column)))
+                .unwrap_or((Value::Null, Value::Null));
+            json!({
+                "module": item.module_id.to_string(),
+                "relative_path": item.module_id.relative_path,
+                "span": item.diagnostic.span.map(span_json),
+                "line": line,
+                "column": column,
+                "severity": if item.diagnostic.is_error() { "error" } else { "warning" },
+                "code": item.diagnostic.code,
+                "message": item.diagnostic.message,
+                "hints": item.diagnostic.hints,
+            })
+        })
+        .collect()
 }
 
 fn units_json(module: &Module) -> Vec<Value> {

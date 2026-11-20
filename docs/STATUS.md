@@ -106,6 +106,25 @@ Runtime errors now carry a logical source location (ADR-0017):
 * CLI test `runtime_error_in_imported_module_reports_that_module` reproduces
   B-08 end to end with the real binary.
 
+### S2-B/H2-A record (current)
+
+Analysis v2 (`spec/analysis-v2.md`, `spec/schemas/analysis-v2.schema.json`):
+
+* `project.root_id` is a logical manifest identity (`root:<name>@<version>`) or
+  a content-derived `workspace_snapshot` digest; physical paths are gone from
+  Analysis bytes.
+* `modules[].resources` is an array covering the two real `marqdo-ir::Resource`
+  kinds, with stable module/unit/span references, payload digests and code
+  language. Payload text stays in the source.
+* Diagnostics project `module`, `relative_path`, `span`, `line`, `column`
+  instead of absolute file paths.
+* `analysis_digest` is SHA-256 of the exact emitted (pretty) bytes, so a
+  consumer can verify it; Trace binds to the same value.
+* The independent Python consumer validates v2, resources and identity, and
+  rejects unknown versions.
+* Tests cover byte-identical output after moving a project and resource
+  addressing for formulas/code fences.
+
 ### M0.6 implementation progress
 
 | Step | State | Evidence |
@@ -113,11 +132,12 @@ Runtime errors now carry a logical source location (ADR-0017):
 | S0/H0 CI baseline | **Done locally** | B-01 fixed in `crates/cli/tests/properties.rs`; fresh-clone path no longer needs an empty directory; full local gate green (see §S0/H0) |
 | S1/H1-A lock v3 graph | **Done** | ADR-0016; full-closure `marqdo.lock` v3; fail-closed edge lookup; strict non-rewriting `sync`; verified Git cache; unified file-set profile (see §S1/H1-A) |
 | S2-A/H1-B source locations | **Done** | ADR-0017; `RuntimeError`/`CallFrame` carry `module_id`; callsite origin; CLI module-aware resolution with no entry fallback (see §S2-A/H1-B) |
+| S2-B/H2-A Analysis v2 | **Done** | logical project identity, resources array, machine-path-free diagnostics, emitted-bytes digest, v2 schema + independent consumer (see §S2-B/H2-A) |
 | R0 baseline + ADRs | **Done** | this section; `docs/adr/0008`–`0012`; full workspace gate |
 | R1 package-aware identity + callable registry | **Done for statics; superseded by S1 lock v3** | `ModuleId { instance, relative_path }`; `PackageResolver` path sources; lock v3 transitive graph (ADR-0016) replaces the flat v2 lock; `CallableRegistry` for builtins/marqdo/declared ABI exports; external manifest wiring is R2 |
 | R2 ABI/Kernel/Broker | **Done (worker = crash isolation)** | `KernelRegistry` external providers; complete-name export routing; `CapabilityBroker`; static `check --plugin`; multi-export C test; isolated worker with timeout/crash tests; host handle table. Native/worker are not an OS sandbox |
 | R3 Tool Protocol | **Done** | `tool install/list/remove`; unknown-command fallback; atomic local install; SHA/tamper checks; black-box tests for arbitrary names, Unicode args, conflicts, traversal and PATH hijacking |
-| R4 Analysis/Trace v1 | **Done** | `check --emit` Analysis v1; `run/call --trace-file` Trace v1; deterministic schema tests; independent Python consumer; stale-artifact removal; value redaction |
+| R4 Analysis v2 / Trace v1 | **Partial** | `check --emit` Analysis v2 (logical identity, resources, path-free diagnostics, emitted-bytes digest); `run/call --trace-file` still Trace v1 pending H2-B; independent Python consumer; stale-artifact removal; value redaction |
 | R5 environment/isolation | **Partial** | Pinned Git fetch with verified cache markers, transitive `@alias` resolution, full-closure atomic `.marqdo/env` materialization, foreign process-group cleanup. Strict OS isolation remains explicitly unavailable (fail-closed) |
 | R6 release/consumers | **Done for Linux** | examples for unknown-name Tool, multi-export plugin, external kernel and multi-version packages; Analysis/Trace/Tool JSON Schemas; CI Linux gate + Windows/macOS `cargo check`; R6 example tests |
 

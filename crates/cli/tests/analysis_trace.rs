@@ -96,10 +96,18 @@ fn analysis_is_deterministic_and_has_stable_semantic_nodes() {
 
     let analysis: serde_json::Value = serde_json::from_slice(&first_bytes).unwrap();
     assert_eq!(analysis["schema"], "marqdo.analysis");
-    assert_eq!(analysis["schema_version"], 1);
+    assert_eq!(analysis["schema_version"], 2);
     let module = &analysis["modules"][0];
     assert_eq!(module["id"], "root:default::index.mq.md");
     assert_eq!(module["package_instance_id"], "root:default");
+    assert!(
+        analysis["project"]["root_id"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("sha256:"),
+        "standalone documents use a workspace snapshot identity"
+    );
+    assert_eq!(analysis["project"]["identity_kind"], "workspace_snapshot");
     assert_eq!(module["functions"].as_array().unwrap().len(), 2);
     let main = module["functions"]
         .as_array()
@@ -129,6 +137,108 @@ fn analysis_is_deterministic_and_has_stable_semantic_nodes() {
         );
         assert!(String::from_utf8_lossy(&output.stdout).starts_with("functions="));
     }
+}
+
+#[test]
+fn analysis_v2_identity_is_location_independent() {
+    let first = TempDir::new("analysis-identity-a");
+    let second = TempDir::new("analysis-identity-b");
+    let source = "## main\n\n**x = 1**\n\n*x*\n";
+    for dir in [&first, &second] {
+        write(
+            dir.path(),
+            "marqdo.yaml",
+            "project:\n  name: doc\n  version: 0.1.0\n",
+        );
+        write(dir.path(), "index.mq.md", source);
+    }
+    let mut bytes = Vec::new();
+    for dir in [&first, &second] {
+        let target = dir.path().join("analysis.json");
+        let output = cli(
+            dir.path(),
+            &["check", "index.mq.md", "--emit", target.to_str().unwrap()],
+        );
+        assert_eq!(
+            output.status.code(),
+            Some(0),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        bytes.push(std::fs::read(&target).unwrap());
+    }
+    assert_eq!(
+        bytes[0], bytes[1],
+        "moving a project must not change Analysis bytes"
+    );
+    let text = String::from_utf8(bytes[0].clone()).unwrap();
+    assert!(
+        !text.contains(first.path().to_str().unwrap()),
+        "machine path leaked into Analysis"
+    );
+    let analysis: serde_json::Value = serde_json::from_slice(&bytes[0]).unwrap();
+    assert_eq!(analysis["project"]["root_id"], "root:doc@0.1.0");
+    assert_eq!(analysis["project"]["identity_kind"], "manifest");
+}
+
+#[test]
+fn analysis_v2_projects_addressable_formula_and_code_resources() {
+    let dir = TempDir::new("analysis-resources");
+    let source = r#"## calc
+
+`(x)`
+
+$$A = x + 1$$
+
+```python
+print(1)
+```
+
+*x*
+"#;
+    write(
+        dir.path(),
+        "marqdo.yaml",
+        "project:\n  name: res\n  version: 0.1.0\n",
+    );
+    write(dir.path(), "index.mq.md", source);
+    let target = dir.path().join("analysis.json");
+    let output = cli(
+        dir.path(),
+        &["check", "index.mq.md", "--emit", target.to_str().unwrap()],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let analysis: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&target).unwrap()).unwrap();
+    let resources = analysis["modules"][0]["resources"].as_array().unwrap();
+    assert_eq!(resources.len(), 2, "{resources:?}");
+    let formula = resources
+        .iter()
+        .find(|resource| resource["kind"] == "formula")
+        .unwrap();
+    let code = resources
+        .iter()
+        .find(|resource| resource["kind"] == "code")
+        .unwrap();
+    assert_eq!(
+        formula["id"],
+        "root:res@0.1.0::index.mq.md#resource:formula-1"
+    );
+    assert_eq!(code["id"], "root:res@0.1.0::index.mq.md#resource:code-1");
+    assert_eq!(formula["module_id"], "root:res@0.1.0::index.mq.md");
+    assert_eq!(formula["language"], serde_json::Value::Null);
+    assert_eq!(code["language"], "python");
+    assert_eq!(formula["content_digest"].as_str().unwrap().len(), 64);
+    assert_eq!(code["content_digest"].as_str().unwrap().len(), 64);
+    assert!(
+        !analysis.to_string().contains("A = x + 1"),
+        "resource payloads stay in source, not Analysis"
+    );
 }
 
 #[test]

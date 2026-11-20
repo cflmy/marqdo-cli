@@ -1,7 +1,8 @@
 # Marqdo Analysis v1
 
-Status: **implemented by `marqdo check --emit <path>` (M0.6 R4).** This is a
-public, read-only projection; it is not a dump of `marqdo-ir`.
+Status: **superseded by [Analysis v2](analysis-v2.md); never released, do not
+write v1.** Kept as history. This was the M0.6 R4 read-only projection; it is
+not a dump of `marqdo-ir`.
 
 ## 1. Invariants
 
