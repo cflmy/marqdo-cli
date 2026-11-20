@@ -41,7 +41,20 @@ cargo test -p marqdo-cli --test conformance_ast       PASS (4 tests)
 cargo test -p marqdo-cli --test integration_cli       PASS (23 tests)
 cargo test -p marqdo-cli --test plugin_worker         PASS (4 tests)
 cargo test -p marqdo-foreign --test provider          PASS (8 tests)
+cargo test --workspace                                PASS (47 binaries,
+                                                      360 tests, 0 failed)
 ```
+
+Linux G-C security lane (disposable Ubuntu 26.04 VM, ordinary user `dev`):
+
+```text
+crates/marqdo-sandbox/tests/security_linux.rs          PASS (7/7)
+tests/security/run-lane.sh                             PASS
+```
+
+The committed code SHA for this evidence is `b6fc182`; the VM lane was re-run
+from a `git archive` of that commit. See
+[`evidence/2026-11-20-strict-gc.md`](evidence/2026-11-20-strict-gc.md).
 
 Windows checkout reproduction: a fresh local clone with
 `git -c core.autocrlf=true clone ...` kept goldens at LF, preserved the CRLF

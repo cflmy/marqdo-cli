@@ -1,14 +1,6 @@
 == adversarial helper matrix ==
-   Compiling proc-macro2 v1.0.107
-   Compiling quote v1.0.47
-   Compiling unicode-ident v1.0.27
-   Compiling serde_core v1.0.229
-   Compiling serde v1.0.229
-   Compiling libc v0.2.191
-   Compiling syn v3.0.10
-   Compiling serde_derive v1.0.229
    Compiling marqdo-sandbox v0.1.0 (/home/dev/marqdo-src/crates/marqdo-sandbox)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 17s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.79s
      Running tests/security_linux.rs (target/debug/build/marqdo-sandbox/73fdd38fdea71ea2/out/security_linux-73fdd38fdea71ea2)
 
 running 7 tests
@@ -20,93 +12,24 @@ test strict_child_identity_is_unprivileged_and_namespaced ... ok
 test strict_supervisor_enforces_fd_and_process_limits ... ok
 test strict_supervisor_enforces_memory_cpu_and_output_limits ... ok
 
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 17.88s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.58s
 
 == build CLI ==
-   Compiling proc-macro2 v1.0.107
-   Compiling quote v1.0.47
-   Compiling unicode-ident v1.0.27
-   Compiling autocfg v1.5.1
-   Compiling version_check v0.9.5
-   Compiling typenum v1.20.1
-   Compiling generic-array v0.14.7
-   Compiling num-traits v0.2.19
-   Compiling itoa v1.0.19
-   Compiling zmij v1.0.23
-   Compiling serde_json v1.0.154
-   Compiling siphasher v1.0.4
-   Compiling syn v3.0.10
-   Compiling memchr v2.8.3
-   Compiling num-integer v0.1.47
-   Compiling crypto-common v0.1.7
-   Compiling block-buffer v0.10.4
-   Compiling equivalent v1.0.3
-   Compiling hashbrown v0.17.1
-   Compiling cfg-if v1.0.5
-   Compiling digest v0.10.7
-   Compiling phf_shared v0.14.0
-   Compiling unsafe-libyaml v0.2.11
-   Compiling indexmap v2.14.2
-   Compiling cpufeatures v0.2.17
-   Compiling fastrand v2.5.0
-   Compiling ryu v1.0.23
-   Compiling phf_generator v0.14.0
-   Compiling sha2 v0.10.9
-   Compiling thiserror v2.0.21
-   Compiling phf_codegen v0.14.0
-   Compiling hex v0.4.3
-   Compiling same-file v1.0.6
-   Compiling entities v1.0.1
-   Compiling tinyvec v1.13.3
-   Compiling comrak v1.0.0
-   Compiling walkdir v2.5.0
-   Compiling unicode-normalization v0.1.26
-   Compiling fearless_simd v1.2.0
-   Compiling utf8parse v0.2.2
-   Compiling anstyle-parse v1.0.0
-   Compiling phf v0.14.0
-   Compiling caseless v0.2.2
-   Compiling libloading v0.8.9
-   Compiling anstyle-query v1.1.5
-   Compiling is_terminal_polyfill v1.70.2
-   Compiling rustc-hash v2.1.3
-   Compiling typed-arena v2.0.2
-   Compiling anstyle v1.0.14
-   Compiling finl_unicode v1.5.1
-   Compiling smallvec v1.16.6
-   Compiling colorchoice v1.0.5
-   Compiling anstream v1.0.0
-   Compiling strsim v0.11.1
-   Compiling serde_derive v1.0.229
-   Compiling thiserror-impl v2.0.21
-   Compiling fearless_simd_macros v0.1.0
-   Compiling heck v0.5.0
-   Compiling clap_lex v1.1.2
-   Compiling glob v0.3.4
-   Compiling clap_builder v4.6.7
-   Compiling clap_derive v4.6.9
-   Compiling serde v1.0.229
-   Compiling semver v1.0.28
-   Compiling clap v4.6.9
    Compiling marqdo-span v0.1.0 (/home/dev/marqdo-src/crates/marqdo-span)
-   Compiling num-bigint v0.4.8
-   Compiling serde_yaml v0.9.34+deprecated
+   Compiling marqdo-sandbox v0.1.0 (/home/dev/marqdo-src/crates/marqdo-sandbox)
+   Compiling marqdo-package v0.1.0 (/home/dev/marqdo-src/crates/marqdo-package)
    Compiling marqdo-value v0.1.0 (/home/dev/marqdo-src/crates/marqdo-value)
    Compiling marqdo-expression v0.1.0 (/home/dev/marqdo-src/crates/marqdo-expression)
-   Compiling num-rational v0.4.2
+   Compiling marqdo-markdown v0.1.0 (/home/dev/marqdo-src/crates/marqdo-markdown)
+   Compiling marqdo-ir v0.1.0 (/home/dev/marqdo-src/crates/marqdo-ir)
+   Compiling marqdo-plugin-abi v0.1.0 (/home/dev/marqdo-src/crates/marqdo-plugin-abi)
    Compiling marqdo-math v0.1.0 (/home/dev/marqdo-src/crates/marqdo-math)
    Compiling marqdo-foreign v0.1.0 (/home/dev/marqdo-src/crates/marqdo-foreign)
-   Compiling marqdo-plugin-abi v0.1.0 (/home/dev/marqdo-src/crates/marqdo-plugin-abi)
-   Compiling marqdo-ir v0.1.0 (/home/dev/marqdo-src/crates/marqdo-ir)
-   Compiling marqdo-sandbox v0.1.0 (/home/dev/marqdo-src/crates/marqdo-sandbox)
-   Compiling memchr-n v0.1.10
-   Compiling marqdo-host v0.1.0 (/home/dev/marqdo-src/crates/marqdo-host)
-   Compiling marqdo-package v0.1.0 (/home/dev/marqdo-src/crates/marqdo-package)
-   Compiling marqdo-runtime v0.1.0 (/home/dev/marqdo-src/crates/marqdo-runtime)
-   Compiling marqdo-markdown v0.1.0 (/home/dev/marqdo-src/crates/marqdo-markdown)
    Compiling marqdo-frontend v0.1.0 (/home/dev/marqdo-src/crates/marqdo-frontend)
+   Compiling marqdo-host v0.1.0 (/home/dev/marqdo-src/crates/marqdo-host)
+   Compiling marqdo-runtime v0.1.0 (/home/dev/marqdo-src/crates/marqdo-runtime)
    Compiling marqdo-cli v0.1.0 (/home/dev/marqdo-src/crates/cli)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6m 29s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.04s
 strict mechanism: bubblewrap 0.11.1 (user/mount/PID/net/UTS/IPC namespaces + no-new-privs + rlimits)
 == positive CLI contract ==
 == external-execution surfaces are refused ==

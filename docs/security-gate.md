@@ -1,7 +1,7 @@
 # Linux strict-isolation security gate (G-C) — evidence
 
 Status: **PASSED in a disposable Ubuntu VM; Linux strict is enabled only when
-the runtime probe succeeds.** No remote security-lane CI URL exists yet.
+the runtime probe succeeds.** Code commit: `b6fc182`. No remote security-lane CI URL exists yet.
 Snapshot: workspace `0.1.0`, 2026-11-20. See ADR-0021.
 
 This report separates three things that are often conflated:
