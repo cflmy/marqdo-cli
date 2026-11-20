@@ -16,6 +16,7 @@ use crate::budget::Budget;
 use crate::capability::{Capabilities, CapabilityAudit, CapabilityBroker};
 use crate::context::ExecutionContext;
 use crate::fs::ProjectFs;
+use crate::handles::{contains_plugin_handle, PluginHandleTable};
 use crate::trace::{EffectTrace, TraceEntry};
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
 
@@ -121,6 +122,8 @@ pub struct StdHost {
     vendor_capabilities: BTreeSet<String>,
     /// Shared audit log for plugin capability requests.
     broker_audit: Arc<Mutex<Vec<CapabilityAudit>>>,
+    /// Host-issued opaque plugin handles.
+    pub handles: PluginHandleTable,
 }
 
 struct PluginSlot {
@@ -160,6 +163,7 @@ impl StdHost {
             plugin_exports: BTreeMap::new(),
             vendor_capabilities: BTreeSet::new(),
             broker_audit: Arc::new(Mutex::new(Vec::new())),
+            handles: PluginHandleTable::default(),
         }
     }
 
@@ -399,6 +403,15 @@ impl StdHost {
             .invoke(&request)
             .map_err(map_plugin_error)?;
         let value = response.typed_value().map_err(map_plugin_error)?;
+        if let Some(value) = &value {
+            if contains_plugin_handle(value) {
+                return Err(RuntimeError::new(
+                    ErrorCategory::PluginFailure,
+                    ctx.span,
+                    "plugin_handle.untrusted: plugin output may not mint host handles",
+                ));
+            }
+        }
         Ok(value.unwrap_or(Value::Unit))
     }
 

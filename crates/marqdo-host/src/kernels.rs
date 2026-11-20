@@ -194,13 +194,21 @@ pub(crate) fn foreign(
                     ),
                 ));
             }
-            result.value.ok_or_else(|| {
+            let value = result.value.ok_or_else(|| {
                 RuntimeError::new(
                     ErrorCategory::ForeignFailure,
                     span,
                     "foreign call returned no typed value",
                 )
-            })
+            })?;
+            if crate::handles::contains_plugin_handle(&value) {
+                return Err(RuntimeError::new(
+                    ErrorCategory::PermissionDenied,
+                    span,
+                    "plugin_handle.untrusted: foreign kernel output may not mint host handles",
+                ));
+            }
+            Ok(value)
         }
         _ => Err(RuntimeError::new(
             ErrorCategory::Internal,

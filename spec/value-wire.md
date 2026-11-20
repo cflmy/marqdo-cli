@@ -127,8 +127,10 @@ The following are **not** bounded by `WireLimits` in
   `plugin_handle.plugin`/`export` are not checked against
   `max_string_bytes`;
 * a `plugin_handle` decoded from wire data is a structurally reconstructed
-  `Value::PluginHandle`; this build does not carry an unforgeable capability
-  token. Host code must therefore treat a plugin handle as opaque *intent* and
+  `Value::PluginHandle`; it is **not** an authorization token. The host owns a
+  `PluginHandleTable` with owner/run/generation scope (ADR-0014), and plugin or
+  foreign output containing any handle is rejected with
+  `plugin_handle.untrusted`. Host code must therefore treat a plugin handle as opaque *intent* and
   re-authorize any operation, not as proof of prior authorization. The header
   comment "cannot be forged from wire data" is aspirational for this point and
   should be fixed or reworded in a future ADR.

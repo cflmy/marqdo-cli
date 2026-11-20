@@ -272,10 +272,13 @@ Neither command executes project code. Specifically:
 3. Network capability exists in the model but no host operation uses it; there
    is no `--allow-net` flag.
 4. Write-path symlink TOCTOU (see §2.1).
-5. Plugin worker isolation and a plugin capability bridge are unimplemented;
-   only trusted in-process native plugins are possible.
-6. `plugin_handle` wire values are structurally reconstructable (see
-   `value-wire.md` §4.1); no unforgeable capability token.
+5. Plugin worker isolation is unimplemented; only trusted in-process native
+   plugins are possible. The capability broker exists, but no vendor handler is
+   shipped.
+6. `plugin_handle` wire values are structurally reconstructable, but host
+   authority comes only from the `PluginHandleTable` owner/run/generation
+   check; untrusted plugin/foreign output containing a handle is rejected
+   (ADR-0014, `value-wire.md` §4.1).
 7. Budgets do not cover all allocation paths (for example list/table growth
    inside the interpreter is bounded only by fuel and memory).
 8. `--json` run output includes the full program stdout string; that is the

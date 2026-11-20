@@ -8,6 +8,7 @@ pub mod budget;
 pub mod capability;
 pub mod context;
 pub mod fs;
+pub mod handles;
 pub mod host;
 pub mod kernels;
 pub mod trace;
@@ -16,6 +17,7 @@ pub use budget::{Budget, DEFAULT_FUEL, DEFAULT_OUTPUT_BYTES, DEFAULT_STACK_LIMIT
 pub use capability::Capabilities;
 pub use context::ExecutionContext;
 pub use fs::ProjectFs;
+pub use handles::{contains_plugin_handle, PluginHandleTable};
 pub use host::{arity, expect_text, Host, HostOp, StdHost};
 pub use marqdo_sandbox::{PlatformCapabilities, SandboxMode, StrictIsolation};
 pub use trace::{EffectTrace, TraceEntry};
