@@ -14,12 +14,16 @@ marqdo-cli/
 ├── README.md                   user-facing quickstart and limits
 ├── docs/
 │   ├── DEVELOPMENT_BLUEPRINT.md   architecture baseline
-│   ├── CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md  current-stage stabilization spec (Proposed)
-│   ├── NEXT_PHASE_IMPLEMENTATION.md  proposed M0.6 plan (Proposed, not implemented)
-│   ├── EXTENSIBILITY_AUDIT.md     source-backed E01–E16 audit for M0.6
-│   ├── STATUS.md                  implementation matrix (P0–P7)
+│   ├── STABLE_RELEASE_IMPLEMENTATION.md  authoritative next-phase/release plan
+│   ├── STATUS.md                  current evidence, work packages, blockers
+│   ├── security-gate.md           G-C probe evidence (strict stays closed)
+│   ├── releasing.md               artifact/checksum/smoke/tag procedure
+│   ├── CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md  historical stabilization spec
+│   ├── NEXT_PHASE_IMPLEMENTATION.md  historical M0.6 plan
+│   ├── EXTENSIBILITY_AUDIT.md     source-backed E01–E16 audit
+│   ├── history/                   archived status snapshots
 │   ├── contributor-guide.md       this file
-│   └── adr/0001..0015-*.md        accepted decisions
+│   └── adr/0001..0020-*.md        accepted decisions
 ├── spec/
 │   ├── markdown-profile.md        frozen parser profile `marqdo.md.v1`
 │   ├── mapping.md                 AST → program roles
@@ -243,11 +247,11 @@ $B run examples/python-foreign.mq.md --allow-foreign        # needs python3
 $B run examples/multi-module/index.mq.md
 (cd examples/multi-module && ../../$B lock && ../../$B sync --locked)
 
-# Plugin demo (build the artifact + refresh its sha256 first)
+# Plugin demo (builds a host-specific manifest under build/)
 ./examples/plugin-demo/build.sh
-$B plugin inspect examples/plugin-demo
+$B plugin inspect examples/plugin-demo/build
 $B run examples/plugin-demo/plugin-call.mq.md \
-   --plugin examples/plugin-demo --trust-native-plugin --allow-plugin demo.solver
+   --plugin examples/plugin-demo/build --trust-native-plugin --allow-plugin demo.solver
 ```
 
 Notes: `run` defaults to `index.mq.md` and executes `main`; `call` requires a
@@ -291,15 +295,17 @@ file and function; root-only examples (for example `math.mq.md`) define no
 
 ## 9. Known gotchas
 
-* `.cache/` is the offline cargo cache/target used in this environment; it is
-  not part of the deliverable.
+* `.cache/` and `.cargo-home/` are local caches used on hosts with a read-only
+  `$HOME`; neither is part of the deliverable.
 * Foreign availability (`python3`/`node`) and a C compiler (`cc`) determine
-  which tests run; a skipped test is not a passed feature.
-* The strict sandbox, plugin worker isolation and package registry are not
-  implemented. Do not write docs or tests that pretend they are — see
-  `docs/STATUS.md` and `spec/security.md`.
-* Runtime error spans in the CLI currently resolve against the entry file only;
-  imported-module error locations are approximate (ADR-0006).
+  which tests run; a skipped test is not a passed feature. Windows Native ABI
+  is explicitly unsupported, not a pass.
+* Isolated worker plugins exist (crash/address-space isolation + brokered
+  `fs.read`), but they are **not** an OS sandbox. The strict sandbox and a
+  package registry remain unimplemented; strict fails closed. See
+  `docs/security-gate.md` and `spec/security.md`.
+* Runtime errors resolve against their owning module (ADR-0017); do not
+  reintroduce entry-file fallback.
 * The semantic corpus may pin current quirks (for example the external-link
   call code, or a float's last digit). A fixture diff for such a quirk is a
   deliberate change, not a free update.

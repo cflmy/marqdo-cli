@@ -12,15 +12,16 @@ This repository is the new, independent Marqdo toolchain (M0.5). It is **not**
 a compatibility rewrite of `cflmy/marqdo`; the old syntax, package format and
 plugin ABI v2 are not claimed to work here.
 
-> **Status: working implementation, not an Alpha release.** P0/P1 and the
-> documented Math/Foreign subset are implemented and tested; modules/package/
-> security/plugin support is functional but partial; strict isolation, worker
-> plugins, git packages and performance/release work are not done. See
-> [`docs/STATUS.md`](docs/STATUS.md) and "Deliberate limits" below. The
-> [stabilization and ecosystem-gate spec](docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md)
-> and the M0.6 extensibility plan in
-> [`docs/NEXT_PHASE_IMPLEMENTATION.md`](docs/NEXT_PHASE_IMPLEMENTATION.md) are
-> **Proposed** next-phase designs, not implemented feature lists.
+> **Status: stabilization candidate, not released.** The language, lock v3,
+> Analysis v2, Trace v2, Tool v1, Plugin ABI v1 (native + worker) and pinned
+> Foreign providers are implemented and covered by tests on Linux. The
+> Windows AST and macOS plugin CI failures are fixed in source, but the native
+> Windows/macOS lanes have not been re-run from this checkout. **`strict` OS
+> isolation is not available**: it fails closed on every platform (G-C not
+> passed), and the broker/worker are not a sandbox. See
+> [`docs/STATUS.md`](docs/STATUS.md), [`COMPATIBILITY.md`](COMPATIBILITY.md)
+> and [`docs/security-gate.md`](docs/security-gate.md). The single next-phase
+> plan is [`docs/STABLE_RELEASE_IMPLEMENTATION.md`](docs/STABLE_RELEASE_IMPLEMENTATION.md).
 
 ## Build
 
@@ -83,21 +84,27 @@ executes anything.
   `UnitId`/anchors, import cycle detection, multi-module calls,
   `run/call/check/inspect/fmt`, reference validation (`check --refs`) and the
   static link graph (`inspect --refs`).
-* **P3 project** — `marqdo.yaml` validation, deterministic `marqdo.lock` for
-  path dependencies, `init`, `add`/`remove` (manifest editing), `lock`,
-  `sync --locked`.
+* **P3 project** — lock v3 full transitive package-instance graph for path and
+  pinned Git sources, verified content-addressed Git cache, deterministic
+  `lock`, strict `sync --locked` with atomic `.marqdo/env` materialization.
+  `run`/`call`/`check` never fetch or rewrite the lock.
 * **P4 security core** — capability-checked host operations, project-relative
   FS globs with traversal rejection, budgets, effect trace, `pure`/`project`
-  modes, and **`strict` mode refuses to run** because no OS isolation adapter
-  exists.
+  modes, and **`strict` mode fails closed** because no verified OS isolation
+  adapter exists.
 * **P5 Math/Foreign** — native `Formula` value from `$$...$$`; `math.parse/
   eval/substitute` over a documented exact-rational subset; one-shot Python/
   Node kernels via `foreign.run/call` with typed wire protocol, timeout and
-  output limits.
+  output limits; pinned provider/environment digests and ADR-0020 environment
+  binding.
 * **P6 plugin ABI** — frozen C ABI v1 header (`include/marqdo_plugin_abi_v1.h`),
   host bindings, Rust SDK (`mq_plugin_entry!`), `plugin.yaml` validation,
-  target-triple + sha256 artifact verification, C demo, and explicitly trusted
-  in-process plugin calls (`--plugin --trust-native-plugin --allow-plugin`).
+  target-triple + sha256 artifact verification, native and isolated worker
+  transports, brokered `fs.read`, and explicitly trusted in-process calls
+  (`--plugin --trust-native-plugin --allow-plugin`). A C ABI is not a sandbox.
+* **Public protocols** — Analysis v2 and Trace v2 with JSON Schemas and
+  independent Python consumers; Tool Protocol v1 with arbitrary command names,
+  SemVer negotiation and whole-bundle digest verification.
 
 Run everything:
 
@@ -111,14 +118,14 @@ cargo clippy --workspace --all-targets -- -D warnings
 ## Deliberate limits (do not assume)
 
 * **Strict sandbox is not implemented.** `--mode strict` exits 1; there is no
-  OS isolation or isolated plugin worker. `project` mode is cooperative and
-  in-process.
+  verified OS isolation. `project` mode is cooperative and in-process. Worker
+  plugins provide crash/address-space isolation, not an OS sandbox.
 * **Native plugins run in-process** and require an explicit unsafe trust flag.
   A plugin can crash or read the host; a C ABI is not a sandbox.
-* **Package management is path-only in practice.** Git dependencies can be
-  declared but cannot be resolved/locked; there is no registry, transitive
-  resolution, `--offline`, `tree`, `update` or environment materialization.
-  Manifest `capabilities` are requests, never grants.
+* **Package management is path + pinned-Git only.** There is no registry,
+  floating-branch resolution, conflict solver, `--offline`, `tree`, `update`,
+  `vendor`, or automatic uv/npm environment creation. Manifest
+  `capabilities` are requests, never grants.
 * **Reference validation is opt-in**: `check --refs` reports broken links;
   plain `check` ignores them because links are static knowledge references.
   Link-form calls cannot cross modules; cross-module calls use imported alias
@@ -168,19 +175,29 @@ tests/                        conformance/negative corpus (see tests/README.md)
   baseline (Chinese; the M0.6 plan below supersedes it on command-surface scope,
   extension registration, plugin addressing, package identity, repository
   decoupling and release gates).
+* [`docs/STABLE_RELEASE_IMPLEMENTATION.md`](docs/STABLE_RELEASE_IMPLEMENTATION.md)
+  — **the single authoritative next-phase plan**: PR order, G-A/G-B/G-C gates,
+  Windows/macOS fixes, protocol/environment stabilization, strict isolation
+  requirements and the release checklist.
+* [`COMPATIBILITY.md`](COMPATIBILITY.md) — protocol versions, per-platform
+  feature evidence and explicit unsupported features.
+* [`CHANGELOG.md`](CHANGELOG.md) — unreleased stabilization changes and the
+  `0.1.0` baseline.
+* [`docs/security-gate.md`](docs/security-gate.md) — G-C probe evidence and the
+  exact conditions required before strict can become available.
+* [`docs/releasing.md`](docs/releasing.md) — artifact, checksum, clean-install
+  smoke, tagging and rollback procedure.
 * [`docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`](docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md)
-  — proposed current-stage spec (Chinese, baseline `0adebe4`): CI/lock/source
-  identity/Tool/sandbox gaps B-01–B-18, H0–H3 workstreams, and the G-A/G-B/G-C
-  release gates. Newer than the M0.6 plan; still design input, not implemented.
+  — historical stabilization spec (baseline `0adebe4`), superseded on current
+  priorities by the stable-release plan.
 * [`docs/NEXT_PHASE_IMPLEMENTATION.md`](docs/NEXT_PHASE_IMPLEMENTATION.md) —
-  proposed M0.6 plan (Chinese): extensibility fixes, callable/package/kernel
-  registration, `marqdo tool`, Analysis/Trace v1, safety and release gates.
+  historical M0.6 plan.
 * [`docs/EXTENSIBILITY_AUDIT.md`](docs/EXTENSIBILITY_AUDIT.md) — source-backed
-  audit issues E01–E16 with code locations and acceptance tests (Chinese).
+  audit issues E01–E16.
 * [`docs/contributor-guide.md`](docs/contributor-guide.md) — repo map, workflow,
   golden updates, quality gate.
-* [`docs/STATUS.md`](docs/STATUS.md) — P0–P7 implementation matrix and honest
-  open items; blueprint §18 Alpha checklist.
+* [`docs/STATUS.md`](docs/STATUS.md) — current work-package status, local
+  evidence and open blockers.
 * [`docs/adr/`](docs/adr/) — accepted decisions (crate graph, inert executables,
   `ref` ambiguity, strict refusal, AST normalization, CLI contract, BigInt/wire,
   package identity, callable resolution, plugin export routing, capability
@@ -211,13 +228,13 @@ marqdo inspect examples/references.mq.md --refs
 marqdo inspect examples/hello.mq.md --platform             # strict: unavailable
 
 ./examples/plugin-demo/build.sh
-marqdo plugin inspect examples/plugin-demo
+marqdo plugin inspect examples/plugin-demo/build
 marqdo run examples/plugin-demo/plugin-call.mq.md \
-  --plugin examples/plugin-demo --trust-native-plugin --allow-plugin demo.solver
+  --plugin examples/plugin-demo/build --trust-native-plugin --allow-plugin demo.solver
 
 ./examples/plugin-multi-export/build.sh
 marqdo run examples/plugin-multi-export/plugin-call.mq.md \
-  --plugin examples/plugin-multi-export --trust-native-plugin --allow-plugin demo.solver
+  --plugin examples/plugin-multi-export/build --trust-native-plugin --allow-plugin demo.solver
 
 marqdo tool install examples/tool-unknown-name/tool.json
 marqdo benchmark run .

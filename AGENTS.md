@@ -2,7 +2,20 @@
 
 **Start here:** read `docs/DEVELOPMENT_BLUEPRINT.md` before proposing code. It is the project architecture baseline. Then read `docs/STATUS.md` (what is actually implemented), the relevant `spec/` files, `docs/adr/` for frozen decisions, `docs/contributor-guide.md` for the workflow, and `tests/README.md` plus the conformance fixtures. Do not assume any current implementation or legacy Marqdo syntax is authoritative.
 
-For next-phase work, also read `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md` (current stabilization spec, baseline `0adebe4`, defining gaps B-01–B-18 and the G-A/G-B/G-C gates), `docs/NEXT_PHASE_IMPLEMENTATION.md` (M0.6 plan) and `docs/EXTENSIBILITY_AUDIT.md` (source-backed issues E01–E16). All are **Proposed** design input: the newer stabilization spec supersedes the earlier plans on the current baseline, gap list and release gates, while the M0.6 plan supersedes the blueprint on command-surface scope, extension registration, plugin addressing, package identity, repository decoupling and release gates. None describes implemented behavior, and each must be re-checked against current HEAD. `spec/tool-v1.md` is likewise a candidate protocol until an Accepted ADR and tests land.
+For next-phase work, the single authoritative plan is
+`docs/STABLE_RELEASE_IMPLEMENTATION.md` (stable-release gates G-A/G-B/G-C,
+PR order and release checklist). Also read `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`
+(historical stabilization spec, baseline `0adebe4`), `docs/NEXT_PHASE_IMPLEMENTATION.md`
+(M0.6 plan), `docs/EXTENSIBILITY_AUDIT.md` (E01–E16), `COMPATIBILITY.md` and
+`docs/security-gate.md`. The older plans are historical input: the stable-release
+spec supersedes them on current baseline, gap list, PR order and release gates.
+None describes implemented behavior; re-check against HEAD and tests. `strict`
+remains fail-closed until G-C passes.
+
+The stable-release spec also governs scope: do not add a top-level CLI command,
+Knowledge/Proof/View special-casing, a second interpreter or a new package
+registry. Fix the current Windows/macOS CI behavior, protocol/environment
+correctness and release evidence before expanding the surface.
 
 ## Non-negotiable architectural constraints
 

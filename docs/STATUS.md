@@ -1,454 +1,135 @@
-# Marqdo Implementation Status (M0.5)
+# Marqdo Implementation Status
 
-Snapshot: **2026-11-20**, workspace version `0.1.0`, plugin ABI `1.0`,
-`wire_version` 1, Markdown profile `marqdo.md.v1`.
+Snapshot: **2026-11-20**, workspace version `0.1.0`, no release tag.
+Authoritative task plan: [`STABLE_RELEASE_IMPLEMENTATION.md`](STABLE_RELEASE_IMPLEMENTATION.md).
+Support matrix: [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
 
-This file maps the blueprint's phases (`docs/DEVELOPMENT_BLUEPRINT.md` §13) to
-concrete evidence in the repository and lists honest open items. It is a status
-report, not a promise. "Done" means implemented **for the documented subset**
-and covered by tests; it does not mean the blueprint's full ambition is
-complete.
+This file records what was actually executed on the current tree. "Implemented"
+does not mean "verified on every platform"; the evidence column says which
+commands were run and where. The historical M0.5 snapshot is preserved at
+[`history/STATUS-M0.5-snapshot.md`](history/STATUS-M0.5-snapshot.md) and must
+not be read as current status.
 
-> **M0.6 planning cross-reference (2026-11-20)**: this file is the M0.5 evidence
-> snapshot that the M0.6 audit was based on. Read
-> [`docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`](CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md)
-> (current-stage stabilization spec, baseline `0adebe4`),
-> [`docs/EXTENSIBILITY_AUDIT.md`](EXTENSIBILITY_AUDIT.md) (issues E01–E16) and
-> the proposed [`docs/NEXT_PHASE_IMPLEMENTATION.md`](NEXT_PHASE_IMPLEMENTATION.md)
-> alongside it. The stabilization spec supersedes the earlier plans on the
-> current baseline, gap list and G-A/G-B/G-C release gates; none of these plans
-> claims any gap below is fixed. Per audit item
-> E14, where this snapshot conflicts with the current tree (for example the CI
-> workflow, console capability or `check --refs`), verify the source/tests at
-> the current HEAD and update this table rather than trusting stale prose.
+## 1. CI baseline and current evidence
 
-### R0 baseline record
+The last known public GitHub CI at baseline `e966b76` (run
+[44680378977](https://github.com/cflmy/marqdo-cli/actions/runs/44680378977))
+was **not green**:
 
-At the M0.6 planning baseline (`0116160399fda6df69a72da438e04b0072566b0f`,
-2026-11-20), the local gate passed before any M0.6 code change:
+- Linux `fmt + clippy + workspace tests + smoke`: PASS.
+- Schema instance validation + Python consumers: PASS.
+- macOS `cargo test --workspace`: FAIL —
+  `plugin_inspect_and_explicit_trusted_invocation` used a Linux `.so` and a
+  Linux-target manifest.
+- Windows `cargo test --workspace`: FAIL — AST golden bytes were CRLF after
+  checkout while the parser emits LF, producing "0 line(s) differ".
 
-```text
-cargo fmt --all -- --check                          ok
-cargo clippy --workspace --all-targets -- -D warnings  ok
-cargo test --workspace                              ok (150 AST + 36 semantic
-                                                    + 48 compile-error fixtures)
-```
+This checkout has a Gitee remote only and no GitHub Actions credentials. **No
+new remote CI URL can be produced from this host.** The local gate below is
+real evidence for this machine, not a substitute for the native Windows/macOS
+lanes.
 
-CI evidence: `.github/workflows/ci.yml` runs the same Linux x86_64 gate plus CLI
-example smoke tests. The R0 ADRs are `docs/adr/0008`–`0012` (package identity,
-callable resolution, plugin export routing, capability broker, kernel
-providers).
+### Local gate after the stabilization commits
 
-### S0/H0 baseline record (current)
-
-Starting point: `0adebe42f14d72a2a275564d03ff9558f197766e`, 2026-11-20. B-01
-fixed by removing the `tests/properties/` empty-directory assertion from
-`crates/cli/tests/properties.rs`; all fixtures are in-code strings, so the test
-no longer depends on a directory Git cannot track. The prose-invariance
-assertions were not reduced.
-
-Local gate after the fix (Linux x86_64, rustc 1.100.0 / cargo 1.100.0):
+All commands were run from the repository root with Rust 1.100.0:
 
 ```text
-cargo fmt --all -- --check                          ok
-cargo clippy --workspace --all-targets -- -D warnings  ok
-cargo test --workspace                              ok
-cargo test -p marqdo-cli --test properties          ok (2 tests)
+cargo fmt --all -- --check                            PASS
+cargo clippy --workspace --all-targets -- -D warnings PASS
+cargo test --workspace                                PASS
+cargo test -p marqdo-cli --test conformance_ast       PASS (4 tests)
+cargo test -p marqdo-cli --test integration_cli       PASS (22 tests)
+cargo test -p marqdo-cli --test plugin_worker         PASS (4 tests)
+cargo test -p marqdo-foreign --test provider          PASS (8 tests)
 ```
 
-CI run URL: not yet available from this environment; record the first pushed
-run here before treating H0 as CI-verified. The local gate is reproducible with
-`CARGO_HOME=.cache/cargo CARGO_TARGET_DIR=.cache/target`.
+Windows checkout reproduction: a fresh local clone with
+`git -c core.autocrlf=true clone ...` kept goldens at LF, preserved the CRLF
+byte fixture, and passed all four `conformance_ast` tests. The previous
+behavior was reproduced by converting one golden to CRLF: the new diagnostic
+reports the first differing byte and "the only difference is line endings".
 
-S0 fix commit: `74e34c6` (`fix(ci): remove empty-directory dependency from prose
-property test (B-01)`).
+macOS reproduction is **not possible on this host**; the fix removes the Linux
+assumption by generating the manifest from the host triple and building
+`solver.dylib` with `-dynamiclib`. It remains UNVERIFIED until the macOS lane
+runs.
 
-### S1/H1-A record (current)
+## 2. Work package status
 
-Implemented the lock v3 package-instance graph and fail-closed reproducibility
-contract from ADR-0016:
+| # | Work package | State | Evidence |
+|---|---|---|---|
+| 0 | Windows AST line endings | **Fixed locally, Windows CI UNVERIFIED** | `.gitattributes`, byte diagnostics, CRLF structure test, autocrlf clone PASS |
+| 1 | macOS native plugin fixtures | **Fixed locally, macOS CI UNVERIFIED** | host-target manifest + dylib flags, foreign-target/tamper/ABI tests PASS |
+| 2 | Status/docs reconcile | **Done** | this file, `COMPATIBILITY.md`, `CHANGELOG.md`, `docs/releasing.md`, `docs/security-gate.md` |
+| 3 | Package lock v3 reproducibility | **Implemented; targeted audit pending** | ADR-0016, `cargo test -p marqdo-cli --test package_env` PASS |
+| 4 | Analysis/Trace/Tool protocol | **Implemented; consumers PASS locally** | schemas + `tests/consumers/*.py`, `analysis_trace`/`tool_protocol` PASS |
+| 5 | Foreign pinned environment | **Done (ADR-0020)** | provider tests PASS; env binds interpreter; version drift rejected |
+| 6 | ABI session/broker hardening | **Partial** | `fs.read` bridge + budgets + handle tests PASS; Windows ABI unsupported; broader services still `capability.unavailable` |
+| 7 | Linux strict probe | **Done as fail-closed evidence** | `docs/security-gate.md`; userns/bwrap EPERM, cgroup ro, sudo blocked |
+| 8 | Linux strict pure (L1) | **BLOCKED** | no namespace creation on this host; no adapter implemented or verified |
+| 9 | Linux strict extensions (L2) | **BLOCKED** | depends on L1 |
+| 10 | Native platform matrix | **Partial** | Linux PASS; macOS/Windows source fixes, remote lanes absent |
+| 11 | Independent ecosystem consumers | **Partial** | Analysis/Trace Python consumers PASS; three Tool fixtures not added |
+| 12 | RC/docs/artifacts | **Candidate build only** | release docs, checksummed artifact, clean-install smoke; NOT released |
 
-* `marqdo lock` traverses the full dependency closure, records root and
-  per-instance `(alias → instance)` edges, the root manifest digest, full
-  content digests and structured path/Git sources, then writes atomically.
-* `run`/`call`/`check`/`inspect` require a lock whenever dependencies are
-  declared, never fetch or rewrite it, and validate every `(parent, alias)`
-  edge. Missing edges/records, digest or source drift, root-manifest drift and
-  v1/v2 locks fail closed (exit 1).
-* `sync` is strict in both modes and never rewrites the lock; it materializes
-  the entire locked closure into `.marqdo/env` with `env.json` schema 2 and
-  atomic publication.
-* Git cache entries carry a marker and are reverified by URL, revision,
-  profile and content digest; revisions must be full lowercase commit hashes.
-* `content_profile_version: 1` unifies hashing and materialization (B-05).
-* `add`/`remove` no longer patch the lock; a stale graph is rejected with a
-  relock instruction.
+## 3. Verified capabilities
 
-Tests added: package file-set selection/encoding/budgets, transitive closure,
-missing-edge fail-closed, root-manifest invalidation, strict sync without
-`--locked`, full-closure env materialization, missing-lock and deleted-edge CLI
-failures.
+- Frozen Markdown profile `marqdo.md.v1` with 150 AST goldens and explicit
+  CRLF byte semantics.
+- Native Rust interpreter with 36 semantic goldens, 48 compile-error fixtures,
+  and runtime error source attribution.
+- lock v3 full transitive package-instance graph, verified Git cache, strict
+  `sync --locked`, atomic `.marqdo/env` materialization; `run`/`check` never
+  fetch or rewrite the lock.
+- Analysis v2 (logical identity, resources, byte digest) and Trace v2 (module
+  ownership, bounds, truncation, stale detection) with independent Python
+  consumers and JSON Schema validation.
+- Tool Protocol v1 with arbitrary command names, SemVer/protocol negotiation,
+  whole-bundle digest verification, atomic install/remove.
+- Plugin ABI v1: native + worker transports, capability broker executing
+  `fs.read` through `ProjectFs`, per-invocation budgets, host-owned handle
+  identity, crash/timeout isolation. Not an OS sandbox.
+- Foreign kernels: one-shot Python/Node, typed wire, timeout/output caps,
+  provider and environment digests, and (ADR-0020) environment-bound provider
+  with interpreter-version verification.
 
-### S2-A/H1-B record (current)
+## 4. Open blockers and limits
 
-Runtime errors now carry a logical source location (ADR-0017):
+1. **No remote CI evidence for this commit.** The repository remote is Gitee;
+   no GitHub workflow was executed. Windows/macOS fixes are UNVERIFIED there.
+2. **G-C is not passed.** `strict` remains `Unavailable`; the host cannot
+   create namespaces and root cgroup2 is read-only. See
+   [`security-gate.md`](security-gate.md). No release may claim Linux strict
+   isolation.
+3. Windows Native/Worker ABI is explicitly unsupported (no `cc` toolchain in
+   the lane); it is not counted as a pass.
+4. `fs.write`, `net.request`, `process`, `clock`, `random` are not executed
+   broker services; unsupported requests must return `capability.unavailable`.
+5. uv/npm/venv provisioning is not implemented. Only a pre-provisioned,
+   digest-pinned directory with a regular-file executable is supported.
+6. Three independent Tool consumers (`sample-view`/`knowledge`/`proof`) are
+   not yet added; only the portable `benchmark` fixture and Analysis/Trace
+   Python consumers exist.
+7. No release tag/binary publication. A candidate archive and checksums are
+   produced locally; the release decision is **DO NOT RELEASE** until the
+   native CI matrix and G-C conditions in the plan are satisfied.
 
-* `RuntimeError.module_id`, `origin` (`source`/`callsite`), and
-  `CallFrame.module_id`; attribution happens at function/module boundaries so
-  the innermost callee module wins.
-* Host/plugin/foreign errors are marked as callsite errors without fabricating
-  a foreign stack.
-* `LoadedProject::locate(module_id, span)` resolves the owning file and line;
-  the CLI no longer falls back to the entry file. Unknown modules or
-  out-of-range spans emit module/span with null line/file.
-* Human and JSON output report the failing module; caller frames resolve their
-  own callsite modules.
-* CLI test `runtime_error_in_imported_module_reports_that_module` reproduces
-  B-08 end to end with the real binary.
-
-### S2-B/H2-A record (current)
-
-Analysis v2 (`spec/analysis-v2.md`, `spec/schemas/analysis-v2.schema.json`):
-
-* `project.root_id` is a logical manifest identity (`root:<name>@<version>`) or
-  a content-derived `workspace_snapshot` digest; physical paths are gone from
-  Analysis bytes.
-* `modules[].resources` is an array covering the two real `marqdo-ir::Resource`
-  kinds, with stable module/unit/span references, payload digests and code
-  language. Payload text stays in the source.
-* Diagnostics project `module`, `relative_path`, `span`, `line`, `column`
-  instead of absolute file paths.
-* `analysis_digest` is SHA-256 of the exact emitted (pretty) bytes, so a
-  consumer can verify it; Trace binds to the same value.
-* The independent Python consumer validates v2, resources and identity, and
-  rejects unknown versions.
-* Tests cover byte-identical output after moving a project and resource
-  addressing for formulas/code fences.
-
-### S2-C/H2-B record (current)
-
-Trace v2 (`spec/trace-v2.md`, `spec/schemas/trace-v2.schema.json`):
-
-* `source.root_id` uses the same logical Analysis identity; `analysis_digest`
-  is the digest of the exact emitted Analysis bytes and is independently
-  verifiable.
-* Every span-bearing event carries `module_id`; `call.enter`/`call.exit` are
-  owned by the caller module, other semantic events by the current function,
-  effects by their `ExecutionContext`. The effect key is now `module_id`.
-* Trace budgets: 100 000 events / 32 MiB by default, configurable with
-  `--trace-max-events` and `--trace-max-bytes`; `0` means unlimited. Semantic
-  recording is disabled when no trace is requested.
-* On capacity exhaustion the trace ends with `trace.truncated` and
-  `truncated.reason`; the run status and execution result are unchanged. The
-  writer also enforces the byte cap on the final document.
-* Worker frames are capped at 8 MiB, with aligned request/result/capability
-  wire caps; partial headers, oversized lengths, truncated payloads and invalid
-  JSON are protocol errors, clean EOF is distinct, and the host kills and marks
-  a worker dead after a transport failure.
-* New independent `tests/consumers/trace_consumer.py` verifies identity,
-  digest, module references and sequence ordering in CI.
-* Tests: event module ownership, 20-event truncation of a 500-iteration loop,
-  worker frame round-trip/EOF/partial/oversized/truncated cases.
-
-### S3-A/H2-C Tool protocol record (current)
-
-Tool Protocol hardening (`spec/tool-v1.md`):
-
-* `semver` replaces the hand-rolled matcher. Tool versions and `marqdo`
-  requirements must parse; malformed ranges/versions are rejected.
-* The core declares `SupportedProtocols { tool: 1, analysis: [2], trace: [2] }`.
-  Declared Analysis/Trace lists are negotiated at both install and dispatch;
-  empty or disjoint lists fail with `tool.protocol_incompatible`. Absent
-  declarations remain valid and are not forced.
-* Installed records are `record_version: 2` with a whole-bundle file manifest
-  (path, size, SHA-256) and a deterministic bundle digest. Dispatch recomputes
-  the full bundle, rejects entrypoint/auxiliary/extra/missing-file tampering,
-  requires the record command to match and the entrypoint to be listed.
-* Install copies exactly the verified bundle into staging, re-verifies it, and
-  rejects a source package that ships a root `record.json`. Removal detaches
-  the directory by rename before deleting it.
-* Tests cover accepted/rejected protocol declarations, auxiliary-file/extra-file
-  tampering, entrypoint tampering and reserved `record.json`.
-
-### S4-A/B-13 B-14 record (current)
-
-* CI has an independent `schema` job that installs a pinned Draft 2020-12
-  validator (`jsonschema==4.23.0`), emits real Analysis/Trace artifacts,
-  validates each against its matching schema, and runs the independent Python
-  consumers. `tests/consumers/validate_protocols.py` also asserts negative
-  mutations (wrong type/version, missing required fields, unsupported
-  truncation reason, traversal entrypoint, invalid SemVer).
-* Tool schema tightened: SemVer version pattern, package-relative entrypoint
-  pattern and non-empty protocol arrays.
-* The Windows/macOS CI lane now runs `cargo test --workspace` plus portable CLI,
-  Analysis and Trace smoke tests and a strict-mode refusal assertion, instead
-  of `cargo check` only.
-* Tool black-box tests no longer require a shell: they compile a portable
-  std-only fixture with `rustc`, so the Windows/macOS `cargo test --workspace`
-  lane now runs the full Tool protocol suite.
-* Still Unix-only in CI: compiled C ABI plugins, worker transport tests, and
-  package/Git/process tests. They are not counted as cross-platform evidence;
-  `docs/STATUS.md` records this rather than treating `cargo test` skips as
-  passes.
-
-### S5-A/B-12 record (current)
-
-Foreign provider integrity and environment metadata:
-
-* `KernelDescriptor` gains `environment_id`, `environment_digest` and
-  `interpreter_version`; external descriptors loaded by the CLI must declare a
-  full provider `digest` and an absolute executable entrypoint.
-* Descriptors are verified at registration and again before every spawn; a
-  post-registration binary change returns `ForeignError::Integrity` without
-  starting a process. Malformed digests and relative external paths fail closed.
-* The example provider pins its digest; tests cover success, post-registration
-  tampering and malformed descriptors.
-* `environment_dir` is a pinned absolute directory whose profile-v1 tree digest
-  is verified at registration and before every spawn; the child receives
-  `MARQDO_FOREIGN_ENV` and a prepended `<env>/bin` on `PATH`. Tampering fails
-  with `EnvironmentIntegrity` before spawn.
-* uv/npm environment **generation** and lock-v3 integration are still not
-  implemented; this build verifies an explicitly provisioned directory.
-* H3-A is **implemented for `fs.read`**: both native and worker plugins can
-  request a granted `fs.read` through the broker; it executes via `ProjectFs`,
-  returns real bytes, and records an audit decision. Unsupported capabilities
-  return `capability.unavailable` rather than empty success. Worker
-  request/reply frames are request-scoped and carry no trusted identity
-  (ADR-0018).
-* Per-invocation capability budgets are enforced in both the worker handler
-  and the host: 64 requests and 64 KiB per request. H3-A remains open for live
-  ABI session identity and broader executing services. H3-B (OS isolation) remains
-  open; `strict` is refused on every platform and no G-C claim is made.
-
-### M0.6 implementation progress
-
-| Step | State | Evidence |
-|---|---|---|
-| S0/H0 CI baseline | **Done locally** | B-01 fixed in `crates/cli/tests/properties.rs`; fresh-clone path no longer needs an empty directory; full local gate green (see §S0/H0) |
-| S1/H1-A lock v3 graph | **Done** | ADR-0016; full-closure `marqdo.lock` v3; fail-closed edge lookup; strict non-rewriting `sync`; verified Git cache; unified file-set profile (see §S1/H1-A) |
-| S2-A/H1-B source locations | **Done** | ADR-0017; `RuntimeError`/`CallFrame` carry `module_id`; callsite origin; CLI module-aware resolution with no entry fallback (see §S2-A/H1-B) |
-| S2-B/H2-A Analysis v2 | **Done** | logical project identity, resources array, machine-path-free diagnostics, emitted-bytes digest, v2 schema + independent consumer (see §S2-B/H2-A) |
-| S2-C/H2-B Trace v2 | **Done** | logical root/digest, module-owned events, bounded/truncated trace, independent consumer, hardened worker frames (see §S2-C/H2-B) |
-| S3-A/H2-C Tool protocol | **Done** | SemVer negotiation at install+dispatch, whole-bundle manifest/digest verification, atomic install/remove, reserved record file (see §S3-A/H2-C) |
-| S4-A/B-13 B-14 quality gates | **Partial** | real schema instance validation + negative mutations in CI; Windows/macOS runtime tests for core/Analysis/Trace and strict refusal. Tool/C-ABI/worker runtime evidence remains Unix-only (see §S4-A) |
-| S5-A/B-12 foreign integrity | **Done for pinned provider+environment** | provider and environment-directory digests verified at registration and before spawn; environment bin/PATH injection. uv/npm environment generation, lock-v3 integration and H3-B remain open (see §S5-A/B-12) |
-| S5-B/H3-A broker execution | **Done for fs.read (native+worker)** | registered plugin capability requests execute `fs.read` through `ProjectFs` with audit; unsupported capabilities fail unavailable. Session identity breadth remains open (ADR-0018) |
-| S5-C/H3-B strict gate | **Gate implemented; isolation deferred** | ADR-0019 + test: strict stays unavailable with an actionable reason until a per-platform security lane passes; refusal is enforced before host/plugin creation. No G-C claim |
-| R0 baseline + ADRs | **Done** | this section; `docs/adr/0008`–`0012`; full workspace gate |
-| R1 package-aware identity + callable registry | **Done for statics; superseded by S1 lock v3** | `ModuleId { instance, relative_path }`; `PackageResolver` path sources; lock v3 transitive graph (ADR-0016) replaces the flat v2 lock; `CallableRegistry` for builtins/marqdo/declared ABI exports; external manifest wiring is R2 |
-| R2 ABI/Kernel/Broker | **Done (worker = crash isolation)** | `KernelRegistry` external providers; complete-name export routing; `CapabilityBroker`; static `check --plugin`; multi-export C test; isolated worker with timeout/crash tests; host handle table. Native/worker are not an OS sandbox |
-| R3 Tool Protocol | **Done (S3 hardened)** | `tool install/list/remove`; unknown-command fallback; SemVer + Analysis/Trace negotiation; whole-bundle digest verification; staged install and rename-based removal; black-box tests for arbitrary names, Unicode args, conflicts, traversal, PATH hijacking and bundle tampering |
-| R4 Analysis/Trace v2 | **Done** | `check --emit` Analysis v2 and `run/call --trace-file` Trace v2 with logical identity, resources, module-owned events, capacity bounds, schemas and independent Python consumers; stale-artifact removal; value redaction |
-| R5 environment/isolation | **Partial** | Pinned Git fetch with verified cache markers, transitive `@alias` resolution, full-closure atomic `.marqdo/env` materialization, foreign process-group cleanup, verified foreign provider digests and environment descriptor metadata. Strict OS isolation and uv/npm environment materialization remain explicitly unavailable (fail-closed) |
-| R6 release/consumers | **Partial** | examples for unknown-name Tool, multi-export plugin, external kernel and multi-version packages; Analysis/Trace/Tool JSON Schemas with instance validation; Linux full gate + Windows/macOS workspace tests and portable analysis/trace smoke; Unix-only Tool/ABI/worker runtime evidence |
-
-Reproduce the evidence:
+## 5. Reproduce
 
 ```bash
-export PATH=/root/.cargo/bin:$PATH
-export CARGO_HOME=/root/work/marqdo-cli/.cache/cargo
-export CARGO_TARGET_DIR=/root/work/marqdo-cli/.cache/target
-cargo test --workspace
-cargo test -p marqdo-cli
-cargo fmt --check
+export PATH="$HOME/.cargo/bin:$PATH"
+# On hosts with a read-only $HOME, point CARGO_HOME at a writable directory.
+cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+cargo build --release --locked -p marqdo-cli
 ```
 
-## 1. Phase matrix
+Consumer evidence:
 
-| Phase | Status | Main evidence |
-|---|---|---|
-| **P0** Formal specs + parser goldens | **Done** | `spec/markdown-profile.md`, `spec/mapping.md`, `spec/expression.ebnf`, `spec/evaluation.md`; frozen profile test `crates/marqdo-markdown/src/profile.rs`; 150 AST fixtures + goldens in `tests/conformance/ast/`; 48 compile-error fixtures in `tests/negative/`; `inspect --ast`; `conformance_ast.rs`/`negative.rs` harnesses. |
-| **P1** Interpreter, expressions, control flow | **Done** | `marqdo-expression`, `marqdo-ir`, `marqdo-frontend`, `marqdo-runtime`; factorial/countdown examples run without Python (`examples/factorial.mq.md`, `examples/hello.mq.md`); 36 execution goldens in `tests/conformance/semantics/`; runtime tests `crates/marqdo-runtime/tests/interpreter.rs`; prose invariance `crates/cli/tests/properties.rs`. |
-| **P2** Modules, references, CLI experience | **Partial** | Imports/ModuleId/UnitId/anchor/cycle detection + `run/call/check/inspect/fmt` (`crates/cli`), multi-module example and `multi_module_imports_and_cycles` CLI test; `check --refs` reference validation (all loaded documents, on-demand static analysis of link targets) and `inspect --refs` static graph. Missing: cross-module link calls, rename/interface-lock tooling, canonical AST-preserving `fmt` (see §3). |
-| **P3** Package environment | **Partial** | `marqdo.yaml`/`marqdo.lock` types+validation, `init`, `add`/`remove`, deterministic `lock`, `sync --locked`; M0.6 adds pinned Git fetch/cache, transitive `@alias` resolution and atomic `.marqdo/env` materialization. Missing: registry, `tree/update/vendor`, `--offline`, full conflict solver. |
-| **P4** Security core and isolation | **Partial** | `CapabilityHost`, capabilities at execution points (console and math included), project-rooted FS with traversal rejection, budgets, effect trace, pure/project modes, **strict refuses without OS isolation** (`marqdo-sandbox`); CLI test `strict_mode_refuses_without_isolation`; host unit tests. Missing: OS isolation adapter and network enforcement; isolated plugin workers exist but are not an OS sandbox. |
-| **P5** Math and Foreign | **Partial (documented subset)** | `marqdo-math` exact-rational formula kernel for the grammar in `spec/math.md`; `math.parse/eval/substitute` host ops; `marqdo-foreign` Python/Node one-shot kernels with typed `foreign.call`; tests `crates/marqdo-math/tests/kernel.rs`, `crates/marqdo-foreign/tests/kernels.rs`; examples `math.mq.md`, `python-foreign.mq.md`. Missing: `simplify`/`differentiate`, matrices/series/symbolic algebra, foreign sessions, Python environment management. |
-| **P6** Plugin ABI and developer experience | **Partial** | Frozen `include/marqdo_plugin_abi_v1.h`; C ABI mirrors/layout assertions, version negotiation, `plugin.yaml` validation, target triple + sha256 verification, wire envelopes, native loader; complete-name multi-export routing; `CapabilityBroker`; isolated worker transport with handshake/call timeouts; host handle table; Rust SDK; CLI `plugin inspect`, `check --plugin`, trusted native invocation. Missing: Wasm, vendor handlers, plugin installation, Rust plugin example crate. |
-| **P7** Performance, release, CI | **Partial** | `.github/workflows/ci.yml` runs fmt/clippy/workspace tests plus CLI example smoke tests (including plugin inspect and invocation) on Linux x86_64. Missing: benchmarks, bytecode backend, full cross-platform test matrix (Windows/macOS currently `cargo check` only), signed releases and supply-chain checks. Tree-walk interpreter only. |
-
-## 2. Feature evidence (selected commands)
-
-| Command | Verified behavior |
-|---|---|
-| `marqdo init demo` | creates `marqdo.yaml` (`>=0.1,<1`), `index.mq.md`, `.gitignore` (`.marqdo/`); refuses existing manifest (exit 1). |
-| `marqdo check index.mq.md` | static only; 0 when no error diagnostics (warnings allowed); 1 on errors; JSON `command/success/errors/diagnostics`. |
-| `marqdo run index.mq.md` | executes `main` through the Rust interpreter/host; program stdout on stdout; exit 1 on runtime/compile/strict errors. |
-| `marqdo call file fn --arg n=5` | typed constant arguments; prints the non-`Unit` return value. |
-| `marqdo inspect file --ast/--units/--signature/--ir/--refs/--platform --json` | static dashboards; `--platform` reports strict unavailable. |
-| `marqdo fmt [--check]` | normalizes CRLF and trailing newlines only; exit 1 if `--check` detects a change. |
-| `marqdo plugin inspect dir` | validates manifest + verifies sha256; never `dlopen`s (`loaded: false`). |
-| `marqdo run doc --plugin dir --trust-native-plugin --allow-plugin demo.solver` | calls `solver.add(a=20,b=22)` and prints `42`; without trust/grant it exits 1. |
-| `marqdo lock` / `sync --locked` | deterministic path-dependency lock; `--locked` fails on manifest/dependency drift. |
-
-Test corpus at this snapshot (`tests/README.md`):
-
-* 150 AST fixtures + goldens (`tests/conformance/ast/`);
-* 36 semantic execution fixtures + goldens (`tests/conformance/semantics/`);
-* 48 compile-time hard-error fixtures, 6 inert-executable warning fixtures,
-  10 runtime-error fixtures (`tests/negative/`);
-* `crates/cli/tests/` harnesses: `conformance_ast`, `conformance_semantics`,
-  `negative`, `properties`, `integration_cli`;
-* crate tests across all 15 crates, including real `python3`/`node` foreign
-  tests (skipped if unavailable) and a compiled C plugin test (skipped without
-  `cc`).
-
-At this snapshot `cargo test -p marqdo-cli` passes all 21 harness tests
-(2 CLI unit + AST/semantics/negative/properties/integration) and
-`cargo test --workspace` passes. The fixture counts above match
-`tests/README.md`; empty `tests/integration`, `tests/properties`,
-`tests/security` and `tests/abi` directories are reserved for future
-workstreams — the active corpus lives in `tests/conformance`, `tests/negative`
-and `crates/cli/tests`.
-
-## 3. Open items by phase
-
-### P0
-
-* Wire floats now round-trip exactly: `serde_json`'s `float_roundtrip`
-  feature is enabled and a Python `math.pi * 9` fixture pins the exact value
-  (`spec/value-wire.md` §3).
-* Profile change safety relies on the frozen-options unit test; no CI gate
-  regenerates goldens (intentional).
-
-### P1
-
-* The blueprint asks for a draft Turing-completeness argument. The language
-  supports mutable locals, branch-first-match, per-item `while` loops and
-  recursion with bounded budgets; a formal encoding write-up is still missing.
-* The default cooperative stack budget is 128 frames so very deep recursion
-  yields a structured `resource.exhausted` instead of exhausting the debug-build
-  native stack; `--stack` raises it deliberately. A true guard-page/iterative
-  interpreter hardening is still open.
-
-### P2
-
-* `fmt` is intentionally minimal (line endings/trailing newlines only), not the
-  blueprint's "canonical AST-equivalent formatting"; no semantic formatting,
-  AST-equivalence check or render-preserving rewrite exists.
-* Reference validation is opt-in: `check --refs` (and `inspect --refs`) resolve
-  links; plain `check` does not fail on broken links because links are static
-  knowledge references rather than execution inputs.
-* Link-form calls cannot cross modules; cross-module calls use imported alias
-  expressions. The blueprint's `> [f](./other.mq.md#f)(...)` example is not
-  supported.
-* `ref("#...")` is module-local and does not accept a selector for units with
-  multiple resources (it errors with `ref.ambiguous`, ADR-0003).
-* No rename tooling, interface lock/ABI diffing, or incremental cache.
-* Duplicate/nested project boundaries are not diagnosed (nearest
-  `marqdo.yaml` wins).
-
-### P3
-
-* Pinned Git dependencies resolve through a content-addressed cache; floating
-  branches, submodules and dependency install scripts remain unsupported.
-* Transitive `@alias` imports resolve from each package's own manifest, but the
-  lock is still flat; there is no full conflict solver, registry, publishing,
-  signing, `tree`, `update`, `vendor`, `--offline`, or `lock --locked`.
-* `sync` materializes `.marqdo/env` atomically; kernel/session environments are
-  not materialized.
-* `add`/`remove` are shallow manifest editors.
-* JSON errors from `add`/`remove`/`lock`/`sync` are plain stderr even with
-  `--json`.
-
-### P4
-
-* **Strict mode cannot run at all**: no OS isolation adapter (Linux
-  namespaces/seccomp/cgroups, Windows Job Object/appcontainer, macOS sandbox);
-  `run --mode strict` exits 1 (ADR-0004). Isolated plugin workers are
-  implemented but a child process is not an OS sandbox.
-* `console` is a capability checked in `op_print`; it is granted by default in
-  `pure`/`project` mode and is not a bypass of the capability boundary.
-* Network capability (`net_hosts`, `check_net`) exists but no host operation
-  performs network I/O and there is no `--allow-net` flag.
-* Write-path symlink TOCTOU caveat (`spec/security.md` §2.1); symlink/race
-  hardening open.
-* Budgets do not cover every allocation path; the interpreter's containers are
-  bounded only by fuel and available memory.
-* Effect trace does not record argument values or paths (privacy-positive, but
-  less diagnostic detail); trace is opt-in and implicitly on for `--json`.
-* `plugin_handle` wire values are structurally reconstructable; authority now
-  requires the host-owned owner/run/generation table, and untrusted output
-  containing handles is rejected (ADR-0014).
-
-### P5
-
-* Math is a deliberately limited calculator subset: no `simplify`,
-  `differentiate`, matrices, sums/integrals, trig/log functions, units,
-  assumptions or theorem proving. `math.simplify`/`math.differentiate` are
-  host ops that always return `math.unsupported`.
-* Equation solving is affine-only, single target, target must occur exactly
-  once; other shapes are `math.unsupported`.
-* Division by zero inside a formula maps to `runtime.type` (via
-  `MathErrorKind::Type`), not `runtime.division_by_zero`; documented divergence.
-* Foreign kernels are one-shot only: no sessions, state bridge, Python/Node
-  environment management, or network policy for child processes.
-* Foreign child processes form a process group on Unix, so timeout/overflow
-  kills grandchildren too; non-Unix targets still track only the direct child.
-* Foreign per-call timeout (10 s) and output cap (1 MiB) are not CLI-configurable.
-
-### P6
-
-* Native in-process loading still requires explicit trust and a crash is a host
-  crash. The isolated worker transport (length-prefixed IPC, handshake/call
-  timeouts) is implemented for crash isolation, not as an OS sandbox.
-* Wasm and hot unload/reload remain unsupported.
-* The `CapabilityBroker` enforces core grants and vendor policy entries, but no
-  concrete vendor handler or worker-side capability bridge is shipped.
-* Plugin calls are statically validated only with `check --plugin <manifest>`;
-  without a descriptor a missing export is a runtime `symbol.unknown`.
-  Positional plugin arguments are rejected.
-* Multi-prefix exports are registered by complete name; explicit alias syntax
-  for two packages using the same export is still pending.
-* No plugin installation/package management; `plugins:` in `marqdo.yaml` is
-  declarative only. No Rust plugin example crate (SDK has doc examples/tests).
-* No hot unload/reload (ABI v1 design).
-
-### P7
-
-* Performance work is untouched: no benchmark suite, no bytecode backend or
-  differential tests against the tree-walker, no parse/compile caching.
-* CI exists (`.github/workflows/ci.yml`) and runs fmt/clippy/workspace tests
-  plus CLI smoke tests on Linux x86_64; missing: Windows/macOS matrix,
-  sanitizers/fuzz gates, signing, release automation or supply-chain scanning.
-* No published version, no compatibility matrix beyond the frozen ABI/format
-  documents.
-
-## 4. Blueprint §18 "Alpha Definition of Done" mapping
-
-| §18 item | Status | Evidence / gap |
-|---|---|---|
-| Run/call non-trivial recursive, branch, loop, call, parameter-inference programs without Python | **Met** | factorial/recursion (`examples/factorial.mq.md`, runtime + semantic goldens), countdown loop, multi-module alias call; interpreter is native Rust. |
-| `.mq.md` readable under the chosen CommonMark/GFM/Math profile; standard AST behavior covered by goldens | **Met** | frozen `marqdo.md.v1`, 150 AST goldens, profile option test, `spec/markdown-profile.md`. |
-| No heuristic downgrade of execution semantics; accurate source locations for invalid execution nodes | **Mostly met** | hard errors with spans for function-body executable shapes and negative corpus. Gaps: inert executable outside functions is a warning by design (ADR-0002); cross-module runtime error spans resolve against the entry file only; some lazy nested nodes are inert without a warning. |
-| `check`/`inspect` side-effect free; imports, calls and static references verifiable across files | **Mostly met** | static load/analysis only; imports + cycle detection; cross-module calls validated; `check --refs` validates references across loaded documents and statically analyses link targets; `inspect --refs` prints the entry graph. |
-| Minimal manifest, lock file, path/Git dependencies and environment sync | **Partial** | manifest/lock/path works, `sync --locked` verifies; git resolution, transitive deps, environment materialization and `--offline` missing. |
-| All host side effects capability-authorized; untrusted code/native plugins cannot masquerade as strict sandbox | **Mostly met** | capability checks at execution points; strict refuses; native plugins require explicit trust and are documented as unsandboxed. Gaps: network enforcement not implemented (no network builtin is exposed); worker isolation is crash isolation, not an OS sandbox. |
-| Formula computational subset explicit/testable; Foreign I/O, timeout and permissions explicit | **Met for the documented subset** | `spec/math.md`, `spec/foreign.md`; math kernel tests; foreign tests (timeout, protocol, output cap, env); permission gating tests/smoke. Simplification/differentiation explicitly unsupported. |
-| Plugin C ABI v1, Rust SDK, C example, isolated worker basic path, ABI compat error tests | **Partial** | ABI/SDK/C example/loader/ABI-error tests exist; isolated worker with timeout/crash tests exists. Missing: Wasm, vendor handlers, plugin installation. |
-| CI has at least one full research pipeline: Markdown function → Math → Foreign → Plugin → controlled output | **Partial** | CI now runs fmt/clippy/tests and CLI smoke tests; individual math/foreign/plugin paths are covered by examples and tests, but no single end-to-end pipeline document/test exists yet. |
-| Examples, README, AGENTS and contributor docs allow a first change without legacy context | **Met** | `README.md`, `AGENTS.md`, this guide, `docs/STATUS.md`, specs, ADRs, `tests/README.md`, examples. |
-
-**Conclusion: the Alpha definition of done is not fully met.** P0/P1 and the
-documented P5 subset are solid; P2/P3/P4/P6 are functional but partial; P7 is
-absent. The blocking items for an Alpha claim are the strict sandbox/worker
-isolation story (P4/P6), git/environment package management (P3), and a CI
-end-to-end pipeline (P7).
-
-## 5. What is deliberately limited (do not overclaim)
-
-* Only a single, frozen Markdown profile (`marqdo.md.v1`); changing parser
-  options/versions is a language change.
-* Strict mode is a refusal, not an isolation implementation. `project` mode is
-  cooperative and in-process.
-* Native plugins are trusted in-process code and a crash takes down the host.
-  `kind: worker` isolates crashes/timeouts but is not an OS sandbox.
-* Ints are arbitrary precision; finite floats are binary64 and wire round-trip
-  is exact (`float_roundtrip` enabled), but decimal-vs-binary formatting still
-  applies when displaying values.
-* Math is a limited exact-rational calculator, not a CAS or a prover.
-* Foreign kernels are optional, one-shot, unsandboxed child processes.
-* `fmt` is minimal; plain `check` does not validate Markdown links (only
-  `check --refs` does); link-form calls cannot cross modules.
-* Package management is path-only in practice; `marqdo.yaml` capabilities are
-  requests, never grants.
+```bash
+./target/debug/marqdo check examples/multi-module/index.mq.md --refs --emit /tmp/a.json
+./target/debug/marqdo run examples/multi-module/index.mq.md --trace-file /tmp/t.json
+python3 tests/consumers/analysis_consumer.py /tmp/a.json
+python3 tests/consumers/trace_consumer.py /tmp/a.json /tmp/t.json
+```
