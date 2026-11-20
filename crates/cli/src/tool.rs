@@ -1,20 +1,40 @@
 //! Generic external CLI tool protocol (spec/tool-v1.md).
 //!
 //! The core never knows a tool's name. It validates a user-supplied
-//! `tool.json`, copies the package into a controlled user directory, and
-//! dispatches unknown top-level commands to the registered executable. This is
-//! deliberately separate from C ABI plugins and foreign kernels.
+//! `tool.json`, verifies protocol compatibility, copies the whole bundle into a
+//! controlled user directory and dispatches unknown top-level commands to the
+//! registered executable. This is deliberately separate from C ABI plugins and
+//! foreign kernels.
 
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command as ProcessCommand;
 
+use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 const SCHEMA: &str = "marqdo.cli-tool";
 const PROTOCOL_VERSION: u32 = 1;
+const RECORD_VERSION: u32 = 2;
+const MAX_BUNDLE_FILES: usize = 4096;
+const MAX_BUNDLE_BYTES: u64 = 256 * 1024 * 1024;
+
+/// Protocols this core can provide to tools.
+#[derive(Debug, Clone, Copy)]
+struct SupportedProtocols {
+    tool: u32,
+    analysis: &'static [u32],
+    trace: &'static [u32],
+}
+
+const SUPPORTED: SupportedProtocols = SupportedProtocols {
+    tool: PROTOCOL_VERSION,
+    analysis: &[2],
+    trace: &[2],
+};
+
 const BUILTIN_COMMANDS: &[&str] = &[
     "init", "run", "call", "check", "inspect", "fmt", "plugin", "add", "remove", "lock", "sync",
     "tool", "help",
@@ -42,19 +62,6 @@ struct Compatibility {
     trace: Option<Vec<u32>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct ToolRecord {
-    command: String,
-    name: String,
-    version: String,
-    entrypoint: PathBuf,
-    sha256: String,
-    source: String,
-    schema_version: u32,
-    #[serde(default)]
-    compatibility: RecordedCompatibility,
-}
-
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct RecordedCompatibility {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -63,6 +70,38 @@ struct RecordedCompatibility {
     analysis: Option<Vec<u32>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     trace: Option<Vec<u32>>,
+}
+
+impl RecordedCompatibility {
+    fn as_compatibility(&self) -> Compatibility {
+        Compatibility {
+            marqdo: self.marqdo.clone(),
+            analysis: self.analysis.clone(),
+            trace: self.trace.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct BundleEntry {
+    path: String,
+    size: u64,
+    sha256: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ToolRecord {
+    record_version: u32,
+    command: String,
+    name: String,
+    version: String,
+    entrypoint: PathBuf,
+    bundle: Vec<BundleEntry>,
+    bundle_sha256: String,
+    source: String,
+    schema_version: u32,
+    #[serde(default)]
+    compatibility: RecordedCompatibility,
 }
 
 /// `marqdo tool install <manifest-or-directory>`.
@@ -77,6 +116,7 @@ pub fn install(manifest_path: &Path, json: bool) -> i32 {
                         "success": true,
                         "tool": record.command,
                         "version": record.version,
+                        "bundle_files": record.bundle.len(),
                     })
                 );
             } else {
@@ -114,8 +154,17 @@ fn install_inner(manifest_path: &Path) -> Result<ToolRecord, String> {
         .map_err(|error| format!("cannot open `{}`: {error}", manifest_file.display()))?;
     let manifest = ToolManifest::from_path(&manifest_file)?;
     validate_manifest(&manifest)?;
-    let entrypoint = safe_entrypoint(&package_dir, &manifest.entrypoint)?;
-    let sha256 = hash_file(&entrypoint)?;
+    if package_dir.join("record.json").exists() {
+        return Err("tool package must not contain a root record.json".to_string());
+    }
+    let entrypoint_path = safe_entrypoint(&package_dir, &manifest.entrypoint)?;
+    let entrypoint = relative_string(&package_dir, &entrypoint_path)?;
+    let bundle = collect_bundle(&package_dir, false)?;
+    if !bundle.iter().any(|entry| entry.path == entrypoint) {
+        return Err("tool entrypoint is not part of the verified bundle".to_string());
+    }
+    let bundle_sha256 = bundle_digest(&bundle);
+
     let home = tool_home()?;
     std::fs::create_dir_all(&home)
         .map_err(|error| format!("cannot create tool home `{}`: {error}", home.display()))?;
@@ -137,32 +186,31 @@ fn install_inner(manifest_path: &Path) -> Result<ToolRecord, String> {
     std::fs::create_dir_all(&staging)
         .map_err(|error| format!("cannot create staging directory: {error}"))?;
     let result = (|| -> Result<(), String> {
-        copy_package(&package_dir, &staging)?;
-        let relative = manifest.entrypoint.clone();
+        copy_bundle(&package_dir, &staging, &bundle)?;
+        let copied = collect_bundle(&staging, false)?;
+        if copied != bundle || bundle_digest(&copied) != bundle_sha256 {
+            return Err("copied tool bundle does not match the source bundle".to_string());
+        }
         let record = ToolRecord {
+            record_version: RECORD_VERSION,
             command: manifest.command.clone(),
             name: manifest.name.clone(),
             version: manifest.version.clone(),
-            entrypoint: relative.clone(),
-            sha256: sha256.clone(),
+            entrypoint: PathBuf::from(&entrypoint),
+            bundle: bundle.clone(),
+            bundle_sha256: bundle_sha256.clone(),
             source: manifest_file.display().to_string(),
-            schema_version: PROTOCOL_VERSION,
+            schema_version: manifest.schema_version,
             compatibility: RecordedCompatibility {
                 marqdo: manifest.compatibility.marqdo.clone(),
                 analysis: manifest.compatibility.analysis.clone(),
                 trace: manifest.compatibility.trace.clone(),
             },
         };
-        let record_path = staging.join("record.json");
         let record_json = serde_json::to_string_pretty(&record)
             .map_err(|error| format!("cannot serialize record: {error}"))?;
-        std::fs::write(&record_path, record_json)
+        std::fs::write(staging.join("record.json"), record_json)
             .map_err(|error| format!("cannot write record: {error}"))?;
-        // Re-verify the copied entrypoint before publishing.
-        let copied = staging.join(&relative);
-        if hash_file(&copied)? != sha256 {
-            return Err("copied tool entrypoint hash mismatch".to_string());
-        }
         std::fs::rename(&staging, &target)
             .map_err(|error| format!("cannot publish tool installation: {error}"))?;
         Ok(())
@@ -187,10 +235,10 @@ fn validate_manifest(manifest: &ToolManifest) -> Result<(), String> {
     if manifest.schema != SCHEMA {
         return Err(format!("unsupported tool schema `{}`", manifest.schema));
     }
-    if manifest.schema_version != PROTOCOL_VERSION {
+    if manifest.schema_version != SUPPORTED.tool {
         return Err(format!(
-            "unsupported tool schema_version {} (expected {PROTOCOL_VERSION})",
-            manifest.schema_version
+            "unsupported tool schema_version {} (expected {})",
+            manifest.schema_version, SUPPORTED.tool
         ));
     }
     if !is_valid_command(&manifest.command) {
@@ -205,16 +253,54 @@ fn validate_manifest(manifest: &ToolManifest) -> Result<(), String> {
             manifest.command
         ));
     }
-    if manifest.name.trim().is_empty() || manifest.version.trim().is_empty() {
-        return Err("tool name and version must not be empty".to_string());
+    if manifest.name.trim().is_empty() {
+        return Err("tool name must not be empty".to_string());
     }
-    if let Some(range) = &manifest.compatibility.marqdo {
-        if !version_matches(env!("CARGO_PKG_VERSION"), range) {
+    Version::parse(&manifest.version).map_err(|error| {
+        format!(
+            "tool version `{}` is not valid SemVer: {error}",
+            manifest.version
+        )
+    })?;
+    negotiate(&manifest.version, &manifest.compatibility)
+}
+
+fn negotiate(tool_version: &str, compatibility: &Compatibility) -> Result<(), String> {
+    Version::parse(tool_version)
+        .map_err(|error| format!("tool version `{tool_version}` is not valid SemVer: {error}"))?;
+    let core_version = Version::parse(env!("CARGO_PKG_VERSION"))
+        .map_err(|error| format!("core version is not valid SemVer: {error}"))?;
+    if let Some(range) = &compatibility.marqdo {
+        let requirement = VersionReq::parse(range)
+            .map_err(|error| format!("invalid marqdo compatibility range `{range}`: {error}"))?;
+        if !requirement.matches(&core_version) {
             return Err(format!(
                 "tool requires marqdo `{range}`, this core is {}",
                 env!("CARGO_PKG_VERSION")
             ));
         }
+    }
+    negotiate_protocol(
+        "analysis",
+        compatibility.analysis.as_deref(),
+        SUPPORTED.analysis,
+    )?;
+    negotiate_protocol("trace", compatibility.trace.as_deref(), SUPPORTED.trace)?;
+    Ok(())
+}
+
+fn negotiate_protocol(
+    name: &str,
+    requested: Option<&[u32]>,
+    supported: &[u32],
+) -> Result<(), String> {
+    let Some(requested) = requested else {
+        return Ok(());
+    };
+    if requested.is_empty() || !requested.iter().any(|version| supported.contains(version)) {
+        return Err(format!(
+            "tool.protocol_incompatible: tool requires {name} version(s) {requested:?}, this core supports {supported:?}"
+        ));
     }
     Ok(())
 }
@@ -223,6 +309,27 @@ fn is_valid_command(command: &str) -> bool {
     let mut bytes = command.bytes();
     matches!(bytes.next(), Some(byte) if byte.is_ascii_lowercase())
         && bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+}
+
+fn relative_string(root: &Path, path: &Path) -> Result<String, String> {
+    let relative = path
+        .strip_prefix(root)
+        .map_err(|_| "tool package path escaped its root".to_string())?;
+    let mut parts = Vec::new();
+    for component in relative.components() {
+        match component {
+            Component::Normal(part) => parts.push(
+                part.to_str()
+                    .ok_or_else(|| "tool package path is not valid UTF-8".to_string())?
+                    .to_string(),
+            ),
+            _ => return Err("tool package path is not normalized".to_string()),
+        }
+    }
+    if parts.is_empty() {
+        return Err("tool package path is empty".to_string());
+    }
+    Ok(parts.join("/"))
 }
 
 fn safe_entrypoint(package_dir: &Path, entrypoint: &Path) -> Result<PathBuf, String> {
@@ -262,14 +369,27 @@ fn safe_entrypoint(package_dir: &Path, entrypoint: &Path) -> Result<PathBuf, Str
     Ok(canonical)
 }
 
-fn copy_package(source: &Path, target: &Path) -> Result<(), String> {
-    for entry in walkdir::WalkDir::new(source).follow_links(false) {
+fn collect_bundle(root: &Path, exclude_record: bool) -> Result<Vec<BundleEntry>, String> {
+    if !root.is_dir() {
+        return Err(format!(
+            "tool package `{}` is not a directory",
+            root.display()
+        ));
+    }
+    let mut entries = Vec::new();
+    let mut total = 0u64;
+    for entry in walkdir::WalkDir::new(root)
+        .follow_links(false)
+        .sort_by_file_name()
+    {
         let entry = entry.map_err(|error| format!("cannot walk tool package: {error}"))?;
-        let relative = entry
-            .path()
-            .strip_prefix(source)
-            .map_err(|_| "tool package path escaped its root".to_string())?;
-        let destination = target.join(relative);
+        if entry.depth() == 0 {
+            continue;
+        }
+        let path = relative_string(root, entry.path())?;
+        if exclude_record && path == "record.json" {
+            continue;
+        }
         if entry.file_type().is_symlink() {
             return Err(format!(
                 "tool package contains a symlink `{}`; symlinks are not installed",
@@ -277,21 +397,67 @@ fn copy_package(source: &Path, target: &Path) -> Result<(), String> {
             ));
         }
         if entry.file_type().is_dir() {
-            std::fs::create_dir_all(&destination)
-                .map_err(|error| format!("cannot create `{}`: {error}", destination.display()))?;
-        } else if entry.file_type().is_file() {
-            if let Some(parent) = destination.parent() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|error| format!("cannot create `{}`: {error}", parent.display()))?;
-            }
-            std::fs::copy(entry.path(), &destination).map_err(|error| {
-                format!(
-                    "cannot copy `{}` to `{}`: {error}",
-                    entry.path().display(),
-                    destination.display()
-                )
-            })?;
+            continue;
         }
+        if !entry.file_type().is_file() {
+            return Err(format!(
+                "tool package contains special file `{}`",
+                entry.path().display()
+            ));
+        }
+        let size = entry
+            .metadata()
+            .map_err(|error| format!("cannot inspect `{}`: {error}", entry.path().display()))?
+            .len();
+        total = total
+            .checked_add(size)
+            .ok_or_else(|| "tool bundle size overflowed".to_string())?;
+        if total > MAX_BUNDLE_BYTES {
+            return Err(format!(
+                "tool bundle exceeds the maximum size of {MAX_BUNDLE_BYTES} bytes"
+            ));
+        }
+        if entries.len() >= MAX_BUNDLE_FILES {
+            return Err(format!(
+                "tool bundle exceeds the maximum of {MAX_BUNDLE_FILES} files"
+            ));
+        }
+        entries.push(BundleEntry {
+            path,
+            size,
+            sha256: hash_file(entry.path())?,
+        });
+    }
+    entries.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(entries)
+}
+
+fn bundle_digest(entries: &[BundleEntry]) -> String {
+    let mut hasher = Sha256::new();
+    for entry in entries {
+        hasher.update(entry.path.as_bytes());
+        hasher.update([0u8]);
+        hasher.update(entry.size.to_le_bytes());
+        hasher.update(entry.sha256.as_bytes());
+        hasher.update(b"\n");
+    }
+    hex::encode(hasher.finalize())
+}
+
+fn copy_bundle(source: &Path, target: &Path, bundle: &[BundleEntry]) -> Result<(), String> {
+    for entry in bundle {
+        let destination = target.join(&entry.path);
+        if let Some(parent) = destination.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|error| format!("cannot create `{}`: {error}", parent.display()))?;
+        }
+        std::fs::copy(source.join(&entry.path), &destination).map_err(|error| {
+            format!(
+                "cannot copy `{}` to `{}`: {error}",
+                source.join(&entry.path).display(),
+                destination.display()
+            )
+        })?;
     }
     Ok(())
 }
@@ -301,9 +467,21 @@ pub fn list(json: bool) -> i32 {
     match installed_records() {
         Ok(records) => {
             if json {
+                let tools: Vec<serde_json::Value> = records
+                    .iter()
+                    .map(|record| {
+                        serde_json::json!({
+                            "command": record.command,
+                            "name": record.name,
+                            "version": record.version,
+                            "bundle_files": record.bundle.len(),
+                            "compatibility": record.compatibility,
+                        })
+                    })
+                    .collect();
                 println!(
                     "{}",
-                    serde_json::json!({"command":"tool.list","success":true,"tools":records})
+                    serde_json::json!({"command":"tool.list","success":true,"tools":tools})
                 );
             } else if records.is_empty() {
                 println!("no tools installed");
@@ -332,7 +510,6 @@ pub fn remove(command: &str, json: bool) -> i32 {
         if !target.is_dir() {
             return Err(format!("tool `{command}` is not installed"));
         }
-        // The target must be a direct child of the controlled home.
         let canonical_home = home
             .canonicalize()
             .map_err(|error| format!("cannot open tool home: {error}"))?;
@@ -342,7 +519,11 @@ pub fn remove(command: &str, json: bool) -> i32 {
         if canonical_target.parent() != Some(canonical_home.as_path()) {
             return Err("refusing to remove a path outside the tool home".to_string());
         }
-        std::fs::remove_dir_all(&canonical_target)
+        let trash =
+            canonical_home.join(format!(".trash-{}-{}", std::process::id(), unique_suffix()));
+        std::fs::rename(&canonical_target, &trash)
+            .map_err(|error| format!("cannot detach tool `{command}`: {error}"))?;
+        std::fs::remove_dir_all(&trash)
             .map_err(|error| format!("cannot remove tool `{command}`: {error}"))?;
         Ok(())
     })();
@@ -400,28 +581,64 @@ pub fn dispatch(args: &[OsString]) -> i32 {
             return 2;
         }
     };
-    let entrypoint = dir.join(&record.entrypoint);
-    if !entrypoint.starts_with(&dir) {
-        eprintln!("error: tool entrypoint escapes its installation");
+    if record.command != command {
+        eprintln!("error: tool record does not match command `{command}`; reinstall it");
         return 1;
     }
-    let actual = match hash_file(&entrypoint) {
-        Ok(hash) => hash,
+    if let Err(error) = negotiate(&record.version, &record.compatibility.as_compatibility()) {
+        eprintln!("error: tool `{command}` is not compatible with this core: {error}");
+        return 1;
+    }
+    if record.record_version != RECORD_VERSION {
+        eprintln!("error: tool `{command}` uses an old record; reinstall it");
+        return 1;
+    }
+    let bundle = match collect_bundle(&dir, true) {
+        Ok(bundle) => bundle,
         Err(error) => {
             eprintln!("error: {error}");
             return 1;
         }
     };
-    if actual != record.sha256 {
-        eprintln!("error: tool `{command}` executable hash mismatch; reinstall it");
+    if bundle != record.bundle || bundle_digest(&bundle) != record.bundle_sha256 {
+        eprintln!("error: tool `{command}` bundle hash mismatch; reinstall it");
         return 1;
     }
+    let entrypoint = match safe_record_entrypoint(&record).and_then(|relative| {
+        if bundle.iter().any(|entry| entry.path == relative) {
+            Ok(dir.join(relative))
+        } else {
+            Err("tool entrypoint is not part of the verified bundle".to_string())
+        }
+    }) {
+        Ok(entrypoint) => entrypoint,
+        Err(error) => {
+            eprintln!("error: {error}; reinstall it");
+            return 1;
+        }
+    };
     let mut process = ProcessCommand::new(&entrypoint);
     process.args(&args[1..]);
     if let Ok(bin) = std::env::current_exe() {
         process.env("MARQDO_BIN", bin);
     }
     process.env("MARQDO_TOOL_PROTOCOL", "1");
+    if record
+        .compatibility
+        .analysis
+        .as_ref()
+        .is_some_and(|versions| versions.contains(&2))
+    {
+        process.env("MARQDO_PROTOCOL_ANALYSIS", "2");
+    }
+    if record
+        .compatibility
+        .trace
+        .as_ref()
+        .is_some_and(|versions| versions.contains(&2))
+    {
+        process.env("MARQDO_PROTOCOL_TRACE", "2");
+    }
     match process.status() {
         Ok(status) => status.code().unwrap_or(1),
         Err(error) => {
@@ -429,6 +646,24 @@ pub fn dispatch(args: &[OsString]) -> i32 {
             1
         }
     }
+}
+
+fn safe_record_entrypoint(record: &ToolRecord) -> Result<String, String> {
+    let path = record
+        .entrypoint
+        .to_str()
+        .ok_or_else(|| "tool record entrypoint is not valid UTF-8".to_string())?;
+    if record.entrypoint.is_absolute() || path.is_empty() {
+        return Err("tool record entrypoint must be package-relative".to_string());
+    }
+    let mut parts = Vec::new();
+    for component in record.entrypoint.components() {
+        match component {
+            Component::Normal(part) => parts.push(part.to_str().unwrap_or_default()),
+            _ => return Err("tool record entrypoint must not escape the package".to_string()),
+        }
+    }
+    Ok(parts.join("/"))
 }
 
 fn installed_records() -> Result<Vec<ToolRecord>, String> {
@@ -457,7 +692,12 @@ fn installed_records() -> Result<Vec<ToolRecord>, String> {
 fn load_record(dir: &Path) -> Result<ToolRecord, String> {
     let text = std::fs::read_to_string(dir.join("record.json"))
         .map_err(|error| format!("tool record is missing: {error}"))?;
-    serde_json::from_str(&text).map_err(|error| format!("invalid tool record: {error}"))
+    let record: ToolRecord =
+        serde_json::from_str(&text).map_err(|error| format!("invalid tool record: {error}"))?;
+    if record.record_version != RECORD_VERSION {
+        return Err("tool record is from an older protocol; reinstall it".to_string());
+    }
+    Ok(record)
 }
 
 fn tool_home() -> Result<PathBuf, String> {
@@ -490,54 +730,4 @@ fn unique_suffix() -> u128 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
         .unwrap_or(0)
-}
-
-/// Minimal version/range check for the `compatibility.marqdo` field.
-fn version_matches(version: &str, range: &str) -> bool {
-    let Some(parsed) = parse_version(version) else {
-        return false;
-    };
-    range.split(',').all(|part| {
-        let part = part.trim();
-        if part.is_empty() {
-            return true;
-        }
-        let (op, raw) = if let Some(rest) = part.strip_prefix(">=") {
-            (">=", rest)
-        } else if let Some(rest) = part.strip_prefix("<=") {
-            ("<=", rest)
-        } else if let Some(rest) = part.strip_prefix('>') {
-            (">", rest)
-        } else if let Some(rest) = part.strip_prefix('<') {
-            ("<", rest)
-        } else if let Some(rest) = part.strip_prefix('=') {
-            ("=", rest)
-        } else {
-            ("=", part)
-        };
-        let Some(expected) = parse_version(raw.trim()) else {
-            return false;
-        };
-        match op {
-            ">=" => parsed >= expected,
-            "<=" => parsed <= expected,
-            ">" => parsed > expected,
-            "<" => parsed < expected,
-            _ => parsed == expected,
-        }
-    })
-}
-
-fn parse_version(value: &str) -> Option<(u64, u64, u64)> {
-    let mut parts = value.split('.');
-    let major = parts.next()?.parse().ok()?;
-    let minor = parts.next().unwrap_or("0").parse().ok()?;
-    let patch = parts
-        .next()
-        .unwrap_or("0")
-        .split('-')
-        .next()?
-        .parse()
-        .ok()?;
-    Some((major, minor, patch))
 }

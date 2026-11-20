@@ -182,3 +182,99 @@ fn tampered_binary_and_path_hijack_are_not_executed() {
     assert_eq!(output.status.code(), Some(2));
     assert!(stderr(&output).contains("unknown command"));
 }
+
+#[test]
+fn protocol_negotiation_accepts_declared_versions_and_rejects_disjoint_ones() {
+    let dir = TempDir::new("protocols");
+    let home = dir.path().join("home");
+    let manifest = write_tool(
+        dir.path(),
+        "proto",
+        "#!/bin/sh\nprintf 'analysis=%s\\ntrace=%s\\n' \"$MARQDO_PROTOCOL_ANALYSIS\" \"$MARQDO_PROTOCOL_TRACE\"\n",
+    );
+    let text = std::fs::read_to_string(&manifest).unwrap().replace(
+        "\"marqdo\":\">=0.1,<1\"",
+        "\"marqdo\":\">=0.1,<1\",\"analysis\":[2],\"trace\":[2]",
+    );
+    std::fs::write(&manifest, text).unwrap();
+    let install = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
+    assert_eq!(install.status.code(), Some(0), "{}", stderr(&install));
+    let output = cli(&home, &["proto"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let text = stdout(&output);
+    assert!(text.contains("analysis=2"), "{text}");
+    assert!(text.contains("trace=2"), "{text}");
+
+    for (compat, tag) in [
+        ("\"analysis\":[99]", "analysis-disjoint"),
+        ("\"analysis\":[]", "analysis-empty"),
+        ("\"trace\":[9]", "trace-disjoint"),
+    ] {
+        let command = format!("bad-{tag}");
+        let manifest = write_tool(dir.path(), &command, "#!/bin/sh\nexit 0\n");
+        let text = std::fs::read_to_string(&manifest).unwrap().replace(
+            "\"marqdo\":\">=0.1,<1\"",
+            &format!("\"marqdo\":\">=0.1,<1\",{compat}"),
+        );
+        std::fs::write(&manifest, text).unwrap();
+        let output = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
+        assert_eq!(output.status.code(), Some(1), "{tag}");
+        assert!(
+            stderr(&output).contains("protocol_incompatible"),
+            "{tag}: {}",
+            stderr(&output)
+        );
+    }
+}
+
+#[test]
+fn tampering_any_bundle_file_or_adding_an_unlisted_file_is_rejected() {
+    let dir = TempDir::new("bundle");
+    let home = dir.path().join("home");
+    let manifest = write_tool(dir.path(), "bundletool", "#!/bin/sh\nprintf 'entry\\n'\n");
+    let package = manifest.parent().unwrap();
+    std::fs::create_dir_all(package.join("lib")).unwrap();
+    std::fs::write(package.join("lib/helper.sh"), "echo helper\n").unwrap();
+
+    let install = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
+    assert_eq!(install.status.code(), Some(0), "{}", stderr(&install));
+    let installed = home.join("bundletool");
+
+    // Tamper with a non-entry file only.
+    std::fs::write(installed.join("lib/helper.sh"), "echo tampered\n").unwrap();
+    let run = cli(&home, &["bundletool"]);
+    assert_eq!(run.status.code(), Some(1));
+    assert!(
+        stderr(&run).contains("bundle hash mismatch"),
+        "{}",
+        stderr(&run)
+    );
+
+    // Reinstall, then add an unlisted file.
+    assert_eq!(
+        cli(&home, &["tool", "remove", "bundletool"]).status.code(),
+        Some(0)
+    );
+    let install = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
+    assert_eq!(install.status.code(), Some(0));
+    std::fs::write(installed.join("lib/extra.sh"), "echo extra\n").unwrap();
+    let run = cli(&home, &["bundletool"]);
+    assert_eq!(run.status.code(), Some(1));
+    assert!(
+        stderr(&run).contains("bundle hash mismatch"),
+        "{}",
+        stderr(&run)
+    );
+}
+
+#[test]
+fn a_root_record_json_in_the_source_package_is_rejected() {
+    let dir = TempDir::new("reserved-record");
+    let home = dir.path().join("home");
+    let manifest = write_tool(dir.path(), "reserved", "#!/bin/sh\nexit 0\n");
+    let package = manifest.parent().unwrap();
+    std::fs::write(package.join("record.json"), "{}").unwrap();
+    let output = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(stderr(&output).contains("must not contain a root record.json"));
+}
