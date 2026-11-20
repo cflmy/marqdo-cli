@@ -74,8 +74,30 @@ jobs:
             --trust-native-plugin \
             --allow-plugin demo.solver
 
+  schema:
+    name: schema instance validation + consumers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install JSON Schema validator
+        run: python3 -m pip install --disable-pip-version-check "jsonschema==4.23.0"
+      - name: Validate real artifacts
+        run: |
+          cargo build -p marqdo-cli
+          ./target/debug/marqdo check examples/multi-module/index.mq.md --refs \
+            --emit /tmp/analysis-v2.json
+          ./target/debug/marqdo run examples/multi-module/index.mq.md \
+            --trace-file /tmp/trace-v2.json
+          python3 tests/consumers/validate_protocols.py \
+            /tmp/analysis-v2.json /tmp/trace-v2.json examples/tool-unknown-name/tool.json
+          python3 tests/consumers/analysis_consumer.py /tmp/analysis-v2.json
+          python3 tests/consumers/trace_consumer.py \
+            /tmp/analysis-v2.json /tmp/trace-v2.json
+
   cross-platform:
-    name: cargo check (${{ matrix.os }})
+    name: runtime contract (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -85,5 +107,26 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Check all targets
-        run: cargo check --workspace --all-targets
+      - name: Workspace tests
+        run: cargo test --workspace
+      - name: Portable CLI, analysis and trace smoke
+        shell: bash
+        run: |
+          set -e
+          cargo run -q -p marqdo-cli -- check examples/multi-module/index.mq.md \
+            --refs --emit /tmp/marqdo-portable-analysis.json
+          python3 tests/consumers/analysis_consumer.py /tmp/marqdo-portable-analysis.json
+          cargo run -q -p marqdo-cli -- run examples/multi-module/index.mq.md \
+            --trace-file /tmp/marqdo-portable-trace.json
+          python3 tests/consumers/trace_consumer.py \
+            /tmp/marqdo-portable-analysis.json /tmp/marqdo-portable-trace.json
+      - name: Strict isolation is unavailable and must fail closed
+        shell: bash
+        run: |
+          set +e
+          output=$(cargo run -q -p marqdo-cli -- run examples/hello.mq.md --mode strict 2>&1)
+          code=$?
+          set -e
+          test "$code" -eq 1
+          echo "$output" | grep -qi "strict"
+          echo "$output"
