@@ -125,6 +125,10 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   before module loading, a `std:marqdo-stdlib@<version>#<digest>` package
   instance id, `project.stdlib` in Analysis v2, and test coverage for
   `std:` resolution, tamper rejection and frozen-binary hash equality.
+- CM-A08 table logical/stdlib slice (ADR-0032): `stdlib/data/table.mq.md`
+  adds select/filter/sort/append/set-cell/join/group as value-returning
+  `.mq.md` functions; `Value::Table` semantics and GFM AST laziness unchanged;
+  no physical storage migration or new table builtin.
 - CM-A07 **Compat-A** prototype (ADR-0027): `stdlib/` provides
   `format.显示`, UTF-8 encoding and `io.写值` (`resource.write(stdout)`), and
   its output is comparison-tested byte-for-byte against builtin `打印` for

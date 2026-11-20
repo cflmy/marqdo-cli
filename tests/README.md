@@ -171,6 +171,11 @@ by:
 * fixture 55 additionally has a second-free detection path: freeing an
   already-free block returns `{ok:false, code:"alloc.double_free"}`.
 
+RFC-CM CM-A08 table stdlib (ADR-0032) is pinned by
+`crates/cli/tests/stdlib_table.rs`, which runs `stdlib/tests/table.mq.md` and
+checks select/filter/sort/append/set/join/group results plus original-table
+immutability.
+
 RFC-CM CM-A07 Compat-C (ADR-0031) is pinned by
 `crates/marqdo-runtime/tests/interpreter.rs::print_without_the_bundled_stdlib_is_a_structured_error`
 and the absence of any `HostOp::Print`/`op_print` reference. The semantic

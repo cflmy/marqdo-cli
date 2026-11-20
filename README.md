@@ -105,6 +105,9 @@ executes anything.
   `.mq.md` print chain is the only execution path for `打印`/`print` on an official install (ADR-0031),
   covering all 15 value types; `HostOp::Print` and the legacy formatter are
   removed (ADR-0027/0028/0029/0030/0031).
+* **Table stdlib algorithms (RFC-CM CM-A08)** — `stdlib/data/table.mq.md`
+  select/filter/sort/append/set/join/group over the logical `Table` value;
+  value-returning, input-immutable, with GFM AST laziness unchanged (ADR-0032).
 * **Resource streams (RFC-CM CM-A06)** — opaque host-issued `Resource` handles;
   `resource.open/read/write/close` transfer bytes through `Memory`; stdout
   write in pure/project, granted project-file read, and buffered project-file

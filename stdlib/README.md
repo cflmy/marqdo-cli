@@ -8,6 +8,7 @@ module; a mismatch is a hard error.
 - `text.mq.md` — UTF-8 encoding into `Memory`
 - `io.mq.md` — `写文本` / `写值` through `resource.write(stdout)`
 - `demo.mq.md` — side-by-side comparison with builtin `打印`
+- `data/table.mq.md` — value-returning table select/filter/sort/append/set/join/group
 - `tests/` — bundle self-tests
 
 The digest is a SHA-256 over sorted `*.mq.md` relative paths, a NUL, file

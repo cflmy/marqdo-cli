@@ -135,6 +135,10 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   PluginHandle `plugin/export` are read-only observation members (host id
   private); `stdlib/format.mq.md` reproduces builtin `打印`/`repr` for all 15
   value types, including Formula/Code/FunctionRef and Code UTF-8 byte length.
+- Table stdlib algorithms (CM-A08, ADR-0032): `stdlib/data/table.mq.md`
+  provides select/filter/sort/append/set/join/group over the logical
+  `Value::Table`; inputs are never mutated; GFM AST laziness and physical T0
+  storage are unchanged.
 - Bundled standard library (CM-A10, ADR-0028): `stdlib/` ships
   `format`/`text`/`io`; explicit `std:` imports resolve only inside the bundle;
   a SHA-256 digest over `*.mq.md` is verified before loading; Analysis records
@@ -186,7 +190,7 @@ behavior. This table records only what is in this tree now.
 | P1 Memory + place assignment | **Implemented locally** | `Value::Memory`, run-scoped `MemoryStore` (64 KiB pages, 64 MiB total / 16 MiB region), `memory.new/size/grow`, `m[i]` read, `m[i] = byte`; semantic fixtures 45–47, runtime negatives 13–18, `examples/memory-buffer.mq.md`; evidence [`evidence/2026-11-20-memory-p1.md`](evidence/2026-11-20-memory-p1.md) |
 | P2 Marqdo-written allocator/data structures + minimal structure observation | **PARTIAL, gate NOT passed** | `.mq.md`-only evidence: bump allocator with u32 codec, linked list, failed-allocation atomicity (48–50); CM-A04 structure primitives and a table filter (51–54, ADR-0023); a first-fit free-list allocator with block reuse, splitting, address-adjacent coalescing and `Result` maps (55, ADR-0024), a `Memory`-backed binary tree with recursive insert/in-order traversal (56), a `.mq.md` CSV row splitter (57), an open-addressing hash table with linear probing, update and `hash.full` (58), a `.mq.md` UTF-8 encoder over `Memory` (59), a validating UTF-8 decoder rejecting truncated, bad-continuation and surrogate/overlong input (60), a `Memory`-backed graph adjacency list (61), a recursive JSON parser for nested arrays/objects, strings with escapes, integers, booleans, null and error Results (62), a `Memory`-backed stack bytecode VM with PUSH/ADD/MUL/JMP/JZ/HALT (63), big-endian 16/32/64-bit plus LEB128 integer codecs (64), a `.mq.md` table sort rebuilding a new table from `table.row/columns/cell` (65), a table join (67), a quoted/escaped CSV row parser (68), table group (69), and an Int matrix multiply (70); the first-fit allocator also detects double free (`alloc.double_free`). Evidence: [`memory-p2-closure`](evidence/2026-11-20-memory-p2-closure.md), [`structure-api-p2`](evidence/2026-11-20-structure-api-p2.md), [`result-and-free-list-p2`](evidence/2026-11-20-result-and-free-list-p2.md). P2 remaining: publication as a separate external stdlib repository. The bundled `stdlib/` tree, `std:` imports, digest verification, Analysis identity and frozen-CLI closure test are implemented (ADR-0028). C01–C06/C11/C12 each have `.mq.md` evidence, including JSON floats and a JSON formatter. |
 | P3 Resource/Stream ABI | **PARTIAL** | ADR-0025/0026 CM-A06 slices: opaque `Resource`, `resource.open/read/write/close`, stdout write in pure/project, granted project-file read and buffered project-file write in project, EOF/closed/handle errors, wire/host rejection; strict permits only stdio/stdout and refuses file/network resources. Fixture 66 + CLI/host tests. CM-A07 **Compat-C** is implemented: when a program calls `打印/print`, the loader injects the bundled `stdlib/io.mq.md` and the runtime routes to `io.写值` (all 15 value types, UTF-8 via `Memory`, `resource.write(stdout)`); `HostOp::Print` and the legacy `Value::display()` print path are removed, and a missing bundle fails with `kernel.unavailable`. Strict permits only the existing stdio console channel. Still missing: directories, network, generic provider registry, Table storage, strict file/network resources. |
-| P4 Table logical/physical migration | **NOT IMPLEMENTED** | `Value::Table` remains `Vec<Vec<Value>>`; no stdlib table algorithms |
+| P4 Table logical/physical migration | **PARTIAL** | ADR-0032/CM-A08: `Value::Table` logical semantics unchanged (T0 `Vec<Vec<Value>>`); `stdlib/data/table.mq.md` provides select/filter/sort/append/set/join/group as value-returning `.mq.md` functions with input immutability. No T1/T2/T3 physical storage, column store or Memory-backed table. |
 | P5 third-party Provider / TCP / HTTP | **NOT IMPLEMENTED** | `fs.write`, `net.request`, `process`, `clock`, `random` remain unavailable broker services (see §4) |
 | P6 performance / native backends | **NOT IMPLEMENTED** | no bytecode/JIT/GPU/QPU work |
 
@@ -222,6 +226,9 @@ user-written allocator is explicitly **not** claimed.
 - [`evidence/2026-11-20-print-compat-c.md`](evidence/2026-11-20-print-compat-c.md)
   — ADR-0031 removal of `HostOp::Print`, no-bundle fail-closed behavior and
   embedder compatibility note.
+- [`evidence/2026-11-20-table-cm-a08.md`](evidence/2026-11-20-table-cm-a08.md)
+  — ADR-0032 table logical value, stdlib select/filter/sort/append/set/join/
+  group, input immutability and T0 storage boundary.
 - [`evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md`](evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md)
   — G0..G12 matrix and RC decision.
 - [`security-gate.md`](security-gate.md) — mechanism, attack matrix and strict
