@@ -254,6 +254,13 @@ impl StdHost {
         args: Vec<Value>,
         ctx: &ExecutionContext,
     ) -> Result<Value, RuntimeError> {
+        if !self.capabilities.console {
+            return Err(RuntimeError::new(
+                ErrorCategory::PermissionDenied,
+                ctx.span,
+                "program output (console) capability was not granted",
+            ));
+        }
         if args.len() != 1 {
             return Err(arity(ctx.span, "打印", 1, args.len()));
         }

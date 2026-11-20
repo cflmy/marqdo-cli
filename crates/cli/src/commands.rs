@@ -485,6 +485,7 @@ pub fn execute(
     json: bool,
     trace: bool,
 ) -> i32 {
+    let command_name = if function.is_some() { "call" } else { "run" };
     let project = match load_project(file, json) {
         Ok(project) => project,
         Err(code) => return code,
@@ -492,7 +493,7 @@ pub fn execute(
     if project.has_errors() {
         if json {
             output::print_json(&json!({
-                "command": "run",
+                "command": command_name,
                 "success": false,
                 "diagnostics": output::diagnostics_json(&project.diagnostics),
             }));
@@ -589,7 +590,7 @@ pub fn execute(
         Ok(outcome) => {
             if json {
                 output::print_json(&json!({
-                    "command": "run",
+                    "command": command_name,
                     "success": true,
                     "value": marqdo_value::to_wire(&outcome.value),
                     "stdout": stdout_text,
@@ -616,7 +617,7 @@ pub fn execute(
         Err(error) => {
             if json {
                 output::print_json(&json!({
-                    "command": "run",
+                    "command": command_name,
                     "success": false,
                     "stdout": stdout_text,
                     "error": runtime_error_json(&error, &project),
