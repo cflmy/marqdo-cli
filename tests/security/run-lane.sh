@@ -78,6 +78,27 @@ grep -q "permission.denied" .cache/security/file-resource.err || {
     exit 1
 }
 
+cat > .cache/security/tcp-resource.mq.md <<'MQ'
+## main
+
+> resource.open("tcp", "127.0.0.1:9", ["read", "write"])
+
+*None*
+MQ
+set +e
+"$bin" run .cache/security/tcp-resource.mq.md --mode strict >/dev/null 2>.cache/security/tcp-resource.err
+code=$?
+set -e
+if [ "$code" -eq 0 ]; then
+    echo "error: strict accepted a TCP resource" >&2
+    exit 1
+fi
+grep -q "permission.denied" .cache/security/tcp-resource.err || {
+    echo "error: strict TCP-resource refusal had no permission.denied diagnostic" >&2
+    cat .cache/security/tcp-resource.err >&2
+    exit 1
+}
+
 echo "== external-execution surfaces are refused =="
 reject() {
     set +e
@@ -92,6 +113,7 @@ reject() {
 reject --allow-foreign
 reject --allow-read 'data/**'
 reject --allow-write 'data/**'
+reject --allow-net 127.0.0.1
 reject --trust-native-plugin --plugin examples/plugin-demo/build
 reject --kernel examples/kernel-mock/kernel.json
 reject --trace-file /tmp/marqdo-trace.json
