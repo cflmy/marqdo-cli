@@ -105,6 +105,9 @@ executes anything.
   `.mq.md` print chain is the only execution path for `打印`/`print` on an official install (ADR-0031),
   covering all 15 value types; `HostOp::Print` and the legacy formatter are
   removed (ADR-0027/0028/0029/0030/0031).
+* **HTTP/1.1 framing in `.mq.md`** — `stdlib/net/http.mq.md` status/header/
+  chunked parsing and request construction; a loopback TCP test runs a real
+  exchange (ADR-0034; no TLS/host HTTP claim).
 * **Blocking TCP endpoint (RFC-CM P5 first slice)** — `resource.open("tcp",
   "<ip>:<port>", ["read","write"])` with exact IP grants, project mode and
   5-second timeouts; DNS/TLS/UDP/server sockets excluded (ADR-0034).

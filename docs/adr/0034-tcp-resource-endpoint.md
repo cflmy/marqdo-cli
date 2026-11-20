@@ -68,7 +68,10 @@ an external effect and is not replayed as pure computation.
 ## Consequences
 
 * `.mq.md` can implement a line protocol/HTTP client parser on top of the TCP
-  byte stream using the existing Memory/Text/Result primitives.
+  byte stream using the existing Memory/Text/Result primitives. The bundled
+  `stdlib/net/http.mq.md` provides HTTP/1.1 response parsing (status, headers,
+  chunked transfer) and request construction; `http_over_tcp.rs` runs a local
+  HTTP exchange through `resource.open("tcp", ...)` and the module.
 * The runtime still has no `net.request` builtin or new `HostOp`; a CLI test
   opens a local echo server, writes/reads `ping` through `resource.*`, and
   closes.
