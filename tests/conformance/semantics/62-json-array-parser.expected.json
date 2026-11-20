@@ -135,6 +135,57 @@
           }
         },
         "type": "map"
+      },
+      {
+        "entries": {
+          "next": {
+            "decimal": "37",
+            "type": "int"
+          },
+          "ok": {
+            "type": "bool",
+            "value": true
+          },
+          "value": {
+            "items": [
+              {
+                "decimal": "1",
+                "type": "int"
+              },
+              {
+                "type": "float",
+                "value": 2.5
+              },
+              {
+                "type": "float",
+                "value": -300.0
+              },
+              {
+                "type": "float",
+                "value": 0.4
+              },
+              {
+                "entries": {
+                  "a": {
+                    "type": "float",
+                    "value": 1.0
+                  }
+                },
+                "type": "map"
+              },
+              {
+                "type": "text",
+                "value": "x"
+              }
+            ],
+            "type": "list"
+          }
+        },
+        "type": "map"
+      },
+      {
+        "type": "text",
+        "value": "[1, 2.5, -300.0, 0.4, {\"a\": 1.0}, \"x\"]"
       }
     ],
     "type": "list"

@@ -227,12 +227,12 @@ No Rust graph container, `HostOp` or new `Value` type was added.
 descent parser over `text.codepoints`:
 
 * supports nested arrays and objects, strings with standard escapes including
-  `\uXXXX`, non-negative and negative integers, `true`/`false`/`null`,
-  whitespace, and returns `{ok,value,next}`;
+  `\uXXXX`, integers and floats (including negative and exponent forms),
+  `true`/`false`/`null`, whitespace, and returns `{ok,value,next}`;
+* a compact formatter renders parsed values back to JSON;
 * errors are `Result` maps: `json.unexpected_eof`, `json.invalid_array`,
   `json.invalid_object`, `json.invalid_string`, `json.invalid_number`,
-  `json.invalid_literal`, `json.unexpected_token`;
-* floats are explicitly out of scope.
+  `json.invalid_literal`, `json.unexpected_token`.
 
 Observed:
 
@@ -243,6 +243,9 @@ Observed:
 {"a": 1, "b": [true, null, "说\"好"]}
   -> ok {a:1, b:[true,null,"说\"好"]}, next=35
 "\"a\\nb\"" -> ok "a\nb", next=6
+[1, 2.5, -3e2, 4E-1, {"a": 1.0}, "x"]
+  -> ok with Float 2.5, -300.0, 0.4, 1.0; formatter =>
+     [1, 2.5, -300.0, 0.4, {"a": 1.0}, "x"]
 ```
 
 No Rust JSON parser, new `Value` type or `HostOp` was added.
@@ -362,8 +365,7 @@ second free in fixture 55 returns that Result instead of corrupting the list.
 
 ## What remains open
 
-* JSON floats/formatter, and an independent `marqdo-stdlib` repository plus
-  frozen-CLI closure lane;
+* an independent `marqdo-stdlib` repository plus frozen-CLI closure lane;
 * CM-A06 `Resource`/`Stream` byte-transfer ABI; EOF/partial semantics are
   reserved by ADR-0024 but not implemented;
 * CM-A07–CM-A11 (stdlib naming, Table storage, provider ABI, packaging,

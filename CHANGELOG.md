@@ -64,8 +64,8 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   additions): fixtures 48–50 implement a big-endian u32 codec, a bump
   allocator, node allocation and a linked-list traversal/sum, and prove that a
   failed allocation leaves the allocator header unchanged. This is **not** the
-  full P2 gate: JSON floats, table group and a frozen-CLI stdlib closure lane
-  are still missing.
+  full P2 gate: a separate stdlib package and a frozen-CLI closure lane are
+  still missing.
 - `Memory` handles are never transferable: `to_wire` emits a bare rejected tag,
   `from_wire` fails, and every host/plugin/foreign call rejects arguments that
   contain a handle.
@@ -96,7 +96,8 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   recursive JSON parser for arrays/objects/strings (62), stack bytecode VM
   (63), 16/32/64-bit + LEB128 codecs (64), table sort (65), table equality join
   (67) and quoted/escaped CSV (68). No Rust algorithm, container or parser was
-  added for these; algorithms remain `.mq.md` code. JSON floats remain open.
+  added for these; algorithms remain `.mq.md` code. JSON float parsing and a
+  compact formatter are included.
 - Resource/stream first slice (RFC-CM CM-A06, ADR-0025): opaque host-issued
   `Resource` handles, `resource.open/read/write/close`, bytes transferred
   through `Memory`, stdout write in pure/project under console/output budgets,

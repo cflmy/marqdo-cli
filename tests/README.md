@@ -142,13 +142,13 @@ by:
 * semantic fixture 61: a `Memory`-backed graph adjacency list with 16-byte nodes
   and 8-byte edges, head-inserted edges and a neighbor traversal; no Rust graph
   container or new `Value` type;
-* semantic fixture 62: a recursive `.mq.md` JSON subset parser for nested
+* semantic fixture 62: a recursive `.mq.md` JSON parser/formatter for nested
   arrays and objects, strings with standard escapes including `\uXXXX`,
-  integers (including negative), `true`/`false`/`null`, whitespace, `next`
-  positions and `Result` errors (`json.unexpected_eof`, `json.invalid_array`,
-  `json.invalid_object`, `json.invalid_string`, `json.invalid_number`,
-  `json.invalid_literal`, `json.unexpected_token`). Floats are explicitly out
-  of scope;
+  ints and floats (including exponents), `true`/`false`/`null`, whitespace,
+  `next` positions, compact output and `Result` errors
+  (`json.unexpected_eof`, `json.invalid_array`, `json.invalid_object`,
+  `json.invalid_string`, `json.invalid_number`, `json.invalid_literal`,
+  `json.unexpected_token`);
 * semantic fixture 63: a `Memory`-backed stack bytecode VM with instruction
   decode, PUSH/ADD/MUL/JMP/JZ/HALT, a stack region and two programs (arithmetic
   and conditional branch); no Rust VM or interpreter loop was added;
