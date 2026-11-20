@@ -219,6 +219,16 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   Rust `copy_file`; strict permits only the stdio stdout console channel and
   refuses stdin/stderr/file/TCP/provider resources (CM-A11 lane PASS). Semantic
   fixture 66 and CLI/host tests.
+- Test and documentation migration (review RFC-CM P0/P2):
+  `crates/cli/tests/docs_consistency.rs` pins one current overview, the
+  status/index links and SHA-pinned evidence; `crates/cli/tests/architecture_boundaries.rs`
+  pins the workspace graph, `marqdo-runtime -> marqdo-host`, the bundled stdlib
+  digest and the stdio/file/TCP endpoints; `crates/cli/tests/stdlib_product.rs`
+  runs every public stdlib module (`console/format/http/io/stream/table/text/utf8`)
+  through `std:` imports over `stdlib/tests/*.mq.md`. `tools/pack-stdlib.py`
+  now sorts `.mq.md` by the same relative path key as the CLI. Source baseline
+  `04eae87`; later docs-only commits keep the code byte-identical. Evidence:
+  [`docs-and-test-migration`](evidence/2026-11-21-docs-and-test-migration.md).
 - Minimal structure observation/construction (RFC-CM CM-A04, ADR-0023):
   value-semantics `list.append/concat`, `map.keys/has/get/set/remove`,
   Unicode scalar `text.codepoints`/`text.from_codepoint`, and non-negative
