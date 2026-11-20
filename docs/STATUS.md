@@ -40,7 +40,7 @@ byte-identical).
 cargo fmt --all -- --check                            PASS
 cargo clippy --workspace --all-targets -- -D warnings PASS
 cargo test --workspace --locked                       PASS
-  426 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
+  430 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
 ```
 
 ### G-C security lane (disposable Ubuntu 26.04 VM, ordinary user `dev`)
