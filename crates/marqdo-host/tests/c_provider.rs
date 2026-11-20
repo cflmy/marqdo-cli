@@ -26,7 +26,7 @@ fn cc_available() -> bool {
         .unwrap_or(false)
 }
 
-fn build_provider(dir: &Path) -> PathBuf {
+fn build_provider_with_version(dir: &Path, version: u32) -> PathBuf {
     let source = dir.join("provider.c");
     std::fs::write(
         &source,
@@ -39,7 +39,10 @@ static const char DATA[] = "c-abi";
 static size_t position = 0;
 static uint64_t next_token = 1;
 
-uint32_t marqdo_resource_provider_abi_version(void) { return 1u; }
+#ifndef PROVIDER_VERSION
+#define PROVIDER_VERSION 1u
+#endif
+uint32_t marqdo_resource_provider_abi_version(void) { return PROVIDER_VERSION; }
 
 int32_t marqdo_resource_open(const char *kind, const char *descriptor,
                              const char *rights_csv, uint64_t *out_token) {
@@ -85,13 +88,23 @@ int32_t marqdo_resource_last_error(char *buffer, uint32_t capacity) {
     };
     let library = dir.join(format!("libecho_provider.{extension}"));
     let status = Command::new("cc")
-        .args(["-shared", "-fPIC", "-O2", "-o"])
+        .args([
+            "-shared",
+            "-fPIC",
+            "-O2",
+            &format!("-DPROVIDER_VERSION={version}"),
+            "-o",
+        ])
         .arg(&library)
         .arg(&source)
         .status()
         .expect("run cc");
     assert!(status.success(), "C provider build failed");
     library
+}
+
+fn build_provider(dir: &Path) -> PathBuf {
+    build_provider_with_version(dir, 1)
 }
 
 #[test]
@@ -145,4 +158,39 @@ fn c_abi_provider_loading_fails_closed() {
         )
         .unwrap_err();
     assert_eq!(error.category, ErrorCategory::KernelUnavailable);
+}
+
+#[test]
+fn c_abi_version_mismatch_and_modes_fail_closed() {
+    if !cc_available() {
+        eprintln!("skipping C provider test: cc is unavailable");
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let wrong = build_provider_with_version(dir.path(), 2);
+    let project = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(
+        SandboxMode::Project,
+        Capabilities::project().allow_resource_provider("cabi"),
+        project.path(),
+    );
+    let error = host
+        .register_c_resource_provider("cabi", &["cabi.sensor"], &wrong)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::ResourceUnsupported);
+
+    let good = build_provider(dir.path());
+    for mode in [SandboxMode::Pure, SandboxMode::Strict] {
+        let mut host = StdHost::new(
+            mode,
+            Capabilities::project().allow_resource_provider("cabi"),
+            project.path(),
+        );
+        host.register_c_resource_provider("cabi", &["cabi.sensor"], &good)
+            .unwrap();
+        let error = host
+            .resource_open("cabi.sensor", "s", &["read".to_string()], &context())
+            .unwrap_err();
+        assert_eq!(error.category, ErrorCategory::PermissionDenied);
+    }
 }

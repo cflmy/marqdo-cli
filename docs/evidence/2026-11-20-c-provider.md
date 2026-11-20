@@ -33,7 +33,9 @@ token enter a language `Value`, wire frame or trace.
    grant;
 3. `resource.open/read/write/close` round-trips `c-`/`abi`, `write=3`, second
    close `resource.closed`;
-4. a missing library path fails with `kernel.unavailable`.
+4. a missing library path fails with `kernel.unavailable`;
+5. a library reporting ABI version 2 fails with `resource.unsupported`;
+6. pure/strict refuse the C provider kind with `permission.denied`.
 
 No Rust runtime/`HostOp`/parser change was needed; language code still sees the
 same `resource.*` surface.
