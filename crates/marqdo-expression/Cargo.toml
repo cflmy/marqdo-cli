@@ -11,5 +11,8 @@ authors.workspace = true
 [dependencies]
 marqdo-span = { workspace = true }
 serde = { workspace = true }
-thiserror = { workspace = true }
+num-bigint = { workspace = true }
+unicode-ident = { workspace = true }
 
+[dev-dependencies]
+serde_json = { workspace = true }
