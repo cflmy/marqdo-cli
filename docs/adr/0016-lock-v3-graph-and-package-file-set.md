@@ -1,0 +1,156 @@
+# ADR-0016: Lock v3 package graph and unified package file set
+
+Status: **Accepted**
+Date: 2026-11-20
+Supersedes: ADR-0008 §4 (flat direct-dependency lock), `spec/package-format.md`
+lock_version 2 and its `hash_tree` description
+
+## Context
+
+The M0.6 lockfile records the root manifest's direct dependencies as a flat
+list. The resolver, however, reads each dependency's own manifest and can load
+transitive `@alias` imports. "Executable transitive dependency" therefore did
+not imply "locked transitive dependency" (B-02). Two further defects made the
+flat format unsafe as a reproducibility contract:
+
+* a missing lock entry was accepted (`check_lock` returned `Ok(())`), and the
+  lookup key was the bare alias, so the same alias in two packages could
+  resolve to the wrong instance (B-03);
+* `sync` materialized a freshly computed graph while leaving the on-disk lock
+  untouched, allowing manifest/lock/env divergence (B-04).
+
+Package content was also hashed and copied with different file selections:
+`hash_tree` swallowed walk errors, included `.git`/`.marqdo`, and silently
+skipped symlinks, while `copy_tree` excluded `.git`, rejected symlinks and
+created empty directories. The hash encoding was ambiguous and unversioned
+(B-05). A digest that does not describe the executed environment cannot be a
+reproducibility gate.
+
+## Decision
+
+### 1. Lock v3 is a package-instance graph
+
+`marqdo.lock` records the full closure reachable from the root manifest:
+
+```yaml
+lock_version: 3
+content_profile_version: 1
+root:
+  package: root:project@0.1.0
+  manifest_digest: sha256:<64 hex>
+packages:
+- id: dep:a@0.1.0#sha256:<64 hex>
+  name: a
+  version: 0.1.0
+  source: {kind: path, path: deps/a}
+  content_digest: sha256:<64 hex>
+  manifest_digest: sha256:<64 hex>
+  dependencies: {b: dep:b@...}
+root_dependencies: {a: dep:a@...}
+```
+
+* `id`, not the alias, identifies a package instance. Path, Git and multi-version
+  instances have distinct ids; ids embed the full content digest.
+* Each package record has its own alias→instance dependency edges. Root edges
+  live in `root_dependencies`. The same alias in different packages may point
+  at different instances.
+* `source` is structured (`path` is project-relative and normalized; `git` is
+  URL plus full commit hash). Absolute or escaping paths are rejected.
+* `content_profile_version` gates digest comparability. An unknown profile is
+  a hard error, never a comparison against an incompatible hash.
+* Readers accept only lock v3. v1/v2 fail with an instruction to run
+  `marqdo lock`; a flat lock cannot be upgraded without resolving, so silent
+  migration would re-open B-03. `lock` is the only writer and produces v3.
+
+`LockFile::validate` enforces: unique package ids; sorted ids; every edge target
+exists; no unreachable package; digests match `sha256:<64 lowercase hex>`;
+`root.package` and `root.manifest_digest` are present.
+
+### 2. Locking is a closed operation; resolution is fail-closed
+
+* `marqdo lock` builds the full closure and writes the graph atomically
+  (temporary file, fsync, rename).
+* `run`, `call`, `check` and `inspect` never fetch, never write the lock and
+  require a lock whenever the project declares dependencies.
+* Every locked edge is checked by `(parent instance, alias)`. A missing lock,
+  missing edge, missing package record, content-digest mismatch, source
+  mismatch or root-manifest mismatch is an error with a stable message telling
+  the user to run `marqdo lock`. There is no `Ok(())` fallback.
+* A resolved directory (source, cache or env copy) is trusted only after its
+  file-set digest matches the lock.
+* Git revisions must be full lowercase 40- or 64-character commit hashes. After
+  checkout, `git rev-parse HEAD` must equal the requested revision. Cache
+  entries carry a marker with URL, revision, profile and digest, and are
+  reverified before every use; a cache directory's existence is never proof of
+  correctness.
+
+### 3. `sync` is strict and never rewrites the lock
+
+`sync` verifies the lock against the current manifest and source contents, then
+materializes it. Drift fails with "lockfile is out of date or dependency
+contents changed; run `marqdo lock`". Fresh pinned Git revisions may be fetched
+by plain `sync`; `--locked` additionally forbids fetching. In both modes the
+lock bytes are unchanged. This removes the two-file transaction and the
+manifest/lock/env divergence in B-04.
+
+Materialization covers every package in the lock closure, writes
+`env.json` schema 2 with the lock digest and content profile, and publishes via
+staging + atomic rename with recovery of the previous environment on failure.
+
+### 4. One file-set profile for hashing and materialization
+
+`content_profile_version: 1` defines exactly one selection used by both
+`hash_tree` and materialization:
+
+* include regular files; exclude any path component `.git` or `.marqdo`;
+  include `target/` (not declared generated by this profile);
+* symlinks and special files are errors, not skipped or followed;
+* relative paths must be UTF-8, `/`-separated, without absolute or `..`
+  components; duplicate normalized paths are errors;
+* walk errors, unreadable files and budget overruns abort the operation; no
+  `filter_map(Result::ok)`;
+* budgets: 10 000 files, 64 MiB per file, 512 MiB total, depth 64;
+* hash encoding is domain-separated, profile-versioned, count-prefixed and
+  length-prefixed (`rel_len`, `rel`, `content_len`, `content`), eliminating the
+  old delimiter ambiguity;
+* materialization reads each file once, hashes exactly the bytes it writes and
+  compares the final digest with the expected digest before publishing.
+
+File modes are not part of the digest; materialized files use `0644` and
+directories `0755` on Unix. Empty directories are not package content.
+
+### 5. Identity strings
+
+Dependency instance ids embed the full content digest:
+`dep:<name>@<version>#sha256:<64 hex>`. `env_dir_name` is injective
+(`pkg-<sha256(instance id)>`). The current short-prefix id is replaced; this is
+a deliberate 0.x break.
+
+## Consequences
+
+* Existing v2 locks and example locks must be regenerated. Because hashes now
+  cover a different file set and encoding, all content digests change.
+* Path dependencies must live inside the project root; `../shared` is rejected
+  and must become a pinned Git dependency or move into the project.
+* Root manifest edits (including capabilities/plugins) invalidate the lock and
+  require `marqdo lock`; this is fail-closed by design.
+* `add`/`remove` no longer rewrite lock entries. A stale lock is rejected with
+  the standard relock message.
+* A same-user attacker who can rewrite a source during hashing is only detected
+  (final digest mismatch), not prevented. Signatures and publisher
+  authentication remain out of scope.
+* Strict OS isolation is unaffected; this ADR changes reproducibility and
+  integrity, not the sandbox claim.
+
+## Tests
+
+* file-set: excludes `.git`/`.marqdo`, rejects symlinks/special files, reports
+  walk errors, enforces budgets, unambiguous encoding with embedded NUL bytes,
+  hash and materialization select the same files, digest mismatch leaves no
+  published environment.
+* lock graph: A→B→C closure, multi-version, diamond dedup, cycle rejection,
+  duplicate id with different content, byte-identical output across project
+  copies, v1/v2 rejection, missing edge/record and drift failures.
+* sync: strict without `--locked`, never rewrites the lock, full closure in
+  `env.json`, failed publish restores the previous environment.
+* CLI: run/check require a lock when dependencies exist; lock errors exit 1.

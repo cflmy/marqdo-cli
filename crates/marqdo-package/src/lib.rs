@@ -5,11 +5,15 @@
 //! bindings. This crate only parses and serialises these files; it never runs
 //! project code and never executes install scripts.
 
+mod fileset;
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
+pub use fileset::CONTENT_PROFILE_VERSION;
 
 /// Canonical instance id used by a standalone document without a manifest.
 pub const DEFAULT_INSTANCE: &str = "root:default";
@@ -286,39 +290,11 @@ fn normalize_relative(path: &Path) -> Result<String, String> {
 }
 
 /// Deterministic content digest of a package tree (relative path + bytes).
+///
+/// Selection and encoding are defined by `content_profile_version` 1 in
+/// [`fileset`]; hashing and materialization share that selection.
 pub fn hash_tree(root: &Path) -> Result<String, String> {
-    if !root.exists() {
-        return Err(format!(
-            "dependency path `{}` does not exist",
-            root.display()
-        ));
-    }
-    let mut files = Vec::new();
-    for entry in walkdir::WalkDir::new(root)
-        .sort_by_file_name()
-        .into_iter()
-        .filter_map(Result::ok)
-    {
-        if entry.file_type().is_file() {
-            let relative = entry
-                .path()
-                .strip_prefix(root)
-                .map(|path| path.to_string_lossy().replace('\\', "/"))
-                .unwrap_or_default();
-            files.push((relative, entry.path().to_path_buf()));
-        }
-    }
-    files.sort_by(|a, b| a.0.cmp(&b.0));
-    let mut hasher = Sha256::new();
-    for (relative, path) in files {
-        hasher.update(relative.as_bytes());
-        hasher.update([0u8]);
-        let bytes = std::fs::read(&path)
-            .map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
-        hasher.update(&bytes);
-        hasher.update([0u8]);
-    }
-    Ok(hex::encode(hasher.finalize()))
+    fileset::hash_tree(root)
 }
 
 /// Sanitize a logical instance id into one filesystem component.
@@ -698,7 +674,13 @@ impl PackageResolver {
             let mut records = Vec::new();
             for (alias, package) in &packages {
                 let directory = staging.join(env_dir_name(&package.instance_id));
-                copy_tree(&package.module_root, &directory)?;
+                let expected = package.content_digest.as_deref().ok_or_else(|| {
+                    format!(
+                        "package `{}` has no content digest; refusing to materialize",
+                        package.instance_id
+                    )
+                })?;
+                fileset::materialize_file_set(&package.module_root, &directory, expected)?;
                 records.push(serde_json::json!({
                     "alias": alias,
                     "instance_id": package.instance_id,
@@ -822,49 +804,6 @@ fn safe_component(value: &str) -> String {
             character.is_ascii_alphanumeric() || *character == '-' || *character == '_'
         })
         .collect()
-}
-
-fn copy_tree(source: &Path, target: &Path) -> Result<(), String> {
-    if !source.is_dir() {
-        return Err(format!(
-            "package source `{}` is not a directory",
-            source.display()
-        ));
-    }
-    for entry in walkdir::WalkDir::new(source).follow_links(false) {
-        let entry = entry.map_err(|error| format!("cannot walk package: {error}"))?;
-        let relative = entry
-            .path()
-            .strip_prefix(source)
-            .map_err(|_| "package path escaped its root".to_string())?;
-        if relative.as_os_str() == ".git" || relative.starts_with(".git/") {
-            continue;
-        }
-        let destination = target.join(relative);
-        if entry.file_type().is_symlink() {
-            return Err(format!(
-                "package contains a symlink `{}`; refusing to materialize it",
-                entry.path().display()
-            ));
-        }
-        if entry.file_type().is_dir() {
-            std::fs::create_dir_all(&destination)
-                .map_err(|error| format!("cannot create `{}`: {error}", destination.display()))?;
-        } else if entry.file_type().is_file() {
-            if let Some(parent) = destination.parent() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|error| format!("cannot create `{}`: {error}", parent.display()))?;
-            }
-            std::fs::copy(entry.path(), &destination).map_err(|error| {
-                format!(
-                    "cannot copy `{}` to `{}`: {error}",
-                    entry.path().display(),
-                    destination.display()
-                )
-            })?;
-        }
-    }
-    Ok(())
 }
 
 /// One pinned dependency entry in `marqdo.lock`.

@@ -120,19 +120,28 @@ order-insensitive.
 
 ### 3.2 Tree hash
 
-For a path or Git dependency, `lock` hashes the resolved package tree
-(`marqdo_package::hash_tree`):
+For a path or Git dependency, `lock` hashes the resolved package tree with
+`content_profile_version: 1` (`crates/marqdo-package/src/fileset.rs`, ADR-0016):
 
-1. walk the dependency directory with `walkdir` (`sort_by_file_name`), keeping
-   regular files only (symlinks are not followed and are skipped);
-2. sort files by their root-relative path (normalized to `/`);
-3. feed into SHA-256, for each file in order:
-   `relative_path bytes`, a `0x00` byte, `file bytes`, a `0x00` byte;
-4. hex-encode the digest.
+1. walk the dependency directory with `walkdir` (`sort_by_file_name`,
+   `follow_links(false)`), propagating every walk error;
+2. exclude any path component `.git` or `.marqdo`; include `target/`;
+3. accept regular files only. Symlinks and special files are hard errors, not
+   skipped or followed; paths must be UTF-8, `/`-separated, relative and
+   duplicate-free;
+4. sort files by root-relative path (UTF-8 bytes); enforce budgets of 10 000
+   files, 64 MiB per file, 512 MiB total and depth 64;
+5. hash with domain separation and length prefixes:
+   `b"marqdo.package.file-set\0"`, `profile_version: u32le`,
+   `entry_count: u64le`, then for each file
+   `rel_len: u64le`, `rel_bytes`, `content_len: u64le`, `content_bytes`;
+6. hex-encode the digest.
 
-This is a deterministic content fingerprint, not a Merkle tree and not a
-cryptographic commitment to file modes, symlinks or empty directories. It
-detects content changes and additions/removals of regular files.
+Materialization uses the same selection and reads each file once, hashing the
+exact bytes it writes; the published environment is accepted only when the
+final digest equals the lock. This is a deterministic content fingerprint, not
+a Merkle tree and not a commitment to file modes or empty directories. Modes
+are normalized on materialization (`0644` files, `0755` directories on Unix).
 
 ### 3.3 Lock generation rules
 
