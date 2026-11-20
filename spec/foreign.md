@@ -64,11 +64,20 @@ versions are rejected at registration. The host owns a registry
 (`StdHost::kernel_registry`, `StdHost::register_kernel`); the interpreter never
 hard-codes a language list.
 
-`environment_id`, `environment_digest` and `interpreter_version` record the
-intended reproducible environment. This build validates their shape and echoes
-`environment_id` through `KernelInfo`; it does **not** materialize uv/npm
-environments or integrate them into lock v3. A production descriptor should pin
-all three once a materializer exists.
+`environment_id`, `environment_digest`, `interpreter_version` and
+`environment_dir` describe the intended reproducible environment. When
+`environment_dir` is present it must be an absolute existing directory and
+`environment_digest` must pin the profile-v1 tree digest (regular files only;
+sorted relative paths with length-prefixed bytes; 10,000 files / 512 MiB caps;
+symlinks and special files rejected). The environment is verified at
+registration and again before every spawn; mismatch fails with
+`ForeignError::EnvironmentIntegrity` before any child starts. On execution the
+child receives `MARQDO_FOREIGN_ENV` and, when `<env>/bin` exists, that directory
+is prepended to `PATH`.
+
+The CLI does **not** materialize uv/npm environments or integrate them into
+lock v3; it verifies an explicitly pinned directory. A future materializer may
+fill `environment_dir`/`environment_digest`, but must not weaken verification.
 
 A `Code` value for an unregistered label is still valid inert data. Only an
 explicit `foreign.run`/`foreign.call` lookup can fail with

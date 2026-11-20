@@ -104,6 +104,9 @@ pub struct KernelDescriptor {
     /// Optional expected interpreter version string.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub interpreter_version: Option<String>,
+    /// Optional pinned environment directory (virtualenv, node_modules, ...).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub environment_dir: Option<PathBuf>,
 }
 
 impl KernelDescriptor {
@@ -123,6 +126,7 @@ impl KernelDescriptor {
             environment_id: None,
             environment_digest: None,
             interpreter_version: None,
+            environment_dir: None,
         }
     }
 
@@ -146,6 +150,7 @@ impl KernelDescriptor {
             environment_id: None,
             environment_digest: None,
             interpreter_version: None,
+            environment_dir: None,
         }
     }
 }
@@ -243,7 +248,7 @@ impl KernelRegistry {
                     ),
                 });
             }
-            verify_provider(&descriptor)?;
+            verify_descriptor(&descriptor)?;
         }
         for language in &mut descriptor.languages {
             *language = language.trim().to_ascii_lowercase();
@@ -432,6 +437,16 @@ pub enum ForeignError {
         /// Actual digest.
         actual: String,
     },
+    /// The pinned foreign environment no longer matches its declared digest.
+    #[error("foreign kernel environment `{environment}` failed integrity verification: expected {expected}, got {actual}")]
+    EnvironmentIntegrity {
+        /// Environment directory.
+        environment: String,
+        /// Declared digest.
+        expected: String,
+        /// Actual digest.
+        actual: String,
+    },
     /// Captured stdout/stderr exceeded `max_output_bytes`; the child was
     /// killed and the partial output dropped.
     #[error("foreign kernel output exceeded the {limit} byte limit")]
@@ -458,22 +473,140 @@ fn sha256_file(path: &Path) -> Result<String, ForeignError> {
     Ok(hex::encode(hasher.finalize()))
 }
 
-fn verify_provider(descriptor: &KernelDescriptor) -> Result<(), ForeignError> {
+fn verify_descriptor(descriptor: &KernelDescriptor) -> Result<(), ForeignError> {
     if descriptor.builtin {
         return Ok(());
     }
-    let Some(expected) = &descriptor.digest else {
-        return Ok(());
-    };
-    let actual = sha256_file(&descriptor.entrypoint)?;
-    if &actual != expected {
-        return Err(ForeignError::Integrity {
-            provider: descriptor.provider_id.clone(),
-            expected: expected.clone(),
-            actual,
+    if let Some(expected) = &descriptor.digest {
+        let actual = sha256_file(&descriptor.entrypoint)?;
+        if &actual != expected {
+            return Err(ForeignError::Integrity {
+                provider: descriptor.provider_id.clone(),
+                expected: expected.clone(),
+                actual,
+            });
+        }
+    }
+    if let Some(environment) = &descriptor.environment_dir {
+        if !environment.is_absolute() || !environment.is_dir() {
+            return Err(ForeignError::Protocol {
+                message: format!(
+                    "kernel provider `{}` environment_dir must be an absolute existing directory",
+                    descriptor.provider_id
+                ),
+            });
+        }
+        let expected =
+            descriptor
+                .environment_digest
+                .as_ref()
+                .ok_or_else(|| ForeignError::Protocol {
+                    message: format!(
+                        "kernel provider `{}` declares environment_dir without environment_digest",
+                        descriptor.provider_id
+                    ),
+                })?;
+        let actual = environment_digest(environment)?;
+        if &actual != expected {
+            return Err(ForeignError::EnvironmentIntegrity {
+                environment: environment.display().to_string(),
+                expected: expected.clone(),
+                actual,
+            });
+        }
+    } else if descriptor.environment_digest.is_some() {
+        return Err(ForeignError::Protocol {
+            message: format!(
+                "kernel provider `{}` declares environment_digest without environment_dir",
+                descriptor.provider_id
+            ),
         });
     }
     Ok(())
+}
+
+fn environment_digest(root: &Path) -> Result<String, ForeignError> {
+    use sha2::{Digest, Sha256};
+    use walkdir::WalkDir;
+
+    let mut files = Vec::new();
+    let mut total = 0u64;
+    for entry in WalkDir::new(root).follow_links(false).sort_by_file_name() {
+        let entry = entry.map_err(|error| ForeignError::Io {
+            message: format!("cannot walk foreign environment: {error}"),
+        })?;
+        if entry.depth() == 0 {
+            continue;
+        }
+        if entry.file_type().is_symlink() {
+            return Err(ForeignError::Protocol {
+                message: format!(
+                    "foreign environment contains symlink `{}`",
+                    entry.path().display()
+                ),
+            });
+        }
+        if entry.file_type().is_dir() {
+            continue;
+        }
+        if !entry.file_type().is_file() {
+            return Err(ForeignError::Protocol {
+                message: format!(
+                    "foreign environment contains special file `{}`",
+                    entry.path().display()
+                ),
+            });
+        }
+        if files.len() >= 10_000 {
+            return Err(ForeignError::Protocol {
+                message: "foreign environment exceeds 10,000 files".to_string(),
+            });
+        }
+        let relative = entry
+            .path()
+            .strip_prefix(root)
+            .map_err(|_| ForeignError::Io {
+                message: "foreign environment path escaped its root".to_string(),
+            })?;
+        let mut parts = Vec::new();
+        for component in relative.components() {
+            match component {
+                std::path::Component::Normal(part) => parts.push(
+                    part.to_str()
+                        .ok_or_else(|| ForeignError::Protocol {
+                            message: "foreign environment path is not UTF-8".to_string(),
+                        })?
+                        .to_string(),
+                ),
+                _ => {
+                    return Err(ForeignError::Protocol {
+                        message: "foreign environment path is not normalized".to_string(),
+                    })
+                }
+            }
+        }
+        let bytes = fs::read(entry.path()).map_err(|error| ForeignError::Io {
+            message: format!("cannot read foreign environment file: {error}"),
+        })?;
+        total = total.saturating_add(bytes.len() as u64);
+        if total > 512 * 1024 * 1024 {
+            return Err(ForeignError::Protocol {
+                message: "foreign environment exceeds 512 MiB".to_string(),
+            });
+        }
+        files.push((parts.join("/"), bytes));
+    }
+    files.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut hasher = Sha256::new();
+    hasher.update(b"marqdo.kernel-environment.v1\0");
+    hasher.update((files.len() as u64).to_le_bytes());
+    for (path, bytes) in &files {
+        hasher.update((path.len() as u64).to_le_bytes());
+        hasher.update(path.as_bytes());
+        hasher.update((bytes.len() as u64).to_le_bytes());
+        hasher.update(bytes);
+    }
+    Ok(hex::encode(hasher.finalize()))
 }
 
 /// Detect a kernel for `language` by scanning `PATH`.
@@ -596,7 +729,7 @@ fn execute(request: &RunRequest, registry: &KernelRegistry) -> Result<RawRun, Fo
                 ),
             })?;
     if !descriptor.builtin {
-        verify_provider(descriptor)?;
+        verify_descriptor(descriptor)?;
     }
     let program = resolve_program(descriptor).ok_or_else(|| ForeignError::KernelUnavailable {
         language: descriptor.provider_id.clone(),
@@ -631,6 +764,19 @@ fn execute(request: &RunRequest, registry: &KernelRegistry) -> Result<RawRun, Fo
         .env_clear();
     if let Some(path) = std::env::var_os("PATH") {
         command.env("PATH", path);
+    }
+    if let Some(environment) = &descriptor.environment_dir {
+        command.env("MARQDO_FOREIGN_ENV", environment);
+        let bin = environment.join("bin");
+        if bin.is_dir() {
+            let mut paths = vec![bin];
+            if let Some(existing) = std::env::var_os("PATH") {
+                paths.extend(std::env::split_paths(&existing));
+            }
+            if let Ok(joined) = std::env::join_paths(paths) {
+                command.env("PATH", joined);
+            }
+        }
     }
 
     let captured = spawn_and_capture(

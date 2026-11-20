@@ -278,6 +278,16 @@ fn foreign_error(
                 "foreign kernel `{provider}` failed integrity verification: expected {expected}, got {actual}"
             ),
         ),
+        ForeignError::EnvironmentIntegrity {
+            environment,
+            expected,
+            actual,
+        } => (
+            ErrorCategory::KernelUnavailable,
+            format!(
+                "foreign kernel environment `{environment}` failed integrity verification: expected {expected}, got {actual}"
+            ),
+        ),
         ForeignError::OutputTooLarge { limit } => (
             ErrorCategory::ResourceExhausted,
             format!("foreign kernel exceeded the {limit} byte output limit"),
