@@ -59,6 +59,31 @@ impl SandboxSettings {
         })
     }
 
+    /// Reject strict-mode requests that this L1 isolation level does not
+    /// support. Strict currently covers pure Marqdo and native Math only;
+    /// granting Foreign, ABI plugins, tools or trace files would require
+    /// extending the supervisor contract first.
+    pub fn strict_preflight(&self) -> Result<(), String> {
+        let requested = self.allow_foreign
+            || !self.allow_read.is_empty()
+            || !self.allow_write.is_empty()
+            || !self.allow_plugin.is_empty()
+            || !self.plugins.is_empty()
+            || self.trust_native_plugin
+            || !self.kernels.is_empty()
+            || self.trace_file.is_some();
+        if requested {
+            return Err(
+                "strict mode currently supports pure Marqdo and native Math only; \
+                 --allow-read/--allow-write/--allow-foreign/--allow-plugin/--plugin/\
+                 --trust-native-plugin/--kernel/--trace-file are rejected. Use \
+                 --mode project for those capabilities."
+                    .to_string(),
+            );
+        }
+        Ok(())
+    }
+
     /// Build the effective capability set.
     pub fn capabilities(&self) -> Result<Capabilities, String> {
         let mode = self.sandbox_mode()?;
@@ -91,7 +116,10 @@ impl SandboxSettings {
                 }
                 Ok(capabilities)
             }
-            SandboxMode::Strict => Ok(Capabilities::project()),
+            SandboxMode::Strict => {
+                self.strict_preflight()?;
+                Ok(Capabilities::project())
+            }
         }
     }
 }
@@ -625,6 +653,43 @@ fn resolve_link(
     }
 }
 
+/// Re-execute this CLI inside the strict Linux supervisor.
+fn launch_strict_process(
+    project_root: &Path,
+    document: Option<&Path>,
+    settings: &SandboxSettings,
+) -> i32 {
+    let program = match std::env::current_exe() {
+        Ok(path) => path,
+        Err(error) => {
+            eprintln!("error: cannot locate the marqdo executable: {error}");
+            return 1;
+        }
+    };
+    let args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    let output_limit = settings
+        .max_output
+        .unwrap_or(1024 * 1024)
+        .min(64 * 1024 * 1024);
+    let timeout = Duration::from_secs(settings.timeout.unwrap_or(30));
+    let command = marqdo_sandbox::StrictHostCommand {
+        program: &program,
+        args: &args,
+        project_root,
+        document,
+        original_document: document,
+        output_limit,
+        timeout,
+    };
+    match marqdo_sandbox::launch_strict(&command) {
+        Ok(code) => code,
+        Err(error) => {
+            eprintln!("error: {error}");
+            1
+        }
+    }
+}
+
 /// `marqdo run` / `marqdo call`.
 pub fn execute(
     file: Option<&Path>,
@@ -676,6 +741,42 @@ pub fn execute(
             return 2;
         }
     };
+    if mode == SandboxMode::Strict {
+        if let Err(error) = settings.strict_preflight() {
+            if json {
+                output::print_json(&json!({"success": false, "error": error}));
+            } else {
+                eprintln!("error: {error}");
+            }
+            return 2;
+        }
+        if marqdo_sandbox::marker_present() {
+            // We were re-executed by the supervisor: validate the marker set
+            // before running any project code.
+            if let Err(reason) = marqdo_sandbox::verify_active() {
+                if json {
+                    output::print_json(&json!({
+                        "success": false,
+                        "error": format!("strict isolation verification failed: {reason}"),
+                    }));
+                } else {
+                    eprintln!("error: strict isolation verification failed: {reason}");
+                }
+                return 1;
+            }
+        } else {
+            let platform = PlatformCapabilities::detect();
+            if let Err(error) = marqdo_sandbox::enforce(mode, &platform) {
+                if json {
+                    output::print_json(&json!({"success": false, "error": error.to_string()}));
+                } else {
+                    eprintln!("error: {error}");
+                }
+                return 1;
+            }
+            return launch_strict_process(&project.root, file, settings);
+        }
+    }
     let platform = PlatformCapabilities::detect();
     if let Err(error) = marqdo_sandbox::enforce(mode, &platform) {
         if json {

@@ -19,6 +19,14 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   `entrypoint` must resolve inside `environment_dir`, built-in providers cannot
   be bound to one, the child gets only the environment executable directory on
   `PATH`, and `interpreter_version` is verified before execution.
+- Linux strict isolation (ADR-0021): a Bubblewrap supervisor with user/mount/
+  PID/net/UTS/IPC namespaces, no-new-privs, capability dropping, a read-only
+  `/project`, rlimits, output/wall-clock supervision and child
+  self-verification. Probe-gated; L1 supports pure Marqdo + Math only.
+- Adversarial G-C lane (`tests/security/escape_helper.c`,
+  `crates/marqdo-sandbox/tests/security_linux.rs`, `tests/security/run-lane.sh`)
+  covering filesystem, `/proc`, network, process, privilege and resource
+  escapes. 7/7 PASS in a disposable Ubuntu 26.04 VM.
 - Release documentation (`COMPATIBILITY.md`, `docs/releasing.md`) and the
   Linux security-gate evidence report (`docs/security-gate.md`).
 - `check_never_spawns_a_foreign_kernel`: proves static `check` does not spawn a
@@ -43,10 +51,12 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
 
 ### Security
 
-- `strict` remains `Unavailable` on every platform. This host cannot create
-  user/network namespaces (`EPERM` inside a container, cgroup2 read-only, no
-  non-interactive sudo), so no Linux OS-isolation adapter was implemented or
-  verified. There is no silent downgrade to `project` mode.
+- Linux `strict` is implemented and probe-gated. It is `Available` only when a
+  real Bubblewrap smoke test succeeds; otherwise it stays `Unavailable` and
+  refuses. There is no silent downgrade to `project`.
+- Strict L1 covers pure Marqdo and native Math; Foreign, native/worker
+  plugins, kernels, external grants and trace files are rejected before the
+  sandbox starts. Strict L2 inheritance is future work.
 - Capability brokers and worker processes remain cooperative
   authorization/crash isolation, not an OS sandbox.
 

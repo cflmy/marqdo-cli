@@ -1,6 +1,6 @@
 # ADR-0019: Strict-mode availability gate
 
-Status: **Accepted**
+Status: **Accepted; Linux availability superseded by ADR-0021**
 Date: 2026-11-20
 Relates to: ADR-0004 (strict mode refuses without isolation), blueprint §9
 
@@ -17,6 +17,15 @@ cannot be built *and verified* here. Landlock is present but covers filesystem
 rules only; it does not by itself satisfy the network/process/resource and
 child-tree requirements in `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`
 §13.
+
+## Superseding note (2026-11-20)
+
+The fail-closed principle and the per-platform, test-gated availability rule in
+this ADR remain in force. A concrete Linux adapter has since passed the
+security matrix in a disposable Ubuntu VM and is specified by **ADR-0021**:
+strict becomes `Available` only when the Bubblewrap probe succeeds at runtime.
+This ADR remains authoritative for every other platform and for the rule that
+availability must never be assumed.
 
 ## Decision
 

@@ -34,7 +34,7 @@ portable/tested locally but the native platform lane has not run here;
 | Worker ABI + `fs.read` bridge | PASS (Unix) | UNVERIFIED | UNSUPPORTED (tests are Unix-gated) |
 | Foreign Python/Node | PASS (system `python3`/`node`) | UNVERIFIED | UNVERIFIED |
 | Foreign pinned environment binding | PASS | UNVERIFIED | UNVERIFIED |
-| `strict` OS isolation | **FAIL-CLOSED / G-C NOT PASSED** | FAIL-CLOSED | FAIL-CLOSED |
+| `strict` OS isolation | PASS when runtime probe passes (VM-verified); no CI URL yet | FAIL-CLOSED | FAIL-CLOSED |
 
 The Ubuntu column is from this development host (Ubuntu 26.04 container). It is
 **not** a GitHub Actions result: this checkout has no GitHub remote or CI
@@ -46,14 +46,16 @@ reproduce the Windows checkout byte behavior.
 - Rust 1.82+ (verified with 1.100.0).
 - Linux/macOS: a C compiler for Native ABI fixtures; Python/Node only for
   Foreign kernels.
-- `strict` additionally requires a kernel/environment that permits user,
-  mount, PID and network namespaces, plus delegated cgroups. The current
-  container does not, so strict is refused. See
-  [`docs/security-gate.md`](docs/security-gate.md).
+- `strict` additionally requires Bubblewrap and a kernel/environment that
+  permits user, mount, PID and network namespaces. It is enabled only when the
+  runtime probe passes; the current development container fails that probe, so
+  strict is refused there. See [`docs/security-gate.md`](docs/security-gate.md)
+  and ADR-0021.
 
 ## Explicitly unsupported in this candidate
 
-- OS-level strict isolation on any platform (G-C not passed).
+- OS-level strict isolation on macOS/Windows (Linux only, probe-gated).
+- Strict L2: Worker/Foreign execution inside strict (refused in L1).
 - Windows Native/Worker ABI runtime support.
 - Automatic uv/npm/venv provisioning; only an explicitly provisioned, pinned
   directory is verified (and must contain a regular-file executable).

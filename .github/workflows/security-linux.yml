@@ -1,0 +1,31 @@
+name: Linux strict security lane (G-C)
+
+# This workflow intentionally does NOT run on GitHub-hosted runners. G-C
+# requires a disposable Ubuntu VM/self-hosted runner with permitted user,
+# mount, PID and network namespaces and the Bubblewrap AppArmor profile.
+# A missing runner or a skipped test fails the gate; it is never counted as a
+# pass. See docs/security-gate.md and ADR-0021.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+
+jobs:
+  strict-security:
+    name: strict isolation escape matrix
+    runs-on: [self-hosted, linux, marqdo-security]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Host capability report
+        run: |
+          id
+          uname -a
+          systemd-detect-virt --container || true
+          bwrap --version
+          cc --version | head -1
+          cat /proc/self/uid_map
+          findmnt -t cgroup2 || true
+      - name: Run G-C matrix
+        run: ./tests/security/run-lane.sh

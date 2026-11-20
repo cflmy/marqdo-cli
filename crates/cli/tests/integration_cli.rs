@@ -331,11 +331,42 @@ fn examples_run_end_to_end_including_foreign_when_available() {
     );
 }
 
+fn strict_is_available(root: &Path) -> bool {
+    let hello = root.join("examples").join("hello.mq.md");
+    let output = cli(
+        root,
+        &["inspect", hello.to_str().unwrap(), "--platform", "--json"],
+    );
+    if !output.status.success() {
+        return false;
+    }
+    let value = json_stdout(&output);
+    value["platform"]["strict"]["state"] == "available"
+}
+
 #[test]
-fn strict_mode_refuses_without_isolation() {
+fn strict_mode_enforces_isolation_or_refuses_closed() {
     let root = repo_root();
     let hello = root.join("examples").join("hello.mq.md");
     let output = cli(&root, &["run", hello.to_str().unwrap(), "--mode", "strict"]);
+    if strict_is_available(&root) {
+        assert_exit(&output, 0, "strict mode must succeed when the gate passes");
+        assert_eq!(stdout_text(&output), "你好，Marqdo\n");
+        // External execution surfaces are rejected at the strict L1 boundary.
+        let foreign = cli(
+            &root,
+            &[
+                "run",
+                hello.to_str().unwrap(),
+                "--mode",
+                "strict",
+                "--allow-foreign",
+            ],
+        );
+        assert_exit(&foreign, 2, "strict must reject foreign grants");
+        assert!(stderr_text(&foreign).contains("strict mode currently supports"));
+        return;
+    }
     assert_exit(
         &output,
         1,
@@ -763,7 +794,7 @@ fn runtime_error_in_imported_module_reports_that_module() {
 }
 
 #[test]
-fn platform_reports_strict_unavailable_until_security_gate_passes() {
+fn platform_reports_strict_capability_truthfully() {
     let root = repo_root();
     let hello = root.join("examples").join("hello.mq.md");
     let output = cli(
@@ -773,17 +804,27 @@ fn platform_reports_strict_unavailable_until_security_gate_passes() {
     assert_exit(&output, 0, "inspect --platform");
     let value = json_stdout(&output);
     let strict = &value["platform"]["strict"];
-    assert_eq!(
-        strict["state"], "unavailable",
-        "strict must stay unavailable until the ADR-0019 security gate passes: {strict}"
-    );
-    assert!(
-        strict["reason"]
-            .as_str()
-            .map(|reason| !reason.trim().is_empty())
-            .unwrap_or(false),
-        "unavailable strict needs an actionable reason: {strict}"
-    );
+    match strict["state"].as_str() {
+        Some("available") => {
+            assert!(
+                strict["mechanism"]
+                    .as_str()
+                    .map(|mechanism| mechanism.contains("bubblewrap"))
+                    .unwrap_or(false),
+                "available strict needs the real mechanism: {strict}"
+            );
+        }
+        Some("unavailable") => {
+            assert!(
+                strict["reason"]
+                    .as_str()
+                    .map(|reason| !reason.trim().is_empty())
+                    .unwrap_or(false),
+                "unavailable strict needs an actionable reason: {strict}"
+            );
+        }
+        other => panic!("unexpected strict state: {other:?} ({strict})"),
+    }
     assert_eq!(value["platform"]["worker_processes"], true);
 }
 

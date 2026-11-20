@@ -17,3 +17,6 @@ examples/plugin-multi-export/build/
 
 # Release artifacts
 dist/
+
+# Local VM/QEMU tooling and disk images
+.tools/

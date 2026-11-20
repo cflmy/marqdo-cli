@@ -1,83 +1,129 @@
-# Linux strict-isolation security gate (G-C) — evidence report
+# Linux strict-isolation security gate (G-C) — evidence
 
-Status: **G-C NOT PASSED. `strict` remains `Unavailable` and fails closed.**
-Snapshot: workspace `0.1.0`, 2026-11-20. No release tag.
+Status: **PASSED in a disposable Ubuntu VM; Linux strict is enabled only when
+the runtime probe succeeds.** No remote security-lane CI URL exists yet.
+Snapshot: workspace `0.1.0`, 2026-11-20. See ADR-0021.
 
-This report records what was actually probed on the development host and why no
-`StrictIsolation::Available` claim is made. It is evidence, not a plan to
-weaken the gate.
+This report separates three things that are often conflated:
 
-## 1. Host and capability probe
+1. the **mechanism** (Bubblewrap namespaces + rlimits + supervisor),
+2. the **runtime probe** that decides whether `strict` is available, and
+3. the **adversarial evidence** that the boundary actually holds.
 
-Command output (abridged; host name removed):
+## 1. Why the earlier host could not pass
+
+The first development host was a root-in-container environment:
 
 ```text
-user: uid=0(root) gid=0(root)
-kernel: Linux 7.0.0-43-generic x86_64
 virt: container-other
-apparmor_restrict_unprivileged_userns: 1
-max_user_namespaces: 60339
-cgroup2 mount: ro,nosuid,nodev,noexec,relatime,nsdelegate,memory_recursiveprot
-cgroup controllers: cpuset cpu io memory hugetlb pids rdma misc dmem
-unshare --user --map-root-user true
-  -> unshare: write failed /proc/self/uid_map: Operation not permitted (exit 1)
-unshare --user --map-root-user --net true
-  -> unshare: unshare failed: Operation not permitted (exit 1)
-bwrap --unshare-user --unshare-net --ro-bind / / true
-  -> bwrap: No permissions to create a new namespace (exit 1)
-sudo -n true
-  -> sudo: The "no new privileges" flag is set, which prevents sudo from
-     running as root (exit 1)
-capsh --print
-  -> Current: =            (no effective capabilities)
-  -> Bounding set = cap_sys_admin, ... (not effective; no-new-privs=1)
-unshare --mount true / --pid --fork true / --net true
-  -> Operation not permitted (exit 1 each)
+capsh: Current: = (no effective capabilities), no-new-privs=1
+unshare --user/--mount/--pid/--net -> Operation not permitted
+bwrap --unshare-user --unshare-net -> No permissions to create a new namespace
+cgroup2 -> ro,nosuid,nodev,noexec
 ```
 
-The workspace root is writable, but the host root filesystem and cgroup2 mount
-are read-only. The process is root inside a container with `no_new_privs` set;
-`sudo` cannot gain privileges and the parent container refuses namespace
-creation. `user.max_user_namespaces` being non-zero does not help because the
-container policy/AppArmor boundary rejects the actual `uid_map` write.
+That environment cannot verify G-C. Strict stayed `Unavailable` there; no
+adapter was faked.
 
-## 2. Consequence
+## 2. Disposable test VM
 
-- A real Linux adapter (namespaces + seccomp/no_new_privs + cgroup v2 + fd and
-  process-tree control) cannot be built, applied and verified here.
-- Implementing an adapter and flipping `Available` without executing the escape
-  and resource-limit tests would be a false security claim. It was not done.
-- `PlatformCapabilities::detect()` continues to report `unavailable` with a
-  reason; `enforce` refuses before any host/plugin is constructed. There is no
-  fallback to `project`.
-- Native plugin loading (`--trust-native-plugin`) is unrelated to strict mode
-  and remains an explicit in-process trust decision; the broker and worker
-  transport are not OS isolation.
+A QEMU/TCG Ubuntu 26.04 VM was created from the cloud image (no KVM available
+on the outer host). Inside the VM:
 
-Command evidence:
-
-```bash
-marqdo run examples/hello.mq.md --mode strict
-# exit 1, stderr: refusing to run in strict mode: ...
-marqdo inspect examples/hello.mq.md --platform --json
-# platform.strict.state == "unavailable"
+```text
+OS:               Ubuntu 26.04.1 LTS, kernel 7.0.0-43-generic x86_64
+systemd-detect-virt --container: none
+user:             dev (uid 1000), passwordless sudo for test setup only
+cgroup2:          rw, nsdelegate, controllers: cpuset cpu io memory hugetlb pids rdma misc dmem
+sysctl:           apparmor_restrict_unprivileged_userns = 1
+bubblewrap:       0.11.1 with the packaged `bwrap-userns-restrict` profile
+unprivileged:     bwrap --unshare-user --unshare-net --ro-bind / / true -> exit 0
 ```
 
-## 3. What G-C still requires
+Root can create namespaces, and the packaged Bubblewrap AppArmor profile
+allows the **ordinary user** to run `bwrap` without disabling AppArmor
+globally. The released strict mode runs as this ordinary user.
 
-1. A controllable Ubuntu VM or self-hosted runner that permits user, mount,
-   PID and network namespaces and delegated cgroup v2 controllers, reachable
-   from an ordinary (non-root) test user.
-2. A trusted supervisor that applies filesystem/network/process/resource
-   policy and reaps the child tree, plus a runtime probe that reports the
-   mechanisms actually applied.
-3. Execution of the full negative matrix from
-   `docs/STABLE_RELEASE_IMPLEMENTATION.md` §10.5 with a malicious helper:
-   direct syscall reads/writes, `/proc` and inherited-fd access, IPv4/IPv6/DNS
-   and Unix sockets, fork/exec, CPU/memory/fd/process/output limits, and
-   `--trust-native-plugin` rejection.
-4. A security-lane CI URL on the same commit, and only then an ADR that flips
-   `Unavailable` to `Available` for that specific platform.
+## 3. Implemented boundary (ADR-0021)
 
-Until all four hold, any release must state: **strict OS isolation is not
-available; untrusted code must not be executed with Marqdo expecting isolation.**
+`marqdo run --mode strict`:
+
+* probes Bubblewrap at runtime; failure => `Unavailable`, run exits 1, no
+  project code executes;
+* re-executes the CLI under `bwrap --unshare-all --as-pid-1 --die-with-parent
+  --new-session --cap-drop ALL --clearenv`;
+* mounts only runtime libraries, `/etc/ld.so.cache`, the program and the
+  project tree read-only at `/project`; private `/proc`, minimal `/dev`,
+  tmpfs `/tmp`;
+* applies hard rlimits: CPU, 512 MiB address space, 64 fds, 64 processes,
+  8 MiB stack, 0 core, output-byte file size;
+* supervises wall-clock time and kills the process group;
+* the child verifies `PID 1`, `NoNewPrivs: 1`, empty `CapEff`, a non-initial
+  uid map and no non-loopback interface before running project code;
+* rejects Foreign, native/worker plugins, kernels, read/write grants and trace
+  files with exit 2 (strict L1 = pure language + native Math).
+
+## 4. Adversarial evidence
+
+The helper is `tests/security/escape_helper.c`, launched through the **same**
+`marqdo-sandbox` supervisor, not through a separate ad-hoc bwrap command. The
+lane is `tests/security/run-lane.sh` and the test is
+`crates/marqdo-sandbox/tests/security_linux.rs`.
+
+```text
+7/7 tests PASS:
+  strict_child_identity_is_unprivileged_and_namespaced
+  strict_child_cannot_read_host_files_but_reads_the_project
+  strict_child_cannot_write_outside_or_into_the_project
+  strict_child_cannot_escape_via_proc_or_privileges
+  strict_child_cannot_reach_the_network
+  strict_supervisor_enforces_fd_and_process_limits
+  strict_supervisor_enforces_memory_cpu_and_output_limits
+```
+
+Observed results inside the sandbox (ordinary user `dev`):
+
+| Case | Observation |
+|---|---|
+| identity | `uid=1000`, `pid=1`, `NoNewPrivs: 1`, `CapEff: 0` |
+| `/etc/shadow`, `/root`, `/home/dev` | `DENIED` |
+| `/project/allowed.txt` | `OK` |
+| write `/home/dev/...`, `/project/...` | `DENIED` (read-only) |
+| write `/tmp` | allowed (private tmpfs; host unaffected) |
+| `/proc/1/root/etc/shadow` | `DENIED`; no inherited fds above stdio |
+| `setuid(0)`, `mount`, `unshare` | `DENIED` |
+| IPv4 connect `1.1.1.1:80`, raw socket | `DENIED` |
+| open `/dev/null` loop | `EMFILE` at <= 64 fds |
+| fork loop | bounded below 200 (user process rlimit) |
+| 768 MiB allocation | denied/killed by 512 MiB `RLIMIT_AS` |
+| infinite CPU loop | stopped by wall-clock/CPU budget |
+| 4 MiB stdout | stopped at the 64 KiB output limit |
+
+CLI evidence (`dev`, VM):
+
+```text
+run examples/hello.mq.md --mode strict            -> 你好，Marqdo (exit 0)
+call factorial 阶乘 --arg n=5 --mode strict       -> 120 (exit 0)
+run examples/multi-module/index.mq.md --mode strict -> 12.566... (exit 0)
+run --mode strict --json                          -> success=true
+run --mode strict --allow-foreign                 -> exit 2
+run --mode strict --trust-native-plugin ...       -> exit 2
+run --mode strict --kernel ...                    -> exit 2
+run --mode strict --trace-file ...                -> exit 2
+MARQDO_STRICT_ACTIVE=1 run --mode strict          -> exit 1 (not PID 1)
+hide /usr/bin/bwrap; run --mode strict            -> exit 1 (not installed)
+```
+
+## 5. Explicit non-goals / remaining work
+
+* Strict **L2** (Worker/Foreign inheriting the sandbox) is not implemented;
+  those flags are refused in strict. Native ABI is never allowed in strict.
+* rlimits are used instead of cgroup-v2 accounting; the adapter does not claim
+  cgroup enforcement.
+* Filesystem TOCTOU is reduced by read-only mounts but not formally proven
+  against a racing host user.
+* Network is denied by a network namespace, not a seccomp allowlist.
+* **A remote security-lane CI URL is still required** before a release calls
+  G-C CI-verified. `.github/workflows/security-linux.yml` targets a dedicated
+  self-hosted runner; `MARQDO_REQUIRE_STRICT_SECURITY=1` makes missing
+  mechanisms fail instead of skip.

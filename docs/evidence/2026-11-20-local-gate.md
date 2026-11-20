@@ -71,5 +71,7 @@ tool install/run/remove              exit 0
   true non-root run could not be performed on this host.
 - `unshare` (user/mount/PID/net) and `bwrap` fail with `EPERM`; cgroup2 is
   mounted read-only.
-- Therefore G-C (strict OS isolation) is **not passed**; strict remains
-  fail-closed. `docs/security-gate.md` records the full probe.
+- Therefore G-C could not be evaluated on that container host. It was later
+  executed in a disposable Ubuntu 26.04 VM; see
+  [`2026-11-20-strict-gc.md`](2026-11-20-strict-gc.md) and
+  `docs/security-gate.md`.

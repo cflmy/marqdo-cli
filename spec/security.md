@@ -28,7 +28,7 @@ Normative implementation:
 |---|---|---|
 | `pure` | No external I/O; memory computation and budgets only. | **Enforced.** `Capabilities::pure()` = `console`, `math` only; every FS/foreign/plugin grant flag makes the CLI exit 2 with "pure mode prohibits external I/O grants". |
 | `project` | Operator-approved project resources under `CapabilityHost` + bounded resources. | **Enforced for the implemented operations.** Defaults equal `pure`; `--allow-read`, `--allow-write`, `--allow-foreign`, `--allow-plugin` add grants. Sandboxing is cooperative (in-process checks), not OS isolation. |
-| `strict` | Untrusted documents/code/plugins under real OS isolation. | **Refused.** `PlatformCapabilities::detect()` always reports `strict: Unavailable` in this build because no OS isolation adapter (namespaces/seccomp/cgroups, Job Object, macOS sandbox) is implemented, and `worker_processes: false`. `marqdo_sandbox::enforce` returns `StrictUnavailable`; `run`/`call` print the reason and exit 1. There is **no fallback** to an unrestricted process. |
+| `strict` | Untrusted documents under real OS isolation. | **Linux: enforced when the runtime probe passes (ADR-0021).** `PlatformCapabilities::detect()` runs a real Bubblewrap smoke test; success reports `Available { mechanism }`, failure reports `Unavailable { reason }`. Strict L1 supports the interpreter, console and native Math only; `--allow-read/--allow-write/--allow-foreign/--allow-plugin/--plugin/--trust-native-plugin/--kernel/--trace-file` are rejected with exit 2. macOS/Windows and Linux hosts without the mechanisms remain `Unavailable`; there is **no fallback** to an unrestricted process. |
 
 `marqdo inspect <file> --platform` prints the detection report, for example:
 
@@ -36,15 +36,17 @@ Normative implementation:
 {
   "os": "linux",
   "arch": "x86_64",
-  "strict": {"state": "unavailable",
-             "reason": "no OS isolation adapter (namespaces/seccomp/cgroups) is implemented in this build"},
-  "worker_processes": false
+  "strict": {"state": "available",
+             "mechanism": "bubblewrap 0.11.1 (user/mount/PID/net/UTS/IPC namespaces + no-new-privs + rlimits)"},
+  "worker_processes": true
 }
 ```
 
-Design rule (blueprint §9): a cooperative in-process check is not a sandbox.
-Strict mode will remain refused until a platform isolation adapter exists; see
-ADR-0004.
+On a host that cannot create the namespaces the same block is
+`{"state": "unavailable", "reason": "..."}` and strict refuses. Design rule
+(blueprint §9): a cooperative in-process check is not a sandbox. See ADR-0021
+for the Linux construction, L1 scope and non-goals; ADR-0019 still governs
+every other platform.
 
 ## 2. Capability grants
 
@@ -200,8 +202,9 @@ What this is **not**: an OS sandbox. The child runs with the host user's
 privileges, can open absolute paths, use the network and spawn further
 processes. Clearing the environment and changing cwd are hygiene, not
 confinement. Grandchildren are not killed when the direct child is killed.
-Strict mode refuses to run at all, so foreign execution is only reachable in
-`project` mode with `--allow-foreign`.
+Strict L1 rejects Foreign execution before any sandbox starts, so foreign
+execution is only reachable in `project` mode with `--allow-foreign`. L2
+inheritance is future work (ADR-0021).
 
 ## 6. Plugins: in-process native trust boundary
 
@@ -270,14 +273,16 @@ Neither command executes project code. Specifically:
 
 ## 8. Open security items
 
-1. Strict mode: no OS isolation adapter (P4); worker processes report
-   `false`.
+1. Strict L1 is implemented and VM-verified on Linux (ADR-0021); strict L2
+   (Worker/Foreign inheritance) is not implemented, so those surfaces are
+   refused in strict.
 2. `console` capability is not enforced; print is always allowed.
 3. Network capability exists in the model but no host operation uses it; there
    is no `--allow-net` flag.
 4. Write-path symlink TOCTOU (see §2.1).
 5. Plugin **worker crash isolation** and the worker capability bridge are
-   implemented: both native and worker plugins can reach the broker's
+   implemented (not usable in strict L1): both native and worker plugins can
+   reach the broker's
    `fs.read` execution when granted. Other core capabilities and vendor
    handlers remain unavailable. Broker execution is a cooperative API
    contract, not an OS sandbox; a worker and a native plugin can still issue

@@ -17,8 +17,11 @@ plugin ABI v2 are not claimed to work here.
 > Foreign providers are implemented and covered by tests on Linux. The
 > Windows AST and macOS plugin CI failures are fixed in source, but the native
 > Windows/macOS lanes have not been re-run from this checkout. **`strict` OS
-> isolation is not available**: it fails closed on every platform (G-C not
-> passed), and the broker/worker are not a sandbox. See
+> isolation is available on Linux only when the runtime Bubblewrap probe
+> passes**; it was verified against the full escape/resource matrix in a
+> disposable Ubuntu VM (ADR-0021). macOS/Windows fail closed, strict L2
+> (Worker/Foreign) is not implemented, and the broker/worker are not a
+> sandbox. See
 > [`docs/STATUS.md`](docs/STATUS.md), [`COMPATIBILITY.md`](COMPATIBILITY.md)
 > and [`docs/security-gate.md`](docs/security-gate.md). The single next-phase
 > plan is [`docs/STABLE_RELEASE_IMPLEMENTATION.md`](docs/STABLE_RELEASE_IMPLEMENTATION.md).
@@ -90,8 +93,10 @@ executes anything.
   `run`/`call`/`check` never fetch or rewrite the lock.
 * **P4 security core** — capability-checked host operations, project-relative
   FS globs with traversal rejection, budgets, effect trace, `pure`/`project`
-  modes, and **`strict` mode fails closed** because no verified OS isolation
-  adapter exists.
+  modes, and **Linux `strict` mode** using Bubblewrap namespaces, no-new-privs,
+  capability dropping, rlimits, a wall-clock supervisor and child
+  self-verification (ADR-0021). It is probe-gated and verified in a disposable
+  Ubuntu VM; unsupported hosts fail closed.
 * **P5 Math/Foreign** — native `Formula` value from `$$...$$`; `math.parse/
   eval/substitute` over a documented exact-rational subset; one-shot Python/
   Node kernels via `foreign.run/call` with typed wire protocol, timeout and
@@ -117,9 +122,12 @@ cargo clippy --workspace --all-targets -- -D warnings
 
 ## Deliberate limits (do not assume)
 
-* **Strict sandbox is not implemented.** `--mode strict` exits 1; there is no
-  verified OS isolation. `project` mode is cooperative and in-process. Worker
-  plugins provide crash/address-space isolation, not an OS sandbox.
+* **Strict is Linux-only and L1-only.** `--mode strict` enables the
+  Bubblewrap supervisor only when its runtime probe passes; otherwise it exits
+  1. It supports pure Marqdo + Math and rejects Foreign, plugins, kernels,
+  external grants and trace files (exit 2). Worker plugins provide
+  crash/address-space isolation, not an OS sandbox, and are not allowed in
+  strict.
 * **Native plugins run in-process** and require an explicit unsafe trust flag.
   A plugin can crash or read the host; a C ABI is not a sandbox.
 * **Package management is path + pinned-Git only.** There is no registry,

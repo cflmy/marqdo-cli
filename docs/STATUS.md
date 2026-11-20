@@ -65,9 +65,9 @@ runs.
 | 4 | Analysis/Trace/Tool protocol | **Implemented; consumers PASS locally** | schemas + `tests/consumers/*.py`, `analysis_trace`/`tool_protocol` PASS; `check_never_spawns_a_foreign_kernel` PASS |
 | 5 | Foreign pinned environment | **Done (ADR-0020)** | provider tests PASS; env binds interpreter; version drift rejected |
 | 6 | ABI session/broker hardening | **Partial** | `fs.read` bridge + budgets + handle tests PASS; Windows ABI unsupported; broader services still `capability.unavailable` |
-| 7 | Linux strict probe | **Done as fail-closed evidence** | `docs/security-gate.md`; userns/bwrap EPERM, cgroup ro, sudo blocked |
-| 8 | Linux strict pure (L1) | **BLOCKED** | no namespace creation on this host; no adapter implemented or verified |
-| 9 | Linux strict extensions (L2) | **BLOCKED** | depends on L1 |
+| 7 | Linux strict probe | **Done** | runtime Bubblewrap probe; unavailable host reports the real reason |
+| 8 | Linux strict pure (L1) | **DONE (VM-verified)** | ADR-0021; 7/7 adversarial tests + CLI matrix PASS in disposable Ubuntu VM |
+| 9 | Linux strict extensions (L2) | **NOT IMPLEMENTED** | strict rejects Worker/Foreign/native ABI; future ADR needed |
 | 10 | Native platform matrix | **Partial** | Linux PASS; macOS/Windows source fixes, remote lanes absent |
 | 11 | Independent ecosystem consumers | **Partial** | Analysis/Trace Python consumers PASS; three Tool fixtures not added |
 | 12 | RC/docs/artifacts | **Candidate build only** | release docs, checksummed artifact, clean-install smoke; NOT released |
@@ -97,10 +97,11 @@ runs.
 
 1. **No remote CI evidence for this commit.** The repository remote is Gitee;
    no GitHub workflow was executed. Windows/macOS fixes are UNVERIFIED there.
-2. **G-C is not passed.** `strict` remains `Unavailable`; the host cannot
-   create namespaces and root cgroup2 is read-only. See
-   [`security-gate.md`](security-gate.md). No release may claim Linux strict
-   isolation.
+2. **G-C is VM-verified but not CI-signed.** Strict L1 passes the full
+   adversarial matrix in a disposable Ubuntu 26.04 VM (ADR-0021,
+   [`security-gate.md`](security-gate.md)), and is enabled only when the
+   runtime Bubblewrap probe succeeds. No remote security-lane URL exists yet,
+   and strict L2 (Worker/Foreign) is not implemented.
 3. Windows Native/Worker ABI is explicitly unsupported (no `cc` toolchain in
    the lane); it is not counted as a pass.
 4. `fs.write`, `net.request`, `process`, `clock`, `random` are not executed
@@ -112,13 +113,14 @@ runs.
    Python consumers exist.
 7. No release tag/binary publication. A candidate archive and checksums are
    produced locally; the release decision is **DO NOT RELEASE** until the
-   native CI matrix and G-C conditions in the plan are satisfied.
+   native CI matrix and a security-lane CI URL exist.
 
 ## 5. Evidence files
 
 - [`evidence/2026-11-20-local-gate.md`](evidence/2026-11-20-local-gate.md) —
-  exact local commands, Windows autocrlf reproduction, clean-install smoke and
-  the environment limits that block G-C.
+  exact local commands, Windows autocrlf reproduction and clean-install smoke.
+- [`security-gate.md`](security-gate.md) — the full G-C VM evidence, escape
+  matrix and strict L1/L2 limits.
 
 ## 6. Reproduce
 
