@@ -14,9 +14,11 @@ marqdo-cli/
 ├── README.md                   user-facing quickstart and limits
 ├── docs/
 │   ├── DEVELOPMENT_BLUEPRINT.md   architecture baseline
+│   ├── NEXT_PHASE_IMPLEMENTATION.md  proposed M0.6 plan (Proposed, not implemented)
+│   ├── EXTENSIBILITY_AUDIT.md     source-backed E01–E16 audit for M0.6
 │   ├── STATUS.md                  implementation matrix (P0–P7)
 │   ├── contributor-guide.md       this file
-│   └── adr/0001..0007-*.md        accepted decisions
+│   └── adr/0001..0012-*.md        accepted decisions
 ├── spec/
 │   ├── markdown-profile.md        frozen parser profile `marqdo.md.v1`
 │   ├── mapping.md                 AST → program roles
@@ -28,7 +30,8 @@ marqdo-cli/
 │   ├── package-format.md          marqdo.yaml / marqdo.lock / init
 │   ├── plugin-abi.md              C ABI v1, SDK, host lifecycle
 │   ├── math.md                    Formula subset and math.* semantics
-│   └── foreign.md                 Python/Node kernel protocol
+│   ├── foreign.md                 Python/Node kernel protocol
+│   └── tool-v1.md                 proposed generic external Tool Protocol
 ├── crates/
 │   ├── marqdo-span/               Span, LineCol, LineIndex (leaf)
 │   ├── marqdo-value/              Value, diagnostics, errors, wire encoding
@@ -251,6 +254,14 @@ file and function; root-only examples (for example `math.mq.md`) define no
 
 * `spec/` = normative contracts; `docs/` = architecture/decisions/status;
   `README.md` = user quickstart; `AGENTS.md` = contributor rules.
+* `docs/NEXT_PHASE_IMPLEMENTATION.md` and `docs/EXTENSIBILITY_AUDIT.md` are the
+  M0.6 planning/evidence pair. The plan is **Proposed**: it supersedes the
+  blueprint only on command-surface scope, extension registration, plugin
+  addressing, package identity, repository decoupling and release gates.
+  Language semantics remain normative in `spec/` + Accepted ADRs + tests, and
+  `spec/tool-v1.md` is a candidate protocol until an ADR and implementation
+  tests land. Never cite these proposed documents as evidence that a feature
+  exists.
 * Changes to language semantics, AST mapping, wire format, plugin ABI,
   package/lock format, authorization defaults or public CLI behavior require an
   **Accepted ADR** (or superseding one) plus spec updates and tests. Use the

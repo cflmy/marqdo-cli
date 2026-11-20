@@ -16,7 +16,10 @@ plugin ABI v2 are not claimed to work here.
 > documented Math/Foreign subset are implemented and tested; modules/package/
 > security/plugin support is functional but partial; strict isolation, worker
 > plugins, git packages and performance/release work are not done. See
-> [`docs/STATUS.md`](docs/STATUS.md) and "Deliberate limits" below.
+> [`docs/STATUS.md`](docs/STATUS.md) and "Deliberate limits" below. The M0.6
+> extensibility plan in
+> [`docs/NEXT_PHASE_IMPLEMENTATION.md`](docs/NEXT_PHASE_IMPLEMENTATION.md) is a
+> **Proposed** next-phase design, not an implemented feature list.
 
 ## Build
 
@@ -161,20 +164,29 @@ tests/                        conformance/negative corpus (see tests/README.md)
 
 * [`AGENTS.md`](AGENTS.md) — operating rules for contributors and coding agents.
 * [`docs/DEVELOPMENT_BLUEPRINT.md`](docs/DEVELOPMENT_BLUEPRINT.md) — architecture
-  baseline (Chinese; the authoritative design document).
+  baseline (Chinese; the M0.6 plan below supersedes it on command-surface scope,
+  extension registration, plugin addressing, package identity, repository
+  decoupling and release gates).
+* [`docs/NEXT_PHASE_IMPLEMENTATION.md`](docs/NEXT_PHASE_IMPLEMENTATION.md) —
+  proposed M0.6 plan (Chinese): extensibility fixes, callable/package/kernel
+  registration, `marqdo tool`, Analysis/Trace v1, safety and release gates.
+* [`docs/EXTENSIBILITY_AUDIT.md`](docs/EXTENSIBILITY_AUDIT.md) — source-backed
+  audit issues E01–E16 with code locations and acceptance tests (Chinese).
 * [`docs/contributor-guide.md`](docs/contributor-guide.md) — repo map, workflow,
   golden updates, quality gate.
 * [`docs/STATUS.md`](docs/STATUS.md) — P0–P7 implementation matrix and honest
   open items; blueprint §18 Alpha checklist.
 * [`docs/adr/`](docs/adr/) — accepted decisions (crate graph, inert executables,
-  `ref` ambiguity, strict refusal, AST normalization, CLI contract, BigInt/wire).
+  `ref` ambiguity, strict refusal, AST normalization, CLI contract, BigInt/wire,
+  package identity, callable resolution, plugin export routing, capability
+  broker, kernel providers).
 * Specs: [`markdown-profile.md`](spec/markdown-profile.md),
   [`mapping.md`](spec/mapping.md), [`expression.ebnf`](spec/expression.ebnf),
   [`evaluation.md`](spec/evaluation.md), [`references.md`](spec/references.md),
   [`value-wire.md`](spec/value-wire.md), [`security.md`](spec/security.md),
   [`package-format.md`](spec/package-format.md),
   [`plugin-abi.md`](spec/plugin-abi.md), [`math.md`](spec/math.md),
-  [`foreign.md`](spec/foreign.md).
+  [`foreign.md`](spec/foreign.md), [`tool-v1.md`](spec/tool-v1.md).
 * [`tests/README.md`](tests/README.md) — conformance corpus and `UPDATE_GOLDENS`
   workflow.
 

@@ -9,6 +9,32 @@ report, not a promise. "Done" means implemented **for the documented subset**
 and covered by tests; it does not mean the blueprint's full ambition is
 complete.
 
+> **M0.6 planning cross-reference (2026-11-20)**: this file is the M0.5 evidence
+> snapshot that the M0.6 audit was based on. Read
+> [`docs/EXTENSIBILITY_AUDIT.md`](EXTENSIBILITY_AUDIT.md) (issues E01–E16) and
+> the proposed [`docs/NEXT_PHASE_IMPLEMENTATION.md`](NEXT_PHASE_IMPLEMENTATION.md)
+> alongside it. The plan does not claim any gap below is fixed. Per audit item
+> E14, where this snapshot conflicts with the current tree (for example the CI
+> workflow, console capability or `check --refs`), verify the source/tests at
+> the current HEAD and update this table rather than trusting stale prose.
+
+### R0 baseline record
+
+At the M0.6 planning baseline (`0116160399fda6df69a72da438e04b0072566b0f`,
+2026-11-20), the local gate passed before any M0.6 code change:
+
+```text
+cargo fmt --all -- --check                          ok
+cargo clippy --workspace --all-targets -- -D warnings  ok
+cargo test --workspace                              ok (150 AST + 36 semantic
+                                                    + 48 compile-error fixtures)
+```
+
+CI evidence: `.github/workflows/ci.yml` runs the same Linux x86_64 gate plus CLI
+example smoke tests. The R0 ADRs are `docs/adr/0008`–`0012` (package identity,
+callable resolution, plugin export routing, capability broker, kernel
+providers).
+
 Reproduce the evidence:
 
 ```bash
@@ -124,7 +150,8 @@ and `crates/cli/tests`.
 * **Strict mode cannot run at all**: no OS isolation adapter (Linux
   namespaces/seccomp/cgroups, Windows Job Object/appcontainer, macOS sandbox)
   and `worker_processes: false`; `run --mode strict` exits 1 (ADR-0004).
-* `console` capability is always on; `print` is not capability-checked.
+* `console` is a capability checked in `op_print`; it is granted by default in
+  `pure`/`project` mode and is not a bypass of the capability boundary.
 * Network capability (`net_hosts`, `check_net`) exists but no host operation
   performs network I/O and there is no `--allow-net` flag.
 * Write-path symlink TOCTOU caveat (`spec/security.md` §2.1); symlink/race
@@ -171,9 +198,9 @@ and `crates/cli/tests`.
 
 * Performance work is untouched: no benchmark suite, no bytecode backend or
   differential tests against the tree-walker, no parse/compile caching.
-* No CI workflows (`.github/` is empty of workflow files); no
-  Windows/macOS/Linux matrix, sanitizers/fuzz gates, signing, release
-  automation or supply-chain scanning.
+* CI exists (`.github/workflows/ci.yml`) and runs fmt/clippy/workspace tests
+  plus CLI smoke tests on Linux x86_64; missing: Windows/macOS matrix,
+  sanitizers/fuzz gates, signing, release automation or supply-chain scanning.
 * No published version, no compatibility matrix beyond the frozen ABI/format
   documents.
 
@@ -211,7 +238,7 @@ end-to-end pipeline (P7).
   applies when displaying values.
 * Math is a limited exact-rational calculator, not a CAS or a prover.
 * Foreign kernels are optional, one-shot, unsandboxed child processes.
-* `fmt` is minimal; `check` does not yet validate Markdown links; link-form
-  calls cannot cross modules.
+* `fmt` is minimal; plain `check` does not validate Markdown links (only
+  `check --refs` does); link-form calls cannot cross modules.
 * Package management is path-only in practice; `marqdo.yaml` capabilities are
   requests, never grants.
