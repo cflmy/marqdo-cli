@@ -76,10 +76,14 @@ pub struct ResourceRead {
     pub eof: bool,
 }
 
+struct StdinCursor {
+    bytes: Vec<u8>,
+    position: usize,
+}
+
 enum Stream {
     Stdin {
-        bytes: Vec<u8>,
-        position: usize,
+        cursor: Arc<Mutex<StdinCursor>>,
         closed: bool,
     },
     Stdout {
@@ -135,6 +139,7 @@ pub struct ResourceTable {
     run_id: u64,
     next_resource: u64,
     slots: BTreeMap<u64, Slot>,
+    stdin: Arc<Mutex<StdinCursor>>,
 }
 
 impl Default for ResourceTable {
@@ -150,6 +155,10 @@ impl ResourceTable {
             run_id: NEXT_RUN_ID.fetch_add(1, Ordering::Relaxed),
             next_resource: 1,
             slots: BTreeMap::new(),
+            stdin: Arc::new(Mutex::new(StdinCursor {
+                bytes: Vec::new(),
+                position: 0,
+            })),
         }
     }
 
@@ -168,14 +177,18 @@ impl ResourceTable {
         self.insert(Stream::Stderr { closed: false })
     }
 
-    /// Register a run-scoped stdin stream over already supplied bytes.
+    /// Set the run-scoped stdin bytes at assembly time.
     ///
-    /// The host supplies bytes at assembly time; `read` chunks them with EOF.
-    /// There is no blocking OS read and no hidden second input channel here.
-    pub fn open_stdin(&mut self, bytes: Vec<u8>) -> ResourceHandle {
+    /// All `stdio/stdin` handles share this cursor so repeated console reads
+    /// continue through the input instead of restarting at byte zero.
+    pub fn set_stdin(&mut self, bytes: Vec<u8>) {
+        self.stdin = Arc::new(Mutex::new(StdinCursor { bytes, position: 0 }));
+    }
+
+    /// Register a read-only handle over the run-scoped stdin cursor.
+    pub fn open_stdin(&mut self) -> ResourceHandle {
         self.insert(Stream::Stdin {
-            bytes,
-            position: 0,
+            cursor: Arc::clone(&self.stdin),
             closed: false,
         })
     }
@@ -312,10 +325,18 @@ impl ResourceTable {
             ));
         }
         match &mut slot.stream {
-            Stream::Stdin {
-                bytes, position, ..
+            Stream::Stdin { cursor, .. } => {
+                let mut cursor = cursor.lock().map_err(|_| stdin_lock_error(span))?;
+                let start = cursor.position;
+                let end = start.saturating_add(max_bytes).min(cursor.bytes.len());
+                let chunk = cursor.bytes[start..end].to_vec();
+                cursor.position = end;
+                Ok(ResourceRead {
+                    bytes: chunk,
+                    eof: end >= cursor.bytes.len(),
+                })
             }
-            | Stream::File {
+            Stream::File {
                 bytes, position, ..
             } => {
                 let start = *position;
@@ -524,6 +545,14 @@ fn provider_lock_error(span: Option<Span>) -> RuntimeError {
     )
 }
 
+fn stdin_lock_error(span: Option<Span>) -> RuntimeError {
+    RuntimeError::new(
+        ErrorCategory::HostError,
+        span,
+        "stdin cursor lock is poisoned",
+    )
+}
+
 fn unknown_handle(span: Option<Span>) -> RuntimeError {
     RuntimeError::new(
         ErrorCategory::ResourceFault,
@@ -601,7 +630,8 @@ mod tests {
     #[test]
     fn stdin_reads_are_chunked_and_end_at_eof() {
         let mut table = ResourceTable::new();
-        let stdin = table.open_stdin(b"ab".to_vec());
+        table.set_stdin(b"ab".to_vec());
+        let stdin = table.open_stdin();
         assert_eq!(
             table.read(stdin, 1, None).unwrap(),
             ResourceRead {

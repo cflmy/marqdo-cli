@@ -203,8 +203,6 @@ pub struct StdHost {
     broker_audit: Arc<Mutex<Vec<CapabilityAudit>>>,
     /// Host-issued opaque plugin handles.
     pub handles: PluginHandleTable,
-    /// Run-scoped stdin bytes supplied by the composition root.
-    stdin: Vec<u8>,
     /// Program stderr captured separately from stdout and diagnostics.
     stderr: Vec<u8>,
     /// Host-owned resource/stream table (ADR-0025).
@@ -271,7 +269,6 @@ impl StdHost {
             vendor_capabilities: BTreeSet::new(),
             broker_audit: Arc::new(Mutex::new(Vec::new())),
             handles: PluginHandleTable::default(),
-            stdin: Vec::new(),
             stderr: Vec::new(),
             resources: ResourceTable::new(),
             resource_providers: BTreeMap::new(),
@@ -487,7 +484,7 @@ impl StdHost {
     /// This does not start a thread, spawn a process or read a hidden second
     /// channel. A program reads these bytes only through `stdio/stdin`.
     pub fn with_stdin(mut self, bytes: impl Into<Vec<u8>>) -> Self {
-        self.stdin = bytes.into();
+        self.resources.set_stdin(bytes.into());
         self
     }
 
@@ -795,7 +792,7 @@ impl StdHost {
                     ));
                 }
                 let handle = match descriptor {
-                    "stdin" => self.resources.open_stdin(self.stdin.clone()),
+                    "stdin" => self.resources.open_stdin(),
                     "stderr" => self.resources.open_stderr(),
                     "stdout" => self.resources.open_stdout(),
                     _ => unreachable!(),
