@@ -1,0 +1,22 @@
+# Woodpecker CI pipeline for the Rust workspace.
+# The strict security lane needs a disposable VM/self-hosted runner and is
+# intentionally not part of this docker pipeline; see docs/security-vm.md.
+when:
+  event: [push, pull_request]
+
+steps:
+  test:
+    image: rust:1.100-bookworm
+    commands:
+      - rustup component add clippy
+      - cargo fmt --all -- --check
+      - cargo clippy --workspace --all-targets -- -D warnings
+      - cargo test --workspace --locked
+
+  build:
+    image: rust:1.100-bookworm
+    depends_on: [test]
+    commands:
+      - cargo build --release --locked -p marqdo-cli
+    artifacts:
+      - target/release/marqdo

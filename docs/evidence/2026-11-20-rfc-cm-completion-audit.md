@@ -19,7 +19,7 @@ checked-in evidence. It also states exactly what remains external.
 | CM-A07 Compat-B/C print migration | **PASS** | ADR-0030/0031; `print_routing.rs`, `conformance_semantics`, `HostOp::Print` removed |
 | CM-A08 Table semantics | **PASS local** | ADR-0032; `stdlib/data/table.mq.md`, `stdlib_table.rs`, fixture 72 cross-storage, `转GFM` |
 | CM-A09 provider ABI | **PASS local** | ADR-0033 in-process, ADR-0035 worker helper, ADR-0036 C ABI, ADR-0037 package manifest, ADR-0038 C ABI worker binding; host/provider tests |
-| CM-A10 offline stdlib packaging | **PASS local** | bundled tree + digest + Analysis identity + frozen binary; deterministic offline archive; external repository publication remains external |
+| CM-A10 offline stdlib packaging | **PASS local** | bundled tree + digest + Analysis identity + frozen binary; deterministic offline archive; stdlib stays in-repo by design (ADR-0039) |
 | CM-A11 strict resource verification | **PASS (VM)** | strict lane at `70d916d`: 7/7 adversarial, Compat-C print, file/TCP/provider refusal, `--allow-net` rejection, forged marker; [evidence](2026-11-20-strict-resource-cm-a11.md) |
 | P4 table logical/physical | **PASS local** | row-store vs columnar fixture 72; GFM render; no Rust table algorithm |
 | P5 provider/TCP/HTTP | **PASS local** | in-process/worker/C provider, IP-literal TCP, `.mq.md` HTTP framing + loopback HTTP over TCP |
@@ -44,9 +44,10 @@ evidence, `12be02e` P4/P5 gates, `01f6fe4` worker provider, `b22a89e` C ABI,
 1. **No GitHub credentials / remote CI URL.** Windows/macOS native lanes and a
    self-hosted G-C CI URL cannot be produced from this host. Strict evidence is
    local VM evidence, not CI-signed.
-2. **No separate external `marqdo-stdlib` repository publication.** The
-   deterministic offline package and digest contract exist; publishing/signing
-   the external repo is outside this host.
+2. **The stdlib is intentionally in-repo for now** (ADR-0039). The
+   deterministic offline package and digest contract are extraction-ready;
+   creating/publishing a separate repository is deferred until a documented
+   trigger (size, independent cadence, multi-consumer versioning) occurs.
 3. **Existing plugin-Worker ABI provider binding** is not implemented; provider
    ABI is delivered via ADR-0033/0035/0036/0037/0038.
 4. **P6 optimizer/backends** are not implemented; only a reproducible baseline

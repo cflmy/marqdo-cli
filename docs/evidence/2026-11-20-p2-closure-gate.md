@@ -63,7 +63,7 @@ the fixed CLI hash and stdlib tamper rejection (ADR-0028).
 
 ## Remaining (not a C01–C12 gap)
 
-* Publication of `marqdo-stdlib` as a separate external repository with a
-  signed version mapping; the bundled tree, digest and offline layout are
-  already tested in-repo.
+* The stdlib is intentionally in-repo for now (ADR-0039); a separate
+  repository with a signed version mapping is a future extraction option, not
+  a P2 gate. The bundled tree, digest and offline layout are tested in-repo.
 * No GitHub CI URL / Windows/macOS lanes from this host.

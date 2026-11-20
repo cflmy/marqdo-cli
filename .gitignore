@@ -20,3 +20,7 @@ dist/
 
 # Local VM/QEMU tooling and disk images
 .tools/
+
+# Local-only credentials and environment files
+.secrets/
+.env.local

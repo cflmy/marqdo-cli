@@ -5,7 +5,7 @@ Repository: `marqdo-cli`
 Baseline: `e985da2` plus this step's changes.
 Related: [ADR-0028](../adr/0028-bundled-stdlib-and-std-imports.md),
 [STATUS §5](../STATUS.md).
-Scope: packaging artifact for the future external repository; no CLI command.
+Scope: packaging artifact for an optional future extraction; no CLI command.
 
 ## Artifact
 
@@ -33,9 +33,9 @@ reproducible inputs.
 
 ## Boundary
 
-This does **not** publish the separate `marqdo-stdlib` repository or sign a
-release; no GitHub credentials/remote is available from this host. It gives the
-future external repository a deterministic archive layout and digest contract.
+This does **not** publish a separate `marqdo-stdlib` repository. ADR-0039
+intentionally keeps the stdlib in this repository for now; the archive is
+maintained as extraction-ready output for a later, trigger-driven split.
 
 The in-repo CLI still uses the bundled `stdlib/` tree with digest verification
 and the frozen-binary closure test (ADR-0028); this archive is not loaded by

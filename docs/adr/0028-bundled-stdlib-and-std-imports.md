@@ -21,8 +21,9 @@ standard library that ordinary projects can use offline needs:
 
 The RFC requires the official distribution to carry a tested stdlib version
 offline, while allowing independent releases. This ADR freezes the **bundled
-first slice**; it does not create the external `cflmy/marqdo-stdlib`
-repository or a public publishing workflow.
+first slice**. A separate `marqdo-stdlib` repository is intentionally deferred
+by ADR-0039: the bundle stays in this repository while the architecture is
+small and clear; the deterministic package remains extraction-ready.
 
 ## Decision
 
@@ -115,8 +116,8 @@ version and the CLI's compatibility table before release.
 
 ## Non-goals
 
-* Creating/publishing the external `cflmy/marqdo-stdlib` repository or a
-  package registry entry.
+* Creating/publishing a separate `cflmy/marqdo-stdlib` repository now; see
+  ADR-0039 for the deliberate deferral and future extraction triggers.
 * Automatic download/update, Git fetching, or manifest-driven stdlib
   installation.
 * A second plugin/provider system or a second module search path.
