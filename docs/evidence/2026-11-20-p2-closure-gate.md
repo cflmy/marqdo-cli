@@ -12,7 +12,7 @@ publication remains separate.
 
 ## Lane
 
-`crates/cli/tests/p2_closure.rs` runs 20 checked-in semantic fixtures through
+`crates/cli/tests/p2_closure.rs` runs 21 checked-in semantic fixtures through
 the real CLI with `run --mode pure --json`:
 
 * `--mode pure` constructs `Capabilities::pure()`; no foreign, plugin, read,

@@ -191,7 +191,7 @@ its descriptor is checked in under `docs/evidence/`).
 `tools/perf/bench.py` is the P6 baseline harness (not a test; it is not part of
 the cargo gate).
 
-`crates/cli/tests/p2_closure.rs`: 20 semantic fixtures run through
+`crates/cli/tests/p2_closure.rs`: 21 semantic fixtures run through
 `run --mode pure --json`, sources are scanned for foreign/plugin/import
 shortcuts, and value/stdout are compared with the goldens; the stdlib table
 self-test also runs in pure mode.
