@@ -38,7 +38,7 @@ cargo fmt --all -- --check                            PASS
 cargo clippy --workspace --all-targets -- -D warnings PASS
 cargo test --workspace                                PASS
 cargo test -p marqdo-cli --test conformance_ast       PASS (4 tests)
-cargo test -p marqdo-cli --test integration_cli       PASS (22 tests)
+cargo test -p marqdo-cli --test integration_cli       PASS (23 tests)
 cargo test -p marqdo-cli --test plugin_worker         PASS (4 tests)
 cargo test -p marqdo-foreign --test provider          PASS (8 tests)
 ```
@@ -62,7 +62,7 @@ runs.
 | 1 | macOS native plugin fixtures | **Fixed locally, macOS CI UNVERIFIED** | host-target manifest + dylib flags, foreign-target/tamper/ABI tests PASS |
 | 2 | Status/docs reconcile | **Done** | this file, `COMPATIBILITY.md`, `CHANGELOG.md`, `docs/releasing.md`, `docs/security-gate.md` |
 | 3 | Package lock v3 reproducibility | **Implemented; targeted audit pending** | ADR-0016, `cargo test -p marqdo-cli --test package_env` PASS |
-| 4 | Analysis/Trace/Tool protocol | **Implemented; consumers PASS locally** | schemas + `tests/consumers/*.py`, `analysis_trace`/`tool_protocol` PASS |
+| 4 | Analysis/Trace/Tool protocol | **Implemented; consumers PASS locally** | schemas + `tests/consumers/*.py`, `analysis_trace`/`tool_protocol` PASS; `check_never_spawns_a_foreign_kernel` PASS |
 | 5 | Foreign pinned environment | **Done (ADR-0020)** | provider tests PASS; env binds interpreter; version drift rejected |
 | 6 | ABI session/broker hardening | **Partial** | `fs.read` bridge + budgets + handle tests PASS; Windows ABI unsupported; broader services still `capability.unavailable` |
 | 7 | Linux strict probe | **Done as fail-closed evidence** | `docs/security-gate.md`; userns/bwrap EPERM, cgroup ro, sudo blocked |

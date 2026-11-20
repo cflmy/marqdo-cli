@@ -21,6 +21,8 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   `PATH`, and `interpreter_version` is verified before execution.
 - Release documentation (`COMPATIBILITY.md`, `docs/releasing.md`) and the
   Linux security-gate evidence report (`docs/security-gate.md`).
+- `check_never_spawns_a_foreign_kernel`: proves static `check` does not spawn a
+  declared Foreign provider, while `run` on the same document does.
 
 ### Changed
 

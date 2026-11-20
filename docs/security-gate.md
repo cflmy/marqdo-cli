@@ -28,6 +28,11 @@ bwrap --unshare-user --unshare-net --ro-bind / / true
 sudo -n true
   -> sudo: The "no new privileges" flag is set, which prevents sudo from
      running as root (exit 1)
+capsh --print
+  -> Current: =            (no effective capabilities)
+  -> Bounding set = cap_sys_admin, ... (not effective; no-new-privs=1)
+unshare --mount true / --pid --fork true / --net true
+  -> Operation not permitted (exit 1 each)
 ```
 
 The workspace root is writable, but the host root filesystem and cgroup2 mount

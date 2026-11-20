@@ -885,3 +885,66 @@ fn plugin_abi_major_mismatch_is_rejected_before_execution() {
         "plugin export must not run after an ABI mismatch"
     );
 }
+
+/// `check` is static: a document that would run a Foreign kernel must not spawn
+/// it or perform its side effect. The same document is then executed to prove
+/// the marker would appear if check were executing code.
+#[cfg(unix)]
+#[test]
+fn check_never_spawns_a_foreign_kernel() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = TempDir::new("check-no-exec");
+    let marker = dir.path().join("spawned.marker");
+    let provider = dir.path().join("mocklang");
+    fs::write(
+        &provider,
+        format!(
+            "#!/bin/sh\n: > '{}'\ncat >/dev/null\nprintf '%s' '{{\"type\":\"int\",\"decimal\":\"1\"}}'\n",
+            marker.display()
+        ),
+    )
+    .expect("write mock provider");
+    let mut permissions = fs::metadata(&provider)
+        .expect("provider metadata")
+        .permissions();
+    permissions.set_mode(0o700);
+    fs::set_permissions(&provider, permissions).expect("chmod provider");
+    let digest = hex::encode(sha2::Sha256::digest(
+        fs::read(&provider).expect("read provider"),
+    ));
+    dir.write(
+        "kernel.json",
+        &format!(
+            "{{\"provider_id\":\"mocklang\",\"languages\":[\"mocklang\"],\"wire_version\":1,\"entrypoint\":\"{}\",\"digest\":\"{digest}\"}}",
+            provider.display()
+        ),
+    );
+    dir.write(
+        "doc.mq.md",
+        "## 代码\n\n```mocklang\nignored\n```\n\n## main\n\n**值 = foreign.call(ref(\"#代码\"), {})**\n\n> 打印(值)\n",
+    );
+
+    let checked = cli(dir.path(), &["check", "doc.mq.md"]);
+    assert_exit(&checked, 0, "check must accept the static document");
+    assert!(
+        !marker.exists(),
+        "check spawned the Foreign kernel and produced a side effect"
+    );
+
+    let ran = cli(
+        dir.path(),
+        &[
+            "run",
+            "doc.mq.md",
+            "--kernel",
+            "kernel.json",
+            "--allow-foreign",
+        ],
+    );
+    assert_exit(&ran, 0, "run must execute the Foreign kernel");
+    assert!(
+        marker.exists(),
+        "run did not execute the provider; the no-execution assertion is vacuous"
+    );
+}
