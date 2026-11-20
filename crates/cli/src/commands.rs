@@ -502,6 +502,15 @@ pub fn execute(
         }
         return 1;
     }
+    let warnings: Vec<FileDiagnostic> = project
+        .diagnostics
+        .iter()
+        .filter(|item| !item.diagnostic.is_error())
+        .cloned()
+        .collect();
+    if !json && !warnings.is_empty() {
+        eprint!("{}", output::render_text(&warnings));
+    }
     let mode = match settings.sandbox_mode() {
         Ok(mode) => mode,
         Err(error) => {
@@ -584,6 +593,7 @@ pub fn execute(
                     "success": true,
                     "value": marqdo_value::to_wire(&outcome.value),
                     "stdout": stdout_text,
+                    "diagnostics": output::diagnostics_json(&project.diagnostics),
                     "trace": trace_entries,
                 }));
             } else {
