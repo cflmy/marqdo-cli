@@ -430,14 +430,20 @@ pub(crate) fn dispatch(
             )?;
             let available = interpreter.memory().byte_len(memory, span)?;
             let start = non_negative_usize(&offset_value, "resource.read offset", span)?;
-            if start >= available {
+            if start > available {
                 return Err(RuntimeError::new(
                     ErrorCategory::IndexOutOfBounds,
                     span,
-                    format!("resource.read offset {start} is at or beyond the Memory length {available}"),
+                    format!("resource.read offset {start} is beyond the Memory length {available}"),
                 ));
             }
-            let limit = max_bytes.min(available - start);
+            // Offset == length is a valid EOF probe. Ask for one byte so a
+            // provider can report EOF without a zero-length read ambiguity.
+            let limit = if start == available {
+                1
+            } else {
+                max_bytes.min(available - start)
+            };
             let result = interpreter.resource_read(handle, limit, &module, span);
             match result {
                 Ok(read) => {

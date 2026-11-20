@@ -203,6 +203,10 @@ pub struct StdHost {
     broker_audit: Arc<Mutex<Vec<CapabilityAudit>>>,
     /// Host-issued opaque plugin handles.
     pub handles: PluginHandleTable,
+    /// Run-scoped stdin bytes supplied by the composition root.
+    stdin: Vec<u8>,
+    /// Program stderr captured separately from stdout and diagnostics.
+    stderr: Vec<u8>,
     /// Host-owned resource/stream table (ADR-0025).
     resources: ResourceTable,
     /// Registered in-process providers keyed by resource kind (ADR-0033).
@@ -267,6 +271,8 @@ impl StdHost {
             vendor_capabilities: BTreeSet::new(),
             broker_audit: Arc::new(Mutex::new(Vec::new())),
             handles: PluginHandleTable::default(),
+            stdin: Vec::new(),
+            stderr: Vec::new(),
             resources: ResourceTable::new(),
             resource_providers: BTreeMap::new(),
             semantic_events: Vec::new(),
@@ -474,6 +480,25 @@ impl StdHost {
     /// Buffered program output without consuming it.
     pub fn output(&self) -> &[u8] {
         &self.output
+    }
+
+    /// Attach run-scoped stdin bytes at assembly time (composition root).
+    ///
+    /// This does not start a thread, spawn a process or read a hidden second
+    /// channel. A program reads these bytes only through `stdio/stdin`.
+    pub fn with_stdin(mut self, bytes: impl Into<Vec<u8>>) -> Self {
+        self.stdin = bytes.into();
+        self
+    }
+
+    /// Buffered program stderr without consuming it.
+    pub fn error(&self) -> &[u8] {
+        &self.stderr
+    }
+
+    /// Take buffered program stderr.
+    pub fn take_error(&mut self) -> Vec<u8> {
+        std::mem::take(&mut self.stderr)
     }
 
     fn dispatch(
@@ -728,7 +753,8 @@ impl StdHost {
         let requested: BTreeSet<&str> = rights.iter().map(String::as_str).collect();
         if self.mode == SandboxMode::Strict {
             // stdio/stdout is the existing console channel already permitted by
-            // strict L1 (CM-A11); file/network/process providers are not.
+            // strict L1 (CM-A11); stdin, stderr, file/network/process providers
+            // are not, because strict isolation has not been proven for them.
             let stdio_console =
                 kind == "stdio" && descriptor == "stdout" && requested == BTreeSet::from(["write"]);
             if !stdio_console {
@@ -749,27 +775,37 @@ impl StdHost {
         }
         match kind {
             "stdio" => {
-                if descriptor != "stdout" || requested != BTreeSet::from(["write"]) {
+                let allowed = match descriptor {
+                    "stdout" | "stderr" => requested == BTreeSet::from(["write"]),
+                    "stdin" => requested == BTreeSet::from(["read"]),
+                    _ => false,
+                };
+                if !allowed {
                     return Err(RuntimeError::new(
                         ErrorCategory::ResourceUnsupported,
                         ctx.span,
-                        "the first stream slice supports only stdio/stdout with rights [write]",
+                        "stdio supports stdout/stderr with rights [write] and stdin with rights [read]",
                     ));
                 }
                 if !self.capabilities.console {
                     return Err(RuntimeError::new(
                         ErrorCategory::PermissionDenied,
                         ctx.span,
-                        "the console capability is required for stdio/stdout",
+                        "the console capability is required for stdio resources",
                     ));
                 }
-                let handle = self.resources.open_stdout();
+                let handle = match descriptor {
+                    "stdin" => self.resources.open_stdin(self.stdin.clone()),
+                    "stderr" => self.resources.open_stderr(),
+                    "stdout" => self.resources.open_stdout(),
+                    _ => unreachable!(),
+                };
                 self.record_semantic(
                     "resource.open",
                     None,
                     Some(&ctx.module_id),
                     ctx.span,
-                    Some("kind=stdio descriptor=stdout"),
+                    Some(&format!("kind=stdio descriptor={descriptor}")),
                 );
                 self.record_resource_effect("resource.open", ctx, started, "ok");
                 Ok(Value::Resource(handle))
@@ -999,10 +1035,15 @@ impl Host for StdHost {
     ) -> Result<usize, RuntimeError> {
         let started = Instant::now();
         let kind = self.resources.kind(handle, ctx.span)?;
+        let stdio = self.resources.stdio_name(handle, ctx.span)?;
         let count = self.resources.write(handle, bytes, ctx.span)?;
         if kind == "stdio" {
             self.budget.consume_output(count, ctx.span)?;
-            self.output.extend_from_slice(bytes);
+            if stdio == Some("stderr") {
+                self.stderr.extend_from_slice(&bytes[..count]);
+            } else {
+                self.output.extend_from_slice(&bytes[..count]);
+            }
         }
         self.record_semantic(
             "resource.write",

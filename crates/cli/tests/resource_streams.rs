@@ -1,7 +1,8 @@
 //! End-to-end resource stream tests through the CLI.
 
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 
 struct TempDir(PathBuf);
 
@@ -31,6 +32,24 @@ fn cli(dir: &Path, args: &[&str]) -> Output {
         .current_dir(dir)
         .output()
         .expect("run marqdo")
+}
+
+fn cli_with_stdin(dir: &Path, args: &[&str], input: &[u8]) -> Output {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_marqdo"))
+        .args(args)
+        .current_dir(dir)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn marqdo");
+    child
+        .stdin
+        .take()
+        .expect("stdin pipe")
+        .write_all(input)
+        .expect("write stdin");
+    child.wait_with_output().expect("wait for marqdo")
 }
 
 fn write_file(path: &Path, contents: &str) {
@@ -294,4 +313,96 @@ fn file_stream_requires_a_read_grant() {
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
     assert_eq!(report["success"], false);
     assert_eq!(report["error"]["code"], "permission.denied");
+}
+
+const STDIN_READER: &str = r#"## main
+
+**输入 = resource.open("stdio", "stdin", ["read"])**
+
+**内存 = memory.new(1, 1)**
+
+**第一 = resource.read(输入, 内存, 0, 2)**
+
+**第二 = resource.read(输入, 内存, 2, 8)**
+
+**第三 = resource.read(输入, 内存, 0, 1)**
+
+*[第一.value.count, 第一.value.eof, 第二.value.count, 第二.value.eof, 第三.value.eof, 内存[0], 内存[1], 内存[2], 内存[3]]*
+"#;
+
+#[test]
+fn piped_stdin_is_chunked_and_reaches_eof() {
+    let dir = TempDir::new("stdin");
+    write_file(&dir.path().join("index.mq.md"), STDIN_READER);
+    let output = cli_with_stdin(dir.path(), &["run", "index.mq.md", "--json"], b"abcd");
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
+    assert_eq!(report["success"], true);
+    let values = report["value"]["items"].as_array().expect("list result");
+    assert_eq!(values[0]["decimal"], "2");
+    assert_eq!(values[1]["value"], false);
+    assert_eq!(values[2]["decimal"], "2");
+    assert_eq!(values[3]["value"], true);
+    assert_eq!(values[4]["value"], true);
+    for (index, expected) in ["97", "98", "99", "100"].into_iter().enumerate() {
+        assert_eq!(values[5 + index]["decimal"], expected);
+    }
+}
+
+const STDERR_WRITER: &str = r#"## main
+
+**错误 = resource.open("stdio", "stderr", ["write"])**
+
+**输出 = resource.open("stdio", "stdout", ["write"])**
+
+**内存 = memory.new(1, 1)**
+
+**`内存[0] = 101`**
+
+**`内存[1] = 114`**
+
+**`内存[2] = 114`**
+
+**写错误 = resource.write(错误, 内存, 0, 3)**
+
+**`内存[0] = 111`**
+
+**`内存[1] = 117`**
+
+**`内存[2] = 116`**
+
+**写输出 = resource.write(输出, 内存, 0, 3)**
+
+**关闭错误 = resource.close(错误)**
+
+**关闭输出 = resource.close(输出)**
+
+*[写错误.value.count, 写输出.value.count, 关闭错误.ok, 关闭输出.ok]*
+"#;
+
+#[test]
+fn program_stderr_is_separate_from_stdout_and_diagnostics() {
+    let dir = TempDir::new("stderr");
+    write_file(&dir.path().join("index.mq.md"), STDERR_WRITER);
+    let output = cli(dir.path(), &["run", "index.mq.md", "--json"]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
+    assert_eq!(report["success"], true);
+    assert_eq!(report["stdout"], "out");
+    assert_eq!(report["stderr"], "err");
+    let values = report["value"]["items"].as_array().expect("list result");
+    assert_eq!(values[0]["decimal"], "3");
+    assert_eq!(values[1]["decimal"], "3");
+    assert_eq!(values[2]["value"], true);
+    assert_eq!(values[3]["value"], true);
 }

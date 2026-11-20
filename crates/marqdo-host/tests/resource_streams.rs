@@ -54,6 +54,63 @@ fn stdout_write_obeys_the_output_budget_atomically() {
 }
 
 #[test]
+fn pure_mode_reads_stdin_through_a_resource() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(SandboxMode::Pure, Capabilities::pure(), dir.path())
+        .with_stdin(b"abcd".to_vec());
+    let ctx = context();
+    let handle = handle(
+        host.resource_open("stdio", "stdin", &["read".to_string()], &ctx)
+            .unwrap(),
+    );
+    let first = host.resource_read(handle, 2, &ctx).unwrap();
+    assert_eq!(first.bytes, b"ab");
+    assert!(!first.eof);
+    let rest = host.resource_read(handle, 8, &ctx).unwrap();
+    assert_eq!(rest.bytes, b"cd");
+    assert!(rest.eof);
+    assert_eq!(host.resource_read(handle, 1, &ctx).unwrap().bytes, b"");
+
+    let write = host.resource_write(handle, b"x", &ctx).unwrap_err();
+    assert_eq!(write.code(), "resource.unsupported");
+}
+
+#[test]
+fn stdout_and_stderr_are_captured_separately() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(SandboxMode::Pure, Capabilities::pure(), dir.path());
+    let ctx = context();
+    let stdout = handle(
+        host.resource_open("stdio", "stdout", &["write".to_string()], &ctx)
+            .unwrap(),
+    );
+    let stderr = handle(
+        host.resource_open("stdio", "stderr", &["write".to_string()], &ctx)
+            .unwrap(),
+    );
+    assert_eq!(host.resource_write(stdout, b"out", &ctx).unwrap(), 3);
+    assert_eq!(host.resource_write(stderr, b"err", &ctx).unwrap(), 3);
+    assert_eq!(host.output(), b"out");
+    assert_eq!(host.error(), b"err");
+    assert_eq!(host.take_output(), b"out");
+    assert_eq!(host.take_error(), b"err");
+}
+
+#[test]
+fn strict_mode_refuses_stdin_and_stderr() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(SandboxMode::Strict, Capabilities::pure(), dir.path())
+        .with_stdin(b"x".to_vec());
+    let ctx = context();
+    for (descriptor, rights) in [("stdin", "read"), ("stderr", "write")] {
+        let error = host
+            .resource_open("stdio", descriptor, &[rights.to_string()], &ctx)
+            .unwrap_err();
+        assert_eq!(error.category, ErrorCategory::PermissionDenied);
+    }
+}
+
+#[test]
 fn strict_mode_allows_only_the_existing_stdio_console_channel() {
     let dir = tempfile::tempdir().unwrap();
     let mut host = StdHost::new(SandboxMode::Strict, Capabilities::pure(), dir.path());

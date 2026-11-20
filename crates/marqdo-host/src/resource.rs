@@ -1,8 +1,9 @@
 //! Host-owned resource/stream table (ADR-0025).
 //!
-//! The first slice deliberately supports only stdout writes and bounded
-//! project-file reads loaded at open. Handles are run-scoped and opaque; the
-//! table validates run identity, slot identity and generation on every call.
+//! The stream table owns run-scoped stdio endpoints, bounded project-file
+//! read/write streams, explicitly registered provider tokens and IP-literal TCP
+//! streams. Handles are opaque and the table validates run identity, slot
+//! identity and generation on every call. Bytes move only through `Memory`.
 
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
@@ -76,7 +77,15 @@ pub struct ResourceRead {
 }
 
 enum Stream {
+    Stdin {
+        bytes: Vec<u8>,
+        position: usize,
+        closed: bool,
+    },
     Stdout {
+        closed: bool,
+    },
+    Stderr {
         closed: bool,
     },
     File {
@@ -110,7 +119,9 @@ struct Slot {
 impl Slot {
     fn closed(&self) -> bool {
         match &self.stream {
+            Stream::Stdin { closed, .. } => *closed,
             Stream::Stdout { closed } => *closed,
+            Stream::Stderr { closed } => *closed,
             Stream::File { closed, .. } => *closed,
             Stream::FileWriter { closed, .. } => *closed,
             Stream::Provider { closed, .. } => *closed,
@@ -150,6 +161,39 @@ impl ResourceTable {
     /// Register the pre-opened stdout stream.
     pub fn open_stdout(&mut self) -> ResourceHandle {
         self.insert(Stream::Stdout { closed: false })
+    }
+
+    /// Register the pre-opened stderr stream.
+    pub fn open_stderr(&mut self) -> ResourceHandle {
+        self.insert(Stream::Stderr { closed: false })
+    }
+
+    /// Register a run-scoped stdin stream over already supplied bytes.
+    ///
+    /// The host supplies bytes at assembly time; `read` chunks them with EOF.
+    /// There is no blocking OS read and no hidden second input channel here.
+    pub fn open_stdin(&mut self, bytes: Vec<u8>) -> ResourceHandle {
+        self.insert(Stream::Stdin {
+            bytes,
+            position: 0,
+            closed: false,
+        })
+    }
+
+    /// Return the stdio descriptor name for a handle, if it is a stdio stream.
+    pub fn stdio_name(
+        &self,
+        handle: ResourceHandle,
+        span: Option<Span>,
+    ) -> Result<Option<&'static str>, RuntimeError> {
+        let slot = self.slot(handle, span)?;
+        Ok(match &slot.stream {
+            Stream::Stdin { .. } => Some("stdin"),
+            Stream::Stdout { .. } => Some("stdout"),
+            Stream::Stderr { .. } => Some("stderr"),
+            Stream::File { .. } | Stream::FileWriter { .. } => None,
+            Stream::Provider { .. } | Stream::Tcp { .. } => None,
+        })
     }
 
     /// Register a project-file read stream opened from already-bounded bytes.
@@ -268,7 +312,10 @@ impl ResourceTable {
             ));
         }
         match &mut slot.stream {
-            Stream::File {
+            Stream::Stdin {
+                bytes, position, ..
+            }
+            | Stream::File {
                 bytes, position, ..
             } => {
                 let start = *position;
@@ -284,6 +331,11 @@ impl ResourceTable {
                 ErrorCategory::ResourceUnsupported,
                 span,
                 "stdout does not support resource.read",
+            )),
+            Stream::Stderr { .. } => Err(RuntimeError::new(
+                ErrorCategory::ResourceUnsupported,
+                span,
+                "stderr does not support resource.read",
             )),
             Stream::FileWriter { .. } => Err(RuntimeError::new(
                 ErrorCategory::ResourceUnsupported,
@@ -333,7 +385,12 @@ impl ResourceTable {
             ));
         }
         match &mut slot.stream {
-            Stream::Stdout { .. } => Ok(bytes.len()),
+            Stream::Stdout { .. } | Stream::Stderr { .. } => Ok(bytes.len()),
+            Stream::Stdin { .. } => Err(RuntimeError::new(
+                ErrorCategory::ResourceUnsupported,
+                span,
+                "stdin is a read-only resource stream",
+            )),
             Stream::File { relative, .. } => Err(RuntimeError::new(
                 ErrorCategory::ResourceUnsupported,
                 span,
@@ -396,7 +453,9 @@ impl ResourceTable {
             ));
         }
         match &mut slot.stream {
+            Stream::Stdin { closed, .. } => *closed = true,
             Stream::Stdout { closed } => *closed = true,
+            Stream::Stderr { closed } => *closed = true,
             Stream::File { closed, .. } => *closed = true,
             Stream::FileWriter { closed, .. } => *closed = true,
             Stream::Provider {
@@ -447,7 +506,9 @@ impl ResourceTable {
     pub fn kind(&self, handle: ResourceHandle, span: Option<Span>) -> Result<String, RuntimeError> {
         let slot = self.slot(handle, span)?;
         Ok(match &slot.stream {
-            Stream::Stdout { .. } => "stdio".to_string(),
+            Stream::Stdin { .. } | Stream::Stdout { .. } | Stream::Stderr { .. } => {
+                "stdio".to_string()
+            }
             Stream::File { .. } | Stream::FileWriter { .. } => "file".to_string(),
             Stream::Provider { kind, .. } => kind.clone(),
             Stream::Tcp { .. } => "tcp".to_string(),
@@ -534,6 +595,59 @@ mod tests {
         assert_eq!(
             table.write(file, b"x", None).unwrap_err().code(),
             "resource.unsupported"
+        );
+    }
+
+    #[test]
+    fn stdin_reads_are_chunked_and_end_at_eof() {
+        let mut table = ResourceTable::new();
+        let stdin = table.open_stdin(b"ab".to_vec());
+        assert_eq!(
+            table.read(stdin, 1, None).unwrap(),
+            ResourceRead {
+                bytes: b"a".to_vec(),
+                eof: false
+            }
+        );
+        assert_eq!(
+            table.read(stdin, 8, None).unwrap(),
+            ResourceRead {
+                bytes: b"b".to_vec(),
+                eof: true
+            }
+        );
+        assert_eq!(
+            table.read(stdin, 1, None).unwrap(),
+            ResourceRead {
+                bytes: Vec::new(),
+                eof: true
+            }
+        );
+        assert_eq!(
+            table.write(stdin, b"x", None).unwrap_err().code(),
+            "resource.unsupported"
+        );
+        table.close(stdin, None).unwrap();
+        assert_eq!(
+            table.read(stdin, 1, None).unwrap_err().code(),
+            "resource.closed"
+        );
+    }
+
+    #[test]
+    fn stderr_is_write_only() {
+        let mut table = ResourceTable::new();
+        let stderr = table.open_stderr();
+        assert_eq!(table.write(stderr, b"diagnostic", None).unwrap(), 10);
+        assert_eq!(
+            table.read(stderr, 1, None).unwrap_err().code(),
+            "resource.unsupported"
+        );
+        assert_eq!(table.stdio_name(stderr, None).unwrap(), Some("stderr"));
+        table.close(stderr, None).unwrap();
+        assert_eq!(
+            table.write(stderr, b"x", None).unwrap_err().code(),
+            "resource.closed"
         );
     }
 }

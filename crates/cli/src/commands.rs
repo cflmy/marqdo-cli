@@ -815,7 +815,8 @@ pub fn execute(
             return 2;
         }
     };
-    let mut host = StdHost::new(mode, capabilities, project.root.clone());
+    let stdin = read_stdin();
+    let mut host = StdHost::new(mode, capabilities, project.root.clone()).with_stdin(stdin);
     if trace || json || settings.trace_file.is_some() {
         host = host
             .with_trace()
@@ -935,6 +936,8 @@ pub fn execute(
     }
     let stdout = host.take_output();
     let stdout_text = String::from_utf8_lossy(&stdout).to_string();
+    let stderr = host.take_error();
+    let stderr_text = String::from_utf8_lossy(&stderr).to_string();
     let trace_entries = host.trace().to_vec();
     match result {
         Ok(outcome) => {
@@ -944,11 +947,15 @@ pub fn execute(
                     "success": true,
                     "value": marqdo_value::to_wire(&outcome.value),
                     "stdout": stdout_text,
+                    "stderr": stderr_text,
                     "diagnostics": output::diagnostics_json(&project.diagnostics),
                     "trace": trace_entries,
                 }));
             } else {
                 use std::io::Write;
+                if !stderr.is_empty() {
+                    let _ = std::io::stderr().write_all(&stderr);
+                }
                 let _ = std::io::stdout().write_all(&stdout);
                 if function.is_some() && outcome.value != Value::Unit {
                     println!("{}", outcome.value.display());
@@ -970,17 +977,40 @@ pub fn execute(
                     "command": command_name,
                     "success": false,
                     "stdout": stdout_text,
+                    "stderr": stderr_text,
                     "error": runtime_error_json(&error, &project),
                     "trace": trace_entries,
                 }));
             } else {
                 use std::io::Write;
+                if !stderr.is_empty() {
+                    let _ = std::io::stderr().write_all(&stderr);
+                }
                 let _ = std::io::stdout().write_all(&stdout);
                 eprint!("{}", render_runtime_error(&error, &project));
             }
             1
         }
     }
+}
+
+/// Read piped stdin once at the composition boundary.
+///
+/// A terminal stdin is not read, so `marqdo run` never blocks waiting for an
+/// interactive EOF. Non-terminal input is a finite pipe/file and is copied into
+/// the run-scoped `stdio/stdin` resource.
+fn read_stdin() -> Vec<u8> {
+    use std::io::{IsTerminal, Read};
+    let mut stdin = std::io::stdin();
+    if stdin.is_terminal() {
+        return Vec::new();
+    }
+    let mut bytes = Vec::new();
+    if let Err(error) = stdin.read_to_end(&mut bytes) {
+        eprintln!("error: cannot read stdin: {error}");
+        return Vec::new();
+    }
+    bytes
 }
 
 fn load_kernel_descriptor(host: &mut StdHost, path: &Path) -> Result<(), String> {
