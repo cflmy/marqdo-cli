@@ -10,8 +10,9 @@ authors.workspace = true
 
 [dependencies]
 marqdo-span = { workspace = true }
-marqdo-value = { workspace = true }
 marqdo-expression = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 
+
+[dev-dependencies]
+serde_json = { workspace = true }
