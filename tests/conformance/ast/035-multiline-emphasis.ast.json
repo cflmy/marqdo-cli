@@ -1,0 +1,50 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 15
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 15
+      },
+      "children": [
+        {
+          "kind": "emph",
+          "span": {
+            "start": 0,
+            "end": 15
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 1,
+                "end": 7
+              },
+              "literal": "多行"
+            },
+            {
+              "kind": "soft_break",
+              "span": {
+                "start": 7,
+                "end": 8
+              }
+            },
+            {
+              "kind": "text",
+              "span": {
+                "start": 8,
+                "end": 14
+              },
+              "literal": "斜体"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

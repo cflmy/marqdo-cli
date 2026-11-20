@@ -8,7 +8,11 @@ use marqdo_value::{ErrorCategory, RuntimeError};
 /// Default evaluation fuel for one run.
 pub const DEFAULT_FUEL: u64 = 5_000_000;
 /// Default call-stack depth.
-pub const DEFAULT_STACK_LIMIT: usize = 256;
+///
+/// Kept conservative so that the cooperative budget triggers a structured
+/// `resource.exhausted` error before a debug-build native Rust stack can
+/// overflow; the CLI exposes `--stack` for callers that need deeper recursion.
+pub const DEFAULT_STACK_LIMIT: usize = 128;
 /// Default program output limit (bytes).
 pub const DEFAULT_OUTPUT_BYTES: usize = 1 << 20;
 

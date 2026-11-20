@@ -1,0 +1,135 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 48
+  },
+  "children": [
+    {
+      "kind": "list",
+      "ordered": false,
+      "tight": true,
+      "span": {
+        "start": 0,
+        "end": 48
+      },
+      "children": [
+        {
+          "kind": "item",
+          "span": {
+            "start": 0,
+            "end": 36
+          },
+          "children": [
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 2,
+                "end": 8
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 2,
+                    "end": 8
+                  },
+                  "literal": "外层"
+                }
+              ]
+            },
+            {
+              "kind": "list",
+              "ordered": false,
+              "tight": true,
+              "span": {
+                "start": 11,
+                "end": 36
+              },
+              "children": [
+                {
+                  "kind": "item",
+                  "span": {
+                    "start": 11,
+                    "end": 22
+                  },
+                  "children": [
+                    {
+                      "kind": "paragraph",
+                      "span": {
+                        "start": 13,
+                        "end": 22
+                      },
+                      "children": [
+                        {
+                          "kind": "text",
+                          "span": {
+                            "start": 13,
+                            "end": 22
+                          },
+                          "literal": "内层一"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "item",
+                  "span": {
+                    "start": 25,
+                    "end": 36
+                  },
+                  "children": [
+                    {
+                      "kind": "paragraph",
+                      "span": {
+                        "start": 27,
+                        "end": 36
+                      },
+                      "children": [
+                        {
+                          "kind": "text",
+                          "span": {
+                            "start": 27,
+                            "end": 36
+                          },
+                          "literal": "内层二"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "item",
+          "span": {
+            "start": 37,
+            "end": 48
+          },
+          "children": [
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 39,
+                "end": 48
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 39,
+                    "end": 48
+                  },
+                  "literal": "外层二"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

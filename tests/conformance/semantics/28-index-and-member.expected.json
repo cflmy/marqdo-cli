@@ -1,0 +1,30 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "entries": {
+      "first": {
+        "decimal": "10",
+        "type": "int"
+      },
+      "key": {
+        "decimal": "2",
+        "type": "int"
+      },
+      "last": {
+        "decimal": "30",
+        "type": "int"
+      },
+      "member": {
+        "decimal": "42",
+        "type": "int"
+      },
+      "text": {
+        "type": "text",
+        "value": "好"
+      }
+    },
+    "type": "map"
+  }
+}

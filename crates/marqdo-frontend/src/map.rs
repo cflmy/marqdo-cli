@@ -475,7 +475,7 @@ impl<'a> Mapper<'a> {
             })
         } else if url.starts_with("http://") || url.starts_with("https://") {
             self.error_with_hint(
-                codes::MATH_UNSUPPORTED,
+                codes::REF_UNRESOLVED,
                 Some(span),
                 "external links cannot be called",
                 "link targets used as calls must resolve to a Marqdo function",

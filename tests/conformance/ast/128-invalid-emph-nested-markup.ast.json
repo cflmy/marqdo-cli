@@ -1,0 +1,79 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 17
+  },
+  "children": [
+    {
+      "kind": "heading",
+      "level": 2,
+      "setext": false,
+      "span": {
+        "start": 0,
+        "end": 4
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 3,
+            "end": 4
+          },
+          "literal": "f"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 6,
+        "end": 17
+      },
+      "children": [
+        {
+          "kind": "emph",
+          "span": {
+            "start": 6,
+            "end": 17
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 7,
+                "end": 9
+              },
+              "literal": "a "
+            },
+            {
+              "kind": "strong",
+              "span": {
+                "start": 9,
+                "end": 14
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 11,
+                    "end": 12
+                  },
+                  "literal": "b"
+                }
+              ]
+            },
+            {
+              "kind": "text",
+              "span": {
+                "start": 14,
+                "end": 16
+              },
+              "literal": " c"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

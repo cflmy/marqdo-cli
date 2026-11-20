@@ -1,0 +1,120 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 26
+  },
+  "children": [
+    {
+      "kind": "list",
+      "ordered": false,
+      "tight": true,
+      "span": {
+        "start": 0,
+        "end": 8
+      },
+      "children": [
+        {
+          "kind": "item",
+          "span": {
+            "start": 0,
+            "end": 8
+          },
+          "children": [
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 2,
+                "end": 8
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 2,
+                    "end": 8
+                  },
+                  "literal": "短横"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "list",
+      "ordered": false,
+      "tight": true,
+      "span": {
+        "start": 9,
+        "end": 17
+      },
+      "children": [
+        {
+          "kind": "item",
+          "span": {
+            "start": 9,
+            "end": 17
+          },
+          "children": [
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 11,
+                "end": 17
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 11,
+                    "end": 17
+                  },
+                  "literal": "星号"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "list",
+      "ordered": false,
+      "tight": true,
+      "span": {
+        "start": 18,
+        "end": 26
+      },
+      "children": [
+        {
+          "kind": "item",
+          "span": {
+            "start": 18,
+            "end": 26
+          },
+          "children": [
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 20,
+                "end": 26
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 20,
+                    "end": 26
+                  },
+                  "literal": "加号"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

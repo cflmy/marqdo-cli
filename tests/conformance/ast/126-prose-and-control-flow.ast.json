@@ -1,0 +1,222 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 156
+  },
+  "children": [
+    {
+      "kind": "heading",
+      "level": 2,
+      "setext": false,
+      "span": {
+        "start": 0,
+        "end": 9
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 3,
+            "end": 9
+          },
+          "literal": "分类"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 11,
+        "end": 29
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 11,
+            "end": 29
+          },
+          "literal": "先说明背景。"
+        }
+      ]
+    },
+    {
+      "kind": "list",
+      "ordered": true,
+      "start": 1,
+      "tight": false,
+      "span": {
+        "start": 31,
+        "end": 129
+      },
+      "children": [
+        {
+          "kind": "item",
+          "span": {
+            "start": 31,
+            "end": 79
+          },
+          "children": [
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 34,
+                "end": 59
+              },
+              "children": [
+                {
+                  "kind": "code",
+                  "ticks": 1,
+                  "span": {
+                    "start": 34,
+                    "end": 41
+                  },
+                  "literal": "n < 0"
+                },
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 41,
+                    "end": 59
+                  },
+                  "literal": "，负数分支。"
+                }
+              ]
+            },
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 64,
+                "end": 79
+              },
+              "children": [
+                {
+                  "kind": "strong",
+                  "span": {
+                    "start": 64,
+                    "end": 79
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "span": {
+                        "start": 66,
+                        "end": 77
+                      },
+                      "literal": "结果 = -1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "item",
+          "span": {
+            "start": 81,
+            "end": 129
+          },
+          "children": [
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 84,
+                "end": 110
+              },
+              "children": [
+                {
+                  "kind": "code",
+                  "ticks": 1,
+                  "span": {
+                    "start": 84,
+                    "end": 92
+                  },
+                  "literal": "n >= 0"
+                },
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 92,
+                    "end": 110
+                  },
+                  "literal": "，非负分支。"
+                }
+              ]
+            },
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 115,
+                "end": 129
+              },
+              "children": [
+                {
+                  "kind": "strong",
+                  "span": {
+                    "start": 115,
+                    "end": 129
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "span": {
+                        "start": 117,
+                        "end": 127
+                      },
+                      "literal": "结果 = 1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 131,
+        "end": 146
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 131,
+            "end": 146
+          },
+          "literal": "说明结束。"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 148,
+        "end": 156
+      },
+      "children": [
+        {
+          "kind": "emph",
+          "span": {
+            "start": 148,
+            "end": 156
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 149,
+                "end": 155
+              },
+              "literal": "结果"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

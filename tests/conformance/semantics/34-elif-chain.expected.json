@@ -1,0 +1,14 @@
+{
+  "args": {
+    "n": {
+      "decimal": "-5",
+      "type": "int"
+    }
+  },
+  "function": "符号",
+  "stdout": "",
+  "value": {
+    "decimal": "-1",
+    "type": "int"
+  }
+}

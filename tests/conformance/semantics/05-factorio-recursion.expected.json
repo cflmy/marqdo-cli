@@ -1,0 +1,14 @@
+{
+  "args": {
+    "n": {
+      "decimal": "5",
+      "type": "int"
+    }
+  },
+  "function": "阶乘",
+  "stdout": "",
+  "value": {
+    "decimal": "120",
+    "type": "int"
+  }
+}

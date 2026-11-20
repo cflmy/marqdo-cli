@@ -1,0 +1,60 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 35
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 35
+      },
+      "children": [
+        {
+          "kind": "strong",
+          "span": {
+            "start": 0,
+            "end": 16
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 2,
+                "end": 14
+              },
+              "literal": "中文加粗"
+            }
+          ]
+        },
+        {
+          "kind": "text",
+          "span": {
+            "start": 16,
+            "end": 21
+          },
+          "literal": " 与 "
+        },
+        {
+          "kind": "emph",
+          "span": {
+            "start": 21,
+            "end": 35
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 22,
+                "end": 34
+              },
+              "literal": "中文斜体"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

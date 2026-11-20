@@ -1,0 +1,72 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 19
+  },
+  "children": [
+    {
+      "kind": "list",
+      "ordered": false,
+      "tight": true,
+      "span": {
+        "start": 0,
+        "end": 19
+      },
+      "children": [
+        {
+          "kind": "item",
+          "span": {
+            "start": 0,
+            "end": 9
+          },
+          "children": [
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 2,
+                "end": 9
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 2,
+                    "end": 9
+                  },
+                  "literal": "tight a"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "item",
+          "span": {
+            "start": 10,
+            "end": 19
+          },
+          "children": [
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 12,
+                "end": 19
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 12,
+                    "end": 19
+                  },
+                  "literal": "tight b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "你好\n42\n2.5\n",
+  "value": {
+    "type": "none"
+  }
+}

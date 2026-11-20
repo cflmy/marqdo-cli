@@ -1,0 +1,61 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 33
+  },
+  "children": [
+    {
+      "kind": "block_quote",
+      "span": {
+        "start": 0,
+        "end": 33
+      },
+      "children": [
+        {
+          "kind": "paragraph",
+          "span": {
+            "start": 2,
+            "end": 14
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 2,
+                "end": 14
+              },
+              "literal": "外层引用"
+            }
+          ]
+        },
+        {
+          "kind": "block_quote",
+          "span": {
+            "start": 19,
+            "end": 33
+          },
+          "children": [
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 21,
+                "end": 33
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 21,
+                    "end": 33
+                  },
+                  "literal": "内层引用"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

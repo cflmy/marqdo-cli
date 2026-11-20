@@ -161,7 +161,9 @@ The call result is discarded by the statement form; use `strong` to bind it
 * `*表达式*` used in a branch is a return from the whole function.
 * A function that ends without a return evaluates to `Unit`. `None` is an
   explicit empty value and is distinct from `Unit`.
-* Return at module top level (outside any function) is an error.
+* An `emph` node outside any function body is inert document content and emits
+  a `markdown.inert_executable` warning (ADR-0002); it is not executed and is
+  not a hard error. Inside a function body, every `emph` is a return.
 
 ## 6. Function signatures and parameter inference
 
@@ -238,5 +240,7 @@ The following are compile errors with source spans, never prose fallbacks:
 * block quote that is not exactly one complete call;
 * duplicate function names in a scope;
 * empty heading names;
-* return outside a function;
+* `emph`/`strong`/control structures outside any function body are inert and
+  produce a `markdown.inert_executable` warning (see §4); they never return
+  from or execute anything at module level;
 * executable node inside a lazy region being interpreted (must not happen).

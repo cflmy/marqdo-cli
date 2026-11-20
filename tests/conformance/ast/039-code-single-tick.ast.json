@@ -1,0 +1,27 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 7
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 7
+      },
+      "children": [
+        {
+          "kind": "code",
+          "ticks": 1,
+          "span": {
+            "start": 0,
+            "end": 7
+          },
+          "literal": "x = 1"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "decimal": "1234567890123456789012345678900",
+    "type": "int"
+  }
+}

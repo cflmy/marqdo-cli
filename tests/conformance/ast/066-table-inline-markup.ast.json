@@ -1,0 +1,128 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 59
+  },
+  "children": [
+    {
+      "kind": "table",
+      "alignments": [
+        "none",
+        "none"
+      ],
+      "span": {
+        "start": 0,
+        "end": 59
+      },
+      "children": [
+        {
+          "kind": "table_row",
+          "header": true,
+          "span": {
+            "start": 0,
+            "end": 19
+          },
+          "children": [
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 1,
+                "end": 9
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 2,
+                    "end": 8
+                  },
+                  "literal": "名称"
+                }
+              ]
+            },
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 10,
+                "end": 18
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 11,
+                    "end": 17
+                  },
+                  "literal": "说明"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "table_row",
+          "header": false,
+          "span": {
+            "start": 34,
+            "end": 59
+          },
+          "children": [
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 35,
+                "end": 47
+              },
+              "children": [
+                {
+                  "kind": "strong",
+                  "span": {
+                    "start": 36,
+                    "end": 46
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "span": {
+                        "start": 38,
+                        "end": 44
+                      },
+                      "literal": "加粗"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 48,
+                "end": 58
+              },
+              "children": [
+                {
+                  "kind": "emph",
+                  "span": {
+                    "start": 49,
+                    "end": 57
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "span": {
+                        "start": 50,
+                        "end": 56
+                      },
+                      "literal": "斜体"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

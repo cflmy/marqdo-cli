@@ -1,0 +1,12 @@
+{
+  "args": {},
+  "function": "main",
+  "grants": [
+    "foreign"
+  ],
+  "stdout": "",
+  "value": {
+    "type": "float",
+    "value": 28.274333882308138
+  }
+}

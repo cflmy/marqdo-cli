@@ -1,0 +1,14 @@
+{
+  "args": {
+    "n": {
+      "decimal": "10",
+      "type": "int"
+    }
+  },
+  "function": "求和",
+  "stdout": "",
+  "value": {
+    "decimal": "55",
+    "type": "int"
+  }
+}

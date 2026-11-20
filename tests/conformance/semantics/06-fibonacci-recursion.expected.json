@@ -1,0 +1,14 @@
+{
+  "args": {
+    "n": {
+      "decimal": "8",
+      "type": "int"
+    }
+  },
+  "function": "斐波那契",
+  "stdout": "",
+  "value": {
+    "decimal": "21",
+    "type": "int"
+  }
+}

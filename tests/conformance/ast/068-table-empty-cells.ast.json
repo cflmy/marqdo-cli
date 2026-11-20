@@ -1,0 +1,90 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 29
+  },
+  "children": [
+    {
+      "kind": "table",
+      "alignments": [
+        "none",
+        "none"
+      ],
+      "span": {
+        "start": 0,
+        "end": 29
+      },
+      "children": [
+        {
+          "kind": "table_row",
+          "header": true,
+          "span": {
+            "start": 0,
+            "end": 9
+          },
+          "children": [
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 1,
+                "end": 4
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 2,
+                    "end": 3
+                  },
+                  "literal": "a"
+                }
+              ]
+            },
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 5,
+                "end": 8
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 6,
+                    "end": 7
+                  },
+                  "literal": "b"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "table_row",
+          "header": false,
+          "span": {
+            "start": 24,
+            "end": 29
+          },
+          "children": [
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 25,
+                "end": 26
+              }
+            },
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 27,
+                "end": 28
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

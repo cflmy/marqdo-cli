@@ -1,0 +1,26 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "entries": {
+      "a": {
+        "type": "text",
+        "value": "Int"
+      },
+      "b": {
+        "type": "text",
+        "value": "Text"
+      },
+      "c": {
+        "type": "text",
+        "value": "None"
+      },
+      "d": {
+        "type": "text",
+        "value": "Float"
+      }
+    },
+    "type": "map"
+  }
+}

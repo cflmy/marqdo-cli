@@ -1,0 +1,72 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 26
+  },
+  "children": [
+    {
+      "kind": "list",
+      "ordered": false,
+      "tight": false,
+      "span": {
+        "start": 0,
+        "end": 26
+      },
+      "children": [
+        {
+          "kind": "item",
+          "span": {
+            "start": 0,
+            "end": 26
+          },
+          "children": [
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 2,
+                "end": 8
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 2,
+                    "end": 8
+                  },
+                  "literal": "项目"
+                }
+              ]
+            },
+            {
+              "kind": "block_quote",
+              "span": {
+                "start": 12,
+                "end": 26
+              },
+              "children": [
+                {
+                  "kind": "paragraph",
+                  "span": {
+                    "start": 14,
+                    "end": 26
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "span": {
+                        "start": 14,
+                        "end": 26
+                      },
+                      "literal": "引用内容"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

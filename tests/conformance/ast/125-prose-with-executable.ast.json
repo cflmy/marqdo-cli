@@ -1,0 +1,95 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 83
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 27
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 0,
+            "end": 27
+          },
+          "literal": "计算前先说明意图。"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 29,
+        "end": 47
+      },
+      "children": [
+        {
+          "kind": "strong",
+          "span": {
+            "start": 29,
+            "end": 47
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 31,
+                "end": 45
+              },
+              "literal": "结果 = 1 + 2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 49,
+        "end": 73
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 49,
+            "end": 73
+          },
+          "literal": "再补充一句叙述。"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 75,
+        "end": 83
+      },
+      "children": [
+        {
+          "kind": "emph",
+          "span": {
+            "start": 75,
+            "end": 83
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 76,
+                "end": 82
+              },
+              "literal": "结果"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 21
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 21
+      },
+      "children": [
+        {
+          "kind": "strikethrough",
+          "span": {
+            "start": 0,
+            "end": 21
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 2,
+                "end": 9
+              },
+              "literal": "删除 "
+            },
+            {
+              "kind": "strong",
+              "span": {
+                "start": 9,
+                "end": 19
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 11,
+                    "end": 17
+                  },
+                  "literal": "粗体"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

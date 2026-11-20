@@ -1,0 +1,37 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 35
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 35
+      },
+      "children": [
+        {
+          "kind": "link",
+          "url": "./math.mq.md#计算面积",
+          "title": "",
+          "span": {
+            "start": 0,
+            "end": 35
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 1,
+                "end": 7
+              },
+              "literal": "函数"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

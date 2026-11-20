@@ -1,0 +1,45 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 36
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 16
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 0,
+            "end": 12
+          },
+          "literal": "脚注引用"
+        },
+        {
+          "kind": "link",
+          "url": "脚注内容",
+          "title": "",
+          "span": {
+            "start": 12,
+            "end": 16
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 13,
+                "end": 15
+              },
+              "literal": "^1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

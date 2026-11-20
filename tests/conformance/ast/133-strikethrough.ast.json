@@ -1,0 +1,35 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 13
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 13
+      },
+      "children": [
+        {
+          "kind": "strikethrough",
+          "span": {
+            "start": 0,
+            "end": 13
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 2,
+                "end": 11
+              },
+              "literal": "删除线"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

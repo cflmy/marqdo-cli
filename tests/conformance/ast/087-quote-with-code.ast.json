@@ -1,0 +1,28 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 18
+  },
+  "children": [
+    {
+      "kind": "block_quote",
+      "span": {
+        "start": 0,
+        "end": 18
+      },
+      "children": [
+        {
+          "kind": "code_block",
+          "fenced": true,
+          "info": "",
+          "span": {
+            "start": 2,
+            "end": 18
+          },
+          "literal": "code\n"
+        }
+      ]
+    }
+  ]
+}

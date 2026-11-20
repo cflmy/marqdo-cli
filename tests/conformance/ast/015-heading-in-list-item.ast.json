@@ -1,0 +1,48 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 23
+  },
+  "children": [
+    {
+      "kind": "list",
+      "ordered": false,
+      "tight": true,
+      "span": {
+        "start": 0,
+        "end": 23
+      },
+      "children": [
+        {
+          "kind": "item",
+          "span": {
+            "start": 0,
+            "end": 23
+          },
+          "children": [
+            {
+              "kind": "heading",
+              "level": 2,
+              "setext": false,
+              "span": {
+                "start": 2,
+                "end": 23
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 5,
+                    "end": 23
+                  },
+                  "literal": "列表中的标题"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

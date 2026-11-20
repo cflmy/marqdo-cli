@@ -1,0 +1,17 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 14
+  },
+  "children": [
+    {
+      "kind": "math_block",
+      "span": {
+        "start": 0,
+        "end": 14
+      },
+      "literal": "E = mc^2\n"
+    }
+  ]
+}

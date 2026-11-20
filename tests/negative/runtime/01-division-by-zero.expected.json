@@ -1,0 +1,7 @@
+{
+  "function": "main",
+  "args": {},
+  "codes": [
+    "runtime.division_by_zero"
+  ]
+}

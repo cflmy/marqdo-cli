@@ -1,0 +1,26 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 44
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 44
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 0,
+            "end": 44
+          },
+          "literal": "English 中文 123 العربية emoji 🚀"
+        }
+      ]
+    }
+  ]
+}

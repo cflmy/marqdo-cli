@@ -1,0 +1,34 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "header": [
+      "名称",
+      "数量"
+    ],
+    "rows": [
+      [
+        {
+          "type": "text",
+          "value": "苹果"
+        },
+        {
+          "decimal": "42",
+          "type": "int"
+        }
+      ],
+      [
+        {
+          "type": "text",
+          "value": "梨"
+        },
+        {
+          "decimal": "7",
+          "type": "int"
+        }
+      ]
+    ],
+    "type": "table"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "args": {
+    "target": {
+      "decimal": "10",
+      "type": "int"
+    }
+  },
+  "function": "找平方",
+  "stdout": "",
+  "value": {
+    "decimal": "16",
+    "type": "int"
+  }
+}

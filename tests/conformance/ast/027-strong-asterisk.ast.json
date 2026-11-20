@@ -1,0 +1,35 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 10
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 10
+      },
+      "children": [
+        {
+          "kind": "strong",
+          "span": {
+            "start": 0,
+            "end": 10
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 2,
+                "end": 8
+              },
+              "literal": "粗体"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 20
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 20
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 0,
+            "end": 9
+          },
+          "literal": "第一行"
+        },
+        {
+          "kind": "line_break",
+          "span": {
+            "start": 9,
+            "end": 11
+          }
+        },
+        {
+          "kind": "text",
+          "span": {
+            "start": 11,
+            "end": 20
+          },
+          "literal": "第二行"
+        }
+      ]
+    }
+  ]
+}

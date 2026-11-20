@@ -1,0 +1,64 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 55
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 55
+      },
+      "children": [
+        {
+          "kind": "link",
+          "url": "https://example.com",
+          "title": "",
+          "span": {
+            "start": 0,
+            "end": 21
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 1,
+                "end": 20
+              },
+              "literal": "https://example.com"
+            }
+          ]
+        },
+        {
+          "kind": "text",
+          "span": {
+            "start": 21,
+            "end": 46
+          },
+          "literal": " 和 www.example.com 和 "
+        },
+        {
+          "kind": "link",
+          "url": "mailto:a@b.com",
+          "title": "",
+          "span": {
+            "start": 46,
+            "end": 55
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 47,
+                "end": 54
+              },
+              "literal": "a@b.com"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

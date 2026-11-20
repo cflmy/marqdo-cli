@@ -1,0 +1,14 @@
+{
+  "args": {
+    "n": {
+      "decimal": "5",
+      "type": "int"
+    }
+  },
+  "function": "递归和",
+  "stdout": "",
+  "value": {
+    "decimal": "15",
+    "type": "int"
+  }
+}

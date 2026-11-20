@@ -1,0 +1,66 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 49
+  },
+  "children": [
+    {
+      "kind": "heading",
+      "level": 1,
+      "setext": false,
+      "span": {
+        "start": 0,
+        "end": 14
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 2,
+            "end": 14
+          },
+          "literal": "命名空间"
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "level": 3,
+      "setext": false,
+      "span": {
+        "start": 16,
+        "end": 38
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 20,
+            "end": 38
+          },
+          "literal": "直接跳到三级"
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "level": 2,
+      "setext": false,
+      "span": {
+        "start": 40,
+        "end": 49
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 43,
+            "end": 49
+          },
+          "literal": "函数"
+        }
+      ]
+    }
+  ]
+}

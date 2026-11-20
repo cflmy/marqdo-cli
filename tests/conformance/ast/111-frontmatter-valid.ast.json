@@ -1,0 +1,62 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 56
+  },
+  "children": [
+    {
+      "kind": "front_matter",
+      "span": {
+        "start": 0,
+        "end": 42
+      },
+      "literal": "---\ntitle: 示例文档\ntags:\n  - demo\n---\n\n"
+    },
+    {
+      "kind": "heading",
+      "level": 2,
+      "setext": false,
+      "span": {
+        "start": 44,
+        "end": 51
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 47,
+            "end": 51
+          },
+          "literal": "main"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 53,
+        "end": 56
+      },
+      "children": [
+        {
+          "kind": "emph",
+          "span": {
+            "start": 53,
+            "end": 56
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 54,
+                "end": 55
+              },
+              "literal": "1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

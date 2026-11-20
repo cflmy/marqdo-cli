@@ -1,0 +1,62 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 43
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 15
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 0,
+            "end": 15
+          },
+          "literal": "引言段落。"
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "level": 2,
+      "setext": false,
+      "span": {
+        "start": 17,
+        "end": 26
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 20,
+            "end": 26
+          },
+          "literal": "函数"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 28,
+        "end": 43
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 28,
+            "end": 43
+          },
+          "literal": "正文段落。"
+        }
+      ]
+    }
+  ]
+}

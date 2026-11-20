@@ -1,0 +1,45 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 3,
+    "end": 30
+  },
+  "children": [
+    {
+      "kind": "heading",
+      "level": 1,
+      "setext": false,
+      "span": {
+        "start": 3,
+        "end": 22
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 5,
+            "end": 22
+          },
+          "literal": "带 BOM 的文档"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 24,
+        "end": 30
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 24,
+            "end": 30
+          },
+          "literal": "正文"
+        }
+      ]
+    }
+  ]
+}

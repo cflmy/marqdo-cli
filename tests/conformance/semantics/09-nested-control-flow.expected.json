@@ -1,0 +1,14 @@
+{
+  "args": {
+    "n": {
+      "decimal": "2",
+      "type": "int"
+    }
+  },
+  "function": "嵌套",
+  "stdout": "",
+  "value": {
+    "decimal": "6",
+    "type": "int"
+  }
+}

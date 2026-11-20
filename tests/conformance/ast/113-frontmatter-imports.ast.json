@@ -1,0 +1,62 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 60
+  },
+  "children": [
+    {
+      "kind": "front_matter",
+      "span": {
+        "start": 0,
+        "end": 46
+      },
+      "literal": "---\nimport:\n  geometry: \"./geometry.mq.md\"\n---\n\n"
+    },
+    {
+      "kind": "heading",
+      "level": 2,
+      "setext": false,
+      "span": {
+        "start": 48,
+        "end": 55
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 51,
+            "end": 55
+          },
+          "literal": "main"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 57,
+        "end": 60
+      },
+      "children": [
+        {
+          "kind": "emph",
+          "span": {
+            "start": 57,
+            "end": 60
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 58,
+                "end": 59
+              },
+              "literal": "1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

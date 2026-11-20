@@ -1,0 +1,37 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 38
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 38
+      },
+      "children": [
+        {
+          "kind": "link",
+          "url": "https://example.com",
+          "title": "标题",
+          "span": {
+            "start": 0,
+            "end": 38
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 1,
+                "end": 7
+              },
+              "literal": "示例"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

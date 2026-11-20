@@ -1,0 +1,42 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 16
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 16
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 0,
+            "end": 6
+          },
+          "literal": "开始"
+        },
+        {
+          "kind": "html_inline",
+          "span": {
+            "start": 6,
+            "end": 10
+          },
+          "literal": "<br>"
+        },
+        {
+          "kind": "text",
+          "span": {
+            "start": 10,
+            "end": 16
+          },
+          "literal": "结束"
+        }
+      ]
+    }
+  ]
+}

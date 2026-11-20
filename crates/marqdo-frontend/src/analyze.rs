@@ -48,34 +48,34 @@ pub fn analyze_source(module_id: &str, source: &str) -> AnalysisResult {
     // Explicit front matter imports. Nothing is inferred.
     let mut imports: Vec<ImportDecl> = Vec::new();
     if let Some(frontmatter) = document.frontmatter() {
-        if let Err(error) = &frontmatter.yaml {
-            diagnostics.push(
+        match &frontmatter.yaml {
+            Err(error) => diagnostics.push(
                 Diagnostic::error(
                     codes::FRONTMATTER_INVALID,
                     Some(frontmatter.yaml_span),
                     format!("invalid YAML front matter: {error}"),
                 )
                 .with_hint("front matter must be valid YAML between `---` delimiters"),
-            );
-        }
-        match frontmatter.imports() {
-            Ok(mapping) => {
-                for (alias, target) in mapping {
-                    imports.push(ImportDecl {
-                        alias,
-                        target,
-                        span: frontmatter.span,
-                    });
-                }
-            }
-            Err(error) => diagnostics.push(
-                Diagnostic::error(
-                    codes::FRONTMATTER_INVALID,
-                    Some(frontmatter.span),
-                    format!("invalid import declaration: {error}"),
-                )
-                .with_hint("imports are an explicit mapping: `import: { alias: \"@module\" }`"),
             ),
+            Ok(_) => match frontmatter.imports() {
+                Ok(mapping) => {
+                    for (alias, target) in mapping {
+                        imports.push(ImportDecl {
+                            alias,
+                            target,
+                            span: frontmatter.span,
+                        });
+                    }
+                }
+                Err(error) => diagnostics.push(
+                    Diagnostic::error(
+                        codes::FRONTMATTER_INVALID,
+                        Some(frontmatter.span),
+                        format!("invalid import declaration: {error}"),
+                    )
+                    .with_hint("imports are an explicit mapping: `import: { alias: \"@module\" }`"),
+                ),
+            },
         }
     }
 

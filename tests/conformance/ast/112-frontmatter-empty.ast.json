@@ -1,0 +1,40 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 15
+  },
+  "children": [
+    {
+      "kind": "thematic_break",
+      "span": {
+        "start": 0,
+        "end": 3
+      }
+    },
+    {
+      "kind": "thematic_break",
+      "span": {
+        "start": 4,
+        "end": 7
+      }
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 9,
+        "end": 15
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 9,
+            "end": 15
+          },
+          "literal": "正文"
+        }
+      ]
+    }
+  ]
+}

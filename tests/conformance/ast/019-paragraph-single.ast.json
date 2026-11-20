@@ -1,0 +1,26 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 30
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 30
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 0,
+            "end": 30
+          },
+          "literal": "一段普通的中文叙述。"
+        }
+      ]
+    }
+  ]
+}

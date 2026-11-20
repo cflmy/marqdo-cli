@@ -1,0 +1,34 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 23
+  },
+  "children": [
+    {
+      "kind": "html_block",
+      "span": {
+        "start": 0,
+        "end": 15
+      },
+      "literal": "<!-- 注释 -->\n"
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 17,
+        "end": 23
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 17,
+            "end": 23
+          },
+          "literal": "正文"
+        }
+      ]
+    }
+  ]
+}

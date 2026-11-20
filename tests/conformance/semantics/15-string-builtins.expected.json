@@ -1,0 +1,18 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "entries": {
+      "文本": {
+        "type": "text",
+        "value": "42"
+      },
+      "长度": {
+        "decimal": "2",
+        "type": "int"
+      }
+    },
+    "type": "map"
+  }
+}

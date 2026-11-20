@@ -1,0 +1,8 @@
+{
+  "function": "递归",
+  "args": {},
+  "codes": [
+    "resource.exhausted"
+  ],
+  "stack_limit": 24
+}

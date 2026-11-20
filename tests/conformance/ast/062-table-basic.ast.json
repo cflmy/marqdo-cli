@@ -1,0 +1,154 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 60
+  },
+  "children": [
+    {
+      "kind": "table",
+      "alignments": [
+        "none",
+        "none"
+      ],
+      "span": {
+        "start": 0,
+        "end": 60
+      },
+      "children": [
+        {
+          "kind": "table_row",
+          "header": true,
+          "span": {
+            "start": 0,
+            "end": 19
+          },
+          "children": [
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 1,
+                "end": 9
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 2,
+                    "end": 8
+                  },
+                  "literal": "名称"
+                }
+              ]
+            },
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 10,
+                "end": 18
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 11,
+                    "end": 17
+                  },
+                  "literal": "数量"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "table_row",
+          "header": false,
+          "span": {
+            "start": 34,
+            "end": 48
+          },
+          "children": [
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 35,
+                "end": 43
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 36,
+                    "end": 42
+                  },
+                  "literal": "苹果"
+                }
+              ]
+            },
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 44,
+                "end": 47
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 45,
+                    "end": 46
+                  },
+                  "literal": "3"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "table_row",
+          "header": false,
+          "span": {
+            "start": 49,
+            "end": 60
+          },
+          "children": [
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 50,
+                "end": 55
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 51,
+                    "end": 54
+                  },
+                  "literal": "梨"
+                }
+              ]
+            },
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 56,
+                "end": 59
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 57,
+                    "end": 58
+                  },
+                  "literal": "5"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

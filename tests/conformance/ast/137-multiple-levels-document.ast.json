@@ -1,0 +1,128 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 67
+  },
+  "children": [
+    {
+      "kind": "heading",
+      "level": 1,
+      "setext": false,
+      "span": {
+        "start": 0,
+        "end": 14
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 2,
+            "end": 14
+          },
+          "literal": "命名空间"
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "level": 2,
+      "setext": false,
+      "span": {
+        "start": 16,
+        "end": 28
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 19,
+            "end": 28
+          },
+          "literal": "函数一"
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "level": 3,
+      "setext": false,
+      "span": {
+        "start": 30,
+        "end": 40
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 34,
+            "end": 40
+          },
+          "literal": "小节"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 42,
+        "end": 48
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 42,
+            "end": 48
+          },
+          "literal": "正文"
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "level": 2,
+      "setext": false,
+      "span": {
+        "start": 50,
+        "end": 62
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 53,
+            "end": 62
+          },
+          "literal": "函数二"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 64,
+        "end": 67
+      },
+      "children": [
+        {
+          "kind": "emph",
+          "span": {
+            "start": 64,
+            "end": 67
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 65,
+                "end": 66
+              },
+              "literal": "1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 24
+  },
+  "children": [
+    {
+      "kind": "block_quote",
+      "span": {
+        "start": 0,
+        "end": 14
+      },
+      "children": [
+        {
+          "kind": "paragraph",
+          "span": {
+            "start": 2,
+            "end": 14
+          },
+          "children": [
+            {
+              "kind": "text",
+              "span": {
+                "start": 2,
+                "end": 14
+              },
+              "literal": "引用段落"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "level": 1,
+      "setext": false,
+      "span": {
+        "start": 16,
+        "end": 24
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 18,
+            "end": 24
+          },
+          "literal": "标题"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 18
+  },
+  "children": [
+    {
+      "kind": "heading",
+      "level": 5,
+      "setext": false,
+      "span": {
+        "start": 0,
+        "end": 18
+      },
+      "children": [
+        {
+          "kind": "text",
+          "span": {
+            "start": 6,
+            "end": 18
+          },
+          "literal": "五级标题"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "entries": {
+      "a": {
+        "decimal": "1",
+        "type": "int"
+      },
+      "b": {
+        "items": [
+          {
+            "type": "bool",
+            "value": true
+          },
+          {
+            "type": "none"
+          }
+        ],
+        "type": "list"
+      }
+    },
+    "type": "map"
+  }
+}

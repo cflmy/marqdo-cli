@@ -1,0 +1,46 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 39
+  },
+  "children": [
+    {
+      "kind": "paragraph",
+      "span": {
+        "start": 0,
+        "end": 39
+      },
+      "children": [
+        {
+          "kind": "link",
+          "url": "https://example.com",
+          "title": "",
+          "span": {
+            "start": 0,
+            "end": 39
+          },
+          "children": [
+            {
+              "kind": "strong",
+              "span": {
+                "start": 1,
+                "end": 17
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 3,
+                    "end": 15
+                  },
+                  "literal": "加粗链接"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

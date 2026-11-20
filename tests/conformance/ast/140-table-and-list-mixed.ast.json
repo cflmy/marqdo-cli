@@ -1,0 +1,147 @@
+{
+  "kind": "document",
+  "span": {
+    "start": 0,
+    "end": 46
+  },
+  "children": [
+    {
+      "kind": "table",
+      "alignments": [
+        "none",
+        "none"
+      ],
+      "span": {
+        "start": 0,
+        "end": 33
+      },
+      "children": [
+        {
+          "kind": "table_row",
+          "header": true,
+          "span": {
+            "start": 0,
+            "end": 9
+          },
+          "children": [
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 1,
+                "end": 4
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 2,
+                    "end": 3
+                  },
+                  "literal": "a"
+                }
+              ]
+            },
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 5,
+                "end": 8
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 6,
+                    "end": 7
+                  },
+                  "literal": "b"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "table_row",
+          "header": false,
+          "span": {
+            "start": 24,
+            "end": 33
+          },
+          "children": [
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 25,
+                "end": 28
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 26,
+                    "end": 27
+                  },
+                  "literal": "1"
+                }
+              ]
+            },
+            {
+              "kind": "table_cell",
+              "span": {
+                "start": 29,
+                "end": 32
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 30,
+                    "end": 31
+                  },
+                  "literal": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "list",
+      "ordered": false,
+      "tight": true,
+      "span": {
+        "start": 35,
+        "end": 46
+      },
+      "children": [
+        {
+          "kind": "item",
+          "span": {
+            "start": 35,
+            "end": 46
+          },
+          "children": [
+            {
+              "kind": "paragraph",
+              "span": {
+                "start": 37,
+                "end": 46
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "span": {
+                    "start": 37,
+                    "end": 46
+                  },
+                  "literal": "列表项"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
