@@ -30,7 +30,7 @@ This checkout has a Gitee remote and **no GitHub credentials**. No new remote
 CI URL can be produced from this host. The evidence below is local/VM evidence
 for the convergence commit, not a substitute for the native GitHub lanes.
 
-Convergence code/security SHA: **`f075c967f24d885ac42c1e99329bee3498154598`**
+Convergence code/security SHA: **`8af72620f12e2494a59830a23abb393768b610e9`**
 (the following docs commit only adds this report and release material; code is
 byte-identical).
 
@@ -45,7 +45,7 @@ cargo test --workspace --locked                       PASS
 
 ### G-C security lane (disposable Ubuntu 26.04 VM, ordinary user `dev`)
 
-Source: `git archive f075c96` extracted in the VM (not the dev container).
+Source: `git archive 8af7262` extracted in the VM (not the dev container).
 Host: QEMU/TCG, kernel `7.0.0-43-generic`, `systemd-detect-virt --container`
 = `none`, bubblewrap 0.11.1 with `bwrap-userns-restrict`, uid 1000.
 
@@ -59,7 +59,7 @@ Host: QEMU/TCG, kernel `7.0.0-43-generic`, `systemd-detect-virt --container`
 cargo test --workspace --locked (same archive): 47 ok, 0 failed
 ```
 
-Logs: [`evidence/2026-11-20-strict-gc-f075c96.md`](evidence/2026-11-20-strict-gc-f075c96.md).
+Logs: [`evidence/2026-11-20-strict-gc-8af7262.md`](evidence/2026-11-20-strict-gc-8af7262.md).
 This is still a **local VM lane**, not a self-hosted GitHub Actions security URL.
 
 ## 2. Work package status
@@ -76,7 +76,7 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 | 7 | Independent Tool consumers | **Done locally** | `sample-view`/`sample-knowledge`/`sample-proof` E2E test |
 | 8 | lock v3 reproducibility | **Implemented; tamper test added** | `package_env` PASS |
 | 9 | Analysis/Trace/Tool/ABI/Foreign | **Implemented; supported-matrix bounded** | protocol tests, plugin/worker/foreign tests |
-| 10 | Linux strict L1 | **VM PASS at f075c96; no CI URL** | 7/7 + positive CLI |
+| 10 | Linux strict L1 | **VM PASS at 8af7262; no CI URL** | 7/7 + positive CLI |
 | 11 | Linux strict L2 | **NOT IMPLEMENTED / UNSUPPORTED** | strict rejects Worker/Foreign/native ABI |
 | 12 | Windows Native/Worker ABI | **UNSUPPORTED** | no Windows ABI artifact/claim |
 | 13 | RC artifact | **Linux candidate only; no release** | clean-install + checksums; macOS not built here |
@@ -116,7 +116,7 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
    the Linux EAGAIN contract are UNVERIFIED on GitHub. G1/G2/G3 remain FAIL
    until a real run exists.
 2. **G-C is VM-verified but not CI-signed.** No self-hosted security-lane URL
-   for f075c96 exists.
+   for 8af7262 exists.
 3. Windows Native/Worker ABI is explicitly UNSUPPORTED (no Windows `cc`
    fixture lane, Unix-gated worker tests).
 4. `fs.write`, `net.request`, `process`, `clock`, `random` are not executed
@@ -132,9 +132,9 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 
 - [`evidence/2026-11-20-local-gate.md`](evidence/2026-11-20-local-gate.md) —
   earlier local gate and Windows autocrlf reproduction.
-- [`evidence/2026-11-20-strict-gc-f075c96.md`](evidence/2026-11-20-strict-gc-f075c96.md)
+- [`evidence/2026-11-20-strict-gc-8af7262.md`](evidence/2026-11-20-strict-gc-8af7262.md)
   — current VM lane, environment, full log and workspace test log.
-- [`evidence/RELEASE_CANDIDATE_0.1.0_f075c96.md`](evidence/RELEASE_CANDIDATE_0.1.0_f075c96.md)
+- [`evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md`](evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md)
   — G0..G12 matrix and RC decision.
 - [`security-gate.md`](security-gate.md) — mechanism, attack matrix and strict
   L1/L2 limits.

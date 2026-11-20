@@ -2,8 +2,8 @@
 
 Status: **PASSED in a disposable Ubuntu VM; Linux strict is enabled only when
 the runtime probe succeeds.** Current convergence evidence is for source
-archive `f075c96` (see
-[`evidence/2026-11-20-strict-gc-f075c96.md`](evidence/2026-11-20-strict-gc-f075c96.md));
+archive `8af7262` (see
+[`evidence/2026-11-20-strict-gc-8af7262.md`](evidence/2026-11-20-strict-gc-8af7262.md));
 the earlier `b6fc182` run is retained below as history. **No remote
 self-hosted security-lane CI URL exists yet.**
 Snapshot: workspace `0.1.0`, 2026-11-20. See ADR-0021.
@@ -74,7 +74,7 @@ The helper is `tests/security/escape_helper.c`, launched through the **same**
 lane is `tests/security/run-lane.sh` and the test is
 `crates/marqdo-sandbox/tests/security_linux.rs`.
 
-At `f075c96` the same lane was re-run from a clean `git archive` in the
+At `8af7262` the same lane was re-run from a clean `git archive` in the
 disposable VM as `dev` uid 1000: 7/7 adversarial tests, positive CLI contract,
 external-surface refusals, and forged-marker rejection all PASS. The command
 now honours `CARGO_TARGET_DIR`; the parallel workspace run also passes all

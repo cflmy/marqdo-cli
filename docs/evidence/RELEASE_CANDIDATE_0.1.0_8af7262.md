@@ -1,7 +1,7 @@
-# Marqdo CLI release candidate — 0.1.0 / `f075c96`
+# Marqdo CLI release candidate — 0.1.0 / `8af7262`
 
 ```text
-Source SHA:              f075c967f24d885ac42c1e99329bee3498154598
+Source SHA:              8af72620f12e2494a59830a23abb393768b610e9
 Workspace version:       0.1.0
 Intended release target: Linux x86_64 (local RC); macOS/Windows UNVERIFIED
 GitHub master:           c9f01aa8fb127a2dcc125103ef794832984774ad (unchanged)
@@ -49,7 +49,7 @@ cargo test --workspace --locked                       PASS
 cargo build --release --locked -p marqdo-cli          PASS
 ```
 
-G-C VM, source archive `f075c96`, ordinary user `dev` (uid 1000):
+G-C VM, source archive `8af7262`, ordinary user `dev` (uid 1000):
 
 ```text
 MARQDO_REQUIRE_STRICT_SECURITY=1 ./tests/security/run-lane.sh
@@ -61,13 +61,13 @@ MARQDO_REQUIRE_STRICT_SECURITY=1 ./tests/security/run-lane.sh
 cargo test --workspace --locked (same archive)       PASS (47 binaries, 0 failed)
 ```
 
-See [`2026-11-20-strict-gc-f075c96.md`](2026-11-20-strict-gc-f075c96.md).
+See [`2026-11-20-strict-gc-8af7262.md`](2026-11-20-strict-gc-8af7262.md).
 
 ## 3. Release candidate artifact
 
 ```text
 archive:  marqdo-0.1.0-x86_64-unknown-linux-gnu.tar.gz
-sha256:   4e1020735bd7f5bd590b5472e48ed431b1365641b8ac6574254dd963be8cc285
+sha256:   5a42d83737c9715986f36b105feb7419a677d98f913f00e84ac19f1d4847733d
 contents: marqdo binary, MIT/Apache licenses, CHANGELOG, COMPATIBILITY,
           README, spec/, examples/, tests/consumers/, selected docs,
           SOURCE_SHA, rustc -vV
@@ -91,9 +91,9 @@ GitHub job can build macOS, but it has not run for this SHA.
 
 ## 4. Gate matrix
 
-| Gate | Status at f075c96 | Evidence / next action |
+| Gate | Status at 8af7262 | Evidence / next action |
 |---|---|---|
-| G0 same SHA, version, changelog | **PASS (local)** | source archive `f075c96`; version 0.1.0; changelog updated; remote master still `c9f01aa` |
+| G0 same SHA, version, changelog | **PASS (local)** | source archive `8af7262`; version 0.1.0; changelog updated; remote master still `c9f01aa` |
 | G1 Linux CI fmt/clippy/workspace/smoke | **FAIL — no remote same-SHA run** | local PASS; push to GitHub and let `CI` run |
 | G2 Windows workspace + portable smoke | **FAIL — no remote native run** | cfg fix is local; needs Windows CI |
 | G3 macOS workspace + portable smoke | **FAIL — no remote native run** | cfg fix is local; needs macOS CI |
@@ -117,7 +117,7 @@ evidence cannot be substituted for those lanes.
 
 ## 6. Next actions (in order)
 
-1. Push `f075c96` or its docs-complete successor to GitHub `master` and wait
+1. Push `8af7262` or its docs-complete successor to GitHub `master` and wait
    for all `CI` jobs (Linux, macOS, Windows, schema/consumers) to pass.
 2. Register the disposable security VM as a self-hosted runner with labels
    `[self-hosted, linux, marqdo-security]`, then run

@@ -92,10 +92,10 @@ git push origin "v${version}"
 Do not force-push, do not tag a red commit, and do not upload macOS/Windows
 binaries unless those platform lanes actually passed.
 
-The current `0.1.0` candidate at `f075c96` is **not** releasable: it has local
+The current `0.1.0` candidate at `8af7262` is **not** releasable: it has local
 Linux/VM evidence and a checksummed Linux RC, but no same-SHA GitHub CI or
 self-hosted G-C URL. See
-[`evidence/RELEASE_CANDIDATE_0.1.0_f075c96.md`](evidence/RELEASE_CANDIDATE_0.1.0_f075c96.md).
+[`evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md`](evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md).
 
 ## 6. Rollback
 

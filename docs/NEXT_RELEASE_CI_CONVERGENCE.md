@@ -8,7 +8,7 @@
 >
 > **实施原则：** 以仓库的 `spec/` 和已接受 ADR 为语义权威，以真实 CI/本地运行日志为实现证据。此文档只定义剩余收尾工作和验收顺序，不重开已解决的架构议题，不授予自动发布权限。后续每次变更先更新 `docs/STATUS.md` 事实基线。若阅读时 HEAD 已变化，重新取得该 SHA 的 CI 证据，并在本规范记录差异，不能机械照搬旧故障。
 
-> **执行更新（2026-11-20，本地收敛）：** 远程 `master` 仍为 `c9f01aa8`，本机新增收敛提交 `d05f36f` → `f075c96`，但**未推送**（本检出只有 Gitee 远端且无 GitHub 凭据）。`f075c96` 上：Linux 本地 `fmt`/`clippy`/`cargo test --workspace --locked` PASS；专用 Ubuntu 26.04 VM 普通用户 `dev` 从 `git archive` 重跑 G-C lane **7/7 + 正向 CLI PASS**（见 `docs/evidence/2026-11-20-strict-gc-f075c96.md`）；Linux RC 已打包并通过外部干净安装与 checksum 校验。Windows/macOS 与同 SHA 的 GitHub CI、G-C 自托管 CI URL 仍为 **UNVERIFIED**，因此总体决定仍是 **DO NOT RELEASE**。下一动作是把 `f075c96` 或仅补文档的后继提交推送到 GitHub 并重跑全平台 CI 与安全 lane。
+> **执行更新（2026-11-20，本地收敛）：** 远程 `master` 仍为 `c9f01aa8`，本机新增收敛提交 `d05f36f` → `8af7262`，但**未推送**（本检出只有 Gitee 远端且无 GitHub 凭据）。`8af7262` 上：Linux 本地 `fmt`/`clippy`/`cargo test --workspace --locked` PASS；专用 Ubuntu 26.04 VM 普通用户 `dev` 从 `git archive` 重跑 G-C lane **7/7 + 正向 CLI PASS**（见 `docs/evidence/2026-11-20-strict-gc-8af7262.md`）；Linux RC 已打包并通过外部干净安装与 checksum 校验。Windows/macOS 与同 SHA 的 GitHub CI、G-C 自托管 CI URL 仍为 **UNVERIFIED**，因此总体决定仍是 **DO NOT RELEASE**。下一动作是把 `8af7262` 或仅补文档的后继提交推送到 GitHub 并重跑全平台 CI 与安全 lane。
 
 ---
 
