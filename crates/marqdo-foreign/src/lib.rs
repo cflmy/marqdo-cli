@@ -239,17 +239,15 @@ impl KernelRegistry {
                 });
             }
         }
-        if !descriptor.builtin {
-            if !descriptor.entrypoint.is_absolute() {
-                return Err(ForeignError::Protocol {
-                    message: format!(
-                        "external kernel provider `{}` entrypoint must be absolute",
-                        descriptor.provider_id
-                    ),
-                });
-            }
-            verify_descriptor(&descriptor)?;
+        if !descriptor.builtin && !descriptor.entrypoint.is_absolute() {
+            return Err(ForeignError::Protocol {
+                message: format!(
+                    "external kernel provider `{}` entrypoint must be absolute",
+                    descriptor.provider_id
+                ),
+            });
         }
+        verify_descriptor(&descriptor)?;
         for language in &mut descriptor.languages {
             *language = language.trim().to_ascii_lowercase();
             if language.is_empty() {
@@ -285,7 +283,7 @@ impl KernelRegistry {
     /// Detect a provider's executable and version.
     pub fn detect(&self, language: &str) -> Option<KernelInfo> {
         let descriptor = self.descriptor(language)?;
-        let program = resolve_program(descriptor)?;
+        let program = resolve_program(descriptor).ok()?;
         let version = if descriptor.builtin {
             probe_version(&program).unwrap_or_else(|| "unknown".to_string())
         } else {
@@ -474,20 +472,30 @@ fn sha256_file(path: &Path) -> Result<String, ForeignError> {
 }
 
 fn verify_descriptor(descriptor: &KernelDescriptor) -> Result<(), ForeignError> {
-    if descriptor.builtin {
-        return Ok(());
-    }
-    if let Some(expected) = &descriptor.digest {
-        let actual = sha256_file(&descriptor.entrypoint)?;
-        if &actual != expected {
-            return Err(ForeignError::Integrity {
-                provider: descriptor.provider_id.clone(),
-                expected: expected.clone(),
-                actual,
-            });
+    if !descriptor.builtin {
+        if let Some(expected) = &descriptor.digest {
+            let actual = sha256_file(&descriptor.entrypoint)?;
+            if &actual != expected {
+                return Err(ForeignError::Integrity {
+                    provider: descriptor.provider_id.clone(),
+                    expected: expected.clone(),
+                    actual,
+                });
+            }
         }
     }
     if let Some(environment) = &descriptor.environment_dir {
+        if descriptor.builtin {
+            return Err(ForeignError::Protocol {
+                message: format!(
+                    "built-in provider `{}` cannot be bound to environment_dir; \
+                     register an external provider whose entrypoint is the pinned \
+                     interpreter inside that environment",
+                    descriptor.provider_id
+                ),
+            });
+        }
+        verify_entrypoint_is_inside_environment(descriptor, environment)?;
         if !environment.is_absolute() || !environment.is_dir() {
             return Err(ForeignError::Protocol {
                 message: format!(
@@ -519,6 +527,47 @@ fn verify_descriptor(descriptor: &KernelDescriptor) -> Result<(), ForeignError> 
             message: format!(
                 "kernel provider `{}` declares environment_digest without environment_dir",
                 descriptor.provider_id
+            ),
+        });
+    }
+    Ok(())
+}
+
+/// Reject an external provider whose executable is not inside its pinned
+/// environment. This is what makes `environment_dir` an execution binding
+/// instead of a decorative PATH hint.
+fn verify_entrypoint_is_inside_environment(
+    descriptor: &KernelDescriptor,
+    environment: &Path,
+) -> Result<(), ForeignError> {
+    if !descriptor.entrypoint.is_absolute() {
+        return Err(ForeignError::Protocol {
+            message: format!(
+                "external kernel provider `{}` entrypoint must be absolute",
+                descriptor.provider_id
+            ),
+        });
+    }
+    let environment = fs::canonicalize(environment).map_err(|error| ForeignError::Protocol {
+        message: format!(
+            "cannot resolve kernel provider `{}` environment_dir: {error}",
+            descriptor.provider_id
+        ),
+    })?;
+    let entrypoint = match fs::canonicalize(&descriptor.entrypoint) {
+        Ok(path) => path,
+        // A missing entrypoint is reported as unavailable at execution time
+        // with an install hint; the lexical check below still rejects a
+        // manifest that points outside the environment.
+        Err(_) => descriptor.entrypoint.clone(),
+    };
+    if !entrypoint.starts_with(&environment) {
+        return Err(ForeignError::Protocol {
+            message: format!(
+                "external kernel provider `{}` entrypoint `{}` is outside its pinned environment `{}`",
+                descriptor.provider_id,
+                descriptor.entrypoint.display(),
+                environment.display()
             ),
         });
     }
@@ -731,18 +780,23 @@ fn execute(request: &RunRequest, registry: &KernelRegistry) -> Result<RawRun, Fo
     if !descriptor.builtin {
         verify_descriptor(descriptor)?;
     }
-    let program = resolve_program(descriptor).ok_or_else(|| ForeignError::KernelUnavailable {
-        language: descriptor.provider_id.clone(),
-        hint: if descriptor.builtin {
-            kernel_hint(&descriptor.provider_id).to_string()
-        } else {
-            format!(
-                "external kernel provider `{}` executable `{}` is missing or not executable",
-                descriptor.provider_id,
-                descriptor.entrypoint.display()
-            )
-        },
-    })?;
+    let program = resolve_program(descriptor)?;
+    if let Some(expected) = &descriptor.interpreter_version {
+        let actual = probe_version(&program).ok_or_else(|| ForeignError::Protocol {
+            message: format!(
+                "kernel provider `{}` declares interpreter_version `{expected}` but the interpreter could not report a version",
+                descriptor.provider_id
+            ),
+        })?;
+        if !actual.contains(expected.trim()) {
+            return Err(ForeignError::Protocol {
+                message: format!(
+                    "kernel provider `{}` interpreter version mismatch: declared `{expected}`, actual `{actual}`",
+                    descriptor.provider_id
+                ),
+            });
+        }
+    }
 
     let extension = if descriptor.builtin {
         if descriptor.provider_id == "python" {
@@ -762,19 +816,22 @@ fn execute(request: &RunRequest, registry: &KernelRegistry) -> Result<RawRun, Fo
         .arg(&artifacts.program_path)
         .current_dir(&artifacts.work_dir)
         .env_clear();
-    if let Some(path) = std::env::var_os("PATH") {
+    if let Some(environment) = &descriptor.environment_dir {
+        // An environment-bound provider runs with exactly the environment's
+        // executable directory on PATH. Falling back to the host PATH would
+        // silently defeat the pin.
+        command.env("MARQDO_FOREIGN_ENV", environment);
+        command.env("PATH", environment_bin(environment));
+    } else if let Some(path) = std::env::var_os("PATH") {
         command.env("PATH", path);
     }
-    if let Some(environment) = &descriptor.environment_dir {
-        command.env("MARQDO_FOREIGN_ENV", environment);
-        let bin = environment.join("bin");
-        if bin.is_dir() {
-            let mut paths = vec![bin];
-            if let Some(existing) = std::env::var_os("PATH") {
-                paths.extend(std::env::split_paths(&existing));
-            }
-            if let Ok(joined) = std::env::join_paths(paths) {
-                command.env("PATH", joined);
+    #[cfg(windows)]
+    {
+        // Windows process creation and DLL loading require the system root;
+        // this is not a package-resolution path.
+        for name in ["SYSTEMROOT", "WINDIR"] {
+            if let Some(value) = std::env::var_os(name) {
+                command.env(name, value);
             }
         }
     }
@@ -841,28 +898,91 @@ fn is_executable_file(path: &Path) -> bool {
     }
 }
 
-fn resolve_program(descriptor: &KernelDescriptor) -> Option<PathBuf> {
+/// Directory that holds executables inside a pinned environment.
+fn environment_bin(environment: &Path) -> PathBuf {
+    if cfg!(windows) {
+        let scripts = environment.join("Scripts");
+        if scripts.is_dir() {
+            return scripts;
+        }
+        environment.to_path_buf()
+    } else {
+        environment.join("bin")
+    }
+}
+
+fn resolve_program(descriptor: &KernelDescriptor) -> Result<PathBuf, ForeignError> {
+    if let Some(environment) = &descriptor.environment_dir {
+        // Built-ins were rejected at registration/verification; this branch is
+        // defense in depth.
+        if descriptor.builtin {
+            return Err(ForeignError::Protocol {
+                message: format!(
+                    "built-in provider `{}` cannot be bound to environment_dir",
+                    descriptor.provider_id
+                ),
+            });
+        }
+        let entrypoint = fs::canonicalize(&descriptor.entrypoint)
+            .unwrap_or_else(|_| descriptor.entrypoint.clone());
+        if !entrypoint
+            .starts_with(fs::canonicalize(environment).unwrap_or_else(|_| environment.clone()))
+        {
+            return Err(ForeignError::Protocol {
+                message: format!(
+                    "external kernel provider `{}` entrypoint is outside its pinned environment",
+                    descriptor.provider_id
+                ),
+            });
+        }
+        if is_executable_file(&entrypoint) {
+            return Ok(entrypoint);
+        }
+        return Err(ForeignError::KernelUnavailable {
+            language: descriptor.provider_id.clone(),
+            hint: format!(
+                "pinned environment `{}` does not contain an executable provider at `{}`",
+                environment.display(),
+                descriptor.entrypoint.display()
+            ),
+        });
+    }
     if !descriptor.builtin {
         if !descriptor.entrypoint.is_absolute() {
-            return None;
+            return Err(ForeignError::KernelUnavailable {
+                language: descriptor.provider_id.clone(),
+                hint: "external provider entrypoints must be absolute paths".to_string(),
+            });
         }
-        return descriptor
-            .entrypoint
-            .is_file()
-            .then(|| descriptor.entrypoint.clone())
-            .filter(|path| is_executable_file(path));
+        if descriptor.entrypoint.is_file() && is_executable_file(&descriptor.entrypoint) {
+            return Ok(descriptor.entrypoint.clone());
+        }
+        return Err(ForeignError::KernelUnavailable {
+            language: descriptor.provider_id.clone(),
+            hint: format!(
+                "external kernel provider `{}` executable `{}` is missing or not executable",
+                descriptor.provider_id,
+                descriptor.entrypoint.display()
+            ),
+        });
     }
-    let path_var = std::env::var_os("PATH")?;
+    let path_var = std::env::var_os("PATH").ok_or_else(|| ForeignError::KernelUnavailable {
+        language: descriptor.provider_id.clone(),
+        hint: kernel_hint(&descriptor.provider_id).to_string(),
+    })?;
     let candidates = program_candidates(&descriptor.provider_id);
     for name in candidates {
         for directory in std::env::split_paths(&path_var) {
             let candidate = directory.join(name);
             if is_executable_file(&candidate) {
-                return Some(candidate);
+                return Ok(candidate);
             }
         }
     }
-    None
+    Err(ForeignError::KernelUnavailable {
+        language: descriptor.provider_id.clone(),
+        hint: kernel_hint(&descriptor.provider_id).to_string(),
+    })
 }
 
 fn probe_version(program: &Path) -> Option<String> {

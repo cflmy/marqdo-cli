@@ -139,51 +139,67 @@ fn provider_digest_is_verified_at_registration_and_execution() {
 }
 
 #[cfg(unix)]
-#[test]
-fn pinned_environment_digest_is_verified_before_execution() {
+fn environment_digest(root: &std::path::Path) -> String {
     use sha2::{Digest, Sha256};
+    let mut files = Vec::new();
+    for entry in walkdir::WalkDir::new(root)
+        .follow_links(false)
+        .sort_by_file_name()
+    {
+        let entry = entry.unwrap();
+        if entry.file_type().is_dir() {
+            continue;
+        }
+        let relative = entry.path().strip_prefix(root).unwrap();
+        let path = relative
+            .components()
+            .map(|component| component.as_os_str().to_str().unwrap())
+            .collect::<Vec<_>>()
+            .join("/");
+        files.push((path, std::fs::read(entry.path()).unwrap()));
+    }
+    files.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut hasher = Sha256::new();
+    hasher.update(b"marqdo.kernel-environment.v1\0");
+    hasher.update((files.len() as u64).to_le_bytes());
+    for (path, bytes) in &files {
+        hasher.update((path.len() as u64).to_le_bytes());
+        hasher.update(path.as_bytes());
+        hasher.update((bytes.len() as u64).to_le_bytes());
+        hasher.update(bytes);
+    }
+    hex::encode(hasher.finalize())
+}
 
-    let dir = tempfile::tempdir().unwrap();
-    let script = mock_provider(dir.path());
-    let env = dir.path().join("venv");
+/// Write a provider executable inside `env` and return its path.
+#[cfg(unix)]
+fn provider_inside_environment(env: &std::path::Path) -> std::path::PathBuf {
+    use std::os::unix::fs::PermissionsExt;
     std::fs::create_dir_all(env.join("bin")).unwrap();
-    std::fs::write(env.join("marker.txt"), "env-v1").unwrap();
-    let env_digest = {
-        let root = &env;
-        let mut files = Vec::new();
-        for entry in walkdir::WalkDir::new(root)
-            .follow_links(false)
-            .sort_by_file_name()
-        {
-            let entry = entry.unwrap();
-            if entry.file_type().is_dir() {
-                continue;
-            }
-            let relative = entry.path().strip_prefix(root).unwrap();
-            let path = relative
-                .components()
-                .map(|component| component.as_os_str().to_str().unwrap())
-                .collect::<Vec<_>>()
-                .join("/");
-            files.push((path, std::fs::read(entry.path()).unwrap()));
-        }
-        files.sort_by(|a, b| a.0.cmp(&b.0));
-        let mut hasher = Sha256::new();
-        hasher.update(b"marqdo.kernel-environment.v1\0");
-        hasher.update((files.len() as u64).to_le_bytes());
-        for (path, bytes) in &files {
-            hasher.update((path.len() as u64).to_le_bytes());
-            hasher.update(path.as_bytes());
-            hasher.update((bytes.len() as u64).to_le_bytes());
-            hasher.update(bytes);
-        }
-        hex::encode(hasher.finalize())
-    };
+    let script = env.join("bin").join("mocklang.sh");
+    std::fs::write(
+        &script,
+        "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 'mocklang 1.0.0'; exit 0; fi\ncat >/dev/null\nprintf '%s' '{\"type\":\"int\",\"decimal\":\"42\"}'\n",
+    )
+    .unwrap();
+    let mut permissions = std::fs::metadata(&script).unwrap().permissions();
+    permissions.set_mode(0o700);
+    std::fs::set_permissions(&script, permissions).unwrap();
+    script
+}
+
+#[cfg(unix)]
+#[test]
+fn pinned_environment_binds_the_provider_and_is_verified_before_execution() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = dir.path().join("venv");
+    let script = provider_inside_environment(&env);
+    let digest = environment_digest(&env);
 
     let mut registry = KernelRegistry::builtin();
     let mut descriptor = KernelDescriptor::external("mocklang", &["mocklang"], &script);
     descriptor.environment_id = Some("env-test".to_string());
-    descriptor.environment_digest = Some(env_digest);
+    descriptor.environment_digest = Some(digest);
     descriptor.environment_dir = Some(env.clone());
     registry.register(descriptor).unwrap();
     let result = call_with_registry(&request("mocklang", "ignored"), &registry).unwrap();
@@ -195,4 +211,79 @@ fn pinned_environment_digest_is_verified_before_execution() {
         matches!(error, ForeignError::EnvironmentIntegrity { .. }),
         "{error:?}"
     );
+}
+
+/// A provider outside its pinned environment is a manifest error: the
+/// environment would otherwise be verified while a different program runs.
+#[cfg(unix)]
+#[test]
+fn provider_outside_pinned_environment_is_rejected() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = dir.path().join("venv");
+    std::fs::create_dir_all(&env).unwrap();
+    let script = mock_provider(dir.path());
+
+    let mut registry = KernelRegistry::builtin();
+    let mut descriptor = KernelDescriptor::external("mocklang", &["mocklang"], &script);
+    descriptor.environment_digest = Some("0".repeat(64));
+    descriptor.environment_dir = Some(env);
+    let error = registry.register(descriptor).unwrap_err();
+    assert!(matches!(error, ForeignError::Protocol { .. }), "{error:?}");
+    assert!(error.to_string().contains("outside its pinned environment"));
+}
+
+/// A built-in interpreter cannot be silently rebound to a verified environment;
+/// a pinned interpreter must be an explicit external provider.
+#[cfg(unix)]
+#[test]
+fn builtin_provider_cannot_be_bound_to_an_environment() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = dir.path().join("venv");
+    std::fs::create_dir_all(&env).unwrap();
+    let mut registry = KernelRegistry::builtin();
+    let mut descriptor = KernelDescriptor::builtin("mockpython", &["mockpython"], "python3");
+    descriptor.environment_digest = Some("0".repeat(64));
+    descriptor.environment_dir = Some(env);
+    let error = registry.register(descriptor).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("cannot be bound to environment_dir"),
+        "{error}"
+    );
+}
+
+/// A declared interpreter version must match the program that actually runs;
+/// environment pinning that ignores version drift is not reproducible.
+#[cfg(unix)]
+#[test]
+fn declared_interpreter_version_must_match_the_resolved_program() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = dir.path().join("venv");
+    let script = provider_inside_environment(&env);
+    let digest = environment_digest(&env);
+    let mut registry = KernelRegistry::builtin();
+    let mut descriptor = KernelDescriptor::external("mocklang", &["mocklang"], &script);
+    descriptor.environment_digest = Some(digest);
+    descriptor.environment_dir = Some(env);
+    descriptor.interpreter_version = Some("9.9.9".to_string());
+    registry.register(descriptor).unwrap();
+
+    let error = call_with_registry(&request("mocklang", "ignored"), &registry).unwrap_err();
+    assert!(matches!(error, ForeignError::Protocol { .. }), "{error:?}");
+    assert!(error.to_string().contains("interpreter version mismatch"));
+
+    // A matching prefix is accepted.
+    let dir = tempfile::tempdir().unwrap();
+    let env = dir.path().join("venv");
+    let script = provider_inside_environment(&env);
+    let digest = environment_digest(&env);
+    let mut registry = KernelRegistry::builtin();
+    let mut descriptor = KernelDescriptor::external("mocklang", &["mocklang"], &script);
+    descriptor.environment_digest = Some(digest);
+    descriptor.environment_dir = Some(env);
+    descriptor.interpreter_version = Some("mocklang 1.0".to_string());
+    registry.register(descriptor).unwrap();
+    let result = call_with_registry(&request("mocklang", "ignored"), &registry).unwrap();
+    assert_eq!(result.status, RunStatus::Success);
 }

@@ -71,9 +71,29 @@ hard-codes a language list.
 sorted relative paths with length-prefixed bytes; 10,000 files / 512 MiB caps;
 symlinks and special files rejected). The environment is verified at
 registration and again before every spawn; mismatch fails with
-`ForeignError::EnvironmentIntegrity` before any child starts. On execution the
-child receives `MARQDO_FOREIGN_ENV` and, when `<env>/bin` exists, that directory
-is prepended to `PATH`.
+`ForeignError::EnvironmentIntegrity` before any child starts.
+
+`environment_dir` **binds the executed program**, it is not a PATH hint
+(ADR-0020):
+
+* an external provider's `entrypoint` must resolve inside `environment_dir`;
+  a manifest whose executable lies outside it is rejected with
+  `ForeignError::Protocol` before any process starts;
+* built-in Python/Node providers cannot be bound to `environment_dir`; a
+  pinned interpreter must be registered as an explicit external provider;
+* the child receives `MARQDO_FOREIGN_ENV` and exactly the environment's
+  executable directory on `PATH` (`<env>/bin`, or `<env>/Scripts` on Windows).
+  The host `PATH` is not appended, so a missing environment executable cannot
+  silently fall back to the system interpreter;
+* when `interpreter_version` is declared, the resolved program must report a
+  `--version` line containing that string before execution; a mismatch is a
+  `ForeignError::Protocol` failure, not a warning;
+* a missing bound executable is `ForeignError::KernelUnavailable` with an
+  environment-specific hint.
+
+A pinned environment therefore has to contain a regular-file executable; a
+virtualenv whose interpreter is only a symlink to the host Python must be
+materialized as a regular file to be pinned in this release.
 
 The CLI does **not** materialize uv/npm environments or integrate them into
 lock v3; it verifies an explicitly pinned directory. A future materializer may
@@ -172,7 +192,8 @@ foreign_result_map`) is:
 `crates/marqdo-foreign/src/lib.rs`:
 
 1. normalize the language (unknown → `KernelUnavailable` with install hint);
-2. find the interpreter on `PATH`;
+2. resolve the interpreter: on the host `PATH` for an unbound built-in, or
+   strictly inside the pinned `environment_dir` for a bound provider;
 3. create a **private unique temp working directory** (mode 0700 on Unix) and
    write the program to a private temp file (`.py`/`.js`, mode 0600);
 4. spawn the interpreter **directly with `argv`** (no shell, no string
@@ -191,8 +212,10 @@ detection timeout 5 s / 64 KiB. A kernel that ignores stdin and exits does not
 hang the host. `OutputTooLarge` drops the captured output and kills the child.
 Grandchild processes are not killed when the direct child is killed.
 
-Environment: only `PATH` is inherited, so Marqdo secrets in other environment
-variables do not leak by default. This is hygiene, not a security boundary.
+Environment: unbound kernels inherit only `PATH`, so Marqdo secrets in other
+environment variables do not leak by default. A bound kernel receives only the
+environment's executable directory on `PATH` (plus `SYSTEMROOT`/`WINDIR` on
+Windows for process creation). This is hygiene, not a security boundary.
 
 ## 7. Capability gating
 
