@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use marqdo_expression::{Arg, Expr, Ident};
-use marqdo_ir::{builtins, Module, Param, SignatureKind, Stmt};
+use marqdo_ir::{builtins, Module, ModuleId, Param, Program, SignatureKind, Stmt};
 use marqdo_span::Span;
 use marqdo_value::{codes, Diagnostic};
 
@@ -56,12 +56,54 @@ pub fn validate_module(module: &Module) -> Vec<Diagnostic> {
                 .iter()
                 .map(|import| import.alias.clone())
                 .collect(),
+            module_id: module.id.clone(),
+            program: None,
+            cross_only: false,
             diagnostics: Vec::new(),
         };
         check.stmts(&function.body);
         diagnostics.extend(check.diagnostics);
     }
     diagnostics
+}
+
+/// Validate cross-module and qualified-builtin calls once a whole program is
+/// loaded. Local calls are already validated by [`validate_module`].
+pub fn validate_program(program: &Program) -> Vec<(ModuleId, Diagnostic)> {
+    let mut results = Vec::new();
+    for module in program.modules.values() {
+        let table = signature_table(module);
+        for function in &module.functions {
+            let mut locals: BTreeSet<String> = function
+                .params
+                .iter()
+                .map(|param| param.name.clone())
+                .collect();
+            collect_assigned(&function.body, &mut locals);
+            let mut check = CallChecker {
+                current_namespace: function.namespace.clone(),
+                locals: &locals,
+                table: &table,
+                imports: module
+                    .imports
+                    .iter()
+                    .map(|import| import.alias.clone())
+                    .collect(),
+                module_id: module.id.clone(),
+                program: Some(program),
+                cross_only: true,
+                diagnostics: Vec::new(),
+            };
+            check.stmts(&function.body);
+            results.extend(
+                check
+                    .diagnostics
+                    .into_iter()
+                    .map(|diagnostic| (module.id.clone(), diagnostic)),
+            );
+        }
+    }
+    results
 }
 
 fn collect_assigned(stmts: &[Stmt], out: &mut BTreeSet<String>) {
@@ -86,6 +128,9 @@ struct CallChecker<'a> {
     locals: &'a BTreeSet<String>,
     table: &'a BTreeMap<String, CallableSignature>,
     imports: BTreeSet<String>,
+    module_id: ModuleId,
+    program: Option<&'a Program>,
+    cross_only: bool,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -147,6 +192,9 @@ impl<'a> CallChecker<'a> {
     fn call(&mut self, callee: &Expr, args: &[Arg], span: Span) {
         match callee {
             Expr::Ident(Ident { name, .. }) => {
+                if self.cross_only {
+                    return;
+                }
                 if let Some(builtin) = builtins::find(name) {
                     if let Err(message) = builtins::validate_args(builtin, args) {
                         self.diagnostics.push(
@@ -177,9 +225,52 @@ impl<'a> CallChecker<'a> {
                     .with_hint("define it as a level-2 heading or call a builtin"),
                 );
             }
-            // Qualified calls are validated once the imported module has been
-            // analysed by the loader; argument expressions are still checked.
-            Expr::Member { base, .. } => self.expr(base),
+            Expr::Member { base, name, .. } => {
+                if let Expr::Ident(Ident { name: alias, .. }) = base.as_ref() {
+                    let qualified = format!("{}.{name}", alias);
+                    if let Some(builtin) = builtins::find(&qualified) {
+                        if let Err(message) = builtins::validate_args(builtin, args) {
+                            self.diagnostics.push(
+                                Diagnostic::error(codes::CALL_ARITY, Some(span), message)
+                                    .with_hint("check the builtin parameter list"),
+                            );
+                        }
+                        return;
+                    }
+                    if self.imports.contains(alias) {
+                        if let Some(program) = self.program {
+                            if let Some(target_module) =
+                                program.resolve_import(&self.module_id, alias)
+                            {
+                                if let Some(target) = program.module(target_module) {
+                                    if let Some(function) = target.function(name) {
+                                        let signature = CallableSignature {
+                                            params: function.params.clone(),
+                                            kind: function.signature,
+                                        };
+                                        self.validate_against(
+                                            &qualified, &signature, args, span, span,
+                                        );
+                                        return;
+                                    }
+                                    self.diagnostics.push(
+                                        Diagnostic::error(
+                                            codes::SYMBOL_UNKNOWN,
+                                            Some(span),
+                                            format!("module `{alias}` has no function `{name}`"),
+                                        )
+                                        .with_hint(
+                                            "check `inspect --signature` on the imported module",
+                                        ),
+                                    );
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+                self.expr(base);
+            }
             other => self.expr(other),
         }
     }

@@ -139,9 +139,21 @@ impl<'a> Analyzer<'a> {
                 self.read_expr(right, state);
             }
             Expr::Call { callee, args, .. } => {
-                // A bare identifier callee names a function, not a variable.
+                // A callee identifier names a function; a `ns.name` callee is a
+                // builtin namespace (math.eval) or an imported module alias.
+                // Neither is a variable read.
                 match callee.as_ref() {
                     Expr::Ident(_) => {}
+                    Expr::Member { base, name, .. } => {
+                        let is_builtin_namespace = matches!(
+                            base.as_ref(),
+                            Expr::Ident(ident)
+                                if marqdo_ir::builtins::find(&format!("{}.{name}", ident.name)).is_some()
+                        );
+                        if !is_builtin_namespace {
+                            self.read_expr(base, state);
+                        }
+                    }
                     other => self.read_expr(other, state),
                 }
                 for Arg { value, .. } in args {
@@ -295,7 +307,7 @@ pub fn infer(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use marqdo_expression::{parse_expression, parse_statement};
+    use marqdo_expression::parse_expression;
 
     fn assign(name: &str, value: &str) -> Stmt {
         Stmt::Assign {
