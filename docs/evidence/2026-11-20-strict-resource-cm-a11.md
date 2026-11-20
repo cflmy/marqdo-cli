@@ -2,7 +2,7 @@
 
 Date: 2026-11-20 (Asia/Shanghai)
 Repository: `marqdo-cli`
-Source under test: `git archive b241d1d` (current HEAD)
+Source under test: `git archive 70d916d` (current HEAD)
 Related: [ADR-0021](../adr/0021-linux-strict-isolation.md),
 [ADR-0030](../adr/0030-print-compat-b-routing.md),
 [ADR-0034](../adr/0034-tcp-resource-endpoint.md),
@@ -35,9 +35,11 @@ capability escalation, fd/process limits, and memory/CPU/output limits.
 The positive CLI contract runs `hello` (Compat-C `打印` through the bundled
 stdlib), `factorial --mode strict`, multi-module, and `--json`.
 
-The new strict-resource check runs a `.mq.md` program that calls
-`resource.open("file", "README.md", ["read"])` under `--mode strict`; the run
-must be non-zero and the diagnostic must contain `permission.denied`. The
+The strict-resource checks run `.mq.md` programs that call
+`resource.open("file", "README.md", ["read"])` and
+`resource.open("tcp", "127.0.0.1:9", ["read","write"])` under `--mode strict`;
+each run must be non-zero and the diagnostic must contain `permission.denied`.
+The `--allow-net` flag is also rejected at the strict boundary. The
 bundled stdlib is bind-mounted read-only at `/run/marqdo-stdlib` and its digest
 is still verified in the child; this grants no new OS capability.
 
@@ -62,7 +64,7 @@ Actions security URL and not Windows/macOS evidence.
 
 ## Limits
 
-* No remote CI URL for `b241d1d`; G-C remains VM-verified, not CI-signed.
+* No remote CI URL for `70d916d`; G-C remains VM-verified, not CI-signed.
 * Windows/macOS strict behavior is not exercised here.
 * Strict L2 (Worker/Foreign/native plugin under real isolation) is still not
   implemented; L1 refuses those surfaces.

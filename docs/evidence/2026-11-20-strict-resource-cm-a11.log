@@ -1,6 +1,6 @@
 == adversarial helper matrix ==
    Compiling marqdo-sandbox v0.1.0 (/home/dev/marqdo-current/crates/marqdo-sandbox)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.97s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.17s
      Running tests/security_linux.rs (target/debug/build/marqdo-sandbox/73fdd38fdea71ea2/out/security_linux-73fdd38fdea71ea2)
 
 running 7 tests
@@ -12,7 +12,7 @@ test strict_child_identity_is_unprivileged_and_namespaced ... ok
 test strict_supervisor_enforces_fd_and_process_limits ... ok
 test strict_supervisor_enforces_memory_cpu_and_output_limits ... ok
 
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.52s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.66s
 
 == build CLI ==
    Compiling marqdo-span v0.1.0 (/home/dev/marqdo-current/crates/marqdo-span)
@@ -29,7 +29,7 @@ test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
    Compiling marqdo-frontend v0.1.0 (/home/dev/marqdo-current/crates/marqdo-frontend)
    Compiling marqdo-runtime v0.1.0 (/home/dev/marqdo-current/crates/marqdo-runtime)
    Compiling marqdo-cli v0.1.0 (/home/dev/marqdo-current/crates/cli)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 47.14s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 25.80s
 strict mechanism: bubblewrap 0.11.1 (user/mount/PID/net/UTS/IPC namespaces + no-new-privs + rlimits)
 == positive CLI contract ==
 == strict language resources are console-only ==

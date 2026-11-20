@@ -45,7 +45,7 @@ cargo test --workspace --locked                       PASS
 
 ### G-C security lane (disposable Ubuntu 26.04 VM, ordinary user `dev`)
 
-Source: `git archive b241d1d` extracted in the VM (not the dev container).
+Source: `git archive 70d916d` extracted in the VM (not the dev container).
 Host: QEMU/TCG, kernel `7.0.0-43-generic`, `systemd-detect-virt --container`
 = `none`, bubblewrap 0.11.1 with `bwrap-userns-restrict`, uid 1000.
 
@@ -77,7 +77,7 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 | 7 | Independent Tool consumers | **Done locally** | `sample-view`/`sample-knowledge`/`sample-proof` E2E test |
 | 8 | lock v3 reproducibility | **Implemented; tamper test added** | `package_env` PASS |
 | 9 | Analysis/Trace/Tool/ABI/Foreign | **Implemented; supported-matrix bounded** | protocol tests, plugin/worker/foreign tests |
-| 10 | Linux strict L1 | **VM PASS at b241d1d; no CI URL** | 7/7 + positive CLI + strict resource refusal |
+| 10 | Linux strict L1 | **VM PASS at 70d916d; no CI URL** | 7/7 + positive CLI + strict resource refusal |
 | 11 | Linux strict L2 | **NOT IMPLEMENTED / UNSUPPORTED** | strict rejects Worker/Foreign/native ABI |
 | 12 | Windows Native/Worker ABI | **UNSUPPORTED** | no Windows ABI artifact/claim |
 | 13 | RC artifact | **Linux candidate only; no release** | clean-install + checksums; macOS not built here |
@@ -184,7 +184,7 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
    the Linux EAGAIN contract are UNVERIFIED on GitHub. G1/G2/G3 remain FAIL
    until a real run exists.
 2. **G-C is VM-verified but not CI-signed.** No self-hosted security-lane URL
-   for b241d1d exists.
+   for 70d916d exists.
 3. Windows Native/Worker ABI is explicitly UNSUPPORTED (no Windows `cc`
    fixture lane, Unix-gated worker tests).
 4. `fs.write`, `net.request`, `process`, `clock`, `random` are not executed
