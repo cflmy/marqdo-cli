@@ -149,6 +149,9 @@ struct CallArgs {
 struct CheckArgs {
     /// Document to check (defaults to index.mq.md).
     file: Option<PathBuf>,
+    /// Also validate Markdown reference/link targets (`check --refs`).
+    #[arg(long)]
+    refs: bool,
     /// Machine readable JSON output.
     #[arg(long)]
     json: bool,
@@ -259,7 +262,7 @@ fn main() {
     let cli = Cli::parse();
     let code = match cli.command {
         Command::Init(args) => commands::init(args.dir.as_deref()),
-        Command::Check(args) => commands::check(args.file.as_deref(), args.json),
+        Command::Check(args) => commands::check(args.file.as_deref(), args.json, args.refs),
         Command::Inspect(args) => {
             let flags = commands::InspectFlags {
                 ast: args.ast,

@@ -12,7 +12,7 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 
 use crate::args;
-use crate::loader::{self, LoadedProject};
+use crate::loader::{self, FileDiagnostic, LoadedProject};
 use crate::output;
 
 /// Effective sandbox settings from the command line.
@@ -148,11 +148,15 @@ fn load_project(file: Option<&Path>, json: bool) -> Result<LoadedProject, i32> {
 }
 
 /// `marqdo check`.
-pub fn check(file: Option<&Path>, json: bool) -> i32 {
-    let project = match load_project(file, json) {
+pub fn check(file: Option<&Path>, json: bool, refs: bool) -> i32 {
+    let mut project = match load_project(file, json) {
         Ok(project) => project,
         Err(code) => return code,
     };
+    if refs {
+        let ref_diagnostics = validate_refs(&project);
+        project.diagnostics.extend(ref_diagnostics);
+    }
     let errors = output::error_count(&project.diagnostics);
     if json {
         output::print_json(&json!({
@@ -309,6 +313,42 @@ pub fn inspect(file: Option<&Path>, flags: &InspectFlags, json: bool) -> i32 {
         );
     }
     0
+}
+
+/// Validate Markdown reference edges for every loaded document.
+///
+/// Links are static references: checking them never executes anything. Broken
+/// same-document anchors, missing files and missing target anchors are
+/// `ref.unresolved` errors; external HTTP(S) links are accepted as external.
+fn validate_refs(project: &LoadedProject) -> Vec<FileDiagnostic> {
+    let mut diagnostics = Vec::new();
+    for file in project.files.values() {
+        let parent = file.path.parent().unwrap_or_else(|| Path::new("."));
+        let mut unresolved: Vec<marqdo_span::Span> = Vec::new();
+        file.analysis.document.root.walk(&mut |node| {
+            let marqdo_markdown::MdKind::Link { url, .. } = &node.kind else {
+                return;
+            };
+            let (resolved, _, _) = resolve_link(project, &file.analysis.units, parent, url);
+            if !resolved {
+                unresolved.push(node.span);
+            }
+        });
+        for span in unresolved {
+            diagnostics.push(FileDiagnostic {
+                module_id: file.module_id.clone(),
+                path: file.path.clone(),
+                source: file.source.clone(),
+                diagnostic: marqdo_value::Diagnostic::error(
+                    marqdo_value::codes::REF_UNRESOLVED,
+                    Some(span),
+                    "reference target could not be resolved",
+                )
+                .with_hint("fix the link target or add the missing heading/file"),
+            });
+        }
+    }
+    diagnostics
 }
 
 fn summary_json(project: &LoadedProject) -> serde_json::Value {
