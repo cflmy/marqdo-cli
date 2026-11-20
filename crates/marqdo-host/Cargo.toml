@@ -9,13 +9,16 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+glob = { workspace = true }
 marqdo-span = { workspace = true }
 marqdo-value = { workspace = true }
 marqdo-math = { workspace = true }
 marqdo-foreign = { workspace = true }
-marqdo-plugin-abi = { workspace = true }
 marqdo-sandbox = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 
+
+[dev-dependencies]
+tempfile = { workspace = true }
