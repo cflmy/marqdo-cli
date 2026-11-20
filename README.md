@@ -191,8 +191,9 @@ tests/                        conformance/negative corpus (see tests/README.md)
   feature evidence and explicit unsupported features.
 * [`CHANGELOG.md`](CHANGELOG.md) — unreleased stabilization changes and the
   `0.1.0` baseline.
-* [`docs/security-gate.md`](docs/security-gate.md) — G-C probe evidence and the
-  exact conditions required before strict can become available.
+* [`docs/security-gate.md`](docs/security-gate.md) — G-C evidence and limits;
+  [`docs/security-vm.md`](docs/security-vm.md) reproduces the disposable VM and
+  the self-hosted security runner.
 * [`docs/releasing.md`](docs/releasing.md) — artifact, checksum, clean-install
   smoke, tagging and rollback procedure.
 * [`docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`](docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md)

@@ -123,6 +123,9 @@ hide /usr/bin/bwrap; run --mode strict            -> exit 1 (not installed)
 * Filesystem TOCTOU is reduced by read-only mounts but not formally proven
   against a racing host user.
 * Network is denied by a network namespace, not a seccomp allowlist.
+* The disposable VM is reproducible from
+  [`security-vm.md`](security-vm.md); that document also explains how to
+  register it as a dedicated self-hosted runner.
 * **A remote security-lane CI URL is still required** before a release calls
   G-C CI-verified. `.github/workflows/security-linux.yml` targets a dedicated
   self-hosted runner; `MARQDO_REQUIRE_STRICT_SECURITY=1` makes missing
