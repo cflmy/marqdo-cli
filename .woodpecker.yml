@@ -10,6 +10,8 @@ steps:
     commands:
       - rustup component add clippy rustfmt
       - apt-get update
+      - apt-get install -y --no-install-recommends curl ca-certificates
+      - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
       - apt-get install -y --no-install-recommends nodejs
       - cargo fmt --all -- --check
       - cargo clippy --workspace --all-targets -- -D warnings
