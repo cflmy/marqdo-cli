@@ -1,7 +1,8 @@
 # Marqdo Foreign Kernels v1
 
-Status: **one-shot kernels for Python and Node/JavaScript**, frozen protocol for
-M0.5. There are no sessions or persistent kernels.
+Status: **one-shot kernels with an explicit provider registry** (M0.6 R2),
+including built-in Python and Node/JavaScript providers. There are no sessions
+or persistent kernels.
 
 Implementation: `crates/marqdo-foreign/src/lib.rs` (process supervision and
 protocol), `crates/marqdo-host/src/kernels.rs::foreign` (capability check and
@@ -39,22 +40,30 @@ print(json.dumps({"type": "float", "value": math.pi * r ** 2}))
 The anchor is the GitHub-style slug of the heading (`#python-校验`), not the
 heading text.
 
-## 2. Supported languages
+## 2. Supported languages and providers
 
-`normalize_language` is ASCII case-insensitive and trims surrounding
-whitespace:
+`KernelRegistry` maps case-insensitive language labels to an explicit
+`KernelDescriptor` (`provider_id`, `languages`, `wire_version`, `entrypoint`,
+optional digest, advisory permission requests). Built-in providers are:
 
 | Canonical | Accepted aliases | Interpreter lookup |
 |---|---|---|
 | `python` | `python`, `python3`, `py` | `python3`, then `python` on `PATH` |
 | `javascript` | `javascript`, `js`, `node`, `nodejs` | `node` on `PATH` |
 
-Any other language yields `ForeignError::KernelUnavailable` (the `Code` value is
-still valid data). `detect(language)` returns `KernelInfo { language, program,
-version }` by scanning `PATH` and running the interpreter with `--version`
-(5 s timeout, 64 KiB output cap, cleared environment except `PATH`); the
-`version` is the first non-empty line of stdout or stderr. `detect` and
-execution use the same `PATH`-only environment.
+Additional providers are registered with
+`KernelDescriptor::external(provider_id, languages, entrypoint)` and an exact
+wire version (`1`). External entrypoints must be explicit executable files, not
+PATH names. Duplicate language labels and incompatible wire versions are
+rejected at registration. The host owns a registry (`StdHost::kernel_registry`,
+`StdHost::register_kernel`); the interpreter never hard-codes a language list.
+
+A `Code` value for an unregistered label is still valid inert data. Only an
+explicit `foreign.run`/`foreign.call` lookup can fail with
+`ForeignError::KernelUnavailable`; the error carries a provider/install hint.
+`detect(language)` uses the same registry and returns `KernelInfo { language,
+program, version }` (5 s timeout, 64 KiB output cap, cleared environment except
+`PATH`).
 
 ## 3. `RunRequest` / `RunResult`
 

@@ -35,6 +35,7 @@
 //!
 //! [`Code`]: marqdo_value::CodeValue
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -68,6 +69,170 @@ static UNIQUE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Canonical language names supported by this crate.
 pub const SUPPORTED_LANGUAGES: [&str; 2] = ["python", "javascript"];
+
+/// A registered foreign execution provider.
+///
+/// Descriptors are metadata; they do not grant process/filesystem access. The
+/// host still requires an explicit foreign grant before invoking one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KernelDescriptor {
+    /// Stable provider id (`python`, `javascript`, `mocklang`, ...).
+    pub provider_id: String,
+    /// Accepted case-insensitive code-fence labels and aliases.
+    pub languages: Vec<String>,
+    /// Wire protocol version the provider implements.
+    pub wire_version: u32,
+    /// Program to start. Built-in providers use a PATH command name; external
+    /// providers must point at an explicit executable.
+    pub entrypoint: PathBuf,
+    /// Content digest of the external provider program, when known.
+    pub digest: Option<String>,
+    /// Advisory capability requests; never grants.
+    pub permissions_requested: Vec<String>,
+    /// Whether this is one of the built-in Python/Node providers.
+    pub builtin: bool,
+}
+
+impl KernelDescriptor {
+    /// Create a built-in provider descriptor.
+    pub fn builtin(provider_id: &str, languages: &[&str], entrypoint: &str) -> Self {
+        Self {
+            provider_id: provider_id.to_string(),
+            languages: languages
+                .iter()
+                .map(|language| language.to_string())
+                .collect(),
+            wire_version: marqdo_value::WIRE_VERSION,
+            entrypoint: PathBuf::from(entrypoint),
+            digest: None,
+            permissions_requested: Vec::new(),
+            builtin: true,
+        }
+    }
+
+    /// Create an external provider descriptor.
+    pub fn external(
+        provider_id: impl Into<String>,
+        languages: &[&str],
+        entrypoint: impl Into<PathBuf>,
+    ) -> Self {
+        Self {
+            provider_id: provider_id.into(),
+            languages: languages
+                .iter()
+                .map(|language| language.to_string())
+                .collect(),
+            wire_version: marqdo_value::WIRE_VERSION,
+            entrypoint: entrypoint.into(),
+            digest: None,
+            permissions_requested: Vec::new(),
+            builtin: false,
+        }
+    }
+}
+
+/// Registry of foreign kernels. Registration is explicit and deterministic.
+#[derive(Debug, Clone, Default)]
+pub struct KernelRegistry {
+    descriptors: Vec<KernelDescriptor>,
+    by_language: BTreeMap<String, usize>,
+}
+
+impl KernelRegistry {
+    /// Built-in Python and Node providers.
+    pub fn builtin() -> Self {
+        let mut registry = Self::default();
+        registry
+            .register(KernelDescriptor::builtin(
+                "python",
+                &["python", "python3", "py"],
+                "python3",
+            ))
+            .expect("built-in python provider is valid");
+        registry
+            .register(KernelDescriptor::builtin(
+                "javascript",
+                &["javascript", "js", "node", "nodejs"],
+                "node",
+            ))
+            .expect("built-in javascript provider is valid");
+        registry
+    }
+
+    /// Register a provider, rejecting duplicate language labels and an
+    /// incompatible wire version.
+    pub fn register(&mut self, mut descriptor: KernelDescriptor) -> Result<(), ForeignError> {
+        if descriptor.provider_id.trim().is_empty() {
+            return Err(ForeignError::Protocol {
+                message: "kernel provider_id must not be empty".to_string(),
+            });
+        }
+        if descriptor.languages.is_empty() {
+            return Err(ForeignError::Protocol {
+                message: format!(
+                    "kernel provider `{}` declares no languages",
+                    descriptor.provider_id
+                ),
+            });
+        }
+        if descriptor.wire_version != marqdo_value::WIRE_VERSION {
+            return Err(ForeignError::Protocol {
+                message: format!(
+                    "kernel provider `{}` requires wire version {}, host supports {}",
+                    descriptor.provider_id,
+                    descriptor.wire_version,
+                    marqdo_value::WIRE_VERSION
+                ),
+            });
+        }
+        for language in &mut descriptor.languages {
+            *language = language.trim().to_ascii_lowercase();
+            if language.is_empty() {
+                return Err(ForeignError::Protocol {
+                    message: format!(
+                        "kernel provider `{}` contains an empty language label",
+                        descriptor.provider_id
+                    ),
+                });
+            }
+            if self.by_language.contains_key(language) {
+                return Err(ForeignError::Protocol {
+                    message: format!("kernel language `{language}` is already registered"),
+                });
+            }
+        }
+        let index = self.descriptors.len();
+        for language in &descriptor.languages {
+            self.by_language.insert(language.clone(), index);
+        }
+        self.descriptors.push(descriptor);
+        Ok(())
+    }
+
+    /// Resolve a language label to its provider descriptor.
+    pub fn descriptor(&self, language: &str) -> Option<&KernelDescriptor> {
+        let key = language.trim().to_ascii_lowercase();
+        self.by_language
+            .get(&key)
+            .and_then(|index| self.descriptors.get(*index))
+    }
+
+    /// Detect a provider's executable and version.
+    pub fn detect(&self, language: &str) -> Option<KernelInfo> {
+        let descriptor = self.descriptor(language)?;
+        let program = resolve_program(descriptor)?;
+        let version = if descriptor.builtin {
+            probe_version(&program).unwrap_or_else(|| "unknown".to_string())
+        } else {
+            "external provider".to_string()
+        };
+        Some(KernelInfo {
+            language: descriptor.provider_id.clone(),
+            program,
+            version,
+        })
+    }
+}
 
 /// Normalize a language alias to its canonical kernel name.
 ///
@@ -214,24 +379,7 @@ pub enum ForeignError {
 /// when no working interpreter is installed; detection honors the same
 /// cleared-environment rule as execution and is bounded by a short timeout.
 pub fn detect(language: &str) -> Option<KernelInfo> {
-    let canonical = normalize_language(language)?;
-    let path_var = std::env::var_os("PATH")?;
-    for name in program_candidates(canonical) {
-        for directory in std::env::split_paths(&path_var) {
-            let program = directory.join(name);
-            if !is_executable_file(&program) {
-                continue;
-            }
-            if let Some(version) = probe_version(&program) {
-                return Some(KernelInfo {
-                    language: canonical.to_string(),
-                    program,
-                    version,
-                });
-            }
-        }
-    }
-    None
+    KernelRegistry::builtin().detect(language)
 }
 
 /// One-shot isolated execution of foreign code.
@@ -246,7 +394,15 @@ pub fn detect(language: &str) -> Option<KernelInfo> {
 /// [`RunStatus::TimedOut`]. Infrastructure failures (unavailable kernel, spawn
 /// failure, exceeding the output budget) are [`ForeignError`]s.
 pub fn run(request: &RunRequest) -> Result<RunResult, ForeignError> {
-    let raw = execute(request)?;
+    run_with_registry(request, &KernelRegistry::builtin())
+}
+
+/// Like [`run`] with an explicit provider registry.
+pub fn run_with_registry(
+    request: &RunRequest,
+    registry: &KernelRegistry,
+) -> Result<RunResult, ForeignError> {
+    let raw = execute(request, registry)?;
     Ok(RunResult {
         status: raw.status,
         stdout: String::from_utf8_lossy(&raw.stdout).into_owned(),
@@ -267,7 +423,15 @@ pub fn run(request: &RunRequest) -> Result<RunResult, ForeignError> {
 /// can report the kernel's own failure faithfully; a timeout returns
 /// [`ForeignError::Timeout`] because no typed value can exist.
 pub fn call(request: &RunRequest) -> Result<RunResult, ForeignError> {
-    let raw = execute(request)?;
+    call_with_registry(request, &KernelRegistry::builtin())
+}
+
+/// Like [`call`] with an explicit provider registry.
+pub fn call_with_registry(
+    request: &RunRequest,
+    registry: &KernelRegistry,
+) -> Result<RunResult, ForeignError> {
+    let raw = execute(request, registry)?;
     match raw.status {
         RunStatus::TimedOut => Err(ForeignError::Timeout {
             seconds: request.timeout.as_secs_f64(),
@@ -315,22 +479,40 @@ struct RawRun {
     duration: Duration,
 }
 
-fn execute(request: &RunRequest) -> Result<RawRun, ForeignError> {
-    let canonical =
-        normalize_language(&request.language).ok_or_else(|| ForeignError::KernelUnavailable {
-            language: request.language.clone(),
-            hint: format!(
-                "supported languages are `python` (aliases: python3, py) and \
-                 `javascript` (aliases: js, node); `{}` is not a foreign kernel",
-                request.language
-            ),
-        })?;
-    let program = find_program(canonical).ok_or_else(|| ForeignError::KernelUnavailable {
-        language: canonical.to_string(),
-        hint: kernel_hint(canonical).to_string(),
+fn execute(request: &RunRequest, registry: &KernelRegistry) -> Result<RawRun, ForeignError> {
+    let descriptor =
+        registry
+            .descriptor(&request.language)
+            .ok_or_else(|| ForeignError::KernelUnavailable {
+                language: request.language.clone(),
+                hint: format!(
+                    "no kernel provider is registered for `{}`; register an explicit provider or use python/javascript",
+                    request.language
+                ),
+            })?;
+    let program = resolve_program(descriptor).ok_or_else(|| ForeignError::KernelUnavailable {
+        language: descriptor.provider_id.clone(),
+        hint: if descriptor.builtin {
+            kernel_hint(&descriptor.provider_id).to_string()
+        } else {
+            format!(
+                "external kernel provider `{}` executable `{}` is missing or not executable",
+                descriptor.provider_id,
+                descriptor.entrypoint.display()
+            )
+        },
     })?;
 
-    let artifacts = TempArtifacts::create(canonical)?;
+    let extension = if descriptor.builtin {
+        if descriptor.provider_id == "python" {
+            "py"
+        } else {
+            "js"
+        }
+    } else {
+        "src"
+    };
+    let artifacts = TempArtifacts::create(extension)?;
     artifacts.write_program(&request.source)?;
     let payload = request_envelope(request)?;
 
@@ -405,9 +587,17 @@ fn is_executable_file(path: &Path) -> bool {
     }
 }
 
-fn find_program(language: &str) -> Option<PathBuf> {
+fn resolve_program(descriptor: &KernelDescriptor) -> Option<PathBuf> {
+    if !descriptor.builtin {
+        return descriptor
+            .entrypoint
+            .is_file()
+            .then(|| descriptor.entrypoint.clone())
+            .filter(|path| is_executable_file(path));
+    }
     let path_var = std::env::var_os("PATH")?;
-    for name in program_candidates(language) {
+    let candidates = program_candidates(&descriptor.provider_id);
+    for name in candidates {
         for directory in std::env::split_paths(&path_var) {
             let candidate = directory.join(name);
             if is_executable_file(&candidate) {
@@ -464,9 +654,8 @@ struct TempArtifacts {
 }
 
 impl TempArtifacts {
-    fn create(language: &str) -> Result<Self, ForeignError> {
+    fn create(extension: &str) -> Result<Self, ForeignError> {
         let base = fs::canonicalize(std::env::temp_dir()).unwrap_or_else(|_| std::env::temp_dir());
-        let extension = if language == "python" { "py" } else { "js" };
         let mut last_error: Option<io::Error> = None;
         for _ in 0..16 {
             let token = unique_token();

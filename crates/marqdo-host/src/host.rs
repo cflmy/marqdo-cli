@@ -107,6 +107,8 @@ pub struct StdHost {
     pub foreign_timeout: Duration,
     /// Maximum captured bytes per foreign stream.
     pub foreign_output_limit: usize,
+    /// Registered foreign kernels (built-in Python/Node plus explicit providers).
+    pub kernel_registry: marqdo_foreign::KernelRegistry,
     output: Vec<u8>,
     trace_id: u64,
     /// Explicitly trusted, in-process native plugins keyed by namespace.
@@ -141,6 +143,7 @@ impl StdHost {
             trace: EffectTrace::default(),
             foreign_timeout: Duration::from_secs(10),
             foreign_output_limit: 1024 * 1024,
+            kernel_registry: marqdo_foreign::KernelRegistry::builtin(),
             output: Vec::new(),
             trace_id,
             plugins: Vec::new(),
@@ -203,6 +206,16 @@ impl StdHost {
             plugin: loaded,
         });
         Ok(namespace)
+    }
+
+    /// Register an explicit external foreign-kernel provider.
+    pub fn register_kernel(
+        &mut self,
+        descriptor: marqdo_foreign::KernelDescriptor,
+    ) -> Result<(), RuntimeError> {
+        self.kernel_registry.register(descriptor).map_err(|error| {
+            RuntimeError::new(ErrorCategory::KernelUnavailable, None, error.to_string())
+        })
     }
 
     /// Enable effect tracing.

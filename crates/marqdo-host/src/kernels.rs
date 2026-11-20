@@ -177,13 +177,13 @@ pub(crate) fn foreign(
     };
     match op {
         HostOp::ForeignRun => {
-            let result =
-                marqdo_foreign::run(&request).map_err(|error| foreign_error(error, span))?;
+            let result = marqdo_foreign::run_with_registry(&request, &host.kernel_registry)
+                .map_err(|error| foreign_error(error, span))?;
             Ok(foreign_result_map(result))
         }
         HostOp::ForeignCall => {
-            let result =
-                marqdo_foreign::call(&request).map_err(|error| foreign_error(error, span))?;
+            let result = marqdo_foreign::call_with_registry(&request, &host.kernel_registry)
+                .map_err(|error| foreign_error(error, span))?;
             if result.status != marqdo_foreign::RunStatus::Success {
                 return Err(RuntimeError::new(
                     ErrorCategory::ForeignFailure,

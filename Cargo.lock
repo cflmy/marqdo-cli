@@ -363,6 +363,7 @@ dependencies = [
  "marqdo-span",
  "marqdo-value",
  "serde_json",
+ "tempfile",
  "thiserror",
 ]
 
