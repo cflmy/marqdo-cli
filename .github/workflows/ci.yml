@@ -25,6 +25,8 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests
         run: cargo test --workspace
+      - name: Documentation consistency
+        run: cargo test -p marqdo-cli --test docs_consistency
       - name: Validate public JSON schemas
         run: |
           python3 - <<'PY'

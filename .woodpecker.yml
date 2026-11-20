@@ -16,6 +16,7 @@ steps:
       - cargo fmt --all -- --check
       - cargo clippy --workspace --all-targets -- -D warnings
       - cargo test --workspace --locked
+      - cargo test -p marqdo-cli --test docs_consistency
 
   build:
     image: rust:1.100-bookworm

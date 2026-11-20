@@ -1,8 +1,12 @@
 # Evidence: stdio stdin/stderr and stdlib streams
 
 Date: 2026-11-21 (Asia/Shanghai)
+Code baseline: `24c88bcc78b1c705eb2319e7aaa8822a415eb01f`
 Repository: `marqdo-cli`
 Decision record: [ADR-0040](../adr/0040-stdio-stdin-stderr-and-stdlib-streams.md)
+
+This snapshot predates the documentation/test migration; re-run the gate
+commands below before citing a current pass.
 
 ## Local gate
 

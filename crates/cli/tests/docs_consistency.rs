@@ -1,0 +1,170 @@
+//! Documentation consistency gate (review RFC-CM P0).
+//!
+//! The current architecture lives in one file, the status file must link it,
+//! relative links must resolve, and a removed "running status" claim must not
+//! come back. This is a source check, not a release proof.
+
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+
+fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf()
+}
+
+fn read(path: &Path) -> String {
+    std::fs::read_to_string(path).unwrap_or_else(|error| {
+        panic!("read {}: {error}", path.display());
+    })
+}
+
+#[test]
+fn current_architecture_has_one_overview_and_four_state_dimensions() {
+    let current = read(&repo_root().join("docs/architecture/CURRENT.md"));
+    for heading in [
+        "## 1. Four state dimensions",
+        "## 2. Responsibility layers",
+        "## 3. Dependency direction and public contracts",
+        "## 4. Extension path classification",
+        "## 5. Gap and closure backlog",
+        "## 6. Documentation governance",
+    ] {
+        assert!(current.contains(heading), "CURRENT.md is missing {heading}");
+    }
+    for dimension in [
+        "Implemented",
+        "Tested locally",
+        "Bundled stdlib released",
+        "Multi-platform verified",
+    ] {
+        assert!(
+            current.contains(dimension),
+            "CURRENT.md is missing the `{dimension}` state dimension"
+        );
+    }
+    let baseline = current
+        .lines()
+        .find(|line| line.starts_with("- Baseline:"))
+        .expect("CURRENT.md has no Baseline line");
+    let sha = baseline
+        .split('`')
+        .nth(1)
+        .expect("Baseline line has no backtick-quoted SHA");
+    assert_eq!(sha.len(), 40, "Baseline SHA is not 40 hex digits: {sha}");
+    assert!(
+        sha.chars().all(|c| c.is_ascii_hexdigit()),
+        "Baseline SHA is not hex: {sha}"
+    );
+}
+
+#[test]
+fn index_and_status_point_at_the_current_overview_and_history() {
+    let root = repo_root();
+    let index = read(&root.join("docs/architecture/README.md"));
+    for target in ["CURRENT.md", "../STATUS.md", "../history/README.md"] {
+        assert!(
+            index.contains(target),
+            "architecture index does not link {target}"
+        );
+    }
+    // The index is an index, not a second running-status page.
+    assert!(
+        !index.contains("P5 providers") && !index.contains("P5 Provider"),
+        "architecture index must not duplicate the current P5 status"
+    );
+
+    let status = read(&root.join("docs/STATUS.md"));
+    assert!(
+        status.contains("architecture/CURRENT.md"),
+        "STATUS.md does not link the current overview"
+    );
+    assert!(
+        !status.contains("is still `c9f01aa8"),
+        "STATUS.md still claims the stale `c9f01aa8` remote baseline"
+    );
+}
+
+#[test]
+fn current_relative_markdown_links_resolve() {
+    let root = repo_root();
+    for relative in [
+        "docs/architecture/CURRENT.md",
+        "docs/architecture/README.md",
+        "docs/STATUS.md",
+        "docs/history/README.md",
+    ] {
+        let path = root.join(relative);
+        let text = read(&path);
+        let mut checked = BTreeSet::new();
+        for target in markdown_targets(&text) {
+            if target.starts_with("http://")
+                || target.starts_with("https://")
+                || target.starts_with('#')
+            {
+                continue;
+            }
+            let file = target.split('#').next().unwrap();
+            if file.is_empty() || !checked.insert(file.to_string()) {
+                continue;
+            }
+            let resolved = path.parent().unwrap().join(file);
+            assert!(
+                resolved.exists(),
+                "{} links missing `{target}` (resolved {})",
+                path.display(),
+                resolved.display()
+            );
+        }
+    }
+}
+
+#[test]
+fn evidence_files_are_sha_pinned() {
+    let evidence = repo_root().join("docs/evidence");
+    for entry in std::fs::read_dir(&evidence).expect("read evidence dir") {
+        let path = entry.unwrap().path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("md") {
+            continue;
+        }
+        let text = read(&path);
+        assert!(
+            has_hex_sha(&text),
+            "{} has no 7–40 hex commit/security SHA",
+            path.display()
+        );
+    }
+}
+
+fn markdown_targets(text: &str) -> Vec<String> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i + 1 < bytes.len() {
+        if bytes[i] == b']' && bytes[i + 1] == b'(' {
+            let start = i + 2;
+            let mut end = start;
+            while end < bytes.len() && bytes[end] != b')' && bytes[end] != b'\n' {
+                end += 1;
+            }
+            if end < bytes.len() && bytes[end] == b')' {
+                out.push(text[start..end].to_string());
+                i = end;
+            }
+        }
+        i += 1;
+    }
+    out
+}
+
+fn has_hex_sha(text: &str) -> bool {
+    for word in text.split(|c: char| !c.is_ascii_hexdigit()) {
+        if (7..=40).contains(&word.len()) {
+            return true;
+        }
+    }
+    false
+}
