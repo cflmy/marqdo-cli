@@ -213,6 +213,51 @@ static int32_t solver_add(MqCallContext *ctx, MqBytes args_wire,
     return emit(response, (size_t)written, result_wire);
 }
 
+#ifdef MQ_SOLVER_MULTI_EXPORT
+/* Test-only second export: `solver.neg`, used to prove complete-name routing
+ * (ADR-0010). It is not part of the default demo manifest. */
+static int32_t solver_neg(MqCallContext *ctx, MqBytes args_wire,
+                          MqOwnedBytes *result_wire, MqOwnedBytes *error_wire) {
+    char *json;
+    long long a = 0;
+    char response[160];
+    int written;
+
+    (void)ctx;
+    if (result_wire == NULL || error_wire == NULL) {
+        return MQ_ERR_INVALID_ARGUMENT;
+    }
+    *result_wire = (MqOwnedBytes){NULL, 0};
+    *error_wire = (MqOwnedBytes){NULL, 0};
+    if (args_wire.data == NULL || args_wire.len == 0) {
+        return emit_error("bad_arguments", "request wire is empty", error_wire,
+                          MQ_ERR_INVALID_ARGUMENT);
+    }
+    json = (char *)malloc(args_wire.len + 1);
+    if (json == NULL) {
+        return emit_error("out_of_memory", "plugin could not copy request",
+                          error_wire, MQ_ERR_OUT_OF_MEMORY);
+    }
+    memcpy(json, args_wire.data, args_wire.len);
+    json[args_wire.len] = '\0';
+    if (read_int_argument(json, "a", &a) != 0) {
+        free(json);
+        return emit_error("bad_arguments", "solver.neg requires Int `a`",
+                          error_wire, MQ_ERR_INVALID_ARGUMENT);
+    }
+    free(json);
+    written = snprintf(
+        response, sizeof(response),
+        "{\"wire_version\":1,\"kind\":\"response\",\"value\":"
+        "{\"type\":\"int\",\"decimal\":\"%lld\"}}",
+        -a);
+    if (written < 0 || (size_t)written >= sizeof(response)) {
+        return MQ_ERR_INTERNAL;
+    }
+    return emit(response, (size_t)written, result_wire);
+}
+#endif
+
 /* Required ABI v1 entry point. */
 int32_t mq_plugin_entry_v1(const MqHostApi *host, MqPluginApi *plugin) {
     MqBytes export_name;
@@ -252,5 +297,17 @@ int32_t mq_plugin_entry_v1(const MqHostApi *host, MqPluginApi *plugin) {
     if (code != MQ_OK) {
         return code;
     }
+
+#ifdef MQ_SOLVER_MULTI_EXPORT
+    export_name.data = (const uint8_t *)"solver.neg";
+    export_name.len = sizeof("solver.neg") - 1;
+    signature_wire.data = (const uint8_t *)"{\"signature\":\"($a: Int) -> Int\"}";
+    signature_wire.len = sizeof("{\"signature\":\"($a: Int) -> Int\"}") - 1;
+    code = host->register_function(host->host_data, export_name, signature_wire,
+                                   solver_neg);
+    if (code != MQ_OK) {
+        return code;
+    }
+#endif
     return MQ_OK;
 }

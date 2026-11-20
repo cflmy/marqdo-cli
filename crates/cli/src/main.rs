@@ -152,6 +152,9 @@ struct CheckArgs {
     /// Also validate Markdown reference/link targets (`check --refs`).
     #[arg(long)]
     refs: bool,
+    /// Declare a plugin manifest for static export-signature checking.
+    #[arg(long = "plugin", value_name = "PATH")]
+    plugin: Vec<PathBuf>,
     /// Machine readable JSON output.
     #[arg(long)]
     json: bool,
@@ -262,7 +265,9 @@ fn main() {
     let cli = Cli::parse();
     let code = match cli.command {
         Command::Init(args) => commands::init(args.dir.as_deref()),
-        Command::Check(args) => commands::check(args.file.as_deref(), args.json, args.refs),
+        Command::Check(args) => {
+            commands::check(args.file.as_deref(), args.json, args.refs, &args.plugin)
+        }
         Command::Inspect(args) => {
             let flags = commands::InspectFlags {
                 ast: args.ast,

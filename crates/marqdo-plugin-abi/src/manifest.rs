@@ -26,11 +26,13 @@ pub const MAX_ARTIFACTS: usize = 32;
 
 /// Capability names the host knows about (blueprint section 10.5 whitelist).
 pub const KNOWN_CAPABILITIES: &[&str] = &[
+    "console",
     "log",
     "math.compute",
     "fs.read",
     "fs.write",
     "net.request",
+    "process",
     "clock",
     "random",
     "artifact.record",
@@ -217,10 +219,14 @@ impl PluginManifest {
         }
         let mut capabilities = std::collections::BTreeSet::new();
         for capability in &plugin.requires {
-            if !KNOWN_CAPABILITIES.contains(&capability.as_str()) {
+            if !KNOWN_CAPABILITIES.contains(&capability.as_str())
+                && !is_vendor_capability(capability)
+            {
                 return Err(PluginError::manifest(
                     "unknown_capability",
-                    format!("unknown capability `{capability}`"),
+                    format!(
+                        "unknown capability `{capability}`; vendor capabilities need a dotted vendor namespace"
+                    ),
                 ));
             }
             if !capabilities.insert(capability.clone()) {
@@ -501,6 +507,29 @@ fn validate_dotted_name(name: &str, max_len: usize, what: &str) -> Result<(), Pl
     Ok(())
 }
 
+/// Whether a manifest capability is a syntactically valid vendor request.
+///
+/// This is validation only; a vendor capability remains unauthorized until a
+/// trusted host policy provides a handler for this exact name.
+fn is_vendor_capability(name: &str) -> bool {
+    let segments: Vec<&str> = name.split('.').collect();
+    if segments.len() < 3 {
+        return false;
+    }
+    if matches!(
+        segments[0],
+        "console" | "math" | "fs" | "net" | "process" | "log" | "clock" | "random"
+    ) {
+        return false;
+    }
+    segments.iter().all(|segment| {
+        !segment.is_empty()
+            && segment.bytes().enumerate().all(|(index, byte)| {
+                byte.is_ascii_lowercase() || byte.is_ascii_digit() || (byte == b'-' && index > 0)
+            })
+    })
+}
+
 fn validate_signature(export: &str, signature: &str) -> Result<(), PluginError> {
     let trimmed = signature.trim();
     if trimmed.is_empty() || trimmed.len() > MAX_SIGNATURE_WIRE_BYTES {
@@ -593,6 +622,27 @@ plugin:
         assert_eq!(manifest.plugin.kind, PluginKind::Native);
         assert_eq!(manifest.abi_requirement().expect("abi").raw, "^1.0");
         assert_eq!(manifest.package_version().expect("version").patch, 0);
+    }
+
+    #[test]
+    fn vendor_capabilities_are_validated_but_not_granted() {
+        let yaml = VALID_YAML.replace(
+            "  requires:\n    - math.compute",
+            "  requires:\n    - math.compute\n    - vendor.device.read",
+        );
+        let manifest = PluginManifest::parse_str(&yaml).expect("parse");
+        manifest
+            .validate()
+            .expect("vendor names are valid requests");
+
+        for bad in ["vendor", "vendor..read", "vendor.Device", "fs.extra"] {
+            let yaml = VALID_YAML.replace("    - math.compute", &format!("    - {bad}"));
+            let manifest = PluginManifest::parse_str(&yaml).expect("parse");
+            assert!(
+                manifest.validate().is_err(),
+                "capability `{bad}` must be rejected"
+            );
+        }
     }
 
     #[test]

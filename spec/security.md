@@ -117,9 +117,12 @@ before reading. Full symlink/race hardening is an open P4 item.
 * `fs.write` → `check_write` then `ProjectFs::write`;
 * math ops → `capabilities.math` (in `crates/marqdo-host/src/kernels.rs`);
 * foreign ops → `capabilities.check_foreign` (requires `foreign && process`);
-* plugin invoke → the namespace must be loaded, then
+* plugin invoke → the **complete export name** must be registered, then
   `capabilities.check_plugin(package)` on **every call**; loading also checks
   the same grant once;
+* plugin host-capability requests → `CapabilityBroker` checks the package and
+  effective grants; unknown/vendor capabilities without a trusted policy entry
+  become `capability.unavailable`/`permission.denied`;
 * print → output budget only.
 
 Static analysis may warn, but it never replaces these runtime checks. There is
@@ -214,7 +217,11 @@ Strict mode refuses to run at all, so foreign execution is only reachable in
   call arbitrary syscalls, bypass the capability model entirely and crash or
   corrupt the host process. **A C ABI is not a sandbox.** `--trust-native-plugin`
   must be treated as equivalent to running the plugin's code as the host user.
-* Plugin call sites are written as `<namespace>.<export>(...)` in a function
+* Every export is registered by its complete dotted name; a plugin may export
+  several prefixes, and a conflicting name rejects the whole load atomically.
+  `check --plugin <manifest>` (or `run/call --plugin`) validates export
+  signatures statically without loading a shared library.
+* Plugin call sites are written as `<export>(...)` in a function
   body (for example `solver.add(a=20, b=22)`). The namespace is derived from
   the **first** manifest export prefix. Calls are made through
   `HostOp::PluginInvoke` with a typed `wire_version` 1 request; the plugin's

@@ -3,8 +3,7 @@
 use std::time::Duration;
 
 use marqdo_foreign::{
-    call, call_with_registry, ForeignError, KernelDescriptor, KernelRegistry, RunRequest,
-    RunStatus,
+    call, call_with_registry, ForeignError, KernelDescriptor, KernelRegistry, RunRequest, RunStatus,
 };
 use marqdo_value::Value;
 

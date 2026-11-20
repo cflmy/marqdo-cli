@@ -501,9 +501,21 @@ impl<'a> Interpreter<'a> {
                         return self.call_builtin(builtin, args, Some(span), frame);
                     }
                     if !frame.locals.contains_key(&alias.name) {
-                        // Not a local value or imported module: try an explicitly
-                        // trusted plugin namespace. Plugin calls take named
-                        // arguments only in this build.
+                        // A declared external descriptor is the only static
+                        // source of plugin exports. Calls without a descriptor
+                        // are still accepted for compatibility only when no
+                        // plugin descriptors exist at all; this fallback is
+                        // removed once the CLI always supplies descriptors.
+                        let qualified = format!("{}.{}", alias.name, name);
+                        let declared = program.external_callable(&qualified).is_some();
+                        if !declared && !program.external_callables.is_empty() {
+                            return Err(RuntimeError::new(
+                                ErrorCategory::UnknownSymbol,
+                                Some(span),
+                                format!("unknown plugin export `{qualified}`"),
+                            ));
+                        }
+                        // Plugin calls take named arguments only in this build.
                         let evaluated = self.eval_args(args, frame)?;
                         let mut named = std::collections::BTreeMap::new();
                         for argument in evaluated {
@@ -519,11 +531,7 @@ impl<'a> Interpreter<'a> {
                         let module = frame.function.module.clone();
                         return self.host_invoke(
                             HostOp::PluginInvoke,
-                            vec![
-                                Value::Text(alias.name.clone()),
-                                Value::Text(name.clone()),
-                                Value::Map(named),
-                            ],
+                            vec![Value::Text(qualified), Value::Map(named)],
                             Some(span),
                             &module,
                         );

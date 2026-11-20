@@ -5,9 +5,213 @@
 //! with what the operator/CLI explicitly granted. Every host operation checks
 //! against this set at the point of execution.
 
+use std::collections::BTreeSet;
+use std::sync::{Arc, Mutex};
+
 use glob::Pattern;
+use marqdo_plugin_abi::PluginError;
 use marqdo_span::Span;
 use marqdo_value::{ErrorCategory, RuntimeError};
+
+/// One audited capability request from a plugin.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CapabilityAudit {
+    /// Plugin package that asked.
+    pub package: String,
+    /// Capability name.
+    pub capability: String,
+    /// `granted`, `denied` or `unavailable`.
+    pub decision: &'static str,
+    /// Human-readable reason.
+    pub reason: String,
+}
+
+/// Broker for plugin host-capability requests (ADR-0011).
+///
+/// Core capabilities are checked against the effective grant set. Vendor
+/// capabilities are accepted only when a trusted host policy registered the
+/// exact name; a declaration in a manifest is never enough.
+#[derive(Debug, Clone)]
+pub struct CapabilityBroker {
+    capabilities: Capabilities,
+    vendor_policy: BTreeSet<String>,
+    audit: Arc<Mutex<Vec<CapabilityAudit>>>,
+}
+
+impl CapabilityBroker {
+    /// Construct a broker over an effective grant set.
+    pub fn new(capabilities: Capabilities) -> Self {
+        Self::with_audit(capabilities, Arc::new(Mutex::new(Vec::new())))
+    }
+
+    /// Construct a broker sharing an existing audit log.
+    pub fn with_audit(capabilities: Capabilities, audit: Arc<Mutex<Vec<CapabilityAudit>>>) -> Self {
+        Self {
+            capabilities,
+            vendor_policy: BTreeSet::new(),
+            audit,
+        }
+    }
+
+    /// Register a trusted vendor capability policy entry.
+    pub fn allow_vendor(&mut self, capability: impl Into<String>) {
+        self.vendor_policy.insert(capability.into());
+    }
+
+    /// Shared audit log.
+    pub fn audit(&self) -> Arc<Mutex<Vec<CapabilityAudit>>> {
+        Arc::clone(&self.audit)
+    }
+
+    /// Authorize one request, returning reply bytes on success.
+    pub fn authorize(
+        &mut self,
+        package: &str,
+        capability: &str,
+        request: &[u8],
+    ) -> Result<Vec<u8>, PluginError> {
+        let result = self.decide(package, capability, request);
+        let (decision, reason) = match &result {
+            Ok(()) => ("granted", String::new()),
+            Err(error) => ("denied", format!("{}: {}", error.code, error.message)),
+        };
+        if let Ok(mut audit) = self.audit.lock() {
+            audit.push(CapabilityAudit {
+                package: package.to_string(),
+                capability: capability.to_string(),
+                decision,
+                reason,
+            });
+        }
+        result.map(|()| Vec::new())
+    }
+
+    fn decide(&self, package: &str, capability: &str, request: &[u8]) -> Result<(), PluginError> {
+        match capability {
+            "console" => self
+                .capabilities
+                .console
+                .then_some(())
+                .ok_or_else(|| plugin_denied("console capability was not granted")),
+            "math.compute" => self
+                .capabilities
+                .math
+                .then_some(())
+                .ok_or_else(|| plugin_denied("math capability was not granted")),
+            "log" | "clock" | "random" | "artifact.record" => Ok(()),
+            "fs.read" | "fs.write" => {
+                let path = request_path(request)?;
+                if capability == "fs.read" {
+                    self.capabilities
+                        .check_read(&path, None)
+                        .map_err(map_runtime)
+                } else {
+                    self.capabilities
+                        .check_write(&path, None)
+                        .map_err(map_runtime)
+                }
+            }
+            "net.request" => {
+                let host = request_host(request)?;
+                self.capabilities
+                    .check_net(&host, None)
+                    .map_err(map_runtime)
+            }
+            "process" => self
+                .capabilities
+                .process
+                .then_some(())
+                .ok_or_else(|| plugin_denied("process capability was not granted")),
+            other => {
+                if is_vendor_capability(other)
+                    && (self.vendor_policy.contains(other) || self.vendor_policy.contains("*"))
+                {
+                    Ok(())
+                } else if is_vendor_capability(other) {
+                    Err(PluginError::capability(
+                        "capability.unavailable",
+                        format!(
+                            "vendor capability `{other}` has no trusted handler for package `{package}`"
+                        ),
+                    ))
+                } else {
+                    Err(PluginError::capability(
+                        "capability.unknown",
+                        format!("unknown core capability `{other}`"),
+                    ))
+                }
+            }
+        }
+    }
+}
+
+fn plugin_denied(message: &str) -> PluginError {
+    PluginError::capability("permission.denied", message.to_string())
+}
+
+fn map_runtime(error: RuntimeError) -> PluginError {
+    PluginError::capability(error.code(), error.message)
+}
+
+fn request_json(request: &[u8]) -> Result<serde_json::Value, PluginError> {
+    if request.is_empty() {
+        return Ok(serde_json::Value::Null);
+    }
+    serde_json::from_slice(request).map_err(|error| {
+        PluginError::capability(
+            "capability.request_invalid",
+            format!("capability request is not valid JSON: {error}"),
+        )
+    })
+}
+
+fn request_path(request: &[u8]) -> Result<String, PluginError> {
+    let value = request_json(request)?;
+    value
+        .get("path")
+        .and_then(|path| path.as_str())
+        .map(str::to_string)
+        .ok_or_else(|| {
+            PluginError::capability(
+                "capability.request_invalid",
+                "fs capability requests must include a `path` string",
+            )
+        })
+}
+
+fn request_host(request: &[u8]) -> Result<String, PluginError> {
+    let value = request_json(request)?;
+    value
+        .get("host")
+        .and_then(|host| host.as_str())
+        .map(str::to_string)
+        .ok_or_else(|| {
+            PluginError::capability(
+                "capability.request_invalid",
+                "net capability requests must include a `host` string",
+            )
+        })
+}
+
+/// Whether `name` is a syntactically valid vendor-namespaced capability.
+pub fn is_vendor_capability(name: &str) -> bool {
+    let segments: Vec<&str> = name.split('.').collect();
+    if segments.len() < 3 {
+        return false;
+    }
+    if matches!(
+        segments[0],
+        "console" | "math" | "fs" | "net" | "process" | "log" | "clock" | "random"
+    ) {
+        return false;
+    }
+    segments.iter().all(|segment| {
+        !segment.is_empty()
+            && segment.bytes().enumerate().all(|(index, byte)| {
+                byte.is_ascii_lowercase() || byte.is_ascii_digit() || (byte == b'-' && index > 0)
+            })
+    })
+}
 
 /// Effective capability grants for one run.
 #[derive(Debug, Clone, Default)]
@@ -180,6 +384,33 @@ mod tests {
             ErrorCategory::PermissionDenied
         );
         assert!(capabilities.check_foreign(None).is_err());
+    }
+
+    #[test]
+    fn broker_enforces_core_grants_and_vendor_policy() {
+        let mut broker = CapabilityBroker::new(Capabilities::project().allow_read("data/**"));
+        assert!(broker
+            .authorize("demo.solver", "fs.read", br#"{"path":"data/a.csv"}"#)
+            .is_ok());
+        let denied = broker
+            .authorize("demo.solver", "fs.read", br#"{"path":"secrets/key"}"#)
+            .unwrap_err();
+        assert_eq!(denied.code, "permission.denied");
+        assert!(broker.authorize("demo.solver", "fs.read", b"{}").is_err());
+        let unavailable = broker
+            .authorize("demo.solver", "vendor.device.read", b"{}")
+            .unwrap_err();
+        assert_eq!(unavailable.code, "capability.unavailable");
+        broker.allow_vendor("vendor.device.read");
+        assert!(broker
+            .authorize("demo.solver", "vendor.device.read", b"{}")
+            .is_ok());
+        assert!(!is_vendor_capability("vendor"));
+        assert!(!is_vendor_capability("fs.read.extra"));
+        let audit = broker.audit();
+        let audit = audit.lock().unwrap();
+        assert_eq!(audit.len(), 5);
+        assert!(audit.iter().any(|entry| entry.decision == "denied"));
     }
 
     #[test]

@@ -145,12 +145,140 @@ fn load_project(file: Option<&Path>, json: bool) -> Result<LoadedProject, i32> {
     }
 }
 
+/// Add plugin export descriptors from manifests without loading a library.
+fn add_static_plugin_descriptors(
+    project: &mut LoadedProject,
+    paths: &[PathBuf],
+) -> Result<(), String> {
+    for path in paths {
+        let manifest_path = if path.is_dir() {
+            path.join("plugin.yaml")
+        } else {
+            path.clone()
+        };
+        let manifest = marqdo_plugin_abi::PluginManifest::load(&manifest_path)
+            .map_err(|error| format!("{}: {}", error.code, error.message))?;
+        manifest
+            .validate()
+            .map_err(|error| format!("{}: {}", error.code, error.message))?;
+        let digest = manifest
+            .resolve_artifact(&marqdo_plugin_abi::HostTarget::current())
+            .map_err(|error| format!("{}: {}", error.code, error.message))?
+            .sha256
+            .clone();
+        for export in &manifest.plugin.exports {
+            if project
+                .program
+                .external_callables
+                .iter()
+                .any(|callable| callable.public_name == export.name)
+            {
+                return Err(format!(
+                    "plugin export `{}` is declared more than once",
+                    export.name
+                ));
+            }
+            let signature = plugin_signature(&export.signature).map_err(|error| {
+                format!(
+                    "plugin export `{}` has an invalid signature: {error}",
+                    export.name
+                )
+            })?;
+            project
+                .program
+                .external_callables
+                .push(marqdo_ir::callable::CallableDescriptor {
+                    id: marqdo_ir::callable::CallableId(format!(
+                        "plugin:{}:{}",
+                        manifest.plugin.name, export.name
+                    )),
+                    public_name: export.name.clone(),
+                    owner_package: manifest.plugin.name.clone(),
+                    signature,
+                    effects_requested: manifest.plugin.requires.clone(),
+                    origin: marqdo_ir::callable::CallableOrigin::AbiPlugin {
+                        package: manifest.plugin.name.clone(),
+                        export: export.name.clone(),
+                    },
+                    implementation_digest: Some(digest.clone()),
+                    source_span: None,
+                });
+        }
+    }
+    if paths.is_empty() {
+        return Ok(());
+    }
+    let existing: Vec<(Option<marqdo_span::Span>, String)> = project
+        .diagnostics
+        .iter()
+        .map(|file| {
+            (
+                file.diagnostic.span,
+                format!("{}:{}", file.module_id, file.diagnostic.message),
+            )
+        })
+        .collect();
+    for (module_id, diagnostic) in marqdo_frontend::calls::validate_program(&project.program) {
+        let key = format!("{}:{}", module_id, diagnostic.message);
+        if existing.contains(&(diagnostic.span, key)) {
+            continue;
+        }
+        if let Some(file) = project.files.get(&module_id) {
+            project.diagnostics.push(FileDiagnostic {
+                module_id,
+                path: file.path.clone(),
+                source: file.source.clone(),
+                diagnostic,
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Convert a plugin manifest signature (`($a: Int) -> Int`) to the language
+/// parameter list, dropping the display-only return annotation and `$` sigils.
+fn plugin_signature(raw: &str) -> Result<marqdo_ir::callable::CallableSignature, String> {
+    let before_return = raw.split("->").next().unwrap_or(raw).trim();
+    let open = before_return
+        .find('(')
+        .ok_or_else(|| "missing `(`".to_string())?;
+    let close = before_return
+        .rfind(')')
+        .ok_or_else(|| "missing `)`".to_string())?;
+    if close < open {
+        return Err("malformed parameter list".to_string());
+    }
+    let params = before_return[open + 1..close].replace('$', "");
+    let parsed =
+        marqdo_frontend::signature::parse(&format!("({params})"), marqdo_span::Span::default());
+    if parsed.has_errors() {
+        return Err(parsed
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.message.clone())
+            .collect::<Vec<_>>()
+            .join("; "));
+    }
+    Ok(marqdo_ir::callable::CallableSignature {
+        params: parsed.params,
+        kind: marqdo_ir::SignatureKind::Explicit,
+    })
+}
+
 /// `marqdo check`.
-pub fn check(file: Option<&Path>, json: bool, refs: bool) -> i32 {
+pub fn check(file: Option<&Path>, json: bool, refs: bool, plugins: &[PathBuf]) -> i32 {
     let mut project = match load_project(file, json) {
         Ok(project) => project,
         Err(code) => return code,
     };
+    if let Err(error) = add_static_plugin_descriptors(&mut project, plugins) {
+        if json {
+            output::print_json(&json!({"success": false, "error": error}));
+        } else {
+            eprintln!("error: {error}");
+        }
+        return 2;
+    }
     if refs {
         let ref_diagnostics = validate_refs(&project);
         project.diagnostics.extend(ref_diagnostics);
@@ -481,10 +609,18 @@ pub fn execute(
     trace: bool,
 ) -> i32 {
     let command_name = if function.is_some() { "call" } else { "run" };
-    let project = match load_project(file, json) {
+    let mut project = match load_project(file, json) {
         Ok(project) => project,
         Err(code) => return code,
     };
+    if let Err(error) = add_static_plugin_descriptors(&mut project, &settings.plugins) {
+        if json {
+            output::print_json(&json!({"success": false, "error": error}));
+        } else {
+            eprintln!("error: {error}");
+        }
+        return 2;
+    }
     if project.has_errors() {
         if json {
             output::print_json(&json!({
@@ -558,6 +694,37 @@ pub fn execute(
             return 1;
         }
     }
+    // Expose the complete export names loaded from trusted manifests so the
+    // runtime resolves exactly those names instead of probing namespaces.
+    for (name, _signature, digest, package) in host.plugin_exports() {
+        if project
+            .program
+            .external_callables
+            .iter()
+            .any(|callable| callable.public_name == name)
+        {
+            continue;
+        }
+        project
+            .program
+            .external_callables
+            .push(marqdo_ir::callable::CallableDescriptor {
+                id: marqdo_ir::callable::CallableId(format!("plugin:{package}:{name}")),
+                public_name: name.clone(),
+                owner_package: package.clone(),
+                signature: marqdo_ir::callable::CallableSignature {
+                    params: Vec::new(),
+                    kind: marqdo_ir::SignatureKind::Explicit,
+                },
+                effects_requested: vec!["host".to_string()],
+                origin: marqdo_ir::callable::CallableOrigin::AbiPlugin {
+                    package,
+                    export: name,
+                },
+                implementation_digest: Some(digest),
+                source_span: None,
+            });
+    }
     let function_name = function.unwrap_or("main").to_string();
     let entry_module = &project.program.modules[&project.entry];
     if entry_module.function(&function_name).is_none() {
@@ -628,7 +795,11 @@ pub fn execute(
     }
 }
 
-fn load_plugin_into_host(host: &mut StdHost, path: &Path, trusted: bool) -> Result<String, String> {
+fn load_plugin_into_host(
+    host: &mut StdHost,
+    path: &Path,
+    trusted: bool,
+) -> Result<Vec<String>, String> {
     let manifest_path = if path.is_dir() {
         path.join("plugin.yaml")
     } else {

@@ -329,21 +329,24 @@ Document syntax (`examples/plugin-demo/plugin-call.mq.md`):
 
 Semantics:
 
-* the call namespace is derived from the **first** manifest export prefix
-  (`solver.add` → namespace `solver`); a manifest whose exports use several
-  prefixes registers only the first namespace, so exports under other prefixes
-  are not reachable in this build;
+* every manifest export is registered by its **complete dotted name**
+  (`solver.add`, `graph.search`); there is no first-prefix/namespace-only
+  registration. A manifest is loaded atomically: a duplicate export from
+  another plugin rejects the whole load rather than overwriting (ADR-0010);
+* `check --plugin <manifest>` reads manifests and validates export signatures
+  statically without loading a shared library. `run/call --plugin` performs the
+  same static validation before execution; a bad arity/parameter name is
+  `call.arity`, not a plugin failure;
 * calls accept **named arguments only**; positional arguments are a runtime
   type error ("plugin calls require named arguments");
-* each call becomes `HostOp::PluginInvoke` with a typed wire request; the
-  plugin's typed response becomes a Marqdo value (`Unit` when absent);
+* each call becomes `HostOp::PluginInvoke` with the complete export name and a
+  typed wire request; the plugin's typed response becomes a Marqdo value
+  (`Unit` when absent);
 * the capability grant is re-checked on every call, not only at load;
-* plugin namespace calls are **not statically validated**: `check` passes a
-  document that calls a namespace no plugin provides; at runtime the call fails
-  with `symbol.unknown` ("no plugin namespace ... is loaded") unless
-  `--plugin` loaded it;
-* plugin host-capability requests are denied because the CLI installs no
-  capability handler (`LoadOptions::default()`);
+* plugin host-capability requests go through `CapabilityBroker`: core
+  capabilities are checked against effective grants; vendor capabilities need a
+  trusted policy entry for the exact name and otherwise fail with
+  `capability.unavailable` (ADR-0011);
 * `--mode strict` refuses to run before any plugin is loaded; `--mode pure`
   cannot grant `--allow-plugin`, so loading fails with `permission.denied`.
 
@@ -410,10 +413,9 @@ when no C compiler is available.
 | Isolated plugin worker transport (length-prefixed IPC) | Not implemented; `PlatformCapabilities::worker_processes = false`. |
 | Wasm Component + WIT | Not implemented. |
 | Hot unload/reload | Not supported by ABI v1 (no shutdown callback). |
-| Plugin capability bridge from the CLI | Not implemented; CLI supplies no handler, so all plugin host-capability requests are denied. |
 | Plugin installation by package manager | Not implemented; `marqdo.yaml` `plugins:` is declarative only. |
-| Static validation of plugin namespaces/exports/signatures against loaded plugins | Not implemented; errors are runtime-only. |
-| Multiple namespaces per plugin | Not implemented; single namespace from the first export prefix. |
+| Vendor capability handlers | The broker and vendor-name validation exist; no concrete vendor handler is shipped in this build. |
+| Static validation without an explicit manifest | `check` needs `--plugin <path>`; descriptors are not discovered from the network. |
 | Positional plugin arguments | Not supported; named only. |
 | Thread-safe / concurrent invocation | Not supported (single-threaded v1 contract). |
 | Old `marqdo_abi.h` v2 compatibility | Not implemented and not claimed; a separate adapter would be required. |

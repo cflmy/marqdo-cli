@@ -4,6 +4,8 @@
 //! calls [`Host::invoke`]. Authorization is checked here, at the point of
 //! execution, not at parse/compile time.
 
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use marqdo_plugin_abi::{ErrorKind as PluginErrorKind, LoadedPlugin, PluginError, PluginManifest};
@@ -11,7 +13,7 @@ use marqdo_span::Span;
 use marqdo_value::{ErrorCategory, RuntimeError, Value};
 
 use crate::budget::Budget;
-use crate::capability::Capabilities;
+use crate::capability::{Capabilities, CapabilityAudit, CapabilityBroker};
 use crate::context::ExecutionContext;
 use crate::fs::ProjectFs;
 use crate::trace::{EffectTrace, TraceEntry};
@@ -111,15 +113,23 @@ pub struct StdHost {
     pub kernel_registry: marqdo_foreign::KernelRegistry,
     output: Vec<u8>,
     trace_id: u64,
-    /// Explicitly trusted, in-process native plugins keyed by namespace.
+    /// Explicitly trusted, in-process native plugins.
     plugins: Vec<PluginSlot>,
+    /// Complete export name -> index into `plugins` (ADR-0010).
+    plugin_exports: BTreeMap<String, usize>,
+    /// Trusted vendor capability policy entries for the broker.
+    vendor_capabilities: BTreeSet<String>,
+    /// Shared audit log for plugin capability requests.
+    broker_audit: Arc<Mutex<Vec<CapabilityAudit>>>,
 }
 
 struct PluginSlot {
-    /// Call namespace (prefix of the export name, e.g. `solver`).
-    namespace: String,
     /// Package name used for capability grants.
     package: String,
+    /// Artifact/manifest digest that produced this registration.
+    manifest_digest: String,
+    /// Complete export name -> declared signature.
+    exports: BTreeMap<String, String>,
     plugin: LoadedPlugin,
 }
 
@@ -147,6 +157,9 @@ impl StdHost {
             output: Vec::new(),
             trace_id,
             plugins: Vec::new(),
+            plugin_exports: BTreeMap::new(),
+            vendor_capabilities: BTreeSet::new(),
+            broker_audit: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -154,14 +167,15 @@ impl StdHost {
     ///
     /// In-process native code shares the host address space and is **not**
     /// sandboxed; this build has no isolated worker transport. The caller must
-    /// pass `trusted = true` and grant the plugin capability. Returns the call
-    /// namespace derived from the plugin's export names.
+    /// pass `trusted = true` and grant the plugin capability. Every export is
+    /// registered by its complete dotted name (ADR-0010); the whole load is
+    /// rejected atomically if any name conflicts.
     pub fn load_plugin(
         &mut self,
         manifest: &PluginManifest,
         base_dir: &std::path::Path,
         trusted: bool,
-    ) -> Result<String, RuntimeError> {
+    ) -> Result<Vec<String>, RuntimeError> {
         if !trusted {
             let mut error = RuntimeError::new(
                 ErrorCategory::PermissionDenied,
@@ -177,35 +191,87 @@ impl StdHost {
         self.capabilities
             .check_plugin(&manifest.plugin.name, None)?;
         manifest.validate().map_err(map_plugin_error)?;
-        let namespace = manifest
-            .plugin
-            .exports
-            .first()
-            .and_then(|export| {
-                export
-                    .name
-                    .split_once('.')
-                    .map(|(namespace, _)| namespace.to_string())
-            })
-            .ok_or_else(|| {
-                RuntimeError::new(
+        let mut exports = BTreeMap::new();
+        for export in &manifest.plugin.exports {
+            if !export.name.contains('.') {
+                return Err(RuntimeError::new(
                     ErrorCategory::PluginAbi,
                     None,
-                    "plugin manifest declares no namespaced exports",
-                )
-            })?;
-        let loaded = LoadedPlugin::open_with(
-            manifest,
-            base_dir,
-            marqdo_plugin_abi::LoadOptions::default(),
-        )
-        .map_err(map_plugin_error)?;
+                    format!("plugin export `{}` must be namespaced", export.name),
+                ));
+            }
+            if self.plugin_exports.contains_key(&export.name) {
+                return Err(RuntimeError::new(
+                    ErrorCategory::PluginFailure,
+                    None,
+                    format!(
+                        "plugin export `{}` is already registered by another plugin",
+                        export.name
+                    ),
+                ));
+            }
+            exports.insert(export.name.clone(), export.signature.clone());
+        }
+        let artifact = manifest
+            .resolve_artifact(&marqdo_plugin_abi::HostTarget::current())
+            .map_err(map_plugin_error)?;
+        let manifest_digest = artifact.sha256.clone();
+        let mut broker =
+            CapabilityBroker::with_audit(self.capabilities.clone(), Arc::clone(&self.broker_audit));
+        for capability in &self.vendor_capabilities {
+            broker.allow_vendor(capability.clone());
+        }
+        let package = manifest.plugin.name.clone();
+        let options = marqdo_plugin_abi::LoadOptions {
+            host_target: marqdo_plugin_abi::HostTarget::current(),
+            capability_handler: Some(Box::new(move |capability, request| {
+                broker.authorize(&package, capability, request)
+            })),
+        };
+        let loaded =
+            LoadedPlugin::open_with(manifest, base_dir, options).map_err(map_plugin_error)?;
+        let index = self.plugins.len();
         self.plugins.push(PluginSlot {
-            namespace: namespace.clone(),
             package: manifest.plugin.name.clone(),
+            manifest_digest,
+            exports: exports.clone(),
             plugin: loaded,
         });
-        Ok(namespace)
+        let names: Vec<String> = exports.keys().cloned().collect();
+        for name in &names {
+            self.plugin_exports.insert(name.clone(), index);
+        }
+        Ok(names)
+    }
+
+    /// Trust a vendor capability for future plugin loads.
+    pub fn allow_vendor_capability(&mut self, capability: impl Into<String>) {
+        self.vendor_capabilities.insert(capability.into());
+    }
+
+    /// Registered plugin exports as `(complete name, signature, digest, package)`.
+    pub fn plugin_exports(&self) -> Vec<(String, String, String, String)> {
+        let mut exports = Vec::new();
+        for slot in &self.plugins {
+            for (name, signature) in &slot.exports {
+                exports.push((
+                    name.clone(),
+                    signature.clone(),
+                    slot.manifest_digest.clone(),
+                    slot.package.clone(),
+                ));
+            }
+        }
+        exports.sort();
+        exports
+    }
+
+    /// Audited plugin capability decisions.
+    pub fn capability_audit(&self) -> Vec<CapabilityAudit> {
+        self.broker_audit
+            .lock()
+            .map(|audit| audit.clone())
+            .unwrap_or_default()
     }
 
     /// Register an explicit external foreign-kernel provider.
@@ -300,46 +366,38 @@ impl StdHost {
         args: Vec<Value>,
         ctx: &ExecutionContext,
     ) -> Result<Value, RuntimeError> {
-        if args.len() != 3 {
-            return Err(arity(ctx.span, "plugin.invoke", 3, args.len()));
+        if args.len() != 2 {
+            return Err(arity(ctx.span, "plugin.invoke", 2, args.len()));
         }
-        let Value::Text(namespace) = &args[0] else {
+        let Value::Text(export_name) = &args[0] else {
             return Err(RuntimeError::type_error(
                 ctx.span,
-                "plugin namespace must be Text",
+                "plugin export name must be Text",
             ));
         };
-        let Value::Text(export) = &args[1] else {
-            return Err(RuntimeError::type_error(
-                ctx.span,
-                "plugin export must be Text",
-            ));
-        };
-        let Value::Map(named_args) = &args[2] else {
+        let Value::Map(named_args) = &args[1] else {
             return Err(RuntimeError::type_error(
                 ctx.span,
                 "plugin call arguments must be named",
             ));
         };
-        let slot = self
-            .plugins
-            .iter_mut()
-            .find(|slot| &slot.namespace == namespace)
-            .ok_or_else(|| {
-                RuntimeError::new(
-                    ErrorCategory::UnknownSymbol,
-                    ctx.span,
-                    format!("no plugin namespace `{namespace}` is loaded"),
-                )
-            })?;
-        self.capabilities
-            .check_plugin(&slot.package.clone(), ctx.span)?;
-        let function = format!("{namespace}.{export}");
-        let mut request = marqdo_plugin_abi::WireRequest::new(function.clone());
+        let Some(index) = self.plugin_exports.get(export_name).copied() else {
+            return Err(RuntimeError::new(
+                ErrorCategory::UnknownSymbol,
+                ctx.span,
+                format!("no plugin export `{export_name}` is loaded"),
+            ));
+        };
+        let package = self.plugins[index].package.clone();
+        self.capabilities.check_plugin(&package, ctx.span)?;
+        let mut request = marqdo_plugin_abi::WireRequest::new(export_name.clone());
         for (name, value) in named_args {
             request = request.with_arg(name.clone(), value);
         }
-        let response = slot.plugin.invoke(&request).map_err(map_plugin_error)?;
+        let response = self.plugins[index]
+            .plugin
+            .invoke(&request)
+            .map_err(map_plugin_error)?;
         let value = response.typed_value().map_err(map_plugin_error)?;
         Ok(value.unwrap_or(Value::Unit))
     }

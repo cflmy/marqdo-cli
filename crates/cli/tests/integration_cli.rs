@@ -664,8 +664,8 @@ fn plugin_inspect_and_explicit_trusted_invocation() {
     assert_exit(&unknown, 1, "unknown plugin namespace");
     assert!(stderr_text(&unknown).contains("symbol.unknown"));
 
-    // The export signature requires both named arguments: a missing argument
-    // becomes a structured plugin failure, never a panic.
+    // The export signature requires both named arguments: with a declared
+    // plugin manifest this is rejected statically, before any library load.
     dir.write("args.mq.md", "## main\n\n**结果 = solver.add(a=1)**\n");
     let bad_args = cli(
         dir.path(),
@@ -680,5 +680,6 @@ fn plugin_inspect_and_explicit_trusted_invocation() {
         ],
     );
     assert_exit(&bad_args, 1, "plugin argument failure");
-    assert!(stderr_text(&bad_args).contains("plugin.failure"));
+    assert!(stderr_text(&bad_args).contains("call.arity"));
+    assert!(stderr_text(&bad_args).contains("missing required argument `b`"));
 }
