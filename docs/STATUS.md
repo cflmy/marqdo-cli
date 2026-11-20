@@ -89,12 +89,30 @@ missing-edge fail-closed, root-manifest invalidation, strict sync without
 `--locked`, full-closure env materialization, missing-lock and deleted-edge CLI
 failures.
 
+### S2-A/H1-B record (current)
+
+Runtime errors now carry a logical source location (ADR-0017):
+
+* `RuntimeError.module_id`, `origin` (`source`/`callsite`), and
+  `CallFrame.module_id`; attribution happens at function/module boundaries so
+  the innermost callee module wins.
+* Host/plugin/foreign errors are marked as callsite errors without fabricating
+  a foreign stack.
+* `LoadedProject::locate(module_id, span)` resolves the owning file and line;
+  the CLI no longer falls back to the entry file. Unknown modules or
+  out-of-range spans emit module/span with null line/file.
+* Human and JSON output report the failing module; caller frames resolve their
+  own callsite modules.
+* CLI test `runtime_error_in_imported_module_reports_that_module` reproduces
+  B-08 end to end with the real binary.
+
 ### M0.6 implementation progress
 
 | Step | State | Evidence |
 |---|---|---|
 | S0/H0 CI baseline | **Done locally** | B-01 fixed in `crates/cli/tests/properties.rs`; fresh-clone path no longer needs an empty directory; full local gate green (see §S0/H0) |
 | S1/H1-A lock v3 graph | **Done** | ADR-0016; full-closure `marqdo.lock` v3; fail-closed edge lookup; strict non-rewriting `sync`; verified Git cache; unified file-set profile (see §S1/H1-A) |
+| S2-A/H1-B source locations | **Done** | ADR-0017; `RuntimeError`/`CallFrame` carry `module_id`; callsite origin; CLI module-aware resolution with no entry fallback (see §S2-A/H1-B) |
 | R0 baseline + ADRs | **Done** | this section; `docs/adr/0008`–`0012`; full workspace gate |
 | R1 package-aware identity + callable registry | **Done for statics; superseded by S1 lock v3** | `ModuleId { instance, relative_path }`; `PackageResolver` path sources; lock v3 transitive graph (ADR-0016) replaces the flat v2 lock; `CallableRegistry` for builtins/marqdo/declared ABI exports; external manifest wiring is R2 |
 | R2 ABI/Kernel/Broker | **Done (worker = crash isolation)** | `KernelRegistry` external providers; complete-name export routing; `CapabilityBroker`; static `check --plugin`; multi-export C test; isolated worker with timeout/crash tests; host handle table. Native/worker are not an OS sandbox |

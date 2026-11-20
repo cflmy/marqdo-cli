@@ -74,11 +74,27 @@ impl ErrorCategory {
     }
 }
 
+/// Whether an error location points at Marqdo source or a host/plugin
+/// callsite with no trustworthy internal stack.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ErrorOrigin {
+    /// The error points at the Marqdo module and span.
+    #[default]
+    Source,
+    /// The error occurred at the Marqdo callsite of a host/plugin/foreign
+    /// operation; the callee's internal stack is unavailable.
+    Callsite,
+}
+
 /// One entry of the Marqdo call stack.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CallFrame {
     /// Canonical function name (or `<main>` for the entry function).
     pub function: String,
+    /// Logical module containing the call site.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub module_id: Option<Box<str>>,
     /// Source location of the call site in the caller.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub span: Option<Span>,
@@ -89,11 +105,17 @@ pub struct CallFrame {
 pub struct RuntimeError {
     /// Failure category.
     pub category: ErrorCategory,
+    /// Logical module containing [`Self::span`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub module_id: Option<Box<str>>,
     /// Location in the source that caused the failure.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub span: Option<Span>,
+    /// Whether the location is Marqdo source or a callsite.
+    #[serde(default)]
+    pub origin: ErrorOrigin,
     /// Human readable message.
-    pub message: String,
+    pub message: Box<str>,
     /// Call frames from innermost to outermost.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub frames: Vec<CallFrame>,
@@ -110,8 +132,10 @@ impl RuntimeError {
     pub fn new(category: ErrorCategory, span: Option<Span>, message: impl Into<String>) -> Self {
         Self {
             category,
+            module_id: None,
             span,
-            message: message.into(),
+            origin: ErrorOrigin::Source,
+            message: message.into().into_boxed_str(),
             frames: Vec::new(),
             cause: None,
             effect_trace: Vec::new(),
@@ -123,10 +147,28 @@ impl RuntimeError {
         Self::new(ErrorCategory::Type, span, message)
     }
 
+    /// Attach a module identity if the error does not have one yet.
+    pub fn attribute_module(&mut self, module_id: impl Into<String>) {
+        if self.module_id.is_none() {
+            self.module_id = Some(module_id.into().into_boxed_str());
+        }
+    }
+
+    /// Mark this error as occurring at a host/plugin/foreign callsite.
+    pub fn mark_callsite(&mut self) {
+        self.origin = ErrorOrigin::Callsite;
+    }
+
     /// Record a call frame (called while unwinding).
-    pub fn push_frame(&mut self, function: impl Into<String>, span: Option<Span>) {
+    pub fn push_frame(
+        &mut self,
+        function: impl Into<String>,
+        span: Option<Span>,
+        module_id: Option<String>,
+    ) {
         self.frames.push(CallFrame {
             function: function.into(),
+            module_id: module_id.map(String::into_boxed_str),
             span,
         });
     }
@@ -170,7 +212,7 @@ mod tests {
     #[test]
     fn frames_are_rendered_as_related_diagnostics() {
         let mut err = RuntimeError::type_error(Some(Span::new(1, 2)), "expected Bool");
-        err.push_frame("阶乘", None);
+        err.push_frame("阶乘", None, None);
         let diag = err.to_diagnostic();
         assert_eq!(diag.code, "runtime.type");
         assert_eq!(diag.related.len(), 1);

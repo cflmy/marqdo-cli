@@ -108,11 +108,12 @@ implementation). Consumers should accept both names or key on the presence of
 `diagnostics`/`value`; this is a known quirk.
 
 `run`/`call` (failure): `{"command":"run","success":false,"stdout":...,
-"error":{"code":"...","message":"...","span":{"line":..,"column":..,"file":..},
-"frames":[...]},"trace":[...]}`. Runtime error spans are currently resolved
-against the **entry file** only, even when the error came from an imported
-module; frames carry function names, not module ids. This is a known precision
-limitation.
+"error":{"code":"...","origin":"source|callsite","module_id":"...",
+"span":{"start":..,"end":..},"line":..,"column":..,"file":..,
+"frames":[...]},"trace":[...]}`. Runtime locations are resolved against the
+logical module that produced the error (ADR-0017); there is no entry-file
+fallback. Unknown modules or invalid spans leave line/column/file null while
+keeping the module id and byte span.
 
 `plugin inspect`:
 
@@ -209,8 +210,9 @@ The CLI itself does not change the AST. What it exposes:
 * `crates/cli/src/output.rs` has no unit tests; diagnostic JSON is exercised
   through check/run smoke tests.
 * Add contract tests for: exit codes per failure class, stdout/stderr
-  separation, JSON key presence, `call --json` command naming, and runtime
-  error span from a non-entry module before calling the schema "final".
+  separation, JSON key presence, `call --json` command naming. Runtime errors
+  from a non-entry module are covered by
+  `runtime_error_in_imported_module_reports_that_module` (ADR-0017).
 
 ## Migration & rollout
 

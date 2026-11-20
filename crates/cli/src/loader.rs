@@ -63,6 +63,16 @@ impl FileDiagnostic {
     }
 }
 
+/// A resolved source location inside a loaded file.
+pub struct LocatedSource<'a> {
+    /// The owning file.
+    pub file: &'a LoadedFile,
+    /// 1-based line.
+    pub line: usize,
+    /// 1-based column.
+    pub column: usize,
+}
+
 /// A fully loaded project ready for checking or running.
 pub struct LoadedProject {
     /// Project root.
@@ -90,6 +100,24 @@ impl LoadedProject {
     /// The entry file.
     pub fn entry_file(&self) -> &LoadedFile {
         &self.files[&self.entry]
+    }
+
+    /// Resolve a logical `(module_id, span)` location to a loaded file.
+    ///
+    /// Returns `None` for an unknown module or an out-of-range span; callers
+    /// must not guess or fall back to the entry file.
+    pub fn locate(&self, module_id: &str, span: marqdo_span::Span) -> Option<LocatedSource<'_>> {
+        let module = ModuleId::parse(module_id).ok()?;
+        let file = self.files.get(&module)?;
+        if span.start > span.end || span.end > file.source.len() {
+            return None;
+        }
+        let position = marqdo_span::LineIndex::new(&file.source).line_col(span.start);
+        Some(LocatedSource {
+            file,
+            line: position.line,
+            column: position.column,
+        })
     }
 
     /// Resolve a physical path to its loaded or statically addressable module.

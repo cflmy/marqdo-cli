@@ -96,6 +96,17 @@ impl<'a> Interpreter<'a> {
         args: Vec<EvaluatedArg>,
         call_span: Option<Span>,
     ) -> Result<Value, RuntimeError> {
+        self.call_by_name_from(module, name, args, call_span, None)
+    }
+
+    fn call_by_name_from(
+        &mut self,
+        module: &ModuleId,
+        name: &str,
+        args: Vec<EvaluatedArg>,
+        call_span: Option<Span>,
+        caller_module: Option<&ModuleId>,
+    ) -> Result<Value, RuntimeError> {
         let program = self.program;
         let Some(target_module) = program.module(module) else {
             return Err(RuntimeError::new(
@@ -111,7 +122,7 @@ impl<'a> Interpreter<'a> {
                 format!("unknown function `{name}` in module `{module}`"),
             ));
         };
-        self.call_function(program, function, args, call_span)
+        self.call_function(program, function, args, call_span, caller_module)
     }
 
     fn call_function(
@@ -120,6 +131,7 @@ impl<'a> Interpreter<'a> {
         function: &'a Function,
         args: Vec<EvaluatedArg>,
         call_span: Option<Span>,
+        caller_module: Option<&ModuleId>,
     ) -> Result<Value, RuntimeError> {
         let display = function.id.name.clone();
         let trace_id = function.id.to_string();
@@ -128,7 +140,15 @@ impl<'a> Interpreter<'a> {
         }
         self.host
             .record_semantic("call.enter", Some(&trace_id), call_span, None);
-        let locals = self.bind_args(function, args, call_span)?;
+        let locals = match self.bind_args(function, args, call_span) {
+            Ok(locals) => locals,
+            Err(mut error) => {
+                if let Some(module) = caller_module {
+                    error.attribute_module(module.canonical());
+                }
+                return Err(error);
+            }
+        };
         let mut frame = Frame {
             function: function.id.clone(),
             namespace: function.namespace.clone(),
@@ -148,7 +168,12 @@ impl<'a> Interpreter<'a> {
             Ok(Flow::Next) => Ok(Value::Unit),
             Ok(Flow::Return(value)) => Ok(value),
             Err(mut error) => {
-                error.push_frame(display, call_span);
+                error.attribute_module(function.id.module.canonical());
+                error.push_frame(
+                    display,
+                    call_span,
+                    caller_module.map(|module| module.canonical()),
+                );
                 Err(error)
             }
         }
@@ -241,6 +266,20 @@ impl<'a> Interpreter<'a> {
     }
 
     fn exec_stmts(
+        &mut self,
+        program: &'a Program,
+        stmts: &'a [Stmt],
+        frame: &mut Frame,
+    ) -> Result<Flow, RuntimeError> {
+        let module = frame.function.module.clone();
+        self.exec_stmts_inner(program, stmts, frame)
+            .map_err(|mut error| {
+                error.attribute_module(module.canonical());
+                error
+            })
+    }
+
+    fn exec_stmts_inner(
         &mut self,
         program: &'a Program,
         stmts: &'a [Stmt],
@@ -357,7 +396,8 @@ impl<'a> Interpreter<'a> {
             }
             CallTarget::Resolved { module, function } => (module.clone(), function.clone()),
         };
-        self.call_by_name(&module, &name, args, Some(span))
+        let caller = frame.function.module.clone();
+        self.call_by_name_from(&module, &name, args, Some(span), Some(&caller))
     }
 
     fn eval_args(
@@ -484,11 +524,12 @@ impl<'a> Interpreter<'a> {
         span: Span,
         frame: &mut Frame,
     ) -> Result<Value, RuntimeError> {
+        let caller_module = frame.function.module.clone();
         match callee {
             Expr::Ident(ident) => {
                 if let Some(value) = frame.locals.get(&ident.name).cloned() {
                     let args = self.eval_args(args, frame)?;
-                    return self.call_value(program, value, args, Some(span));
+                    return self.call_value(program, value, args, Some(span), Some(&caller_module));
                 }
                 if let Some(builtin) = builtins::find(&ident.name) {
                     let args = self.eval_args(args, frame)?;
@@ -505,7 +546,7 @@ impl<'a> Interpreter<'a> {
                         format!("unknown function `{}`", ident.name),
                     ));
                 };
-                self.call_function(program, function, args, Some(span))
+                self.call_function(program, function, args, Some(span), Some(&caller_module))
             }
             Expr::Member { base, name, .. } => {
                 if let Expr::Ident(alias) = base.as_ref() {
@@ -521,7 +562,13 @@ impl<'a> Interpreter<'a> {
                                 format!("unknown function `{name}` in module `{target_module}`"),
                             ));
                         };
-                        return self.call_function(program, function, args, Some(span));
+                        return self.call_function(
+                            program,
+                            function,
+                            args,
+                            Some(span),
+                            Some(&caller_module),
+                        );
                     }
                     let qualified = format!("{}.{name}", alias.name);
                     if let Some(builtin) = builtins::find(&qualified) {
@@ -567,12 +614,24 @@ impl<'a> Interpreter<'a> {
                 }
                 let callee_value = self.eval_expr(callee, frame)?;
                 let args = self.eval_args(args, frame)?;
-                self.call_value(program, callee_value, args, Some(span))
+                self.call_value(
+                    program,
+                    callee_value,
+                    args,
+                    Some(span),
+                    Some(&caller_module),
+                )
             }
             other => {
                 let callee_value = self.eval_expr(other, frame)?;
                 let args = self.eval_args(args, frame)?;
-                self.call_value(program, callee_value, args, Some(span))
+                self.call_value(
+                    program,
+                    callee_value,
+                    args,
+                    Some(span),
+                    Some(&caller_module),
+                )
             }
         }
     }
@@ -583,6 +642,7 @@ impl<'a> Interpreter<'a> {
         callee: Value,
         args: Vec<EvaluatedArg>,
         span: Option<Span>,
+        caller_module: Option<&ModuleId>,
     ) -> Result<Value, RuntimeError> {
         match callee {
             Value::FunctionRef(reference) => {
@@ -597,7 +657,7 @@ impl<'a> Interpreter<'a> {
                         format!("function reference `{id}` does not exist"),
                     ));
                 };
-                self.call_function(program, function, args, span)
+                self.call_function(program, function, args, span, caller_module)
             }
             other => Err(RuntimeError::new(
                 ErrorCategory::NotCallable,
@@ -633,7 +693,10 @@ impl<'a> Interpreter<'a> {
         module: &ModuleId,
     ) -> Result<Value, RuntimeError> {
         let context = ExecutionContext::new(module.to_string(), span);
-        self.host.invoke(op, args, &context)
+        self.host.invoke(op, args, &context).map_err(|mut error| {
+            error.mark_callsite();
+            error
+        })
     }
 }
 

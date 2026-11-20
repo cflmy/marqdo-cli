@@ -897,22 +897,52 @@ fn load_plugin_into_host(
         .map_err(|error| format!("{}: {}", error.code(), error.message))
 }
 
-fn runtime_error_json(error: &RuntimeError, project: &LoadedProject) -> serde_json::Value {
-    let entry = project.entry_file();
-    let span = error.span.map(|span| {
-        let position = marqdo_span::LineIndex::new(&entry.source).line_col(span.start);
-        json!({"line": position.line, "column": position.column, "file": entry.path.display().to_string()})
+fn runtime_location_json(
+    project: &LoadedProject,
+    module_id: Option<&str>,
+    span: Option<marqdo_span::Span>,
+) -> serde_json::Value {
+    let mut location = json!({
+        "module_id": module_id,
+        "span": span.map(|span| json!({"start": span.start, "end": span.end})),
     });
+    if let (Some(module_id), Some(span)) = (module_id, span) {
+        if let Some(located) = project.locate(module_id, span) {
+            location["line"] = json!(located.line);
+            location["column"] = json!(located.column);
+            location["file"] = json!(located.file.path.display().to_string());
+            location["relative_path"] = json!(located.file.module_id.relative_path);
+        }
+    }
+    location
+}
+
+fn runtime_error_json(error: &RuntimeError, project: &LoadedProject) -> serde_json::Value {
+    let location = runtime_location_json(project, error.module_id.as_deref(), error.span);
+    let frames: Vec<serde_json::Value> = error
+        .frames
+        .iter()
+        .map(|frame| {
+            let mut value = runtime_location_json(project, frame.module_id.as_deref(), frame.span);
+            value["function"] = json!(frame.function);
+            value
+        })
+        .collect();
     json!({
         "code": error.code(),
+        "origin": error.origin,
         "message": error.message,
-        "span": span,
-        "frames": error.frames,
+        "module_id": error.module_id,
+        "span": location["span"],
+        "line": location["line"],
+        "column": location["column"],
+        "file": location["file"],
+        "relative_path": location["relative_path"],
+        "frames": frames,
     })
 }
 
 fn render_runtime_error(error: &RuntimeError, project: &LoadedProject) -> String {
-    let entry = project.entry_file();
     let mut out = String::new();
     out.push_str(&format!(
         "runtime error[{}]: {}\n",
@@ -920,16 +950,47 @@ fn render_runtime_error(error: &RuntimeError, project: &LoadedProject) -> String
         error.message
     ));
     if let Some(span) = error.span {
-        let position = marqdo_span::LineIndex::new(&entry.source).line_col(span.start);
-        out.push_str(&format!(
-            "  at {}:{}:{}\n",
-            entry.path.display(),
-            position.line,
-            position.column
-        ));
+        match error
+            .module_id
+            .as_deref()
+            .and_then(|module| project.locate(module, span))
+        {
+            Some(located) => out.push_str(&format!(
+                "  at {}:{}:{}\n",
+                located.file.path.display(),
+                located.line,
+                located.column
+            )),
+            None => out.push_str(&format!(
+                "  at {}@{}..{}\n",
+                error.module_id.as_deref().unwrap_or("<unknown>"),
+                span.start,
+                span.end
+            )),
+        }
     }
     for frame in &error.frames {
-        out.push_str(&format!("  in function `{}`\n", frame.function));
+        out.push_str(&format!("  in function `{}`", frame.function));
+        if let Some(span) = frame.span {
+            match frame
+                .module_id
+                .as_deref()
+                .and_then(|module| project.locate(module, span))
+            {
+                Some(located) => out.push_str(&format!(
+                    " at {}:{}:{}",
+                    located.file.path.display(),
+                    located.line,
+                    located.column
+                )),
+                None => {
+                    if let Some(module) = &frame.module_id {
+                        out.push_str(&format!(" at {module}@{}..{}", span.start, span.end));
+                    }
+                }
+            }
+        }
+        out.push('\n');
     }
     out
 }

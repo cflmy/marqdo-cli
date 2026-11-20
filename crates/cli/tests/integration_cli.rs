@@ -683,3 +683,59 @@ fn plugin_inspect_and_explicit_trusted_invocation() {
     assert!(stderr_text(&bad_args).contains("call.arity"));
     assert!(stderr_text(&bad_args).contains("missing required argument `b`"));
 }
+
+#[test]
+fn runtime_error_in_imported_module_reports_that_module() {
+    let dir = TempDir::new("cross-module-error");
+    dir.write(
+        "index.mq.md",
+        "---\nimport:\n  physics: \"./physics.mq.md\"\n---\n\n## main\n\n> 打印(physics.boom())\n",
+    );
+    dir.write(
+        "physics.mq.md",
+        "## boom\n\n说明文字。\n\n**x = 1 / 0**\n\n*x*\n",
+    );
+
+    let output = cli(dir.path(), &["run", "index.mq.md", "--json"]);
+    assert_exit(&output, 1, "division by zero is a runtime error");
+    let value: serde_json::Value =
+        serde_json::from_str(&stdout_text(&output)).expect("run --json emits JSON");
+    let error = &value["error"];
+    assert_eq!(error["code"], "runtime.division_by_zero");
+    assert!(
+        error["module_id"]
+            .as_str()
+            .unwrap_or_default()
+            .ends_with("::physics.mq.md"),
+        "{}",
+        error["module_id"]
+    );
+    assert_eq!(error["relative_path"], "physics.mq.md");
+    assert!(
+        error["file"]
+            .as_str()
+            .unwrap_or_default()
+            .ends_with("physics.mq.md"),
+        "{}",
+        error["file"]
+    );
+    let line = error["line"].as_u64().unwrap_or(0);
+    assert!(line >= 5, "expected the failing statement line, got {line}");
+    assert!(
+        !error["file"]
+            .as_str()
+            .unwrap_or_default()
+            .ends_with("index.mq.md"),
+        "must not blame the entry file"
+    );
+
+    let human = cli(dir.path(), &["run", "index.mq.md"]);
+    assert_exit(&human, 1, "human rendering also fails");
+    let stderr = stderr_text(&human);
+    assert!(stderr.contains("physics.mq.md"), "{stderr}");
+    let primary = stderr
+        .lines()
+        .find(|line| line.trim_start().starts_with("at "))
+        .unwrap_or_default();
+    assert!(primary.contains("physics.mq.md"), "{primary}");
+}
