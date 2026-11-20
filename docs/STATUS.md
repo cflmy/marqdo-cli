@@ -226,8 +226,8 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   digest and the stdio/file/TCP endpoints; `crates/cli/tests/stdlib_product.rs`
   runs every public stdlib module (`console/demo/format/http/io/stream/table/text/utf8`)
   through `std:` imports over `stdlib/tests/*.mq.md`. `tools/pack-stdlib.py`
-  now sorts `.mq.md` by the same relative path key as the CLI. Source baseline
-  `04eae87`; later docs-only commits keep the code byte-identical. Evidence:
+  now sorts `.mq.md` by the same relative path key as the CLI. Source/test baseline
+  `0d40de7`; later docs-only commits keep code/test bytes identical. Evidence:
   [`docs-and-test-migration`](evidence/2026-11-21-docs-and-test-migration.md).
 - Minimal structure observation/construction (RFC-CM CM-A04, ADR-0023):
   value-semantics `list.append/concat`, `map.keys/has/get/set/remove`,

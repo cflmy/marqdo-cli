@@ -1,8 +1,8 @@
 # Evidence: documentation and test-case migration
 
 Date: 2026-11-21 (Asia/Shanghai)
-Source baseline: `04eae8746e9b6e33bf872429a1d66327ea6df4b2` (docs/test migration;
-later docs-only commits keep the source byte-identical)
+Source/test baseline: `0d40de7645fb15b09bb82a27907ae63ba3c4159f` (docs/test migration;
+later docs-only commits keep code and test bytes identical)
 Repository: `marqdo-cli`
 Decision input: architecture audit and refactor RFC, P0/P1/P2
 
@@ -19,8 +19,8 @@ cargo test -p marqdo-cli --test stdlib_product          5 passed
 python3 tools/pack-stdlib.py                           PASS
 ```
 
-`04eae87` is the source commit before this evidence file; the later commit only
-adds this evidence and the status text. The source tree is unchanged.
+`0d40de7645fb15b09bb82a27907ae63ba3c4159f` is the source/test commit before this evidence edit; later commits
+only add/edit documentation and the status text. Code and test bytes are unchanged.
 
 ## Doc gate
 
