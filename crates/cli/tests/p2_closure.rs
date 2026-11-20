@@ -58,6 +58,7 @@ fn p2_algorithms_run_in_a_pure_no_foreign_no_plugin_host() {
         ("69-table-group-stdlib.mq.md", "C06 table group"),
         ("63-memory-bytecode-vm.mq.md", "C11 bytecode VM"),
         ("70-matrix-multiply.mq.md", "C12 matrix"),
+        ("73-sparse-matrix.mq.md", "C12 sparse matrix"),
     ];
     for (name, criterion) in cases {
         let path = fixture(name);

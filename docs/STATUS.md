@@ -72,7 +72,7 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 | 2 | Cross-platform strict `cfg` | **Fixed locally; native CI UNVERIFIED** | `#[cfg]` dispatch + non-Linux regression test |
 | 3 | Strict probe→launch race | **Fixed locally; GitHub Linux CI UNVERIFIED** | fail-closed CLI contract + probe-OK/launch-EAGAIN seam test |
 | 4 | Parallel security matrix isolation | **Fixed** | unique paths + helper `OnceLock`; 7/7 in parallel workspace run |
-| 5 | Markdown/power/control-flow corpus | **Done locally** | 160 AST, 72 semantic, 52 compile-negative, 21 runtime-negative fixtures |
+| 5 | Markdown/power/control-flow corpus | **Done locally** | 160 AST, 73 semantic, 52 compile-negative, 21 runtime-negative fixtures |
 | 6 | Condition header + source spans | **Fixed** | executable tails rejected; literal-inside-backtick mapping tests |
 | 7 | Independent Tool consumers | **Done locally** | `sample-view`/`sample-knowledge`/`sample-proof` E2E test |
 | 8 | lock v3 reproducibility | **Implemented; tamper test added** | `package_env` PASS |
@@ -87,7 +87,7 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 
 - Frozen Markdown profile `marqdo.md.v1` with 160 AST goldens and explicit
   CRLF byte semantics.
-- Native Rust interpreter with 72 semantic goldens, 52 compile-error fixtures,
+- Native Rust interpreter with 73 semantic goldens, 52 compile-error fixtures,
   and runtime error source attribution.
 - Native `**` power is pinned end-to-end: right associativity, unary-minus
   precedence, parentheses, float negative exponents, branch/loop conditions,

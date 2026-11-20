@@ -39,7 +39,7 @@ fixture.
 | C05 JSON/CSV | 57, 62, 68 | CSV split/quoting, recursive JSON parse/format/errors |
 | C06 GFM Table | 53, 54, 65, 67, 69 + stdlib table | projection/filter/sort/join/group/GFM render, no Rust table algorithm |
 | C11 VM | 63 | Memory-backed stack bytecode VM |
-| C12 scientific prep | 70 | Int matrix multiply with exact indexing |
+| C12 scientific prep | 70, 73 | Int matrix multiply and sparse-triple matrix multiply with dense conversion |
 
 No fixture compiles Rust, imports a package, invokes a foreign kernel or calls a
 plugin. Dynamic arrays are built at runtime; no fixed-length source rewrite is

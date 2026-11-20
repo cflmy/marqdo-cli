@@ -1,0 +1,80 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "items": [
+      {
+        "items": [
+          {
+            "items": [
+              {
+                "decimal": "0",
+                "type": "int"
+              },
+              {
+                "decimal": "0",
+                "type": "int"
+              },
+              {
+                "decimal": "16",
+                "type": "int"
+              }
+            ],
+            "type": "list"
+          },
+          {
+            "items": [
+              {
+                "decimal": "1",
+                "type": "int"
+              },
+              {
+                "decimal": "1",
+                "type": "int"
+              },
+              {
+                "decimal": "15",
+                "type": "int"
+              }
+            ],
+            "type": "list"
+          }
+        ],
+        "type": "list"
+      },
+      {
+        "items": [
+          {
+            "items": [
+              {
+                "decimal": "16",
+                "type": "int"
+              },
+              {
+                "decimal": "0",
+                "type": "int"
+              }
+            ],
+            "type": "list"
+          },
+          {
+            "items": [
+              {
+                "decimal": "0",
+                "type": "int"
+              },
+              {
+                "decimal": "15",
+                "type": "int"
+              }
+            ],
+            "type": "list"
+          }
+        ],
+        "type": "list"
+      }
+    ],
+    "type": "list"
+  }
+}
