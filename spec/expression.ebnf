@@ -1,0 +1,85 @@
+(* Marqdo Expression Grammar v1
+   Status: frozen for M0.5. This is the only grammar for executable payloads.
+   It is a small independent language: it is NOT Markdown and NOT translated
+   to Python. Markdown AST decides where a payload exists; this grammar
+   decides what it means.
+
+   Terminals are described in prose where Unicode categories matter.
+*)
+
+program        = [ statement ] , EOF ;
+
+statement      = assignment | expression ;
+assignment     = identifier , "=" , expression ;
+(* "=" is a single "=" token; "==" is a distinct token. Assignment targets
+   are bare identifiers only: no member or index assignment in v1. *)
+
+expression     = or_expr ;
+or_expr        = and_expr , { "or" , and_expr } ;
+and_expr       = compare_expr , { "and" , compare_expr } ;
+compare_expr   = add_expr , [ compare_op , add_expr ] ;
+                (* non-associative: "a < b < c" is a parse error; write
+                   "a < b and b < c" instead. *)
+compare_op     = "==" | "!=" | "<" | "<=" | ">" | ">=" ;
+
+add_expr       = mul_expr , { ( "+" | "-" ) , mul_expr } ;
+mul_expr       = unary_expr , { ( "*" | "/" | "//" | "%" ) , unary_expr } ;
+unary_expr     = ( "not" | "-" | "+" ) , unary_expr | power_expr ;
+power_expr     = postfix_expr , [ "**" , unary_expr ] ;
+                (* right associative: 2 ** 3 ** 2 == 2 ** (3 ** 2);
+                   -x ** 2 == -(x ** 2); 2 ** -1 is valid *)
+
+postfix_expr   = primary , { call_suffix | member_suffix | index_suffix } ;
+call_suffix    = "(" , [ argument_list ] , ")" ;
+argument_list  = argument , { "," , argument } , [ "," ] ;
+argument       = [ identifier , "=" ] , expression ;
+                (* positional arguments must all precede named arguments;
+                   duplicate argument names are errors *)
+member_suffix  = "." , identifier ;
+index_suffix   = "[" , expression , "]" ;
+
+primary        = int_literal
+               | float_literal
+               | text_literal
+               | "true" | "false" | "None"
+               | identifier
+               | "(" , expression , ")"
+               | list_literal
+               | record_literal ;
+
+list_literal   = "[" , [ expression , { "," , expression } , [ "," ] ] , "]" ;
+record_literal = "{" , [ record_entry , { "," , record_entry } , [ "," ] ] , "}" ;
+record_entry   = ( identifier | text_literal ) , ":" , expression ;
+
+(* Lexical rules *)
+
+identifier     = xid_start , { xid_continue } ;
+                (* Unicode XID per UAX #31: Chinese, Latin, etc. are valid.
+                   Keywords are reserved and cannot be identifiers:
+                   true, false, None, and, or, not. *)
+
+int_literal    = digit , { digit } ;
+                (* arbitrary precision decimal integer; no sign here (unary
+                   minus handles negatives); no separators; no hex/octal. *)
+
+float_literal  = digit , { digit } , "." , digit , { digit } ,
+                 [ ( "e" | "E" ) , [ "+" | "-" ] , digit , { digit } ] ;
+                (* requires digits on both sides of the dot; ".5" and "1."
+                   are invalid. Floats are IEEE-754 binary64. *)
+
+text_literal   = '"' , { text_char | escape } , '"' ;
+escape         = "\\" , ( '"' | "\\" | "n" | "t" | "r" | "u{" , hexdigit , { hexdigit } , "}" ) ;
+text_char      = ? any Unicode scalar value except '"' and "\\" ? ;
+
+(* Whitespace: any Unicode whitespace separates tokens. Newlines inside a
+   code-span payload are whitespace. There are no comments in v1. *)
+
+(* Notes on the Markdown boundary *)
+(* - A "**" inside a payload is the power operator only when it survived
+     Markdown parsing inside a code span or text that is not emphasis.
+     Authors should put multiplication/power expressions in code spans when
+     Markdown emphasis would otherwise consume the asterisks. *)
+(* - Payload spans returned by the parser are relative to the concatenated
+     payload; the frontend maps them back through the text/code segments to
+     file spans. *)
+(* - Maximum nesting depth is 128; exceeding it is an expr.parse error. *)
