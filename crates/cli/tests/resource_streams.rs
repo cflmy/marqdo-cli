@@ -406,3 +406,43 @@ fn program_stderr_is_separate_from_stdout_and_diagnostics() {
     assert_eq!(values[2]["value"], true);
     assert_eq!(values[3]["value"], true);
 }
+
+const CONSOLE_READER: &str = r#"---
+import:
+  console: "std:io/console"
+---
+
+## main
+
+**第一 = console.读取行()**
+
+**第二 = console.读取行()**
+
+**第三 = console.读取行()**
+
+**输出 = console.打印(第一.value + "|" + 第二.value)**
+
+*[第一.ok, 第二.ok, 第三.ok, 第三.code, 输出.ok]*
+"#;
+
+#[test]
+fn stdlib_console_reads_lines_and_reports_eof() {
+    let dir = TempDir::new("console");
+    write_file(&dir.path().join("index.mq.md"), CONSOLE_READER);
+    let output = cli_with_stdin(dir.path(), &["run", "index.mq.md", "--json"], b"one\ntwo\n");
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
+    assert_eq!(report["success"], true);
+    assert_eq!(report["stdout"], "one|two\n");
+    let values = report["value"]["items"].as_array().expect("list result");
+    assert_eq!(values[0]["value"], true);
+    assert_eq!(values[1]["value"], true);
+    assert_eq!(values[2]["value"], false);
+    assert_eq!(values[3]["value"], "io.eof");
+    assert_eq!(values[4]["value"], true);
+}

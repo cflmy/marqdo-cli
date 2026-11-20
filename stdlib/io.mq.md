@@ -1,26 +1,21 @@
 ---
 import:
   format: "./format.mq.md"
-  text: "./text.mq.md"
+  stream: "./io/stream.mq.md"
+  console: "./io/console.mq.md"
 ---
 
 ## 写文本
 
 `(文本)`
 
-把文本编码为 UTF-8 并写入已授权的 stdout 资源流。
+*stream.写文本(文本)*
 
-**内存 = memory.new(1, 1)**
+## 写全部
 
-**长度 = text.utf8编码(文本, 内存, 0)**
+`(流, 内存, 起点, 长度)`
 
-**流 = resource.open("stdio", "stdout", ["write"])**
-
-> resource.write(流, 内存, 0, 长度)
-
-> resource.close(流)
-
-*None*
+*stream.写全部(流, 内存, 起点, 长度)*
 
 ## 写值
 
@@ -28,8 +23,16 @@ import:
 
 按语言值语义格式化后输出，并追加换行。
 
-**文字 = format.显示(值) + "\n"**
+*stream.写文本(format.显示(值) + "\n")*
 
-> 写文本(文字)
+## 读取行
 
-*None*
+`()`
+
+*console.读取行()*
+
+## 打印
+
+`(值)`
+
+*console.打印(值)*

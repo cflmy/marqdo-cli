@@ -5,8 +5,11 @@ This directory is the official, offline `marqdo-stdlib` bundle consumed by
 module; a mismatch is a hard error.
 
 - `format.mq.md` — value formatting (`显示`, list/map/table display, escaping)
-- `text.mq.md` — UTF-8 encoding into `Memory`
-- `io.mq.md` — `写文本` / `写值` through `resource.write(stdout)`
+- `text.mq.md` — compatibility UTF-8 encoding into `Memory`
+- `text/utf8.mq.md` — `.mq.md` UTF-8 encoder and validating decoder
+- `io.mq.md` — compatibility facade over `stream` and `console`
+- `io/stream.mq.md` — `写全部` / `写文本` with short-write and close checking
+- `io/console.mq.md` — `读取行` / `打印` over `stdio/stdin` and `stdio/stdout`
 - `demo.mq.md` — side-by-side comparison with builtin `打印`
 - `data/table.mq.md` — value-returning table select/filter/sort/append/set/join/group/GFM
 - `net/http.mq.md` — HTTP/1.1 response parsing (headers/chunked) and request builder
