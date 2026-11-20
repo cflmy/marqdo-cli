@@ -101,6 +101,9 @@ struct SandboxArgs {
     /// Write a versioned Trace v1 file for this run.
     #[arg(long = "trace-file", value_name = "PATH")]
     trace_file: Option<PathBuf>,
+    /// Register an external foreign-kernel provider (repeatable).
+    #[arg(long = "kernel", value_name = "PATH")]
+    kernel: Vec<PathBuf>,
     /// Explicitly trust in-process native plugin loading (unsafe by nature).
     #[arg(long = "trust-native-plugin")]
     trust_native_plugin: bool,
@@ -121,6 +124,7 @@ impl SandboxArgs {
             plugins: self.plugin.clone(),
             trust_native_plugin: self.trust_native_plugin,
             trace_file: self.trace_file.clone(),
+            kernels: self.kernel.clone(),
         }
     }
 }

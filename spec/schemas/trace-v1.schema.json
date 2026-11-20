@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://marqdo.dev/schemas/trace-v1.schema.json",
+  "title": "Marqdo Trace v1",
+  "type": "object",
+  "required": ["schema", "schema_version", "run", "source", "events"],
+  "properties": {
+    "schema": {"const": "marqdo.trace"},
+    "schema_version": {"const": 1},
+    "run": {
+      "type": "object",
+      "required": ["id", "entry", "status"],
+      "properties": {
+        "id": {"type": "string"},
+        "entry": {"type": "string"},
+        "status": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "source": {
+      "type": "object",
+      "required": ["root_id", "analysis_digest"],
+      "properties": {
+        "root_id": {"type": "string"},
+        "analysis_digest": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "kind"],
+        "properties": {
+          "seq": {"type": "integer", "minimum": 0},
+          "kind": {"type": "string"},
+          "function_id": {"type": ["string", "null"]},
+          "module": {"type": ["string", "null"]},
+          "span": {
+            "type": ["object", "null"],
+            "properties": {
+              "start": {"type": "integer", "minimum": 0},
+              "end": {"type": "integer", "minimum": 0}
+            }
+          },
+          "detail": {"type": ["string", "null"]},
+          "operation": {"type": "string"},
+          "duration_micros": {"type": "integer", "minimum": 0}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

@@ -187,7 +187,8 @@ tests/                        conformance/negative corpus (see tests/README.md)
   [`package-format.md`](spec/package-format.md),
   [`plugin-abi.md`](spec/plugin-abi.md), [`math.md`](spec/math.md),
   [`foreign.md`](spec/foreign.md), [`tool-v1.md`](spec/tool-v1.md),
-  [`analysis-v1.md`](spec/analysis-v1.md), [`trace-v1.md`](spec/trace-v1.md).
+  [`analysis-v1.md`](spec/analysis-v1.md), [`trace-v1.md`](spec/trace-v1.md);
+  JSON Schemas in [`spec/schemas/`](spec/schemas/).
 * [`tests/README.md`](tests/README.md) — conformance corpus and `UPDATE_GOLDENS`
   workflow.
 
@@ -198,6 +199,9 @@ marqdo run examples/hello.mq.md
 marqdo call examples/factorial.mq.md 数学.阶乘 --arg n=5
 marqdo run examples/multi-module/index.mq.md
 marqdo run examples/python-foreign.mq.md --allow-foreign   # needs python3 or node
+marqdo run examples/packages-multi-version/index.mq.md
+marqdo run examples/kernel-mock/demo.mq.md \
+  --kernel examples/kernel-mock/kernel.json --allow-foreign
 marqdo inspect examples/references.mq.md --refs
 marqdo inspect examples/hello.mq.md --platform             # strict: unavailable
 
@@ -205,6 +209,14 @@ marqdo inspect examples/hello.mq.md --platform             # strict: unavailable
 marqdo plugin inspect examples/plugin-demo
 marqdo run examples/plugin-demo/plugin-call.mq.md \
   --plugin examples/plugin-demo --trust-native-plugin --allow-plugin demo.solver
+
+./examples/plugin-multi-export/build.sh
+marqdo run examples/plugin-multi-export/plugin-call.mq.md \
+  --plugin examples/plugin-multi-export --trust-native-plugin --allow-plugin demo.solver
+
+marqdo tool install examples/tool-unknown-name/tool.json
+marqdo benchmark run .
+marqdo tool remove benchmark
 ```
 
 ## References

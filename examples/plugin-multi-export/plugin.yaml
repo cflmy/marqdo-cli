@@ -1,0 +1,18 @@
+# Two exports under different prefixes, built from the shared C demo with
+# -DMQ_SOLVER_MULTI_EXPORT. Installing grants nothing; loading requires trust.
+plugin:
+  name: demo.solver
+  version: 0.1.0
+  abi: "^1.0"
+  kind: native
+  exports:
+    - name: solver.add
+      signature: "($a: Int, $b: Int) -> Int"
+    - name: solver.neg
+      signature: "($a: Int) -> Int"
+  requires:
+    - math.compute
+  artifacts:
+    - target: x86_64-unknown-linux-gnu
+      file: solver.so
+      sha256: "0000000000000000000000000000000000000000000000000000000000000000"

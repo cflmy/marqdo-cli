@@ -45,7 +45,7 @@ providers).
 | R3 Tool Protocol | **Done** | `tool install/list/remove`; unknown-command fallback; atomic local install; SHA/tamper checks; black-box tests for arbitrary names, Unicode args, conflicts, traversal and PATH hijacking |
 | R4 Analysis/Trace v1 | **Done** | `check --emit` Analysis v1; `run/call --trace-file` Trace v1; deterministic schema tests; independent Python consumer; stale-artifact removal; value redaction |
 | R5 environment/isolation | **Partial** | Pinned Git fetch/cache, transitive `@alias` resolution, atomic `.marqdo/env` materialization, foreign process-group cleanup. Strict OS isolation remains explicitly unavailable (fail-closed) |
-| R6 release/consumers | Not started | — |
+| R6 release/consumers | **Done for Linux** | examples for unknown-name Tool, multi-export plugin, external kernel and multi-version packages; Analysis/Trace/Tool JSON Schemas; CI Linux gate + Windows/macOS `cargo check`; R6 example tests |
 
 Reproduce the evidence:
 

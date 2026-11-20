@@ -1,0 +1,8 @@
+#!/bin/sh
+# A deliberately tool-specific program: the Marqdo CLI knows no `benchmark`
+# command or its options.
+printf 'benchmark tool: protocol=%s\n' "${MARQDO_TOOL_PROTOCOL:-unset}"
+for argument in "$@"; do
+  printf 'arg=%s\n' "$argument"
+done
+exit 0

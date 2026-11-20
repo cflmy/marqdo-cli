@@ -24,16 +24,62 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests
         run: cargo test --workspace
-      - name: Smoke test the CLI examples
+      - name: Validate public JSON schemas
+        run: |
+          python3 - <<'PY'
+          import json, pathlib
+          for path in pathlib.Path("spec/schemas").glob("*.json"):
+              json.loads(path.read_text())
+          print("schemas parse")
+          PY
+      - name: Smoke test the CLI, protocols and examples
         run: |
           cargo build -p marqdo-cli
           ./target/debug/marqdo check examples/factorial.mq.md
           ./target/debug/marqdo call examples/factorial.mq.md 阶乘 --arg n=5
           ./target/debug/marqdo call examples/math.mq.md 计算圆面积
           ./target/debug/marqdo inspect examples/references.mq.md --refs
+          ./target/debug/marqdo check examples/multi-module/index.mq.md --refs \
+            --emit /tmp/marqdo-analysis.json
+          ./target/debug/marqdo run examples/hello.mq.md \
+            --trace-file /tmp/marqdo-trace.json
+          python3 tests/consumers/analysis_consumer.py /tmp/marqdo-analysis.json
+          python3 - <<'PY'
+          import json
+          json.load(open("/tmp/marqdo-trace.json"))
+          print("trace parses")
+          PY
+          ./target/debug/marqdo run examples/packages-multi-version/index.mq.md
+          ./target/debug/marqdo run examples/kernel-mock/demo.mq.md \
+            --kernel examples/kernel-mock/kernel.json --allow-foreign
+          export MARQDO_TOOL_HOME="$(mktemp -d)"
+          ./target/debug/marqdo tool install examples/tool-unknown-name/tool.json
+          ./target/debug/marqdo benchmark run .
+          ./target/debug/marqdo tool remove benchmark
           ./examples/plugin-demo/build.sh
           ./target/debug/marqdo plugin inspect examples/plugin-demo
           ./target/debug/marqdo run examples/plugin-demo/plugin-call.mq.md \
             --plugin examples/plugin-demo \
             --trust-native-plugin \
             --allow-plugin demo.solver
+          ./examples/plugin-multi-export/build.sh
+          ./target/debug/marqdo check examples/plugin-multi-export/plugin-call.mq.md \
+            --plugin examples/plugin-multi-export
+          ./target/debug/marqdo run examples/plugin-multi-export/plugin-call.mq.md \
+            --plugin examples/plugin-multi-export \
+            --trust-native-plugin \
+            --allow-plugin demo.solver
+
+  cross-platform:
+    name: cargo check (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Check all targets
+        run: cargo check --workspace --all-targets

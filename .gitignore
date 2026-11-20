@@ -6,3 +6,4 @@
 
 # Built plugin artifacts
 examples/plugin-demo/solver.so
+examples/plugin-multi-export/solver.so

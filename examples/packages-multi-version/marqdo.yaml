@@ -1,0 +1,8 @@
+project:
+  name: multi-version
+  version: 0.1.0
+dependencies:
+  geometry_v1:
+    path: ./packages/geometry-v1
+  geometry_v2:
+    path: ./packages/geometry-v2

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://marqdo.dev/schemas/analysis-v1.schema.json",
+  "title": "Marqdo Analysis v1",
+  "type": "object",
+  "required": ["schema", "schema_version", "producer", "project", "modules", "diagnostics"],
+  "properties": {
+    "schema": {"const": "marqdo.analysis"},
+    "schema_version": {"const": 1},
+    "producer": {
+      "type": "object",
+      "required": ["name", "version", "markdown_profile"],
+      "properties": {
+        "name": {"type": "string"},
+        "version": {"type": "string"},
+        "markdown_profile": {"const": "marqdo.md.v1"}
+      },
+      "additionalProperties": true
+    },
+    "project": {
+      "type": "object",
+      "required": ["root_id", "lock_digest"],
+      "properties": {
+        "root_id": {"type": "string"},
+        "lock_digest": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "package_instance_id", "relative_path", "source_digest", "units", "functions", "imports", "references", "calls"],
+        "properties": {
+          "id": {"type": "string", "pattern": "::"},
+          "package_instance_id": {"type": "string"},
+          "relative_path": {"type": "string"},
+          "source_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "units": {"type": "array"},
+          "functions": {"type": "array"},
+          "imports": {"type": "array"},
+          "references": {"type": "array"},
+          "calls": {"type": "array"},
+          "resources": {"type": "integer", "minimum": 0}
+        },
+        "additionalProperties": true
+      }
+    },
+    "diagnostics": {"type": "array"}
+  },
+  "additionalProperties": true
+}

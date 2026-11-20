@@ -1,0 +1,11 @@
+{
+  "schema": "marqdo.cli-tool",
+  "schema_version": 1,
+  "name": "demo.benchmark",
+  "version": "0.1.0",
+  "command": "benchmark",
+  "entrypoint": "bin/marqdo-benchmark",
+  "compatibility": {
+    "marqdo": ">=0.1,<1"
+  }
+}

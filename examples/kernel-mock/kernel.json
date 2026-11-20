@@ -1,0 +1,7 @@
+{
+  "provider_id": "mocklang",
+  "languages": ["mocklang", "mock"],
+  "wire_version": 1,
+  "entrypoint": "./mocklang",
+  "permissions_requested": []
+}

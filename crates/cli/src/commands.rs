@@ -40,6 +40,8 @@ pub struct SandboxSettings {
     pub trust_native_plugin: bool,
     /// Optional Trace v1 output path.
     pub trace_file: Option<PathBuf>,
+    /// External foreign-kernel descriptor paths.
+    pub kernels: Vec<PathBuf>,
 }
 
 impl SandboxSettings {
@@ -698,6 +700,16 @@ pub fn execute(
     if let Some(timeout) = settings.timeout {
         host.budget.deadline = Some(Instant::now() + Duration::from_secs(timeout));
     }
+    for kernel_path in &settings.kernels {
+        if let Err(error) = load_kernel_descriptor(&mut host, kernel_path) {
+            if json {
+                output::print_json(&json!({"success": false, "error": error}));
+            } else {
+                eprintln!("error: {error}");
+            }
+            return 2;
+        }
+    }
     for plugin_path in &settings.plugins {
         if let Err(message) =
             load_plugin_into_host(&mut host, plugin_path, settings.trust_native_plugin)
@@ -820,6 +832,36 @@ pub fn execute(
             1
         }
     }
+}
+
+fn load_kernel_descriptor(host: &mut StdHost, path: &Path) -> Result<(), String> {
+    let text = std::fs::read_to_string(path).map_err(|error| {
+        format!(
+            "cannot read kernel descriptor `{}`: {error}",
+            path.display()
+        )
+    })?;
+    let mut descriptor: marqdo_foreign::KernelDescriptor = serde_json::from_str(&text)
+        .map_err(|error| format!("invalid kernel descriptor `{}`: {error}", path.display()))?;
+    if descriptor.builtin {
+        return Err("external kernel descriptors must not set `builtin: true`".to_string());
+    }
+    if descriptor.entrypoint.is_relative() {
+        let base = path.parent().unwrap_or_else(|| Path::new("."));
+        descriptor.entrypoint = base.join(&descriptor.entrypoint);
+    }
+    descriptor.entrypoint = descriptor
+        .entrypoint
+        .canonicalize()
+        .map_err(|error| format!("cannot open kernel provider: {error}"))?;
+    if !descriptor.entrypoint.is_file() {
+        return Err(format!(
+            "kernel provider executable `{}` does not exist",
+            descriptor.entrypoint.display()
+        ));
+    }
+    host.register_kernel(descriptor)
+        .map_err(|error| format!("{}: {}", error.code(), error.message))
 }
 
 fn load_plugin_into_host(

@@ -1,0 +1,5 @@
+#!/bin/sh
+# Minimal external kernel provider: consume the request envelope, then emit one
+# typed wire value. The source file path is argv[1].
+cat >/dev/null
+printf '%s' '{"type":"int","decimal":"42"}'

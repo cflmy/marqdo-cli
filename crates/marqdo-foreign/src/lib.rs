@@ -74,7 +74,7 @@ pub const SUPPORTED_LANGUAGES: [&str; 2] = ["python", "javascript"];
 ///
 /// Descriptors are metadata; they do not grant process/filesystem access. The
 /// host still requires an explicit foreign grant before invoking one.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct KernelDescriptor {
     /// Stable provider id (`python`, `javascript`, `mocklang`, ...).
     pub provider_id: String,
@@ -86,10 +86,14 @@ pub struct KernelDescriptor {
     /// providers must point at an explicit executable.
     pub entrypoint: PathBuf,
     /// Content digest of the external provider program, when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub digest: Option<String>,
     /// Advisory capability requests; never grants.
+    #[serde(default)]
     pub permissions_requested: Vec<String>,
-    /// Whether this is one of the built-in Python/Node providers.
+    /// Whether this is one of the built-in Python/Node providers. External
+    /// descriptors must leave this false.
+    #[serde(default)]
     pub builtin: bool,
 }
 
