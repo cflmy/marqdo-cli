@@ -17,6 +17,7 @@ use marqdo_span::Span;
 use serde::{Deserialize, Serialize};
 
 pub mod builtins;
+pub mod callable;
 
 /// Canonical logical identity of a module: package instance plus a path
 /// relative to that package's module root.
@@ -477,6 +478,10 @@ pub struct Program {
     /// Resolved import edges.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub resolved_imports: Vec<ResolvedImport>,
+    /// Explicit external callable descriptors (plugin manifests). They are
+    /// metadata only: `check` never loads a library.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub external_callables: Vec<callable::CallableDescriptor>,
 }
 
 impl Program {
@@ -501,6 +506,18 @@ impl Program {
             .iter()
             .find(|edge| &edge.from == from && edge.alias == alias)
             .map(|edge| &edge.to)
+    }
+
+    /// Static external callable descriptor by complete dotted name.
+    pub fn external_callable(&self, name: &str) -> Option<&callable::CallableDescriptor> {
+        self.external_callables
+            .iter()
+            .find(|descriptor| descriptor.public_name == name)
+    }
+
+    /// Build the unified callable registry for this program.
+    pub fn callable_registry(&self) -> callable::CallableRegistry {
+        callable::CallableRegistry::from_program(self)
     }
 }
 

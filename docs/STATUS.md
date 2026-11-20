@@ -40,7 +40,7 @@ providers).
 | Step | State | Evidence |
 |---|---|---|
 | R0 baseline + ADRs | **Done** | this section; `docs/adr/0008`–`0012`; full workspace gate |
-| R1 package-aware identity | **In progress** | `ModuleId { instance, relative_path }`; `PackageResolver` path sources; `lock_version: 2` with v1 migration; tests in `marqdo-package` |
+| R1 package-aware identity + callable registry | **Done for statics** | `ModuleId { instance, relative_path }`; `PackageResolver` path sources; `lock_version: 2` with v1 migration; `CallableRegistry` for builtins/marqdo/declared ABI exports; external manifest wiring is R2 |
 | R2 ABI/Kernel/Broker | Not started | — |
 | R3 Tool Protocol | Not started | — |
 | R4 Analysis/Trace v1 | Not started | — |

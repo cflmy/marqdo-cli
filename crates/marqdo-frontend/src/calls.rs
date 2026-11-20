@@ -268,6 +268,21 @@ impl<'a> CallChecker<'a> {
                             }
                         }
                     }
+                    // A declared ABI export is a static descriptor: validate
+                    // its signature here, without loading the shared library.
+                    if let Some(program) = self.program {
+                        if let Some(descriptor) = program.external_callable(&qualified) {
+                            if let Err(message) =
+                                descriptor.signature.validate_args(args, &qualified)
+                            {
+                                self.diagnostics.push(
+                                    Diagnostic::error(codes::CALL_ARITY, Some(span), message)
+                                        .with_hint("check the plugin manifest export signature"),
+                                );
+                            }
+                            return;
+                        }
+                    }
                 }
                 self.expr(base);
             }
@@ -435,6 +450,52 @@ mod tests {
         )]);
         let diagnostics = validate_module(&module);
         assert!(diagnostics.iter().any(|d| d.code == codes::SYMBOL_UNKNOWN));
+    }
+
+    #[test]
+    fn declared_plugin_export_is_checked_statically() {
+        use marqdo_ir::callable::{
+            CallableDescriptor, CallableId, CallableOrigin, CallableSignature,
+        };
+        let module = make_module(vec![function(
+            "main",
+            &[],
+            SignatureKind::Explicit,
+            vec![return_call("solver.add(a=1)")],
+        )]);
+        let mut program = marqdo_ir::Program::default();
+        program.modules.insert(module.id.clone(), module.clone());
+        program.external_callables.push(CallableDescriptor {
+            id: CallableId("plugin:demo:solver.add".into()),
+            public_name: "solver.add".into(),
+            owner_package: "demo".into(),
+            signature: CallableSignature {
+                params: vec![
+                    Param {
+                        name: "a".into(),
+                        span: Span::new(0, 0),
+                        type_annotation: None,
+                        default: None,
+                    },
+                    Param {
+                        name: "b".into(),
+                        span: Span::new(0, 0),
+                        type_annotation: None,
+                        default: None,
+                    },
+                ],
+                kind: SignatureKind::Explicit,
+            },
+            effects_requested: vec!["host".into()],
+            origin: CallableOrigin::AbiPlugin {
+                package: "demo".into(),
+                export: "solver.add".into(),
+            },
+            implementation_digest: None,
+            source_span: None,
+        });
+        let diagnostics = validate_program(&program);
+        assert!(diagnostics.iter().any(|(_, d)| d.code == codes::CALL_ARITY));
     }
 
     #[test]
