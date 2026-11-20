@@ -18,5 +18,3 @@ steps:
     depends_on: [test]
     commands:
       - cargo build --release --locked -p marqdo-cli
-    artifacts:
-      - target/release/marqdo
