@@ -1,6 +1,6 @@
 # Marqdo CLI — Agent / Contributor Operating Rules
 
-**Start here:** read `docs/DEVELOPMENT_BLUEPRINT.md` before proposing code. It is the project architecture baseline. Then read the relevant `spec/` files and conformance fixtures. Do not assume any current implementation or legacy Marqdo syntax is authoritative.
+**Start here:** read `docs/DEVELOPMENT_BLUEPRINT.md` before proposing code. It is the project architecture baseline. Then read `docs/STATUS.md` (what is actually implemented), the relevant `spec/` files, `docs/adr/` for frozen decisions, `docs/contributor-guide.md` for the workflow, and `tests/README.md` plus the conformance fixtures. Do not assume any current implementation or legacy Marqdo syntax is authoritative.
 
 ## Non-negotiable architectural constraints
 
@@ -20,8 +20,8 @@
 1. Identify the affected rule and cite the section of `docs/DEVELOPMENT_BLUEPRINT.md`.
 2. Add a small `.mq.md` positive/negative conformance fixture and define the expected Markdown AST and execution IR.
 3. Implement only the smallest module that satisfies this fixture. Keep Markdown parser, semantic mapper, runtime and host separated.
-4. Run formatting, clippy, unit tests, gold tests and relevant security/ABI compatibility tests.
-5. Write the tradeoff and state of completion in the PR. Never say a feature is finished because a design example looks executable.
+4. Run formatting, clippy, unit tests, gold tests and relevant security/ABI compatibility tests (`cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `cargo test -p marqdo-cli`).
+5. Write the tradeoff and state of completion in the PR. Never say a feature is finished because a design example looks executable. Update `spec/` and `docs/STATUS.md` when behavior or status changes; the docs describe what the code does and flag blueprint divergences explicitly.
 
 ## Unresolved design topics
 

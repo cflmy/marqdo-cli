@@ -124,7 +124,7 @@ host boundary. Names are stable; adding one requires a spec update.
 | `整数` / `int` | `(x) -> Int` | from Int/Float(if integral)/Text(decimal) |
 | `小数` / `float` | `(x) -> Float` | from Int/Float/Text |
 | `表` / `table` | `(header: List, rows: List) -> Table` | validates row widths |
-| `ref` | `(target: Text) -> FunctionRef/Formula/Code` | resolves a document address |
-| `math.parse/eval/simplify/differentiate` | see `spec/math.md` | P5 |
+| `ref` | `(target: Text) -> FunctionRef/Formula/Code` | resolves a document address; module-local, refuses ambiguous resource units (`ref.ambiguous`) |
+| `math.parse/eval/substitute` | see `spec/math.md` | P5; `math.simplify`/`math.differentiate` are declared but return `math.unsupported` in this build |
 | `foreign.run/call` | see `spec/foreign.md` | P5, capability-gated |
 | `fs.read/write` | see `spec/security.md` | capability-gated |
