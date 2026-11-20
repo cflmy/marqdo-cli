@@ -162,7 +162,10 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   `project.stdlib`; a frozen-binary test asserts the CLI hash is unchanged after
   running a `std:io` project and that tampering is rejected. `打印/print` is
   routed to the bundled stdlib (Compat-C, ADR-0030/0031); there is no legacy
-  host formatter.
+  host formatter. `tools/pack-stdlib.py` additionally emits a byte-deterministic
+  offline archive + descriptor for the future external repository
+  ([evidence](evidence/2026-11-20-stdlib-package.md)); publication/signing is
+  still external.
 - Resource streams (RFC-CM CM-A06, ADR-0025): opaque host-issued `Resource`
   handles with `resource.open/read/write/close`; bytes move only through
   `Memory`; stdout write is capability/output-budget checked and project-file

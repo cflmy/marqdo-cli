@@ -1,0 +1,22 @@
+{
+  "schema": "marqdo.stdlib-package",
+  "schema_version": 1,
+  "name": "marqdo-stdlib",
+  "version": "0.1.0",
+  "tree_digest": "sha256:832940f35fe5651eabe4ac672e12e2d8f2bf4e649cc430e455425b4f2a983121",
+  "archive": "marqdo-stdlib-0.1.0.tar.gz",
+  "archive_sha256": "sha256:94127ba3353bdef7430b2ef3c1914d99f9d7f48e4d72fa973eac7ca76c881394",
+  "files": [
+    "README.md",
+    "data/table.mq.md",
+    "demo.mq.md",
+    "format.mq.md",
+    "io.mq.md",
+    "net/http.mq.md",
+    "stdlib.json",
+    "tests/http.mq.md",
+    "tests/io.mq.md",
+    "tests/table.mq.md",
+    "text.mq.md"
+  ]
+}

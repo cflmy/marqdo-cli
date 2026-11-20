@@ -125,6 +125,14 @@ version and the CLI's compatibility table before release.
 * Windows/macOS packaging layout; only the source-tree/executable-adjacent
   layout is exercised locally.
 
+## Offline packaging
+
+`tools/pack-stdlib.py` produces a deterministic `marqdo-stdlib-<version>.tar.gz`
+plus a schema-tagged descriptor (`tree_digest`, `archive_sha256`, file list) for
+the future separate repository/release workflow. The archive is not loaded by
+the CLI; the in-repo `stdlib/` tree remains the verified development/bundled
+source. Publishing/signing the external repository is still an external step.
+
 ## Consequences
 
 * Any project can `import: {io: "std:io"}` and use the print prototype

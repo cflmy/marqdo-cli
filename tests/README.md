@@ -185,6 +185,9 @@ grant, pure/strict, bad protocol version, reserved kinds and duplicate kinds
 are rejected.
 
 RFC-CM P2 closure (C01–C06, C11, C12) is pinned by
+`tools/pack-stdlib.py` is the CM-A10 deterministic package builder (not a test;
+its descriptor is checked in under `docs/evidence/`).
+
 `tools/perf/bench.py` is the P6 baseline harness (not a test; it is not part of
 the cargo gate).
 

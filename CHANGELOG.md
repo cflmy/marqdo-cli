@@ -127,6 +127,9 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   `std:` resolution, tamper rejection and frozen-binary hash equality.
 - P2 closure gate: add a pure no-Foreign/no-Plugin lane for C01–C06/C11/C12
   (20 fixtures + stdlib table), source shortcut scan and golden comparison.
+- CM-A10 offline packaging: `tools/pack-stdlib.py` emits a deterministic
+  `marqdo-stdlib-0.1.0.tar.gz` plus tree/archive digests and a file manifest;
+  the archive is for the future external repository, not the CLI loader.
 - P6 baseline profile: add `tools/perf/bench.py` and a checked-in 7-workload
   JSON report; no bytecode/JIT/native backend is introduced.
 - P4 cross-storage table equivalence: fixture 72 compares row-store Table
