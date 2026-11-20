@@ -185,6 +185,9 @@ grant, pure/strict, bad protocol version, reserved kinds and duplicate kinds
 are rejected.
 
 RFC-CM P2 closure (C01–C06, C11, C12) is pinned by
+`tools/perf/bench.py` is the P6 baseline harness (not a test; it is not part of
+the cargo gate).
+
 `crates/cli/tests/p2_closure.rs`: 20 semantic fixtures run through
 `run --mode pure --json`, sources are scanned for foreign/plugin/import
 shortcuts, and value/stdout are compared with the goldens; the stdlib table

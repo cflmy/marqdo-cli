@@ -1,0 +1,57 @@
+{
+  "schema": "marqdo.perf-baseline",
+  "schema_version": 1,
+  "binary": ".cache/target/release/marqdo",
+  "iterations": 3,
+  "workloads": [
+    {
+      "name": "allocator-free-list",
+      "source": "tests/conformance/semantics/55-first-fit-free-list-allocator.mq.md",
+      "seconds_median": 0.0173,
+      "seconds_min": 0.017026568995788693,
+      "max_rss_kb_median": 8428
+    },
+    {
+      "name": "json-parser",
+      "source": "tests/conformance/semantics/62-json-array-parser.mq.md",
+      "seconds_median": 0.0188,
+      "seconds_min": 0.01880078506655991,
+      "max_rss_kb_median": 8960
+    },
+    {
+      "name": "table-sort",
+      "source": "tests/conformance/semantics/65-table-sort-stdlib.mq.md",
+      "seconds_median": 0.0152,
+      "seconds_min": 0.014747997978702188,
+      "max_rss_kb_median": 7476
+    },
+    {
+      "name": "bytecode-vm",
+      "source": "tests/conformance/semantics/63-memory-bytecode-vm.mq.md",
+      "seconds_median": 0.0155,
+      "seconds_min": 0.015298803802579641,
+      "max_rss_kb_median": 7692
+    },
+    {
+      "name": "matrix-multiply",
+      "source": "tests/conformance/semantics/70-matrix-multiply.mq.md",
+      "seconds_median": 0.0151,
+      "seconds_min": 0.014752828981727362,
+      "max_rss_kb_median": 7368
+    },
+    {
+      "name": "http-parser",
+      "source": "tests/conformance/semantics/71-http-parser.mq.md",
+      "seconds_median": 0.018,
+      "seconds_min": 0.017968795029446483,
+      "max_rss_kb_median": 8196
+    },
+    {
+      "name": "stdlib-print-demo",
+      "source": "stdlib/demo.mq.md",
+      "seconds_median": 0.0205,
+      "seconds_min": 0.02037098305299878,
+      "max_rss_kb_median": 9636
+    }
+  ]
+}

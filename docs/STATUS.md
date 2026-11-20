@@ -147,6 +147,9 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   providers register additional resource kinds without parser/runtime/HostOp
   changes; project-mode + name grant required; pure/strict refuse provider
   kinds; C/Worker transport remains open.
+- P6 baseline profile: `tools/perf/bench.py` measures 7 `.mq.md` workloads with
+  wall time and peak RSS; no optimizer/backend was added and P6 is not claimed
+  complete.
 - Cross-storage table equivalence (P4, ADR-0032): fixture 72 compares T0 row
   Table results with a `.mq.md` columnar List/Map store for sort/filter.
 - Table stdlib algorithms (CM-A08, ADR-0032): `stdlib/data/table.mq.md`
@@ -207,7 +210,7 @@ behavior. This table records only what is in this tree now.
 | P3 Resource/Stream ABI | **PARTIAL** | ADR-0025/0026 CM-A06 slices: opaque `Resource`, `resource.open/read/write/close`, stdout write in pure/project, granted project-file read and buffered project-file write in project, EOF/closed/handle errors, wire/host rejection; strict permits only stdio/stdout and refuses file/network resources. Fixture 66 + CLI/host tests. CM-A07 **Compat-C** is implemented: when a program calls `打印/print`, the loader injects the bundled `stdlib/io.mq.md` and the runtime routes to `io.写值` (all 15 value types, UTF-8 via `Memory`, `resource.write(stdout)`); `HostOp::Print` and the legacy `Value::display()` print path are removed, and a missing bundle fails with `kernel.unavailable`. Strict permits only the existing stdio console channel. Still missing: directories, network, generic provider registry, Table storage, strict file/network resources. |
 | P4 Table logical/physical migration | **PARTIAL** | ADR-0032/CM-A08: `Value::Table` logical semantics unchanged (T0 `Vec<Vec<Value>>`); `stdlib/data/table.mq.md` provides select/filter/sort/append/set/join/group/`转GFM` as value-returning `.mq.md` functions with input immutability. GFM rendering and cross-storage equivalence (fixture 72: row Table vs `.mq.md` columnar store, same headers/rows/cells) are covered. No T1/T2/T3 physical storage, native column store, zero-copy views or Memory-backed table yet. |
 | P5 third-party Provider / TCP / HTTP | **PARTIAL** | `stdlib/net/http.mq.md` + semantic fixture 71 implement HTTP/1.1 status/header/chunked parsing and request construction in `.mq.md`; `http_over_tcp.rs` runs a local HTTP exchange over `resource.open("tcp",...)`; no host HTTP/TLS and no external network test. ADR-0034 blocking TCP resource endpoint (`resource.open("tcp", "<ip>:<port>", ["read","write"])`, exact IP grant, project-only, 5s timeouts; loopback host+CLI tests). ADR-0033 in-process `ResourceProvider` v1: explicitly trusted providers register by kind, project-mode only, gated by `Capabilities.allow_resource_provider`, using the existing `resource.*`/`Result` ABI; a mock read/write provider is tested. No C/Worker provider transport, host DNS/TLS/HTTP implementation, UDP, clock/random/process/device providers, or provider package installation. |
-| P6 performance / native backends | **NOT IMPLEMENTED** | no bytecode/JIT/GPU/QPU work |
+| P6 performance / native backends | **BASELINE ONLY** | reproducible profile harness `tools/perf/bench.py` and [`p6-profile`](evidence/2026-11-20-p6-profile.md) for 7 workloads; no bytecode/JIT/columnar numeric backend or equivalence/optimization gate yet |
 
 The P1 memory domain is pure computation: it needs no grant and is available in
 `pure`, `project` and `strict` (bounded by the memory budgets). It adds no
