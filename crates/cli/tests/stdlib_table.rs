@@ -37,7 +37,7 @@ fn stdlib_table_algorithms_rebuild_without_mutating_inputs() {
     let report = run_table_self_test();
     assert_eq!(report["success"], true);
     let items = report["value"]["items"].as_array().expect("list");
-    assert_eq!(items.len(), 8);
+    assert_eq!(items.len(), 9);
 
     assert_eq!(items[0]["header"], serde_json::json!(["分数"]));
     assert_eq!(items[0]["rows"].as_array().unwrap().len(), 3);
@@ -64,4 +64,9 @@ fn stdlib_table_algorithms_rebuild_without_mutating_inputs() {
     // Original input is unchanged.
     assert_eq!(rows(&items[7]).len(), 3);
     assert_eq!(rows(&items[7])[0][1]["decimal"], "87");
+
+    assert_eq!(
+        items[8]["value"],
+        "| 名称 | 分数 |\n| --- | --- |\n| 甲 | 87 |\n| 乙 | 92 |\n| 丙 | 71 |"
+    );
 }

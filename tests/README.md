@@ -15,7 +15,7 @@ no test commits, copies or rewrites files outside a throw-away temp directory.
 tests/
 ├── conformance/
 │   ├── ast/            160 × *.mq.md + sibling *.ast.json goldens
-│   └── semantics/       70 × *.mq.md + sibling *.expected.json goldens
+│   └── semantics/       71 × *.mq.md + sibling *.expected.json goldens
 ├── negative/
 │   ├── *.mq.md          52 × compile-time hard-error fixtures + *.expected.json
 │   ├── warnings/         6 × inert-executable warning fixtures + *.expected.json

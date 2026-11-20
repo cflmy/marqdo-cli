@@ -46,6 +46,7 @@ Add `stdlib/data/table.mq.md`, importable as `std:data/table`:
 | `设置单元格(数据, 行, 列, 值)` | rebuilds rows; original unchanged |
 | `连接(左, 右, 左列, 右列)` | equality join; headers concatenated |
 | `分组(数据, 键列, 值列)` | Text key -> List of values |
+| `转GFM(数据)` | render the logical table as a GFM pipe table; `\|`/newline cells escaped |
 
 All functions use only `table.columns/row/cell`, `list.*`, `map.*` and `表`;
 none is a new builtin or `HostOp`. The module is ordinary `.mq.md`, loaded

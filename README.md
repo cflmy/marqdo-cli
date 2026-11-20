@@ -81,7 +81,7 @@ executes anything.
 ## What works (implemented and tested)
 
 * **P0 contracts** — frozen Markdown profile, AST → program mapping, strict
-  expression grammar, evaluation semantics; 160 AST goldens, 70 semantic
+  expression grammar, evaluation semantics; 160 AST goldens, 71 semantic
   goldens, 52 compile-error fixtures and 21 runtime-error fixtures
   (`tests/`).
 * **P1 interpreter** — native Rust tree-walk interpreter: values, scopes,

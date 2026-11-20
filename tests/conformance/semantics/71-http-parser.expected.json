@@ -1,0 +1,30 @@
+{
+  "args": {},
+  "function": "main",
+  "stdout": "",
+  "value": {
+    "items": [
+      {
+        "decimal": "200",
+        "type": "int"
+      },
+      {
+        "type": "text",
+        "value": "OK"
+      },
+      {
+        "type": "text",
+        "value": "text/plain"
+      },
+      {
+        "type": "text",
+        "value": "hello world"
+      },
+      {
+        "type": "text",
+        "value": "GET /health HTTP/1.1\r\nAccept: text/plain\r\nHost: example.test\r\n\r\n"
+      }
+    ],
+    "type": "list"
+  }
+}
