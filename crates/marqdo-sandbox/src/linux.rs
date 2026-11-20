@@ -317,6 +317,16 @@ fn run_with(
     })?;
 
     let mut args = common_args();
+    if let Some(stdlib) = command.stdlib_dir {
+        args.extend([
+            OsString::from("--ro-bind"),
+            stdlib.as_os_str().to_os_string(),
+            OsString::from("/run/marqdo-stdlib"),
+            OsString::from("--setenv"),
+            OsString::from("MARQDO_STDLIB_DIR"),
+            OsString::from("/run/marqdo-stdlib"),
+        ]);
+    }
     args.extend([
         OsString::from("--ro-bind"),
         project_root.as_os_str().to_os_string(),
@@ -548,6 +558,7 @@ mod tests {
             original_document: None,
             output_limit: 4096,
             timeout: Duration::from_secs(1),
+            stdlib_dir: None,
         };
         let error = run_with(
             &command,
@@ -585,6 +596,7 @@ mod tests {
             original_document: None,
             output_limit: 4096,
             timeout: Duration::from_secs(1),
+            stdlib_dir: None,
         };
         let error = run_with(
             &command,

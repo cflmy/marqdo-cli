@@ -89,6 +89,11 @@ impl StdlibBundle {
         })
     }
 
+    /// Bundle root.
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
     /// Declared stdlib version.
     pub fn version(&self) -> &str {
         &self.version

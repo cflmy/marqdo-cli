@@ -232,6 +232,8 @@ pub struct StrictHostCommand<'a> {
     pub output_limit: usize,
     /// Wall-clock budget for the supervised process tree.
     pub timeout: Duration,
+    /// Verified bundled stdlib directory to bind read-only when present.
+    pub stdlib_dir: Option<&'a Path>,
 }
 
 /// Launch a command inside the strict sandbox (Linux only).

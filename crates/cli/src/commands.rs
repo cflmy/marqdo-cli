@@ -682,6 +682,10 @@ fn launch_strict_process(
         .unwrap_or(1024 * 1024)
         .min(64 * 1024 * 1024);
     let timeout = Duration::from_secs(settings.timeout.unwrap_or(30));
+    let stdlib_dir = crate::stdlib::StdlibBundle::discover()
+        .ok()
+        .flatten()
+        .map(|bundle| bundle.root().to_path_buf());
     let command = marqdo_sandbox::StrictHostCommand {
         program: &program,
         args: &args,
@@ -690,6 +694,7 @@ fn launch_strict_process(
         original_document: document,
         output_limit,
         timeout,
+        stdlib_dir: stdlib_dir.as_deref(),
     };
     match marqdo_sandbox::launch_strict(&command) {
         Ok(code) => code,

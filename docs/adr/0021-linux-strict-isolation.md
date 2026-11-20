@@ -54,14 +54,23 @@ The trusted supervisor is this process; the restricted child is the same
 The document argument is rewritten to `/project/...`; only the document token
 changes, all other arguments are preserved.
 
-### 4. Child self-verification
+### 4. Bundled stdlib mount
+
+After CM-A07 Compat-C, `打印` is implemented by the bundled `.mq.md` stdlib.
+Strict therefore bind-mounts the verified `stdlib/` tree read-only at
+`/run/marqdo-stdlib` and sets `MARQDO_STDLIB_DIR` for the child, just like the
+program itself. The tree contains only Markdown/read-only data; it grants no
+new OS capability, and the loader still verifies its digest in the child. File,
+network, process and provider resources remain refused.
+
+### 5. Child self-verification
 
 The child accepts `MARQDO_STRICT_ACTIVE=1` only if it can verify all of:
 `getpid() == 1`, `NoNewPrivs: 1`, empty `CapEff`, a non-initial uid map, and no
 non-loopback network interface. A forged marker outside the sandbox fails
 before project code runs.
 
-### 5. Threat model and non-goals
+### 6. Threat model and non-goals
 
 This protects against untrusted Marqdo documents that use the language,
 interpreter, Math, console, or attempt direct syscalls. It does not sandbox

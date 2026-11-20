@@ -111,6 +111,7 @@ fn run(helper: &Path, project: &Path, outside: &Path, mode: &str) -> StrictOutco
         original_document: None,
         output_limit: 64 * 1024,
         timeout: Duration::from_secs(3),
+        stdlib_dir: None,
     };
     launch_strict_capture(&command).unwrap_or_else(|error| panic!("{mode}: {error}"))
 }
@@ -267,6 +268,7 @@ fn strict_supervisor_enforces_memory_cpu_and_output_limits() {
         original_document: None,
         output_limit: 64 * 1024,
         timeout: Duration::from_secs(2),
+        stdlib_dir: None,
     };
     let cpu = launch_strict_capture(&command).expect_err("CPU loop must be stopped");
     let message = cpu.to_string();
@@ -283,6 +285,7 @@ fn strict_supervisor_enforces_memory_cpu_and_output_limits() {
         original_document: None,
         output_limit: 64 * 1024,
         timeout: Duration::from_secs(3),
+        stdlib_dir: None,
     })
     .expect("output helper should be captured, not spawn-failed");
     assert!(

@@ -126,7 +126,7 @@ export PATH="$HOME/.cargo/bin:$PATH"
 ./tests/security/run-lane.sh
 ```
 
-Expected final line: `G-C security lane: PASS`. The script exports
+Expected final line: `G-C security lane: PASS`. The lane also checks that the read-only bundled stdlib works for `打印` and that a project-file `resource.open` is refused in strict mode. The script exports
 `MARQDO_REQUIRE_STRICT_SECURITY=1`; a missing bubblewrap, compiler or helper is
 a failure, never a skip.
 

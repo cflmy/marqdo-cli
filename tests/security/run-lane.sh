@@ -53,6 +53,31 @@ echo "== positive CLI contract =="
 "$bin" run examples/hello.mq.md --mode strict --json | python3 -c \
   'import json,sys; d=json.load(sys.stdin); assert d["success"] is True'
 
+echo "== strict language resources are console-only =="
+mkdir -p .cache/security
+cat > .cache/security/file-resource.mq.md <<'MQ'
+## main
+
+**内存 = memory.new(1, 1)**
+
+> resource.open("file", "README.md", ["read"])
+
+*None*
+MQ
+set +e
+"$bin" run .cache/security/file-resource.mq.md --mode strict >/dev/null 2>.cache/security/file-resource.err
+code=$?
+set -e
+if [ "$code" -eq 0 ]; then
+    echo "error: strict accepted a project file resource" >&2
+    exit 1
+fi
+grep -q "permission.denied" .cache/security/file-resource.err || {
+    echo "error: strict file-resource refusal had no permission.denied diagnostic" >&2
+    cat .cache/security/file-resource.err >&2
+    exit 1
+}
+
 echo "== external-execution surfaces are refused =="
 reject() {
     set +e
