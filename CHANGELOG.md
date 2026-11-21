@@ -5,6 +5,43 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
 
 ## Unreleased (stabilization candidate)
 
+### Breaking changes — extensibility closure (RFC-EXT-0001)
+
+Implements [`docs/architecture/RFC-EXT-0001.md`](docs/architecture/RFC-EXT-0001.md)
+(ADR-0054/0055/0056/0057/0058). 0.x breaking changes:
+
+- **One callable resolution.** `check`/`run`/`call`/`inspect`/Analysis share a
+  single registry and binding pass (`CallSiteKey`). The runtime no longer
+  re-resolves names or guesses a plugin when no descriptor is loaded. An import
+  alias that collides with a builtin/plugin dotted namespace (for example
+  importing a module as `math`) is now `ext.import_namespace_conflict`; rename
+  the alias. Unknown plugin exports are `symbol.unknown` at compile time.
+- **Exact plugin binding.** A plugin manifest is the static signature contract;
+  `run` verifies artifact bytes and reconciles exports/signatures/owners/digests
+  one-to-one (`ext.plugin_binding_mismatch`). Empty/synthesised signatures are
+  gone; ABI v1 signature defaults are rejected; positional arguments are
+  normalised to manifest order.
+- **Lock v4.** `marqdo.lock` upgrades to `lock_version: 4` with an `extensions:`
+  identity table. Lock v3 is rejected with an explicit `marqdo lock` migration
+  error; it is never reinterpreted silently. Projects can declare explicit
+  activation sources under `marqdo.yaml.extensions` (`./path` or `@alias/path`
+  only); a declaration is not a grant.
+- **Analysis calls projection.** `calls[].state/target` now come from the same
+  binding; official stdlib aliases such as `打印` project as `function` targets.
+  Analysis v2 schema/version are unchanged and the private binding table is not
+  serialized.
+- **Print magic removed.** `打印`/`print` are verified `stdlib.json`
+  `public_aliases` bound to `io.mq.md::写值`; `Program.print_override`, the
+  AST-wide print scan and the runtime print branch are deleted. Output bytes are
+  unchanged; programs without print do not load the stdlib module graph.
+- **Third-party resource providers via CLI.** `--provider PATH` /
+  `--allow-provider NAME` on `run`/`call` select and authorize a
+  `provider.json` schema-2 worker artifact; verified before spawn; pure/strict
+  refuse; linux/x86_64 only (other platforms fail closed).
+- **Capability handler registry.** Granted capabilities execute only through a
+  trusted installed handler under budget/audit; a declared-but-unhandled
+  capability stays `capability.unavailable`.
+
 ### Breaking changes — language source syntax (RFC-LANG-0002)
 
 **The `.mq.md` source language changed incompatibly. Old source files are not

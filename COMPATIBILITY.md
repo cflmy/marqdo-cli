@@ -1,9 +1,10 @@
 # Compatibility and support matrix
 
-Snapshot: workspace version **0.1.0**, language SHA **`9c1723d`**, security SHA
-**`8af7262`**, no release tag cut. This file records what was actually verified and separates it
-from what is only implemented. Executed status is in
-[`docs/STATUS.md`](docs/STATUS.md).
+Snapshot: workspace version **0.1.0**, RFC-EXT-0001 tree on
+`feat/extensible-ecosystem`, no release tag cut. This file records what was
+actually verified and separates it from what is only implemented. Executed
+status is in [`docs/STATUS.md`](docs/STATUS.md); SHA-bound external evidence is
+under [`docs/evidence/extension/`](docs/evidence/extension/README.md).
 
 ## Language source syntax (breaking change)
 
@@ -47,11 +48,15 @@ Consequences for compatibility:
 |---|---|---|
 | Markdown profile | `marqdo.md.v1` | Frozen parser/options. The RFC-LANG-0002 mapping rewrite keeps this profile; the source-language break is tracked above, not by a new profile id. |
 | Language / CLI | workspace `0.1.0` | Pre-1.0. The `.mq.md` source language changed incompatibly (RFC-LANG-0002); there is no old-syntax execution path. CLI flags may change with a changelog note; `strict` refusal is contractual. |
-| `marqdo.lock` | v3 | v1/v2 are rejected with a relock instruction; `run`/`call`/`check` never rewrite or fetch the lock. |
+| `marqdo.lock` | v4 | v3 is rejected with an explicit `marqdo lock` migration error; v1/v2 are rejected with a relock instruction; `run`/`call`/`check` never rewrite or fetch the lock. `extensions:` records manifest/artifact identity (integrity, not publisher auth). |
 | Analysis | v2 | Consumers reject unknown majors; incompatible field changes require v3. |
 | Trace | v2 | Binds to the exact Analysis bytes; unknown majors rejected. |
 | CLI Tool | v1 | Manifest schema, SemVer negotiation and whole-bundle digest are stable for v1. |
-| Plugin ABI | v1 | Struct layout/version negotiation frozen; `--trust-native-plugin` is required for in-process loading. |
+| Plugin ABI | v1 | Struct layout/version negotiation frozen; `--trust-native-plugin` is required for in-process loading. The static manifest signature is authoritative; `run` reconciles loaded exports/signatures/owners/artifact digests exactly (`ext.plugin_binding_mismatch`); ABI v1 defaults are rejected. |
+| Resource Provider manifest | v2 | `schema_version: 2`, `abi: c-abi-1`, `transport: worker`; v1 is rejected (`ext.unsupported_provider_schema`), no silent migration. CLI `--provider`/`--allow-provider`; trusted worker, not an OS sandbox. |
+| Callable resolution | ADR-0054 | One registry + one binding pass; `check` and `run` bind the same `CallSiteKey`; no runtime name fallback. Import aliases colliding with builtin/plugin dotted namespaces are rejected. |
+| Analysis `calls[].state/target` | v2 (projection) | Now projected from the unique binding; official stdlib aliases appear as `function`. Schema/version unchanged; private binding table not serialized. |
+| Extension selection | lock v4 | `marqdo.yaml.extensions` only `./path` or `@alias/path`; declaration is not a grant; declared identity must match the lock (`ext.extension_lock_mismatch`). |
 | Foreign wire | v1 | One-shot request envelope; provider descriptors are explicit. |
 
 ## Platform / feature evidence
@@ -67,7 +72,13 @@ portable/tested locally but the native platform lane has not run here;
 | Addressable `Memory` P1 (ADR-0022) | PASS | UNVERIFIED | UNVERIFIED |
 | Resource streams CM-A06 (ADR-0025/0026: stdout + project file read/write) | PASS | UNVERIFIED | **FAIL-CLOSED** (`strict` refuses resource opens) |
 | `run` / `call` / `check` / `inspect` / `fmt` | PASS | UNVERIFIED | UNVERIFIED |
-| lock v3 path/Git graph + sync + tamper | PASS | UNVERIFIED | UNVERIFIED |
+| lock v4 path/Git graph + sync + tamper | PASS | UNVERIFIED | UNVERIFIED |
+| Extension selection/lock v4 (`extensions:`, identities, `inspect --extensions`) | PASS | UNVERIFIED | UNVERIFIED |
+| Callable single binding + `ext.import_namespace_conflict`/`symbol.unknown`/plugin reconciliation | PASS | UNVERIFIED | UNVERIFIED |
+| Official stdlib public aliases (print de-magic; byte-identical output) | PASS | UNVERIFIED | UNVERIFIED |
+| Resource Provider v2 CLI (`--provider`/`--allow-provider`, worker helper) | PASS (linux/x86_64; real C sensor + helper) | **FAIL-CLOSED** (`ext.platform_unsupported`) | **UNSUPPORTED** |
+| Capability handler registry (`fs.read` handler, audit, unavailable) | PASS | UNVERIFIED | UNVERIFIED |
+| External conformance repository (`marqdo-extension-conformance`, frozen CLI) | PASS (provisional development binary; release rerun pending) | UNVERIFIED | UNVERIFIED |
 | Analysis v2 / Trace v2 + Python consumers | PASS | UNVERIFIED | UNVERIFIED |
 | Tool Protocol v1 + 3 independent consumers | PASS | UNVERIFIED | UNVERIFIED |
 | Native ABI (`plugin inspect`, trusted call) | PASS (C fixture) | UNVERIFIED (host-native fixture) | **UNSUPPORTED** |
@@ -106,6 +117,18 @@ reproduce the Windows checkout byte behavior.
 - `strict` additionally requires Bubblewrap and a kernel/environment that
   permits user, mount, PID and network namespaces. See
   [`docs/security-gate.md`](docs/security-gate.md) and ADR-0021.
+
+## RFC-EXT-0001 platform statements
+
+* Provider worker transport: linux/x86_64 only; macOS/Windows return
+  `ext.platform_unsupported` (compile-only, fail-closed). The RFC's macOS
+  provider lane is **not claimed**.
+* Windows Native/Worker ABI remains **UNSUPPORTED**; a Linux PASS does not
+  substitute for it.
+* `strict` L1 continues to refuse plugins/providers/foreign kernels; strict L2
+  is not implemented. A worker is a trusted process, not an OS sandbox.
+* The external conformance suite is a mandatory **additional** release gate
+  (`docs/releasing.md` §7); it does not replace G3/G4/native lanes.
 
 ## Explicitly unsupported in this candidate
 

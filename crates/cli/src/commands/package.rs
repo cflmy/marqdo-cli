@@ -1,6 +1,7 @@
 //! Package lock/sync/add/remove commands.
 
 use super::*;
+use crate::extension_selection;
 
 /// `marqdo lock`.
 pub fn lock(json: bool) -> i32 {
@@ -18,19 +19,40 @@ pub fn lock(json: bool) -> i32 {
             return 2;
         }
     };
-    let graph =
-        match marqdo_package::PackageResolver::new(root.clone(), Some(manifest.clone()), None)
-            .with_fetch(true)
-            .with_unlocked(true)
-            .resolve_lock_graph()
-        {
-            Ok(graph) => graph,
-            Err(error) => {
-                eprintln!("error: {error}");
-                return 1;
-            }
-        };
-    let lockfile = graph.lock;
+    let resolver = marqdo_package::PackageResolver::new(root.clone(), Some(manifest.clone()), None)
+        .with_fetch(true)
+        .with_unlocked(true);
+    let graph = match resolver.resolve_lock_graph() {
+        Ok(graph) => graph,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return 1;
+        }
+    };
+    let mut lockfile = graph.lock;
+    // Lock v4: record the exact extension identity declared by the project.
+    // Reading manifests/declared digests is static; no binary is loaded and no
+    // grant is implied.
+    let extension_sources = match resolver.resolve_extension_sources() {
+        Ok(sources) => sources,
+        Err(error) => {
+            eprintln!("error: extension selection: {error}");
+            return 1;
+        }
+    };
+    let identities = match extension_selection::extension_identities(&extension_sources) {
+        Ok(identities) => identities,
+        Err(error) => {
+            eprintln!("error[{}]: {}", error.code, error.message);
+            return error.exit_code;
+        }
+    };
+    for identity in identities {
+        if let Err(error) = lockfile.merge_extension(identity) {
+            eprintln!("error[ext.extension_lock_mismatch]: {error}");
+            return 1;
+        }
+    }
     let path = root.join(marqdo_package::LOCK_FILE);
     if let Err(error) = write_atomic(&path, lockfile.to_yaml().as_bytes()) {
         eprintln!("error: cannot write {}: {error}", path.display());
@@ -41,6 +63,7 @@ pub fn lock(json: bool) -> i32 {
             "command": "lock",
             "success": true,
             "packages": lockfile.packages,
+            "extensions": lockfile.extensions,
         }));
     } else {
         println!(
@@ -90,6 +113,30 @@ pub fn sync(locked: bool, json: bool) -> i32 {
     let resolver =
         marqdo_package::PackageResolver::new(root, Some(manifest.clone()), Some(lockfile.clone()))
             .with_fetch(!locked);
+    // Verify the declared extension selection against the lock before using
+    // any materialized content. A missing/changed identity fails closed.
+    let extension_sources = match resolver.resolve_extension_sources() {
+        Ok(sources) => sources,
+        Err(error) => {
+            eprintln!("error: extension selection: {error}");
+            return 1;
+        }
+    };
+    let identities = match extension_selection::extension_identities(&extension_sources) {
+        Ok(identities) => identities,
+        Err(error) => {
+            eprintln!("error[{}]: {}", error.code, error.message);
+            return error.exit_code;
+        }
+    };
+    if let Err(error) = lockfile.validate_extension_declarations(&manifest) {
+        eprintln!("error[ext.extension_lock_mismatch]: {error}");
+        return 1;
+    }
+    if let Err(error) = extension_selection::validate_against_lock(&lockfile, &identities) {
+        eprintln!("error[{}]: {}", error.code, error.message);
+        return error.exit_code;
+    }
     if let Err(error) = resolver.materialize_env(&lockfile) {
         eprintln!("error: cannot materialize project environment: {error}");
         return 1;

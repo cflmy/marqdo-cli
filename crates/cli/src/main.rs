@@ -8,6 +8,7 @@ mod analysis;
 mod args;
 mod commands;
 mod extension_descriptors;
+mod extension_selection;
 mod loader;
 mod output;
 mod project_prepare;
@@ -261,6 +262,12 @@ struct InspectArgs {
     /// Print sandbox/platform capability report.
     #[arg(long)]
     platform: bool,
+    /// Print declared/loaded extension identities (never grants).
+    #[arg(long)]
+    extensions: bool,
+    /// Explicitly selected plugin manifest for extension inspection (repeatable).
+    #[arg(long = "plugin", value_name = "PATH")]
+    plugin: Vec<PathBuf>,
     /// Machine readable JSON output.
     #[arg(long)]
     json: bool,
@@ -421,8 +428,9 @@ fn dispatch() -> i32 {
                 ir: args.ir,
                 refs: args.refs,
                 platform: args.platform,
+                extensions: args.extensions,
             };
-            commands::inspect(args.file.as_deref(), &flags, args.json)
+            commands::inspect(args.file.as_deref(), &flags, args.json, &args.plugin)
         }
         Command::Run(args) => commands::execute(
             args.file.as_deref(),

@@ -170,7 +170,7 @@ fn pinned_git_dependency_locks_syncs_and_runs() {
         String::from_utf8_lossy(&lock.stderr)
     );
     let lock_text = std::fs::read_to_string(root.join("marqdo.lock")).unwrap();
-    assert!(lock_text.contains("lock_version: 3"));
+    assert!(lock_text.contains("lock_version: 4"));
     assert!(lock_text.contains("root_dependencies:"));
     assert!(lock_text.contains("instance_id: dep:remote@0.3.0#"));
     assert!(lock_text.contains("kind: git"));

@@ -20,6 +20,7 @@ pub fn execute(
         Ok(prepared) => prepared,
         Err(code) => return code,
     };
+    let extension_sources = prepared.loaded.extension_sources.clone();
     let project = prepared.loaded;
     let static_plugins = prepared.plugins;
     if project.has_errors() {
@@ -51,6 +52,43 @@ pub fn execute(
             return 2;
         }
     };
+    // A project-declared extension is activation, not authorization, but it is
+    // still third-party executable code. `pure`/`strict` never activate it.
+    if !extension_sources.is_empty() && mode != SandboxMode::Project {
+        let code = if mode == SandboxMode::Strict {
+            "strict.unsupported_grant"
+        } else {
+            "cli.invalid_grants"
+        };
+        let message = format!(
+            "this project declares {} extension activation source(s) in {}; \
+             --mode {} cannot activate third-party extensions. Use --mode project \
+             with explicit grants, or remove the extensions block",
+            extension_sources.len(),
+            marqdo_package::MANIFEST_FILE,
+            settings.mode
+        );
+        emit_error(json, command_name, code, &message);
+        return 2;
+    }
+    let mut kernel_paths = settings.kernels.clone();
+    kernel_paths.extend(
+        extension_sources
+            .iter()
+            .filter(|extension| extension.kind == marqdo_package::ExtensionKind::Kernel)
+            .map(|extension| extension.path.clone()),
+    );
+    kernel_paths.sort();
+    kernel_paths.dedup();
+    let mut provider_paths = settings.providers.clone();
+    provider_paths.extend(
+        extension_sources
+            .iter()
+            .filter(|extension| extension.kind == marqdo_package::ExtensionKind::Provider)
+            .map(|extension| extension.path.clone()),
+    );
+    provider_paths.sort();
+    provider_paths.dedup();
     if mode == SandboxMode::Strict {
         if let Err(error) = settings.strict_preflight() {
             emit_error(json, command_name, "strict.unsupported_grant", &error);
@@ -121,7 +159,7 @@ pub fn execute(
     if let Some(timeout) = settings.timeout {
         host.budget.deadline = Some(Instant::now() + Duration::from_secs(timeout));
     }
-    for kernel_path in &settings.kernels {
+    for kernel_path in &kernel_paths {
         if let Err(error) = load_kernel_descriptor(&mut host, kernel_path) {
             if json {
                 output::print_json(&json!({"success": false, "error": error}));
@@ -139,7 +177,7 @@ pub fn execute(
     // current target artifact, check the exact grant and reject duplicate
     // names/kinds *before* any provider or plugin worker process is spawned
     // (RFC-EXT-0001 §5.4.6/§18.2 T6–T7).
-    let providers = match provider_manifest::read_provider_manifests(&settings.providers) {
+    let providers = match provider_manifest::read_provider_manifests(&provider_paths) {
         Ok(providers) => providers,
         Err(error) => {
             emit_prepare_error(json, command_name, &error);

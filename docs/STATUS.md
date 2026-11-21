@@ -19,6 +19,34 @@ not be read as current status.
 Status is generated from executed commands and logs; a gate row without a command,
 log or source path is a defect, not a state.
 
+## 0.0 RFC-EXT-0001 extensibility closure (current tree)
+
+Executed on Linux x86_64, Rust 1.100.0, branch `feat/extensible-ecosystem`:
+
+```text
+cargo fmt --all -- --check                             PASS
+cargo clippy --workspace --all-targets -- -D warnings  PASS
+cargo test --workspace --locked                        PASS
+  67 test targets: 599 passed, 0 failed
+cargo build --release --locked -p marqdo-cli           PASS
+```
+
+Implemented and tested in this tree (PR-00…PR-07; no release claim):
+
+| Area | State | Tests |
+|---|---|---|
+| One `CallableRegistry` + one binding pass; runtime dispatch by `CallSiteKey`; no runtime name fallback; exact plugin reconciliation | **IMPLEMENTED / TESTED** | `callable_resolution` (14), `plugin_worker`, `analysis_trace`, `architecture_boundaries` |
+| `provider.json` v2 through `--provider`/`--allow-provider`; verified before spawn; sibling helper only | **IMPLEMENTED / TESTED (linux/x86_64)** | `provider_cli` (12); PROV-01…10/13; macOS/Windows FAIL-CLOSED |
+| `marqdo.yaml.extensions` + lock v4 identity + `inspect --extensions`; CLI/manifest merge and conflicts | **IMPLEMENTED / TESTED** | `extension_selection` (13), `package_env`, package crate tests |
+| Capability handler registry; `fs.read` real handler; audit/unavailable | **IMPLEMENTED / TESTED** | `marqdo-host` `capability_handlers` (12) |
+| Official stdlib public aliases; print_override/AST scan/runtime branch removed | **IMPLEMENTED / TESTED** | `stdlib_alias_routing` (5), print/format/Trace goldens |
+| Independent external repo + frozen-CLI suite (pure pinned Git, plugin, kernel, provider, tool) | **PASS against a development binary; release-binary rerun + SHA-bound manifest pending** | `/root/work/marqdo-extension-conformance` `tests/run_all.py`: all 7 categories PASS |
+
+Evidence: [`evidence/2026-11-22-ext-implementation.md`](evidence/2026-11-22-ext-implementation.md)
+and baseline [`evidence/ext-baseline-595279f.md`](evidence/ext-baseline-595279f.md).
+The RFC-EXT-0001 release gate additionally requires a `--release` frozen-binary
+rerun and `docs/evidence/extension/<SHA>/manifest.json` on the tagged commit.
+
 ## 0. Language migration completed (RFC-LANG-0002)
 
 The repository now has **one** language contract, implemented end to end:
@@ -215,7 +243,7 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 | 5 | Markdown/power/control-flow corpus | **Green on semantics v2** | 160 AST + 73 semantic + 49 compile-negative + 2 warning + 21 runtime-negative fixtures; `conformance_ast`/`semantics`/`negative` pass |
 | 6 | Payload/control source spans | **Green on semantics v2** | UTF-8 spans, control-expression offsets and heading boundaries covered by fixtures and CLI tests; old condition headers were removed |
 | 7 | Independent Tool consumers | **Done locally** | `sample-view`/`sample-knowledge`/`sample-proof` E2E test |
-| 8 | lock v3 reproducibility | **Implemented; tamper test added** | `package_env` PASS |
+| 8 | lock v4 reproducibility + extension identities | **Implemented; tamper/migration tests added** | `package_env`, `extension_selection` PASS |
 | 9 | Analysis/Trace/Tool/ABI/Foreign | **Implemented; supported-matrix bounded** | protocol tests, plugin/worker/foreign tests |
 | 10 | Linux strict L1 | **Local VM PASS at 5fcc111; remote G3 runner still missing** | 7/7 + positive CLI + strict JSON/inert-`@knowledge`; [`strict-gc-5fcc111`](evidence/2026-11-21-strict-gc-5fcc111.md) |
 | 11 | Linux strict L2 | **NOT IMPLEMENTED / UNSUPPORTED** | strict rejects Worker/Foreign/native ABI |
@@ -233,10 +261,11 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 - Native `**` power is pinned end-to-end: right associativity, unary-minus
   precedence, parentheses, float negative exponents, branch/loop conditions,
   Strong+CodeSpan payloads, and inert prose/code fences.
-- lock v3 full transitive package-instance graph, verified Git cache, strict
-  `sync --locked`, atomic `.marqdo/env` materialization; `run`/`check` never
-  fetch or rewrite the lock. Locked path content tamper is rejected without
-  rewriting the lock or environment.
+- lock v4 full transitive package-instance graph plus extension identity
+  records, verified Git cache, strict `sync --locked`, atomic `.marqdo/env`
+  materialization; `run`/`check` never fetch or rewrite the lock. Locked path
+  content tamper is rejected without rewriting the lock or environment; lock v3
+  requires an explicit `marqdo lock` migration.
 - Analysis v2 (logical identity, resources, byte digest) and Trace v2 (module
   ownership, bounds, truncation, stale detection) with independent Python
   consumers and JSON Schema validation.

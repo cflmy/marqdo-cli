@@ -116,6 +116,233 @@ pub struct NetRequests {
     pub hosts: Vec<String>,
 }
 
+/// Extension category explicitly selected by a project manifest
+/// (RFC-EXT-0001 §6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ExtensionKind {
+    /// Callable ABI plugin (`plugin.yaml`).
+    Plugin,
+    /// Foreign kernel descriptor (`kernel.json`).
+    Kernel,
+    /// Resource provider manifest (`provider.json`).
+    Provider,
+}
+
+impl ExtensionKind {
+    /// Stable lowercase name used in lock files and diagnostics.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            ExtensionKind::Plugin => "plugin",
+            ExtensionKind::Kernel => "kernel",
+            ExtensionKind::Provider => "provider",
+        }
+    }
+
+    /// Parse the stable lowercase name.
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "plugin" => Some(ExtensionKind::Plugin),
+            "kernel" => Some(ExtensionKind::Kernel),
+            "provider" => Some(ExtensionKind::Provider),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for ExtensionKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// One explicit extension activation source.
+///
+/// Allowed forms are deliberately narrow (RFC-EXT-0001 §6.3):
+///
+/// * `./relative/path` — a regular file inside the current project;
+/// * `@alias/relative/path` — a regular file inside a locked dependency.
+///
+/// Absolute paths, `..` traversal, HTTP(S) URLs, globs and implicit searches
+/// are rejected. A declaration is activation/visibility, never a grant.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExtensionSource {
+    /// Declared source string.
+    pub from: String,
+}
+
+impl ExtensionSource {
+    /// Parse and validate the source form.
+    pub fn resolve(
+        &self,
+        dependencies: &BTreeMap<String, Dependency>,
+    ) -> Result<ResolvedExtensionSource, String> {
+        let value = self.from.trim();
+        if value.is_empty() {
+            return Err("extension `from` must not be empty".to_string());
+        }
+        if let Some(rest) = value.strip_prefix("./") {
+            let relative = safe_relative(rest, "extension source")?;
+            return Ok(ResolvedExtensionSource::ProjectRelative(relative));
+        }
+        if let Some(rest) = value.strip_prefix('@') {
+            let (alias, relative) = rest.split_once('/').ok_or_else(|| {
+                format!("extension source `{value}` must be `@alias/relative/path`")
+            })?;
+            if alias.is_empty() {
+                return Err(format!("extension source `{value}` has an empty alias"));
+            }
+            if !dependencies.contains_key(alias) {
+                return Err(format!(
+                    "extension source `{value}` uses `@{alias}`, which is not a declared dependency"
+                ));
+            }
+            let relative = safe_relative(relative, "extension source")?;
+            return Ok(ResolvedExtensionSource::Dependency {
+                alias: alias.to_string(),
+                relative,
+            });
+        }
+        Err(format!(
+            "extension source `{value}` must be `./relative/path` or `@alias/relative/path`;              absolute paths, URLs and implicit discovery are not allowed"
+        ))
+    }
+}
+
+/// A resolved extension activation source (regular file inside a package).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedExtension {
+    /// Extension category declared by the manifest block.
+    pub kind: ExtensionKind,
+    /// Declared `from` string (identity key in the lock).
+    pub from: String,
+    /// Canonical manifest/descriptor file path.
+    pub path: PathBuf,
+    /// Logical owner package instance (`root:...` or a dependency instance id).
+    pub logical_owner: String,
+    /// Canonical package root that contains the file.
+    pub package_root: PathBuf,
+}
+
+/// A parsed extension source relative to a project or dependency.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResolvedExtensionSource {
+    /// `./relative/path` below the project root.
+    ProjectRelative(PathBuf),
+    /// `@alias/relative/path` below a declared dependency.
+    Dependency {
+        /// Dependency alias.
+        alias: String,
+        /// Package-relative path.
+        relative: PathBuf,
+    },
+}
+
+fn resolve_extension_file(
+    package_root: &Path,
+    relative: &Path,
+    kind: ExtensionKind,
+    from: &str,
+) -> Result<PathBuf, String> {
+    let candidate = package_root.join(relative);
+    let canonical = candidate.canonicalize().map_err(|error| {
+        format!(
+            "cannot open {kind} extension source `{from}` at `{}`: {error}",
+            candidate.display()
+        )
+    })?;
+    if !canonical.starts_with(package_root) {
+        return Err(format!(
+            "{kind} extension source `{from}` escapes its owning package"
+        ));
+    }
+    let metadata = std::fs::metadata(&canonical)
+        .map_err(|error| format!("cannot stat {kind} extension source `{from}`: {error}"))?;
+    if !metadata.is_file() {
+        return Err(format!(
+            "{kind} extension source `{from}` must be a regular file"
+        ));
+    }
+    Ok(canonical)
+}
+
+fn safe_relative(value: &str, what: &str) -> Result<PathBuf, String> {
+    if value.is_empty() {
+        return Err(format!("{what} path must not be empty"));
+    }
+    let mut normalised = PathBuf::new();
+    for component in Path::new(value).components() {
+        match component {
+            std::path::Component::Normal(part) => normalised.push(part),
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir
+            | std::path::Component::RootDir
+            | std::path::Component::Prefix(_) => {
+                return Err(format!(
+                    "{what} path `{value}` must stay inside its package (no `..`, absolute or rooted paths)"
+                ))
+            }
+        }
+    }
+    if normalised.as_os_str().is_empty() {
+        return Err(format!("{what} path must not be empty"));
+    }
+    Ok(normalised)
+}
+
+/// The `extensions:` block of `marqdo.yaml` (explicit activation sources).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Extensions {
+    /// Callable plugin manifests.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plugins: Vec<ExtensionSource>,
+    /// Foreign kernel descriptors.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub kernels: Vec<ExtensionSource>,
+    /// Resource provider manifests.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub providers: Vec<ExtensionSource>,
+}
+
+impl Extensions {
+    /// Whether no extension is declared.
+    pub fn is_empty(&self) -> bool {
+        self.plugins.is_empty() && self.kernels.is_empty() && self.providers.is_empty()
+    }
+
+    /// Iterate `(kind, source)` in deterministic kind order.
+    pub fn iter(&self) -> impl Iterator<Item = (ExtensionKind, &ExtensionSource)> {
+        self.plugins
+            .iter()
+            .map(|source| (ExtensionKind::Plugin, source))
+            .chain(
+                self.kernels
+                    .iter()
+                    .map(|source| (ExtensionKind::Kernel, source)),
+            )
+            .chain(
+                self.providers
+                    .iter()
+                    .map(|source| (ExtensionKind::Provider, source)),
+            )
+    }
+
+    fn validate(&self, dependencies: &BTreeMap<String, Dependency>) -> Result<(), String> {
+        let mut seen: std::collections::BTreeSet<(ExtensionKind, String)> =
+            std::collections::BTreeSet::new();
+        for (kind, source) in self.iter() {
+            source.resolve(dependencies)?;
+            if !seen.insert((kind, source.from.clone())) {
+                return Err(format!(
+                    "{kind} extension source `{}` is declared more than once",
+                    source.from
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// The `marqdo.yaml` project manifest.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Manifest {
@@ -130,6 +357,9 @@ pub struct Manifest {
     /// Capability requests.
     #[serde(default, skip_serializing_if = "CapabilityRequests::is_empty")]
     pub capabilities: CapabilityRequests,
+    /// Explicit extension activation sources (never authorization).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extensions: Option<Extensions>,
 }
 
 /// A requested plugin (installation is not authorization).
@@ -173,6 +403,9 @@ impl Manifest {
                 ));
             }
         }
+        if let Some(extensions) = &self.extensions {
+            extensions.validate(&self.dependencies)?;
+        }
         Ok(())
     }
 
@@ -192,6 +425,7 @@ impl Manifest {
             dependencies: BTreeMap::new(),
             plugins: BTreeMap::new(),
             capabilities: CapabilityRequests::default(),
+            extensions: None,
         }
     }
 }
@@ -390,6 +624,59 @@ impl PackageResolver {
     /// Project root.
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    /// Resolve and validate every `marqdo.yaml.extensions` source to a real
+    /// regular file inside its owning package (RFC-EXT-0001 §6.3).
+    ///
+    /// This is pure static path resolution: no extension binary is loaded, no
+    /// script is executed and no grant is implied. Resolution order is sorted by
+    /// `(kind, from)` so the resulting fact table never depends on YAML order.
+    pub fn resolve_extension_sources(&self) -> Result<Vec<ResolvedExtension>, String> {
+        let Some(manifest) = &self.manifest else {
+            return Ok(Vec::new());
+        };
+        let Some(extensions) = &manifest.extensions else {
+            return Ok(Vec::new());
+        };
+        let root = self
+            .root
+            .canonicalize()
+            .map_err(|error| format!("cannot resolve project root: {error}"))?;
+        let owner = root_instance(Some(manifest));
+        let mut resolved = Vec::new();
+        for (kind, source) in extensions.iter() {
+            match source.resolve(&manifest.dependencies)? {
+                ResolvedExtensionSource::ProjectRelative(relative) => {
+                    let path = resolve_extension_file(&root, &relative, kind, &source.from)?;
+                    resolved.push(ResolvedExtension {
+                        kind,
+                        from: source.from.clone(),
+                        path,
+                        logical_owner: owner.clone(),
+                        package_root: root.clone(),
+                    });
+                }
+                ResolvedExtensionSource::Dependency { alias, relative } => {
+                    let module = self.resolve_alias(&alias)?;
+                    let package_root =
+                        module.package.module_root.canonicalize().map_err(|error| {
+                            format!("cannot resolve package root for dependency `{alias}`: {error}")
+                        })?;
+                    let path =
+                        resolve_extension_file(&package_root, &relative, kind, &source.from)?;
+                    resolved.push(ResolvedExtension {
+                        kind,
+                        from: source.from.clone(),
+                        path,
+                        logical_owner: module.package.instance_id.clone(),
+                        package_root,
+                    });
+                }
+            }
+        }
+        resolved.sort_by(|left, right| (&left.kind, &left.from).cmp(&(&right.kind, &right.from)));
+        Ok(resolved)
     }
 
     /// The project manifest, if the entry is part of a project.
@@ -849,6 +1136,7 @@ impl PackageResolver {
             },
             packages,
             root_dependencies,
+            extensions: Vec::new(),
         };
         lock.validate()?;
         Ok(ResolvedLockGraph {
@@ -1115,7 +1403,7 @@ fn package_name_version(manifest: &Option<Manifest>, alias: &str) -> (String, St
 }
 
 /// Lock format version written by this build.
-pub const LOCK_VERSION: u32 = 3;
+pub const LOCK_VERSION: u32 = 4;
 
 /// One package instance in `marqdo.lock` v3.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1138,7 +1426,7 @@ pub struct LockedPackage {
     pub dependencies: BTreeMap<String, String>,
 }
 
-/// A structured package source in lock v3.
+/// A structured package source in lock v4.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum LockedSource {
@@ -1194,7 +1482,7 @@ impl LockedSource {
     }
 }
 
-/// Root entry of a lock v3 graph.
+/// Root entry of a lock v4 graph.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LockedRoot {
     /// Logical root package instance (`root:<name>@<version>`).
@@ -1212,6 +1500,32 @@ impl Default for LockedRoot {
     }
 }
 
+/// One locked extension identity (lock v4).
+///
+/// Records the exact selected extension source, manifest digest, artifact
+/// digest and target so a later `run` can prove it uses the same bytes the
+/// project locked. A lock is identity, not authorization: grants remain
+/// separate CLI/operator decisions.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LockedExtension {
+    /// Extension category.
+    pub kind: ExtensionKind,
+    /// Owner package instance (`root:...` or a dependency instance id).
+    pub logical_owner: String,
+    /// Stable declared name (plugin package, kernel provider id, provider name).
+    pub name: String,
+    /// Declared extension version.
+    pub version: String,
+    /// SHA-256 of the exact manifest file bytes (lowercase hex).
+    pub manifest_digest: String,
+    /// SHA-256 of the selected target artifact (lowercase hex).
+    pub artifact_digest: String,
+    /// Selected host target triple.
+    pub selected_target: String,
+    /// Source string as declared in `marqdo.yaml.extensions`.
+    pub source: String,
+}
+
 /// The `marqdo.lock` package-instance graph.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LockFile {
@@ -1227,6 +1541,9 @@ pub struct LockFile {
     /// Root alias -> target package instance.
     #[serde(default)]
     pub root_dependencies: BTreeMap<String, String>,
+    /// Locked extension identities, sorted by `(kind, name, logical_owner)`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extensions: Vec<LockedExtension>,
 }
 
 impl Default for LockFile {
@@ -1237,6 +1554,7 @@ impl Default for LockFile {
             root: LockedRoot::default(),
             packages: Vec::new(),
             root_dependencies: BTreeMap::new(),
+            extensions: Vec::new(),
         }
     }
 }
@@ -1264,7 +1582,7 @@ pub fn manifest_digest(manifest: &Manifest) -> String {
 }
 
 impl LockFile {
-    /// Parse and validate a lockfile. Only lock v3 is accepted.
+    /// Parse and validate a lockfile. Only lock v4 is accepted.
     pub fn from_yaml(yaml: &str) -> Result<Self, String> {
         #[derive(Deserialize)]
         struct VersionProbe {
@@ -1273,8 +1591,13 @@ impl LockFile {
         let probe: VersionProbe =
             serde_yaml::from_str(yaml).map_err(|error| format!("invalid {LOCK_FILE}: {error}"))?;
         if probe.lock_version != LOCK_VERSION {
+            if probe.lock_version == LOCK_VERSION - 1 {
+                return Err(format!(
+                    "lock v3 is superseded by lock v4 (extension identities); run `marqdo lock` to migrate explicitly. {LOCK_FILE} was not rewritten"
+                ));
+            }
             return Err(format!(
-                "unsupported lock_version {}; lock v3 is required. Run `marqdo lock` to regenerate the graph",
+                "unsupported lock_version {}; lock v{LOCK_VERSION} is required. Run `marqdo lock` to regenerate the graph",
                 probe.lock_version
             ));
         }
@@ -1282,6 +1605,7 @@ impl LockFile {
             serde_yaml::from_str(yaml).map_err(|error| format!("invalid {LOCK_FILE}: {error}"))?;
         lock.packages
             .sort_by(|a, b| a.instance_id.cmp(&b.instance_id));
+        lock.sort_extensions();
         lock.validate()?;
         Ok(lock)
     }
@@ -1299,6 +1623,7 @@ impl LockFile {
         sorted
             .packages
             .sort_by(|a, b| a.instance_id.cmp(&b.instance_id));
+        sorted.sort_extensions();
         serde_yaml::to_string(&sorted).unwrap_or_default()
     }
 
@@ -1307,6 +1632,115 @@ impl LockFile {
         let mut hasher = Sha256::new();
         hasher.update(self.to_yaml().as_bytes());
         hex::encode(hasher.finalize())
+    }
+
+    fn sort_extensions(&mut self) {
+        self.extensions.sort_by(|left, right| {
+            (&left.kind, &left.name, &left.logical_owner).cmp(&(
+                &right.kind,
+                &right.name,
+                &right.logical_owner,
+            ))
+        });
+    }
+
+    /// Look up one locked extension identity.
+    pub fn extension(
+        &self,
+        kind: ExtensionKind,
+        name: &str,
+        logical_owner: &str,
+    ) -> Option<&LockedExtension> {
+        self.extensions.iter().find(|extension| {
+            extension.kind == kind
+                && extension.name == name
+                && extension.logical_owner == logical_owner
+        })
+    }
+
+    /// Compare an actual extension selection with the lock (RFC-EXT-0001 §6.4).
+    ///
+    /// The same complete identity and digests are idempotent; any missing,
+    /// extra or changed identity is an error. The caller turns this into
+    /// `ext.extension_lock_mismatch`; this layer returns a descriptive string.
+    pub fn validate_extension_selection(&self, actual: &[LockedExtension]) -> Result<(), String> {
+        let mut seen: BTreeSet<(ExtensionKind, String, String)> = BTreeSet::new();
+        for extension in actual {
+            let key = (
+                extension.kind,
+                extension.name.clone(),
+                extension.logical_owner.clone(),
+            );
+            if !seen.insert(key.clone()) {
+                return Err(format!(
+                    "extension {} `{}` for owner `{}` is selected more than once",
+                    key.0, key.1, key.2
+                ));
+            }
+            match self.extension(key.0, &key.1, &key.2) {
+                Some(locked) if locked == extension => {}
+                Some(locked) => {
+                    return Err(format!(
+                        "extension {} `{}` identity mismatch: lock has manifest {} artifact {} target {}, selection has manifest {} artifact {} target {}",
+                        key.0,
+                        key.1,
+                        locked.manifest_digest,
+                        locked.artifact_digest,
+                        locked.selected_target,
+                        extension.manifest_digest,
+                        extension.artifact_digest,
+                        extension.selected_target
+                    ))
+                }
+                None => {
+                    return Err(format!(
+                        "extension {} `{}` for owner `{}` is not present in {LOCK_FILE}; run `marqdo lock` and pass the selected manifest explicitly",
+                        key.0, key.1, key.2
+                    ))
+                }
+            }
+        }
+        for locked in &self.extensions {
+            if !seen.contains(&(
+                locked.kind,
+                locked.name.clone(),
+                locked.logical_owner.clone(),
+            )) {
+                return Err(format!(
+                    "locked extension {} `{}` for owner `{}` is not selected in this run",
+                    locked.kind, locked.name, locked.logical_owner
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Insert one exact extension identity; identical insertion is idempotent.
+    pub fn merge_extension(&mut self, extension: LockedExtension) -> Result<(), String> {
+        match self.extension(
+            extension.kind,
+            &extension.name,
+            &extension.logical_owner,
+        ) {
+            Some(existing) if existing == &extension => Ok(()),
+            Some(existing) => Err(format!(
+                "extension {} `{}` for owner `{}` already has manifest {} artifact {} target {}; refusing to replace it with manifest {} artifact {} target {}",
+                extension.kind,
+                extension.name,
+                extension.logical_owner,
+                existing.manifest_digest,
+                existing.artifact_digest,
+                existing.selected_target,
+                extension.manifest_digest,
+                extension.artifact_digest,
+                extension.selected_target
+            )),
+            None => {
+                self.extensions.push(extension);
+                self.sort_extensions();
+                Ok(())
+            }
+        }
     }
 
     /// Find a locked package by instance id.
@@ -1445,6 +1879,112 @@ impl LockFile {
                 ));
             }
         }
+
+        let mut extension_keys = BTreeSet::new();
+        let mut extension_sources = BTreeSet::new();
+        for extension in &self.extensions {
+            if !extension_keys.insert((
+                extension.kind,
+                extension.name.clone(),
+                extension.logical_owner.clone(),
+            )) {
+                return Err(format!(
+                    "duplicate extension {} `{}` for owner `{}` in {LOCK_FILE}",
+                    extension.kind, extension.name, extension.logical_owner
+                ));
+            }
+            if extension.name.trim().is_empty() {
+                return Err("lock extension name must not be empty".to_string());
+            }
+            if extension.version.trim().is_empty() {
+                return Err(format!(
+                    "extension {} `{}` has an empty version",
+                    extension.kind, extension.name
+                ));
+            }
+            if extension.logical_owner.trim().is_empty() {
+                return Err(format!(
+                    "extension {} `{}` has an empty logical_owner",
+                    extension.kind, extension.name
+                ));
+            }
+            if !is_hex_digest(&extension.manifest_digest) {
+                return Err(format!(
+                    "extension {} `{}` manifest_digest is not a 64-character lowercase hex digest",
+                    extension.kind, extension.name
+                ));
+            }
+            if !is_hex_digest(&extension.artifact_digest) {
+                return Err(format!(
+                    "extension {} `{}` artifact_digest is not a 64-character lowercase hex digest",
+                    extension.kind, extension.name
+                ));
+            }
+            if extension.selected_target.trim().is_empty() {
+                return Err(format!(
+                    "extension {} `{}` has an empty selected_target",
+                    extension.kind, extension.name
+                ));
+            }
+            if extension.source.trim().is_empty() {
+                return Err(format!(
+                    "extension {} `{}` has an empty source",
+                    extension.kind, extension.name
+                ));
+            }
+            if !extension_sources.insert((extension.kind, extension.source.clone())) {
+                return Err(format!(
+                    "extension {} source `{}` is locked more than once",
+                    extension.kind, extension.source
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Validate that locked extensions match the manifest declarations.
+    ///
+    /// Declaration is activation, not authorization; this only checks identity
+    /// bookkeeping. A manifest that declares an extension without a lock entry
+    /// (or vice versa) requires an explicit `marqdo lock`.
+    pub fn validate_extension_declarations(&self, manifest: &Manifest) -> Result<(), String> {
+        let declared: Vec<(ExtensionKind, String)> = manifest
+            .extensions
+            .as_ref()
+            .map(|extensions| {
+                extensions
+                    .iter()
+                    .map(|(kind, source)| (kind, source.from.trim().to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        if declared.is_empty() && !self.extensions.is_empty() {
+            return Err(format!(
+                "{LOCK_FILE} records extension(s) but the manifest declares none; run `marqdo lock`"
+            ));
+        }
+        for (kind, source) in &declared {
+            let found = self
+                .extensions
+                .iter()
+                .any(|extension| &extension.kind == kind && &extension.source == source);
+            if !found {
+                return Err(format!(
+                    "extension {kind} source `{source}` is declared but not locked; run `marqdo lock`"
+                ));
+            }
+        }
+        for extension in &self.extensions {
+            if !declared
+                .iter()
+                .any(|(kind, source)| kind == &extension.kind && source == &extension.source)
+            {
+                return Err(format!(
+                    "locked extension {} source `{}` is not declared by the manifest; run `marqdo lock`",
+                    extension.kind, extension.source
+                ));
+            }
+        }
         Ok(())
     }
 
@@ -1555,6 +2095,7 @@ capabilities:
                     dependencies: BTreeMap::new(),
                 },
             ],
+            extensions: Vec::new(),
             root_dependencies: BTreeMap::from([
                 (
                     "a".to_string(),
@@ -1576,13 +2117,107 @@ capabilities:
     }
 
     #[test]
-    fn v1_and_v2_locks_are_rejected_with_a_relock_hint() {
+    fn old_locks_are_rejected_with_an_explicit_migration() {
         for version in [1, 2] {
             let yaml = format!("lock_version: {version}\npackages: []\n");
             let error = LockFile::from_yaml(&yaml).unwrap_err();
-            assert!(error.contains("lock v3 is required"), "{error}");
+            assert!(error.contains("lock v4 is required"), "{error}");
             assert!(error.contains("marqdo lock"), "{error}");
         }
+        // v3 is the immediately previous public format: the error must say the
+        // migration is explicit, not silently reinterpret the document.
+        let error = LockFile::from_yaml("lock_version: 3\npackages: []\n").unwrap_err();
+        assert!(
+            error.contains("lock v3 is superseded by lock v4"),
+            "{error}"
+        );
+        assert!(error.contains("run `marqdo lock`"), "{error}");
+    }
+
+    #[test]
+    fn extensions_manifest_sources_are_narrow_and_validated() {
+        let yaml = "project:\n  name: p\n  version: 0.1.0\ndependencies:\n  q:\n    path: ./q\nextensions:\n  plugins:\n    - from: ./adapter/plugin.yaml\n  kernels: []\n  providers:\n    - from: \"@q/adapter/provider.json\"\n";
+        let manifest = Manifest::from_yaml(yaml).unwrap();
+        let extensions = manifest.extensions.as_ref().unwrap();
+        assert_eq!(extensions.plugins.len(), 1);
+        assert_eq!(extensions.providers.len(), 1);
+        let resolved = extensions.plugins[0]
+            .resolve(&manifest.dependencies)
+            .unwrap();
+        assert_eq!(
+            resolved,
+            ResolvedExtensionSource::ProjectRelative(PathBuf::from("adapter/plugin.yaml"))
+        );
+        for bad in [
+            "extensions:\n  plugins:\n    - from: /abs/plugin.yaml\n",
+            "extensions:\n  plugins:\n    - from: https://example/plugin.yaml\n",
+            "extensions:\n  plugins:\n    - from: ../escape/plugin.yaml\n",
+            "extensions:\n  plugins:\n    - from: \"@missing/plugin.yaml\"\n",
+            "extensions:\n  plugins:\n    - from: \"@q/../../escape\"\n",
+            "extensions:\n  plugins:\n    - from: \"\"\n",
+        ] {
+            let yaml = format!(
+                "project:\n  name: p\n  version: 0.1.0\ndependencies:\n  q:\n    path: ./q\n{bad}"
+            );
+            assert!(
+                Manifest::from_yaml(&yaml).is_err(),
+                "extension source must be rejected: {bad}"
+            );
+        }
+    }
+
+    fn sample_extension(name: &str, digest: char) -> LockedExtension {
+        LockedExtension {
+            kind: ExtensionKind::Plugin,
+            logical_owner: "root:p@0.1.0".into(),
+            name: name.into(),
+            version: "0.1.0".into(),
+            manifest_digest: digest.to_string().repeat(64),
+            artifact_digest: "b".repeat(64),
+            selected_target: "x86_64-unknown-linux-gnu".into(),
+            source: format!("./adapter/{name}/plugin.yaml"),
+        }
+    }
+
+    #[test]
+    fn lock_v4_extension_identity_is_deterministic_and_exact() {
+        let mut lock = LockFile::default();
+        lock.root.manifest_digest = "a".repeat(64);
+        lock.merge_extension(sample_extension("demo.ext", 'a'))
+            .unwrap();
+        lock.merge_extension(sample_extension("demo.ext", 'a'))
+            .unwrap();
+        assert_eq!(lock.extensions.len(), 1);
+        assert!(lock
+            .merge_extension(sample_extension("demo.ext", 'c'))
+            .is_err());
+        let second = sample_extension("other.ext", 'd');
+        lock.merge_extension(second.clone()).unwrap();
+        assert_eq!(lock.extensions[0].name, "demo.ext");
+        let yaml = lock.to_yaml();
+        let parsed = LockFile::from_yaml(&yaml).unwrap();
+        assert_eq!(parsed, lock);
+        assert!(parsed
+            .validate_extension_selection(&[
+                sample_extension("demo.ext", 'a'),
+                sample_extension("other.ext", 'd'),
+            ])
+            .is_ok());
+        assert!(parsed
+            .validate_extension_selection(&[sample_extension("demo.ext", 'a')])
+            .is_err());
+        assert!(parsed
+            .validate_extension_selection(&[
+                sample_extension("demo.ext", 'a'),
+                sample_extension("other.ext", 'd'),
+                sample_extension("extra.ext", 'e'),
+            ])
+            .is_err());
+        let mut changed = sample_extension("demo.ext", 'a');
+        changed.artifact_digest = "f".repeat(64);
+        assert!(parsed
+            .validate_extension_selection(&[changed, sample_extension("other.ext", 'd')])
+            .is_err());
     }
 
     #[test]

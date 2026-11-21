@@ -1,10 +1,12 @@
-# Marqdo Project Package Format v3
+# Marqdo Project Package Format v4
 
-Status: **lock_version 3 package-instance graph as implemented by S1
-(ADR-0016).** Path and pinned Git sources, transitive closure locking,
-fail-closed locked resolution, strict `sync`, and content-profile-1 file-set
-hashing/materialization are implemented. Registries and SemVer solving remain
-out of scope; see §8.
+Status: **lock_version 4 package-instance graph plus extension identities
+(RFC-EXT-0001 §6, ADR-0056).** Path and pinned Git sources, transitive closure
+locking, fail-closed locked resolution, strict `sync`, content-profile-1
+file-set hashing/materialization, and explicit `extensions:` activation
+sources/identities are implemented. Registries and SemVer solving remain out of
+scope; see §8. Lock v3 is rejected with an explicit `marqdo lock` migration
+error; it is never reinterpreted silently.
 
 Implementation: `crates/marqdo-package/src/lib.rs` (manifest/lock types and
 validation), `crates/cli/src/commands.rs` (`init`, `add`, `remove`, `lock`,
@@ -46,6 +48,12 @@ capabilities:                  # requests only; not grants
   net:
     hosts: []
   process: false
+extensions:                    # explicit activation sources; never grants
+  plugins:
+    - from: ./adapter/plugin.yaml
+  kernels: []
+  providers:
+    - from: "@quantum/adapter/provider.json"
 ```
 
 ### 2.1 Fields
@@ -62,6 +70,7 @@ capabilities:                  # requests only; not grants
 | `capabilities.fs.read` / `.write` | list of strings | no | requested project-relative globs |
 | `capabilities.net.hosts` | list of strings | no | requested hosts |
 | `capabilities.process` | bool | no | requested process execution |
+| `extensions.plugins[]` / `.kernels[]` / `.providers[]` | `{from}` | no | explicit extension activation sources; `from` is `./relative/path` in the project or `@alias/relative/path` in a declared dependency. The alias must be in `dependencies`. Absolute paths, URLs, globs and `..` traversal are rejected. A declaration is not a grant. |
 
 Unknown fields are ignored (the types do not `deny_unknown_fields`). Duplicate
 YAML keys follow `serde_yaml` behavior (last one wins); there is no duplicate-key
@@ -78,7 +87,12 @@ validates:
   * neither → error "must declare a path or a pinned git source";
   * `git` without `rev` → error requiring an exact revision;
   * an absolute `path` → error "path must be project-relative";
-* for every plugin requirement, `version` is non-empty.
+* for every plugin requirement, `version` is non-empty;
+* every `extensions.*[].from` is one of the two allowed forms and resolves to a
+  regular file inside its owning package; duplicates within a kind are
+  rejected; `@alias` must name a declared dependency. Resolution happens when
+  the project is loaded (`PackageResolver::resolve_extension_sources`), not in
+  plain `Manifest::validate`.
 
 Note: a *git* dependency passes manifest validation when pinned, but the
 dependency is not resolvable or lockable in this build (§5).
@@ -92,11 +106,13 @@ grants (`spec/security.md` §2). `net` has no implementing host op, and
 
 ## 3. `marqdo.lock`
 
-`lock_version: 3` records the complete package-instance closure reachable from
-the root manifest. Packages are sorted by `instance_id`:
+`lock_version: 4` records the complete package-instance closure reachable from
+the root manifest plus the exact identity of every declared extension.
+Packages are sorted by `instance_id`; extensions by `(kind, name,
+logical_owner)`:
 
 ```yaml
-lock_version: 3
+lock_version: 4
 content_profile_version: 1
 root:
   package: root:quantum@0.1.0
@@ -124,7 +140,41 @@ packages:
   dependencies: {}
 root_dependencies:
   math: dep:math@1.0.0#9e2...
+extensions:
+- kind: plugin
+  logical_owner: root:quantum@0.1.0
+  name: demo.solver
+  version: 0.1.0
+  manifest_digest: 4f5c...            # sha256 of the exact plugin.yaml bytes
+  artifact_digest: 9e2...             # selected target artifact sha256
+  selected_target: x86_64-unknown-linux-gnu
+  source: ./adapter/plugin.yaml
 ```
+
+An extension lock record binds:
+
+* `kind` — `plugin` | `kernel` | `provider`;
+* `logical_owner` — root instance or dependency package instance id;
+* `name` / `version` — stable declared identity (kernel descriptors have no
+  version, so the lock records `wire:<n>`);
+* `manifest_digest` — SHA-256 of the exact manifest/descriptor bytes;
+* `artifact_digest` — declared selected-target artifact SHA-256 (for a kernel,
+  the pinned provider executable digest);
+* `selected_target` — the host triple selected at lock time;
+* `source` — the `from` string exactly as declared.
+
+`marqdo lock` records these identities statically (no extension is executed).
+`check`/`sync` compare the current declaration to the lock and fail with
+`ext.extension_lock_mismatch` on a missing, extra or changed identity; `run`
+additionally verifies the real artifact bytes before starting any worker.
+`extensions` is omitted when no extension is declared.
+
+### 3.1 Lock v3 migration
+
+`from_yaml` of a v3 document returns a deterministic error: lock v3 is
+superseded by v4 (extension identities), and the user must run `marqdo lock`
+to migrate explicitly. No v3 field is silently reinterpreted. Lock v1/v2 keep
+their existing relock error with the v4 requirement.
 
 | Field | Semantics |
 |---|---|

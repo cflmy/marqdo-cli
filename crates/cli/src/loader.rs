@@ -163,6 +163,12 @@ pub struct LoadedProject {
     /// These are ordinary `Marqdo` bindings; the runtime has no print special
     /// case and no `Program.print_override`.
     pub official_aliases: Vec<marqdo_ir::callable::OfficialAlias>,
+    /// Project manifest, when the entry belongs to a project.
+    pub manifest: Option<Manifest>,
+    /// Verified lock file, when present (lock v4).
+    pub lock: Option<LockFile>,
+    /// Resolved `marqdo.yaml.extensions` activation sources (static paths only).
+    pub extension_sources: Vec<marqdo_package::ResolvedExtension>,
 }
 
 impl LoadedProject {
@@ -271,7 +277,7 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
         }
         None
     };
-    let resolver = PackageResolver::new(root.clone(), manifest.clone(), lock);
+    let resolver = PackageResolver::new(root.clone(), manifest.clone(), lock.clone());
     let entry_module = resolver.resolve_entry(&entry)?;
     let stdlib = StdlibBundle::discover().map_err(|error| format!("stdlib: {error}"))?;
     let mut loader = Loader {
@@ -290,6 +296,10 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
     // the target module/function; only aliases the program actually references
     // load their module, and the runtime binds them as ordinary Marqdo calls.
     let official_aliases = loader.load_official_aliases()?;
+    let extension_sources = loader
+        .resolver
+        .resolve_extension_sources()
+        .map_err(|error| format!("extension selection: {error}"))?;
 
     let stdlib_info = loader.stdlib.as_ref().map(|bundle| StdlibInfo {
         version: bundle.version().to_string(),
@@ -314,6 +324,9 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
         diagnostics: loader.diagnostics,
         stdlib: stdlib_info,
         official_aliases,
+        manifest,
+        lock,
+        extension_sources,
     })
 }
 

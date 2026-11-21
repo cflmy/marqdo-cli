@@ -14,8 +14,10 @@
 use std::path::PathBuf;
 
 use marqdo_ir::callable::CallableRegistry;
+use marqdo_package::{ExtensionKind, LockedExtension};
 
 use crate::extension_descriptors::{read_plugin_descriptors, PrepareError, StaticPluginSet};
+use crate::extension_selection;
 use crate::loader::{self, FileDiagnostic, LoadedProject};
 
 /// Options that influence static preparation.
@@ -37,6 +39,11 @@ pub struct PreparedProgram {
     /// evidence) can report the same static table without rebuilding it.
     #[allow(dead_code)]
     pub registry: CallableRegistry,
+    /// Static identities of the declared extensions, already compared with the
+    /// lock when one is present (never grants). Consumed by
+    /// `inspect --extensions` and evidence.
+    #[allow(dead_code)]
+    pub extension_identities: Vec<LockedExtension>,
 }
 
 /// Prepare one document without executing any project or extension code.
@@ -49,8 +56,48 @@ pub fn prepare(
     let mut loaded = loader::load(file.unwrap_or_else(|| std::path::Path::new("index.mq.md")))
         .map_err(|message| default_load_error(&message))?;
 
-    // T2: extension descriptors are read from manifests only.
-    let plugins = read_plugin_descriptors(&options.plugins)?;
+    // T2: extension descriptors are read from manifests only. Explicit CLI
+    // `--plugin` paths are merged with the project's declared and locked
+    // activation sources; CLI paths remain a development form and grant
+    // nothing by themselves.
+    let mut plugin_paths = options.plugins.clone();
+    for extension in &loaded.extension_sources {
+        if extension.kind == ExtensionKind::Plugin {
+            plugin_paths.push(extension.path.clone());
+        }
+    }
+    plugin_paths.sort();
+    plugin_paths.dedup();
+    let plugins = read_plugin_descriptors(&plugin_paths)?;
+
+    // T3a: declared extensions must have a locked identity (lock v4). The
+    // declaration is activation, not authorization; a mismatched/missing lock
+    // is fail-closed rather than silently "latest".
+    let extension_identities =
+        extension_selection::extension_identities(&loaded.extension_sources)?;
+    if !loaded.extension_sources.is_empty() {
+        match &loaded.lock {
+            Some(lock) => {
+                lock.validate_extension_declarations(
+                    loaded
+                        .manifest
+                        .as_ref()
+                        .expect("extension sources require a project manifest"),
+                )
+                .map_err(|message| PrepareError::load("ext.extension_lock_mismatch", message))?;
+                extension_selection::validate_against_lock(lock, &extension_identities)?;
+            }
+            None => {
+                return Err(PrepareError::load(
+                    "ext.extension_lock_mismatch",
+                    format!(
+                        "the project declares {} extension(s) but marqdo.lock is missing; run `marqdo lock` first",
+                        loaded.extension_sources.len()
+                    ),
+                ));
+            }
+        }
+    }
 
     // T3: unique static table. Duplicate exports/builtin shadowing are rejected
     // before any call site can be bound.
@@ -126,6 +173,7 @@ pub fn prepare(
         loaded,
         plugins,
         registry,
+        extension_identities,
     })
 }
 

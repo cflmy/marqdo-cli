@@ -29,7 +29,18 @@ architecture; read them as decision history.
   [`docs/architecture/CURRENT.md`](../architecture/CURRENT.md); for executed
   status see [`docs/STATUS.md`](../STATUS.md).
 
-Files: `0001`–`0050`, plus `0051-byte-exact-http-framing.md` (HTTP framing),
-`0052-unified-markdown-semantics.md` (current language mapping) and
-`0053-strict-child-inspection-and-json-failure-contract.md` (strict CI/JSON
-failure contract).
+Files: `0001`–`0050`, plus:
+
+* `0051-byte-exact-http-framing.md` — HTTP framing;
+* `0052-unified-markdown-semantics.md` — current language mapping;
+* `0053-strict-child-inspection-and-json-failure-contract.md` — strict CI/JSON
+  failure contract;
+* `0054-callable-binding-single-source.md` — one registry/binding pass and
+  runtime dispatch by identity;
+* `0055-resource-provider-cli-v2.md` — `provider.json` v2 through the normal
+  CLI, worker trust boundary;
+* `0056-extension-selection-locking.md` — `marqdo.yaml.extensions` and lock v4;
+* `0057-capability-handler-registration.md` — declared capability vs installed
+  handler vs audit;
+* `0058-stdlib-public-alias.md` — verified stdlib `public_aliases` replace
+  print magic.

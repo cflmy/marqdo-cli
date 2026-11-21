@@ -1,4 +1,4 @@
-lock_version: 3
+lock_version: 4
 content_profile_version: 1
 root:
   package: root:multi-module@0.1.0
