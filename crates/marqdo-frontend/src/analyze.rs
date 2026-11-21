@@ -105,15 +105,14 @@ pub fn analyze_source(module_id: &str, source: &str) -> AnalysisResult {
 
     let mut functions: Vec<Function> = Vec::new();
     for scope in &units.functions {
-        let blocks: Vec<&marqdo_markdown::MdNode> = document.root.children
-            [scope.body_start..scope.body_end]
-            .iter()
-            .collect();
-        let signature = signature::detect(&document, &blocks);
-        let explicit = signature.as_ref().map(|(_, sig)| sig);
-
         let mut mapped = map::map_function(&document, &units, scope);
         diagnostics.append(&mut mapped.diagnostics);
+        // The mapper already proved that this payload is the function's first
+        // direct executable payload; a Knowledge section can never supply one.
+        let signature = mapped.params.as_ref().map(|declaration| {
+            signature::from_payload(&declaration.text, declaration.span, &declaration.segments)
+        });
+        let explicit = signature.as_ref();
 
         let mut params: Vec<Param> = Vec::new();
         let mut kind = SignatureKind::Inferred;
@@ -236,6 +235,39 @@ mod tests {
         let function = result.module.function("倒计时").expect("countdown");
         assert!(function.params.is_empty());
         assert!(matches!(function.body[1], marqdo_ir::Stmt::Loop { .. }));
+    }
+
+    #[test]
+    fn knowledge_section_cannot_declare_a_signature() {
+        // The `params(...)` payload sits in a Knowledge section, so it is inert
+        // documentation and must not become the function's signature.
+        let source = "## @exec f\n\n### @knowledge 说明\n\n`params(x: Int)`\n\n### @exec 计算\n\n`return 1`\n";
+        let result = analyze(source);
+        assert!(
+            !result.has_errors(),
+            "unexpected diagnostics: {:#?}",
+            result.diagnostics
+        );
+        let function = result.module.function("f").expect("f");
+        assert_eq!(function.signature, SignatureKind::Inferred);
+        assert!(function.params.is_empty());
+    }
+
+    #[test]
+    fn exec_section_params_after_prose_is_the_signature() {
+        // Prose and a Knowledge subsection may precede the declaration, so a
+        // later Exec section can still declare the first executable payload.
+        let source = "## @exec f\n\n说明文字。\n\n### @knowledge 原理\n\n`params(ignored: Int)`\n\n### @exec 计算\n\n`params(x: Int)`\n\n`return x`\n";
+        let result = analyze(source);
+        assert!(
+            !result.has_errors(),
+            "unexpected diagnostics: {:#?}",
+            result.diagnostics
+        );
+        let function = result.module.function("f").expect("f");
+        assert_eq!(function.signature, SignatureKind::Explicit);
+        assert_eq!(function.params.len(), 1);
+        assert_eq!(function.params[0].name, "x");
     }
 
     #[test]

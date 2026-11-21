@@ -16,6 +16,22 @@ use marqdo_value::{codes, Diagnostic};
 use crate::payload::PayloadSegments;
 use crate::units::{FunctionScope, UnitIndex};
 
+/// The `params(...)` payload accepted for one function.
+///
+/// Only the first function-wide direct payload qualifies; the signature parser
+/// validates the interior. Keeping the carrier text and span map here means the
+/// declaration is recognized by the same traversal and mode rules that decide
+/// what executes, so a Knowledge section can never declare a signature.
+#[derive(Debug, Clone)]
+pub struct ParamsDeclaration {
+    /// Payload text, e.g. `params(n: Int)`.
+    pub text: String,
+    /// Span of the carrier node.
+    pub span: Span,
+    /// Payload-offset → file-span map for default expressions.
+    pub segments: PayloadSegments,
+}
+
 /// A mapped function body plus diagnostics.
 #[derive(Debug, Clone, Default)]
 pub struct MappedBody {
@@ -23,6 +39,8 @@ pub struct MappedBody {
     pub stmts: Vec<Stmt>,
     /// Diagnostics produced while mapping.
     pub diagnostics: Vec<Diagnostic>,
+    /// The accepted `params(...)` declaration, if the function has one.
+    pub params: Option<ParamsDeclaration>,
 }
 
 /// Map one function scope to executable statements.
@@ -33,6 +51,7 @@ pub fn map_function(
 ) -> MappedBody {
     let mut mapper = Mapper {
         diagnostics: Vec::new(),
+        params: None,
         saw_params: None,
         executed: false,
     };
@@ -63,11 +82,14 @@ pub fn map_function(
     MappedBody {
         stmts,
         diagnostics: mapper.diagnostics,
+        params: mapper.params,
     }
 }
 
 struct Mapper {
     diagnostics: Vec<Diagnostic>,
+    /// Accepted `params(...)` payload for the function being mapped.
+    params: Option<ParamsDeclaration>,
     /// First direct `params(...)` payload of the **function** (not just the
     /// current heading segment), used to reject duplicate declarations.
     saw_params: Option<Span>,
@@ -86,6 +108,7 @@ enum Stop {
 
 struct RawPayload {
     payload: Payload,
+    text: String,
     span: Span,
     segments: PayloadSegments,
     /// True only for a carrier in the heading's direct body, not inside a
@@ -194,6 +217,7 @@ impl Mapper {
             }
             out.push(RawPayload {
                 payload,
+                text,
                 span,
                 segments,
                 direct,
@@ -341,6 +365,11 @@ impl Mapper {
                         );
                     } else {
                         self.saw_params = Some(raw.span);
+                        self.params = Some(ParamsDeclaration {
+                            text: raw.text.clone(),
+                            span: raw.span,
+                            segments: raw.segments.clone(),
+                        });
                     }
                     *position += 1;
                 }

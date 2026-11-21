@@ -8,7 +8,6 @@
 
 use marqdo_expression::{parse_expression, Expr, Statement, StatementKind};
 use marqdo_ir::{Param, SignatureKind};
-use marqdo_markdown::{MarkdownDocument, MdKind, MdNode};
 use marqdo_span::Span;
 use marqdo_value::{codes, Diagnostic};
 use unicode_ident::{is_xid_continue, is_xid_start};
@@ -20,7 +19,7 @@ use crate::payload::PayloadSegments;
 pub struct Signature {
     /// Parameters in declaration order.
     pub params: Vec<Param>,
-    /// Span of the declaration code span.
+    /// Span of the declaration payload carrier.
     pub span: Span,
     /// Diagnostics raised while parsing the declaration.
     pub diagnostics: Vec<Diagnostic>,
@@ -33,56 +32,20 @@ impl Signature {
     }
 }
 
-/// Detect and parse a signature paragraph.
+/// Parse the `params(...)` payload the mapper accepted for a function.
 ///
-/// A paragraph qualifies only when it is the first block in the function body
-/// (ignoring inert level>=3 section headings) and consists of exactly one
-/// inline code span whose payload starts with `(`. Any other first paragraph is
-/// prose and inference is used instead.
-pub fn detect(_doc: &MarkdownDocument, blocks: &[&MdNode]) -> Option<(usize, Signature)> {
-    for (index, block) in blocks.iter().enumerate() {
-        match &block.kind {
-            MdKind::Heading { level, .. } if *level >= 3 => continue,
-            MdKind::Paragraph => {
-                if block.children.len() != 1 {
-                    continue;
-                }
-                let carrier = &block.children[0];
-                let (source, span, segments) = match &carrier.kind {
-                    MdKind::Code { ticks } => {
-                        let literal = carrier.literal.clone().unwrap_or_default();
-                        let inner = Span::new(
-                            carrier.span.start.saturating_add(*ticks),
-                            carrier.span.end.saturating_sub(*ticks),
-                        );
-                        (
-                            literal.clone(),
-                            carrier.span,
-                            PayloadSegments::single(&literal, inner),
-                        )
-                    }
-                    MdKind::Strong | MdKind::Emph => match PayloadSegments::of(carrier) {
-                        Ok((source, segments)) => (source, carrier.span, segments),
-                        Err(_) => continue,
-                    },
-                    _ => continue,
-                };
-                if !source.trim_start().starts_with("params(") {
-                    return None;
-                }
-                let mut signature = parse(&source, span);
-                for param in &mut signature.params {
-                    if let Some(default) = &mut param.default {
-                        segments.rewrite_expr(default);
-                    }
-                }
-                return Some((index, signature));
-            }
-            MdKind::List { .. } | MdKind::BlockQuote | MdKind::Item { .. } => continue,
-            _ => return None,
+/// The mapper owns recognition: only the first function-wide direct payload of
+/// an Exec H2 can be a declaration, and Knowledge sections never produce
+/// payloads. This function only validates the declaration text and rewrites
+/// default-value spans onto the file.
+pub fn from_payload(text: &str, span: Span, segments: &PayloadSegments) -> Signature {
+    let mut signature = parse(text, span);
+    for param in &mut signature.params {
+        if let Some(default) = &mut param.default {
+            segments.rewrite_expr(default);
         }
     }
-    None
+    signature
 }
 
 /// Parse signature payload text (without the code span delimiters).

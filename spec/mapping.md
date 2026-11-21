@@ -277,7 +277,9 @@ Rules:
   segment are visible in later segments. They do not create new functions.
 * `params(name: Type, ...)` is legal only as the **first direct execution
   payload of an Exec H2 function**, at most once, and not inside a list or
-  block quote. The position is function-wide: it may be preceded by prose or a
+  block quote. Recognition happens in the same Exec-mode traversal that finds
+  statements, so a `params(...)` code span in a Knowledge section is inert
+  documentation and is never a signature. The position is function-wide: it may be preceded by prose or a
   Knowledge subsection, but not by an executing statement in **any** heading
   segment of that function (a later `### @exec` section may not add a
   signature after earlier code ran). Violations are `sem.signature_position`;
