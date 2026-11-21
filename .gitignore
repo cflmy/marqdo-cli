@@ -24,3 +24,6 @@ dist/
 # Local-only credentials and environment files
 .secrets/
 .env.local
+
+# stdlib product test output
+stdlib/tests/out/

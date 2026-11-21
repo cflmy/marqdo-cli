@@ -58,7 +58,7 @@ byte-identical).
 cargo fmt --all -- --check                            PASS
 cargo clippy --workspace --all-targets -- -D warnings PASS
 cargo test --workspace --locked                       PASS
-  463 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
+  464 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
 ```
 
 The documentation and test migration is local work; re-run this block after it
@@ -198,9 +198,10 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 - Table stdlib algorithms (CM-A08, ADR-0032): `stdlib/data/table.mq.md`
   provides select/filter/sort/append/set/join/group/`转GFM` over the logical
   `Value::Table`; inputs are never mutated; GFM AST laziness and physical T0
-  storage are unchanged.
+  storage are unchanged. `std:fs/file` provides bounded `读文本`/`写文本`/`复制文件`
+  over the existing `resource.*` ABI; metadata/directory operations remain open.
 - Bundled standard library (CM-A10, ADR-0028): `stdlib/` ships
-  `format`/`text`/`io`; explicit `std:` imports resolve only inside the bundle;
+  `format`/`text`/`io`/`fs`; explicit `std:` imports resolve only inside the bundle;
   a SHA-256 digest over `*.mq.md` is verified before loading; Analysis records
   `project.stdlib`; a frozen-binary test asserts the CLI hash is unchanged after
   running a `std:io` project and that tampering is rejected. `打印/print` is
@@ -224,7 +225,7 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   status/index links and SHA-pinned evidence; `crates/cli/tests/architecture_boundaries.rs`
   pins the workspace graph, `marqdo-runtime -> marqdo-host`, the bundled stdlib
   digest and the stdio/file/TCP endpoints; `crates/cli/tests/stdlib_product.rs`
-  runs every public stdlib module (`console/demo/format/http/io/stream/table/text/utf8`)
+  runs every public stdlib module (`console/demo/format/fs/http/io/stream/table/text/utf8`)
   through `std:` imports over `stdlib/tests/*.mq.md`. `tools/pack-stdlib.py`
   now sorts `.mq.md` by the same relative path key as the CLI. Source/test baseline
   `0d40de7`; later docs-only commits keep code/test bytes identical. Evidence:
@@ -246,10 +247,11 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
    fixture lane, Unix-gated worker tests).
 4. `fs.write`, `net.request`, `process`, `clock`, `random` are not executed
    broker services; unsupported requests must return `capability.unavailable`.
-5. Resource streams cover project-file read/write, stdout, compatible print,
-   trusted in-process providers and IP-literal TCP; directories, process,
-   device, DNS/TLS/HTTP, UDP and provider packaging remain open. Strict permits
-   only stdio and refuses the rest (CM-A11 lane PASS).
+5. Resource streams cover project-file read/write (including `std:fs/file`
+   read/write/copy), stdout, compatible print, trusted in-process providers and
+   IP-literal TCP; file metadata/directories, process, device, DNS/TLS/HTTP, UDP
+   and provider packaging remain open. Strict permits only stdio and refuses the
+   rest (CM-A11 lane PASS).
 6. uv/npm/venv provisioning is not implemented. Only a pre-provisioned,
    digest-pinned directory with a regular-file executable is supported.
 7. No Windows/macOS RC archive exists from this host. The release-candidate

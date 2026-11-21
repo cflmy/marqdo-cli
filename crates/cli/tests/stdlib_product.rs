@@ -8,6 +8,7 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::{Mutex, MutexGuard};
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -18,6 +19,16 @@ fn repo_root() -> PathBuf {
         .to_path_buf()
 }
 
+static FS_LOCK: Mutex<()> = Mutex::new(());
+
+fn lock_fs(name: &str) -> Option<MutexGuard<'static, ()>> {
+    if name == "fs.mq.md" {
+        Some(FS_LOCK.lock().unwrap_or_else(|error| error.into_inner()))
+    } else {
+        None
+    }
+}
+
 fn stdlib_dir() -> PathBuf {
     repo_root().join("stdlib")
 }
@@ -26,6 +37,7 @@ struct TestFile {
     name: String,
     stdin: &'static str,
     stdout: &'static str,
+    args: &'static [&'static str],
 }
 
 fn product_tests() -> Vec<TestFile> {
@@ -34,6 +46,14 @@ fn product_tests() -> Vec<TestFile> {
         .expect("read stdlib tests")
         .map(|entry| {
             let path = entry.unwrap().path();
+            if !path.is_file() {
+                return TestFile {
+                    name: String::new(),
+                    stdin: "",
+                    stdout: "",
+                    args: &[],
+                };
+            }
             let name = path.file_name().unwrap().to_string_lossy().to_string();
             let (stdin, stdout) = match name.as_str() {
                 "console.mq.md" => ("hello\n", ""),
@@ -41,21 +61,32 @@ fn product_tests() -> Vec<TestFile> {
                 "stream.mq.md" => ("", "stream\n"),
                 _ => ("", ""),
             };
+            let args = if name == "fs.mq.md" {
+                &["--allow-read", "out/*", "--allow-write", "out/*"][..]
+            } else {
+                &[][..]
+            };
             TestFile {
                 name,
                 stdin,
                 stdout,
+                args,
             }
         })
+        .filter(|file| !file.name.is_empty())
         .collect();
     files.sort_by(|left, right| left.name.cmp(&right.name));
     files
 }
 
 fn run_product_test(file: &TestFile) -> serde_json::Value {
+    if file.name == "fs.mq.md" {
+        let _ = std::fs::remove_dir_all(stdlib_dir().join("tests/out"));
+    }
     let mut child = Command::new(env!("CARGO_BIN_EXE_marqdo"))
         .args(["run"])
         .arg(stdlib_dir().join("tests").join(&file.name))
+        .args(file.args)
         .args(["--json"])
         .current_dir(stdlib_dir())
         .env("MARQDO_STDLIB_DIR", stdlib_dir())
@@ -90,6 +121,7 @@ fn every_public_stdlib_module_has_a_product_test() {
             "console.mq.md",
             "demo.mq.md",
             "format.mq.md",
+            "fs.mq.md",
             "http.mq.md",
             "io.mq.md",
             "stream.mq.md",
@@ -104,6 +136,7 @@ fn every_public_stdlib_module_has_a_product_test() {
 #[test]
 fn the_whole_bundled_library_runs_through_std_imports() {
     for file in product_tests() {
+        let _guard = lock_fs(&file.name);
         let report = run_product_test(&file);
         assert_eq!(report["success"], true, "{}", file.name);
         assert_eq!(
@@ -112,6 +145,31 @@ fn the_whole_bundled_library_runs_through_std_imports() {
             file.name
         );
     }
+}
+
+#[test]
+fn fs_test_reads_writes_and_copies_project_files() {
+    let _guard = lock_fs("fs.mq.md");
+    let report = run_product_test(
+        product_tests()
+            .iter()
+            .find(|file| file.name == "fs.mq.md")
+            .expect("fs test"),
+    );
+    let items = report["value"]["items"].as_array().expect("list");
+    assert_eq!(items[0]["decimal"], "7");
+    assert_eq!(items[1]["value"], "你好\n");
+    assert_eq!(items[2]["decimal"], "7");
+    assert_eq!(items[3]["value"], "你好\n");
+    let out = stdlib_dir().join("tests/out");
+    assert_eq!(
+        std::fs::read(out.join("fs-a.txt")).unwrap(),
+        "你好\n".as_bytes()
+    );
+    assert_eq!(
+        std::fs::read(out.join("fs-b.txt")).unwrap(),
+        "你好\n".as_bytes()
+    );
 }
 
 #[test]

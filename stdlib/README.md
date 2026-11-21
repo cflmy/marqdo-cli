@@ -8,6 +8,7 @@ module; a mismatch is a hard error.
 - `text.mq.md` — compatibility UTF-8 encoding into `Memory`
 - `text/utf8.mq.md` — `.mq.md` UTF-8 encoder and validating decoder
 - `io.mq.md` — compatibility facade over `stream` and `console`
+- `fs/file.mq.md` — bounded project-file read/write/copy over `resource.*`
 - `io/stream.mq.md` — `写全部` / `写文本` with short-write and close checking
 - `io/console.mq.md` — `读取行` / `打印` over `stdio/stdin` and `stdio/stdout`
 - `demo.mq.md` — side-by-side comparison with builtin `打印`
