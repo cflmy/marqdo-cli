@@ -432,3 +432,27 @@
   **下标 = 下标 + 1**
 
 *成功(结果)*
+
+## 扩展匹配
+
+`(模式, 文本)`
+
+使用宿主正则引擎（支持分组、选择、`\\d` 等）判断是否匹配。模式无效时
+返回 `regex.invalid`。仅项目模式；纯 `.mq.md` 子集仍由 `匹配`/`搜索` 提供。
+
+*resource.request("regex.match", [模式, 文本])*
+
+## 扩展搜索
+
+`(模式, 文本)`
+
+*resource.request("regex.match", [模式, 文本])*
+
+## 捕获
+
+`(模式, 文本)`
+
+返回 `{ok:true, value:{matched:Bool, groups:List<Text|None>}}`。下标 0 是
+完整匹配；未参与匹配的分组是 `None`。
+
+*resource.request("regex.captures", [模式, 文本])*

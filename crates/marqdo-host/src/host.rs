@@ -845,6 +845,82 @@ impl Host for StdHost {
             self.record_resource_effect("resource.request", ctx, started, "process.run");
             return Ok(result);
         }
+        if operation == "regex.match" || operation == "regex.captures" {
+            if operation == "regex.match" {
+                if args.len() != 2 {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::Arity,
+                        ctx.span,
+                        format!(
+                            "resource operation `regex.match` expects 2 arguments, got {}",
+                            args.len()
+                        ),
+                    ));
+                }
+            } else if args.len() != 2 {
+                return Err(RuntimeError::new(
+                    ErrorCategory::Arity,
+                    ctx.span,
+                    format!(
+                        "resource operation `regex.captures` expects 2 arguments, got {}",
+                        args.len()
+                    ),
+                ));
+            }
+            let pattern_type = args[0].type_name();
+            let Value::Text(pattern) = args[0].clone() else {
+                return Err(RuntimeError::type_error(
+                    ctx.span,
+                    format!("{operation} pattern must be Text, got {pattern_type}"),
+                ));
+            };
+            let text_type = args[1].type_name();
+            let Value::Text(text) = args[1].clone() else {
+                return Err(RuntimeError::type_error(
+                    ctx.span,
+                    format!("{operation} text must be Text, got {text_type}"),
+                ));
+            };
+            let regex = match regex::Regex::new(&pattern) {
+                Ok(regex) => regex,
+                Err(error) => {
+                    return Ok(result_error(
+                        "regex.invalid",
+                        &format!("invalid regular expression: {error}"),
+                    ))
+                }
+            };
+            self.record_semantic(
+                "resource.request",
+                None,
+                Some(&ctx.module_id),
+                ctx.span,
+                Some(operation),
+            );
+            self.record_resource_effect("resource.request", ctx, started, operation);
+            let mut map = BTreeMap::new();
+            map.insert("ok".to_string(), Value::Bool(true));
+            if operation == "regex.match" {
+                map.insert("value".to_string(), Value::Bool(regex.is_match(&text)));
+            } else {
+                let mut payload = BTreeMap::new();
+                let captures = regex.captures(&text);
+                payload.insert("matched".to_string(), Value::Bool(captures.is_some()));
+                let groups = match captures {
+                    Some(captures) => captures
+                        .iter()
+                        .map(|group| match group {
+                            Some(group) => Value::text(group.as_str()),
+                            None => Value::None,
+                        })
+                        .collect(),
+                    None => Vec::new(),
+                };
+                payload.insert("groups".to_string(), Value::List(groups));
+                map.insert("value".to_string(), Value::Map(payload));
+            }
+            return Ok(Value::Map(map));
+        }
         if operation == "compress.gzip" {
             if args.len() != 1 {
                 return Err(RuntimeError::new(

@@ -312,6 +312,12 @@ fn regex_test_matches_anchors_classes_and_search() {
     assert_eq!(items[9]["value"], false);
     assert_eq!(items[10]["value"], "regex.invalid");
     assert_eq!(items[11]["value"], "regex.unsupported");
+    assert_eq!(items[12]["value"], true);
+    assert_eq!(items[13]["value"], true);
+    let groups = items[14]["items"].as_array().expect("groups");
+    assert_eq!(groups[0]["value"], "aab");
+    assert_eq!(groups[1]["value"], "aa");
+    assert_eq!(groups[2]["value"], "b");
 }
 
 #[test]

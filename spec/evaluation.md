@@ -215,6 +215,9 @@ resource.request("env.get",     [name])         -> {ok:true, value:Text}
 resource.request("random.bytes", [count])       -> {ok:true, value:List<Int>}
 resource.request("compress.gzip",   [text])     -> {ok:true, value:List<Int>}
 resource.request("compress.gunzip", [bytes])    -> {ok:true, value:Text}
+resource.request("regex.match",    [pattern, text]) -> {ok:true, value:Bool}
+resource.request("regex.captures", [pattern, text]) -> {ok:true, value:{matched, groups}}
+
 resource.request("process.run", [program, args])-> {ok:true, value:{status, stdout, stderr}}
 ```
 
@@ -244,6 +247,10 @@ resource.request("process.run", [program, args])-> {ok:true, value:{status, stdo
 * `env.get` takes one exact variable name and requires an `--allow-env NAME`
   grant; un-granted names are `permission.denied`, missing names are recoverable
   `env.not_found` and non-UTF-8 values are `env.not_unicode` (ADR-0043).
+* `regex.match`/`regex.captures` use the host regex engine (groups,
+  alternation, character classes, captures); invalid patterns are recoverable
+  `regex.invalid`. They are project-mode only; the pure `.mq.md` subset remains
+  available (ADR-0050).
 * `compress.gzip`/`compress.gunzip` codec UTF-8 Text through a byte List;
   input/output are capped at 8 MiB and bad gzip/UTF-8 is recoverable
   `compress.invalid`/`compress.not_utf8` (ADR-0049).

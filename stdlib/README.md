@@ -22,7 +22,7 @@ module; a mismatch is a hard error.
 - `datetime.mq.md` — UTC ISO-8601 format/parse over Unix milliseconds (pure)
 - `clock.mq.md` — project-mode `clock.now` over `resource.request`
 - `path.mq.md` — lexical join/basename/dirname/extension/normalize (no I/O)
-- `regex.mq.md` — `^ $ . * + ? [...]` matcher and search (no groups)
+- `regex.mq.md` — pure subset matcher + host-backed groups/alternation/captures
 - `net/http.mq.md` — HTTP/1.1 response parsing (headers/chunked) and request builder
 - `tests/` — product self-tests for every public module
   (`clock`, `compress`, `console`, `csv`, `datetime`, `demo`, `env`, `format`, `fs`, `http`,

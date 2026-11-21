@@ -58,7 +58,7 @@ byte-identical).
 cargo fmt --all -- --check                            PASS
 cargo clippy --workspace --all-targets -- -D warnings PASS
 cargo test --workspace --locked                       PASS
-  490 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
+  491 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
 ```
 
 The documentation and test migration is local work; re-run this block after it
@@ -209,7 +209,9 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   runs an exact `--allow-process PROGRAM` grant with 5 s timeout and 1 MiB caps
   (ADR-0044, not an OS sandbox); `random.字节` reads explicitly granted
   `random.bytes` entropy (ADR-0046). File watch, binary offset reads, streaming
-  incremental JSON/CSV streaming and regex groups/alternation remain open.
+  incremental JSON/CSV streaming, pure-mode regex groups/alternation and regex
+  look-around/backreferences remain open; project mode has host-backed groups
+  and captures (ADR-0050).
 - Bundled standard library (CM-A10, ADR-0028): `stdlib/` ships
   `format`/`text`/`io`/`fs`/`data`/`path`/`regex`/`datetime`/`clock`/`env`/`process`/`random`/`compress`; explicit `std:` imports resolve only inside the bundle;
   a SHA-256 digest over `*.mq.md` is verified before loading; Analysis records

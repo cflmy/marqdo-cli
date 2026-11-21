@@ -1117,3 +1117,44 @@ fn compression_round_trips_and_rejects_invalid_gzip() {
     assert_eq!(field(&invalid, "ok"), &Value::Bool(false));
     assert_eq!(field(&invalid, "code"), &Value::text("compress.invalid"));
 }
+
+#[test]
+fn regex_operations_support_groups_alternation_and_errors() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(SandboxMode::Project, Capabilities::project(), dir.path());
+    let ctx = context();
+    let matched = host
+        .resource_request(
+            "regex.match",
+            vec![Value::text("^(a+)(b|c)$"), Value::text("aab")],
+            &ctx,
+        )
+        .unwrap();
+    assert_eq!(field(&matched, "value"), &Value::Bool(true));
+    let captures = host
+        .resource_request(
+            "regex.captures",
+            vec![Value::text("^(a+)(b|c)$"), Value::text("aab")],
+            &ctx,
+        )
+        .unwrap();
+    let value = field(&captures, "value");
+    assert_eq!(field(value, "matched"), &Value::Bool(true));
+    assert_eq!(
+        field(value, "groups"),
+        &Value::List(vec![
+            Value::text("aab"),
+            Value::text("aa"),
+            Value::text("b")
+        ])
+    );
+    let invalid = host
+        .resource_request(
+            "regex.match",
+            vec![Value::text("["), Value::text("a")],
+            &ctx,
+        )
+        .unwrap();
+    assert_eq!(field(&invalid, "ok"), &Value::Bool(false));
+    assert_eq!(field(&invalid, "code"), &Value::text("regex.invalid"));
+}

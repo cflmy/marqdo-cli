@@ -27,4 +27,8 @@ import:
 
 **`不支持 = regex.匹配("(a)", "a")`**
 
-*[星号.value, 加号.value, 锚点.value, 类.value, 否定类.value, 任意.value, 可选.value, 转义.value, 搜索.value, 无效.ok, 无效.code, 不支持.code]*
+**扩展 = regex.扩展匹配("^(a+)(b|c)$", "aab")**
+
+**捕获 = regex.捕获("^(a+)(b|c)$", "aab")**
+
+*[星号.value, 加号.value, 锚点.value, 类.value, 否定类.value, 任意.value, 可选.value, 转义.value, 搜索.value, 无效.ok, 无效.code, 不支持.code, 扩展.value, 捕获.value.matched, 捕获.value.groups]*
