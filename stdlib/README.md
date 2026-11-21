@@ -23,7 +23,8 @@ module; a mismatch is a hard error.
 - `regex.mq.md` — `^ $ . * + ? [...]` matcher and search (no groups)
 - `net/http.mq.md` — HTTP/1.1 response parsing (headers/chunked) and request builder
 - `tests/` — product self-tests for every public module
-  (`console`, `demo`, `format`, `http`, `io`, `stream`, `table`, `text`, `utf8`)
+  (`clock`, `console`, `csv`, `datetime`, `demo`, `env`, `format`, `fs`, `http`,
+  `io`, `json`, `path`, `process`, `regex`, `stream`, `table`, `text`, `utf8`)
 
 The digest is a SHA-256 over sorted `*.mq.md` relative paths, a NUL, file
 bytes, and a NUL. It excludes `stdlib.json` and non-`.mq.md` files. After any
@@ -35,7 +36,7 @@ import hashlib, json, sys
 from pathlib import Path
 root=Path(sys.argv[1])
 h=hashlib.sha256()
-for p in sorted(root.rglob('*.mq.md')):
+for p in sorted(root.rglob('*.mq.md'), key=lambda p: p.relative_to(root).as_posix()):
     h.update(p.relative_to(root).as_posix().encode()); h.update(b'\0')
     h.update(p.read_bytes()); h.update(b'\0')
 manifest=json.loads((root/'stdlib.json').read_text())
