@@ -204,11 +204,17 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
     let mut heading_infos: Vec<HeadingInfo> = Vec::new();
 
     for (node_index, child) in doc.root.children.iter().enumerate() {
-        let MdKind::Heading { level, .. } = &child.kind else {
+        let MdKind::Heading { level, setext } = &child.kind else {
             continue;
         };
         let level = *level;
-        let (declared, declared_name, declaration_error) = heading_declaration(child);
+        // RFC-LANG-0002: only ATX headings may carry a mode declaration; a
+        // Setext heading simply inherits the nearest ancestor mode.
+        let (declared, declared_name, declaration_error) = if *setext {
+            (None, None, None)
+        } else {
+            heading_declaration(child)
+        };
         if let Some(error) = declaration_error {
             index.diagnostics.push(error);
             if declared_name.is_none() {
@@ -486,6 +492,21 @@ mod tests {
         assert_eq!(index.functions[0].id.name, "main");
         assert!(index.functions[0].namespace.is_none());
         assert!(index.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn setext_headings_inherit_and_never_declare_a_mode() {
+        // `@exec f` is the level-2 heading text under a Setext underline; it is
+        // not a declaration, so the H2 stays Knowledge and creates no function.
+        let index = index_of("# @knowledge 项目\n\n@exec f\n---\n\n`return 1`\n");
+        assert!(index.functions.is_empty(), "{:?}", index.functions);
+        let heading = index
+            .headings
+            .iter()
+            .find(|heading| heading.level == 2)
+            .expect("level-2 heading");
+        assert_eq!(heading.mode, SemanticMode::Knowledge);
+        assert_eq!(heading.name, "@exec f");
     }
 
     #[test]

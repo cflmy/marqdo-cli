@@ -9,7 +9,7 @@ use marqdo_expression::{
     parse_payload_statement, AssignTarget, Expr, PayloadStatement as Payload, StatementKind,
 };
 use marqdo_ir::{PlaceTarget, Stmt};
-use marqdo_markdown::{normalize_name, MarkdownDocument, MdKind, MdNode};
+use marqdo_markdown::{MarkdownDocument, MdKind, MdNode};
 use marqdo_span::Span;
 use marqdo_value::{codes, Diagnostic};
 
@@ -408,9 +408,4 @@ impl Mapper {
         }
         (out, Stop::Eof)
     }
-}
-
-/// Normalise a heading name (re-exported for callers that resolve link targets).
-pub fn normalized_heading_name(node: &MdNode) -> Option<String> {
-    normalize_name(&marqdo_markdown::plain_text(node))
 }
