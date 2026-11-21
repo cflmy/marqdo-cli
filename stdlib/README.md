@@ -12,8 +12,8 @@ module; a mismatch is a hard error.
 - `io/stream.mq.md` — `写全部` / `写文本` with short-write and close checking
 - `io/console.mq.md` — `读取行` / `打印` over `stdio/stdin` and `stdio/stdout`
 - `demo.mq.md` — side-by-side comparison with builtin `打印`
-- `data/json.mq.md` — recursive JSON parser and formatter (recoverable Result)
-- `data/csv.mq.md` — quoted single-row CSV parser and formatter
+- `data/json.mq.md` — recursive JSON parser/formatter, 128-depth bound, multi-value
+- `data/csv.mq.md` — quoted single/multi-row CSV parser and formatter
 - `data/table.mq.md` — value-returning table select/filter/sort/append/set/join/group/GFM
 - `env.mq.md` — explicitly granted `env.get` names over `resource.request`
 - `process.mq.md` — explicitly granted `process.run` with timeout/output caps

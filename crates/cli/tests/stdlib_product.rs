@@ -236,6 +236,10 @@ fn json_test_parses_and_formats_nested_values() {
     assert_eq!(items[4]["value"], false);
     assert_eq!(items[5]["value"], "json.invalid_array");
     assert_eq!(items[6]["value"], "json.trailing");
+    assert_eq!(items[7]["value"], false);
+    assert_eq!(items[8]["value"], "json.depth");
+    assert_eq!(items[9]["value"], true);
+    assert_eq!(items[10]["items"][2]["items"][0]["decimal"], "3");
 }
 
 #[test]
@@ -260,6 +264,11 @@ fn csv_test_parses_and_formats_quoted_rows() {
     let quoted = items[4]["items"].as_array().expect("quoted row");
     assert_eq!(quoted[0]["value"], "a");
     assert_eq!(quoted[1]["value"], "b");
+    assert_eq!(items[5]["value"], true);
+    let rows = items[6]["items"].as_array().expect("rows");
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[1]["items"][0]["value"], "说\"好");
+    assert_eq!(items[7]["value"], "甲,\"乙,丙\"\n\"说\"\"好\",2");
 }
 
 #[test]

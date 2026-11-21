@@ -92,8 +92,8 @@ review RFC, not a new crate per provider.
 | project file write | `resource.open("file", path, ["write"])`; buffers until `close`, never flush-on-drop | implemented, project mode | `resource_streams`, `stdlib_product` |
 | `std:fs/file` | `读文本/写文本/复制文件/存在/元数据/列出目录/创建目录/删除/重命名/追加文本/读取片段/遍历` over `resource.*`; bounded at 8 MiB | implemented; no watch/binary offset read | `stdlib_product` |
 | `resource.request` | `resource.request("fs.exists|metadata|list|mkdir|remove|rename", paths)`; project mode, grant-checked, recoverable fs Result | implemented `fs.*`; no seek/append/watch | `resource_streams`, `stdlib_product` |
-| `std:data/json` | `json.解析(文本)` -> Result with nested Value; `json.格式化(值)` -> Text | implemented (recursive, recoverable errors) | `stdlib_product` |
-| `std:data/csv` | `csv.解析行(文本)` -> Result with List<Text>; `csv.格式化行(列表)` -> Text | implemented (single row, quoted) | `stdlib_product` |
+| `std:data/json` | `json.解析/解析多个/格式化`; nested Value, 128-depth bound, recoverable errors | implemented (recursive, multi-value; no streaming) | `stdlib_product` |
+| `std:data/csv` | `csv.解析行/解析/格式化行/格式化`; quoted single/multi-row, CRLF, quoted newlines | implemented (no streaming) | `stdlib_product` |
 | `std:path` | `path.连接/文件名/目录名/扩展名/规范/是否绝对`; lexical only | implemented (no I/O) | `stdlib_product` |
 | `std:regex` | `regex.匹配/搜索` with `^ $ . * + ? [...]` escapes | implemented subset; no groups/alternation | `stdlib_product` |
 | `std:datetime` | `datetime.格式化(毫秒)` / `datetime.解析(文本)`; UTC ISO-8601, pre-1970 supported | implemented (pure) | `stdlib_product` |
@@ -130,7 +130,7 @@ that a phase is complete.
 | P0 | Documentation drift between `STATUS.md`, the architecture index and the evidence | being fixed by this migration and the docs gate |
 | P1 | `std:fs/file` read/write/copy, metadata/directory, append/read_at/walk are implemented; watch and binary offset reads remain open | open |
 | P1 | No file watch or binary `read_at` | open; future Resource Operation extension |
-| P1 | JSON/CSV product parsers are implemented; no streaming/multi-line CSV or depth-bounded JSON walker | open |
+| P1 | JSON/CSV product parsers are implemented with depth bound and multi-value/multi-row; no incremental streaming parser | open |
 | P1 | CLI split into `commands/{sandbox,run,check,inspect,init,package,tool}.rs`; host split into `host/{resource_ops,providers,effects,dispatch}.rs` plus `process.rs`; `commands.rs` keeps shared project/runtime helpers and `host.rs` keeps the `Host` trait methods and capability checks | split; shared helpers and trait methods remain by design |
 | P2 | HTTP parsing is Unicode-codepoint oriented; a general byte body is not the only path | open; convert before a general network release |
 | P2 | DNS, UDP, TCP listener and TLS client endpoints are implemented; no TLS server/mTLS or custom-CA CLI | open |

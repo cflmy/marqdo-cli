@@ -202,14 +202,14 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   over the existing `resource.*` ABI plus `存在`/`元数据`/`列出目录`/`创建目录`/
   `删除`/`重命名`/`追加文本`/`读取片段`/`遍历` over `resource.request`
   (ADR-0041/0045); `data/json`/`data/csv`
-  provide recursive JSON and quoted single-row CSV product parsers; `path` and a
-  `regex` subset are pure `.mq.md`; `datetime` is pure UTC ISO-8601 and
+  provide recursive JSON (128-depth bound, multi-value) and quoted single/multi-row
+  CSV product parsers; `path` and a `regex` subset are pure `.mq.md`; `datetime` is pure UTC ISO-8601 and
   `clock.现在` reads `clock.now` in project mode (ADR-0042); `env.读取` reads
   only exact `--allow-env NAME` grants in project mode (ADR-0043); `process.运行`
   runs an exact `--allow-process PROGRAM` grant with 5 s timeout and 1 MiB caps
   (ADR-0044, not an OS sandbox); `random.字节` reads explicitly granted
   `random.bytes` entropy (ADR-0046). File watch, binary offset reads, streaming
-  JSON/CSV, a JSON depth bound and regex groups/alternation remain open.
+  incremental JSON/CSV streaming and regex groups/alternation remain open.
 - Bundled standard library (CM-A10, ADR-0028): `stdlib/` ships
   `format`/`text`/`io`/`fs`/`data`/`path`/`regex`/`datetime`/`clock`/`env`/`process`/`random`/`compress`; explicit `std:` imports resolve only inside the bundle;
   a SHA-256 digest over `*.mq.md` is verified before loading; Analysis records

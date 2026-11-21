@@ -13,4 +13,8 @@ import:
 
 **`框 = csv.解析行("a,\"b\"")`**
 
-*[行.value, csv.格式化行(行.value), 空.value, 坏.code, 框.value]*
+**`多行 = csv.解析("甲,\"乙,丙\"\n\"说\"\"好\",2")`**
+
+**格式化 = csv.格式化(多行.value)**
+
+*[行.value, csv.格式化行(行.value), 空.value, 坏.code, 框.value, 多行.ok, 多行.value, 格式化]*
