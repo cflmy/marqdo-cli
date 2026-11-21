@@ -65,7 +65,10 @@ impl Dependency {
             (None, Some(_)) if !is_full_commit(self.rev.as_deref().unwrap_or("")) => Err(format!(
                 "dependency `{name}` git rev must be a full lowercase 40- or 64-character commit hash"
             )),
-            (Some(path), None) if path.is_absolute() => Err(format!(
+            // `has_root`, not `is_absolute`: on Windows a drive-less rooted
+            // path such as `/tmp/x` or `\tmp\x` is not `is_absolute()` but
+            // still escapes the project when joined. Reject every rooted path.
+            (Some(path), None) if path.has_root() => Err(format!(
                 "dependency `{name}` path must be project-relative"
             )),
             _ => Ok(()),
@@ -1629,6 +1632,14 @@ capabilities:
     fn rejects_absolute_dependency_paths() {
         let yaml = "project:\n  name: p\n  version: 0.1.0\ndependencies:\n  x:\n    path: /tmp/x\n";
         assert!(Manifest::from_yaml(yaml).is_err());
+        #[cfg(windows)]
+        {
+            // Rooted but drive-less: `is_absolute()` is false on Windows, yet
+            // joining it escapes the project root.
+            let rooted =
+                "project:\n  name: p\n  version: 0.1.0\ndependencies:\n  x:\n    path: \\tmp\\x\n";
+            assert!(Manifest::from_yaml(rooted).is_err());
+        }
     }
 
     fn have_git() -> bool {
