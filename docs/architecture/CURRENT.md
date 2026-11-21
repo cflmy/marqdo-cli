@@ -62,10 +62,10 @@ Layer rules:
    human/machine output. It is not a semantic policy centre.
 5. Callable Plugin and Resource Provider share one registry/authorization/audit
    mechanism, but keep different capability types.
-6. CLI policy/commands are `commands/{sandbox,run,check,inspect}.rs`; host
-   open-path/providers/effects are `host/{resource_ops,providers,effects}.rs`;
-   process execution is `process.rs`. These are child modules, not new crates
-   or a second backend.
+6. CLI policy/commands are `commands/{sandbox,run,check,inspect,init,package,tool}.rs`;
+   host open-path/providers/effects/dispatch are
+   `host/{resource_ops,providers,effects,dispatch}.rs`; process execution is
+   `process.rs`. These are child modules, not new crates or a second backend.
 
 ## 3. Dependency direction and public contracts
 
@@ -128,7 +128,7 @@ that a phase is complete.
 | P1 | `std:fs/file` read/write/copy and `resource.request` fs metadata/directory operations are implemented; append/seek/watch/recursive walk remain open | open |
 | P1 | No file append/seek/watch/recursive directory walk | open; future Resource Operation extension |
 | P1 | JSON/CSV product parsers are implemented; no streaming/multi-line CSV or depth-bounded JSON walker | open |
-| P1 | CLI split into `commands/{sandbox,run,check,inspect}.rs`; host split into `host/{resource_ops,providers,effects}.rs` plus `process.rs`; `commands.rs` still owns init/fmt/lock/sync/package/tool and `host.rs` still owns `Host::invoke` dispatch | mostly split; package/tool/lock/sync and invoke dispatch remain |
+| P1 | CLI split into `commands/{sandbox,run,check,inspect,init,package,tool}.rs`; host split into `host/{resource_ops,providers,effects,dispatch}.rs` plus `process.rs`; `commands.rs` keeps shared project/runtime helpers and `host.rs` keeps the `Host` trait methods and capability checks | split; shared helpers and trait methods remain by design |
 | P2 | HTTP parsing is Unicode-codepoint oriented; a general byte body is not the only path | open; convert before a general network release |
 | P2 | No DNS, TLS, listener or UDP provider | open |
 | P2 | `std:path`, a regex subset, `std:datetime`, `std:clock`, `std:env` and `std:process` are implemented; no secure random or compression | open |

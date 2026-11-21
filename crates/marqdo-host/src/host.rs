@@ -27,6 +27,7 @@ use crate::resource::{ResourceProvider, ResourceRead, ResourceTable, SharedResou
 use crate::trace::{EffectTrace, SemanticEvent, TraceBudget, TraceEntry, TraceState};
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
 
+mod dispatch;
 mod effects;
 mod providers;
 mod resource_ops;
@@ -519,19 +520,7 @@ impl StdHost {
         args: Vec<Value>,
         ctx: &ExecutionContext,
     ) -> Result<Value, RuntimeError> {
-        match op {
-            HostOp::FsRead => self.op_fs_read(args, ctx),
-            HostOp::FsWrite => self.op_fs_write(args, ctx),
-            HostOp::MathParse
-            | HostOp::MathEval
-            | HostOp::MathSubstitute
-            | HostOp::MathSimplify
-            | HostOp::MathDifferentiate => crate::kernels::math(self, op, args, ctx),
-            HostOp::ForeignRun | HostOp::ForeignCall => {
-                crate::kernels::foreign(self, op, args, ctx)
-            }
-            HostOp::PluginInvoke => self.op_plugin_invoke(args, ctx),
-        }
+        dispatch::dispatch(self, op, args, ctx)
     }
 
     fn op_fs_read(
@@ -616,56 +605,7 @@ impl Host for StdHost {
         args: Vec<Value>,
         ctx: &ExecutionContext,
     ) -> Result<Value, RuntimeError> {
-        // Addressable memory is language-local state. Handles must not reach a
-        // plugin, foreign kernel or file adapter, where they could not be
-        // interpreted safely (RFC-CM-0001 §8, ADR-0022 §4).
-        if args.iter().any(Value::contains_memory) {
-            return Err(RuntimeError::new(
-                ErrorCategory::Type,
-                ctx.span,
-                format!(
-                    "Memory values cannot cross the host boundary (`{}`); copy bytes into \
-                     Text explicitly first",
-                    op.name()
-                ),
-            ));
-        }
-        if args.iter().any(Value::contains_resource) {
-            return Err(RuntimeError::new(
-                ErrorCategory::Type,
-                ctx.span,
-                format!(
-                    "Resource handles cannot cross the generic host boundary (`{}`); use \
-                     resource.* operations",
-                    op.name()
-                ),
-            ));
-        }
-        let started = Instant::now();
-        let result = self.dispatch(op, args, ctx);
-        let summary = match &result {
-            Ok(_) => "ok".to_string(),
-            Err(error) => error.code().to_string(),
-        };
-        let estimate = TraceState::estimate(
-            "effect",
-            None,
-            Some(&ctx.module_id),
-            Some(&summary),
-            Some(op.name()),
-        );
-        if self.trace_state.accept(estimate) {
-            let seq = self.next_seq();
-            self.trace.record(
-                seq,
-                op.name(),
-                ctx.module_id.clone(),
-                ctx.span,
-                started.elapsed(),
-                summary,
-            );
-        }
-        result
+        dispatch::invoke(self, op, args, ctx)
     }
 
     fn resource_open(

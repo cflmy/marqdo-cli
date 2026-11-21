@@ -242,10 +242,10 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   `0d40de7`; later docs-only commits keep code/test bytes identical. Evidence:
   [`docs-and-test-migration`](evidence/2026-11-21-docs-and-test-migration.md).
 - Module-boundary refactor (review RFC-CM P1): CLI split into
-  `commands/{sandbox,run,check,inspect}.rs`; host split into
-  `host/{resource_ops,providers,effects}.rs` plus `process.rs`. `commands.rs`
-  still owns init/fmt/lock/sync/package/tool and `host.rs` still owns the
-  `Host::invoke` dispatch and capability checks; this is a behavior-preserving
+  `commands/{sandbox,run,check,inspect,init,package,tool}.rs`; host split into
+  `host/{resource_ops,providers,effects,dispatch}.rs` plus `process.rs`.
+  `commands.rs` keeps shared project/runtime helpers and `host.rs` keeps the
+  `Host` trait methods and capability checks; this is a behavior-preserving
   split, not a new crate or backend.
 - Minimal structure observation/construction (RFC-CM CM-A04, ADR-0023):
   value-semantics `list.append/concat`, `map.keys/has/get/set/remove`,
