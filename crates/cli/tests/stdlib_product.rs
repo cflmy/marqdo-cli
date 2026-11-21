@@ -135,6 +135,8 @@ fn every_public_stdlib_module_has_a_product_test() {
             "http.mq.md",
             "io.mq.md",
             "json.mq.md",
+            "path.mq.md",
+            "regex.mq.md",
             "stream.mq.md",
             "table.mq.md",
             "text.mq.md",
@@ -229,6 +231,49 @@ fn csv_test_parses_and_formats_quoted_rows() {
     let quoted = items[4]["items"].as_array().expect("quoted row");
     assert_eq!(quoted[0]["value"], "a");
     assert_eq!(quoted[1]["value"], "b");
+}
+
+#[test]
+fn path_test_joins_and_normalizes_project_paths() {
+    let report = run_product_test(
+        product_tests()
+            .iter()
+            .find(|file| file.name == "path.mq.md")
+            .expect("path test"),
+    );
+    let items = report["value"]["items"].as_array().expect("list");
+    assert_eq!(items[0]["value"], "a/b/c");
+    assert_eq!(items[1]["value"], "c.txt");
+    assert_eq!(items[2]["value"], "a/b");
+    assert_eq!(items[3]["value"], "txt");
+    assert_eq!(items[4]["value"], "a/c");
+    assert_eq!(items[5]["value"], "/a/c");
+    assert_eq!(items[6]["value"], "../a/b");
+    assert_eq!(items[7]["value"], true);
+    assert_eq!(items[8]["value"], false);
+}
+
+#[test]
+fn regex_test_matches_anchors_classes_and_search() {
+    let report = run_product_test(
+        product_tests()
+            .iter()
+            .find(|file| file.name == "regex.mq.md")
+            .expect("regex test"),
+    );
+    let items = report["value"]["items"].as_array().expect("list");
+    assert_eq!(items[0]["value"], true);
+    assert_eq!(items[1]["value"], false);
+    assert_eq!(items[2]["value"], true);
+    assert_eq!(items[3]["value"], true);
+    assert_eq!(items[4]["value"], true);
+    assert_eq!(items[5]["value"], true);
+    assert_eq!(items[6]["value"], true);
+    assert_eq!(items[7]["value"], true);
+    assert_eq!(items[8]["value"], true);
+    assert_eq!(items[9]["value"], false);
+    assert_eq!(items[10]["value"], "regex.invalid");
+    assert_eq!(items[11]["value"], "regex.unsupported");
 }
 
 #[test]

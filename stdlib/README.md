@@ -15,6 +15,8 @@ module; a mismatch is a hard error.
 - `data/json.mq.md` — recursive JSON parser and formatter (recoverable Result)
 - `data/csv.mq.md` — quoted single-row CSV parser and formatter
 - `data/table.mq.md` — value-returning table select/filter/sort/append/set/join/group/GFM
+- `path.mq.md` — lexical join/basename/dirname/extension/normalize (no I/O)
+- `regex.mq.md` — `^ $ . * + ? [...]` matcher and search (no groups)
 - `net/http.mq.md` — HTTP/1.1 response parsing (headers/chunked) and request builder
 - `tests/` — product self-tests for every public module
   (`console`, `demo`, `format`, `http`, `io`, `stream`, `table`, `text`, `utf8`)
