@@ -5,12 +5,13 @@ development host is a container that cannot create namespaces. This document
 records how that VM was built so the result can be reproduced and so the VM can
 be registered as a dedicated self-hosted security runner.
 
-> **Language-syntax migration note.** The lane fixtures are `.mq.md` sources and
-> are migrated to RFC-LANG-0002
+> **Current evidence rule.** The lane fixtures are `.mq.md` sources under
+> RFC-LANG-0002
 > ([`architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md)).
-> The lane has not been re-run at `ffd1cc9`; run `tests/security/run-lane.sh` on
-> the migrated tree before using this VM as evidence for the current syntax. The
-> VM/OS-isolation procedure itself is unchanged. See [`STATUS.md`](STATUS.md).
+> The lane is only evidence for the **exact SHA in its
+> `strict-evidence.json`**; a PASS at an older SHA or on another host is
+> historical. Every candidate release must rerun `tests/security/run-lane.sh`
+> and archive the evidence document. See [`STATUS.md`](STATUS.md).
 
 **Do not run this on a daily host with valuable data.** The VM is disposable;
 the commands below do not disable AppArmor or any global host protection.
@@ -28,13 +29,35 @@ gitignored and is not part of the repository.
 
 ## 2. Cloud image and seed
 
+**Pin the base image.** Do not run a release gate from a mutable `current`
+URL. Download one dated release, verify it against Ubuntu's published
+`SHA256SUMS`, record the digest, and keep that file immutable:
+
 ```bash
 mkdir -p .tools/vm && cd .tools/vm
-curl -L -o resolute.img \
-  https://cloud-images.ubuntu.com/resolute/current/resolute-server-cloudimg-amd64.img
-qemu-img create -f qcow2 -b resolute.img -F qcow2 disk.qcow2 20G
-ssh-keygen -t ed25519 -N '' -f marqdo_vm_key
+# Replace with the reviewed dated release URL, never .../current/...
+curl -L -o ubuntu-base.img \
+  https://cloud-images.ubuntu.com/releases/26.04/release-20261120/ubuntu-26.04-server-cloudimg-amd64.img
+curl -L -o SHA256SUMS \
+  https://cloud-images.ubuntu.com/releases/26.04/release-20261120/SHA256SUMS
+grep 'ubuntu-26.04-server-cloudimg-amd64.img' SHA256SUMS | sha256sum -c -
+sha256sum ubuntu-base.img | tee ubuntu-base.img.sha256
+qemu-img create -f qcow2 -b ubuntu-base.img -F qcow2 \
+  "strict-${SOURCE_SHA}.qcow2" 24G
+ssh-keygen -t ed25519 -N '' -f "marqdo_vm_key-${SOURCE_SHA}"
 ```
+
+The local reference run used this base image; the digest belongs in the
+evidence document as `runner_image_sha256`, not in a claim about a remote
+runner:
+
+```text
+ubuntu-base.img sha256:
+7b90593f5532b49b7e3fe3d2743f0d1f0d822e5b07cebcd8e00c0df8069ecab9
+```
+
+Create a fresh qcow2 overlay and a fresh cloud-init seed for every tested SHA.
+Never reuse a writable overlay that may contain state from another run.
 
 Create `user-data` with an ordinary `dev` user (passwordless sudo only for
 test setup), `meta-data` with a unique instance id, and wrap both into a
@@ -115,37 +138,68 @@ globally.
 
 ## 5. Copy the source and run the lane
 
-From the host repository root (or from `git archive <sha>`):
+Build the archive from the reviewed commit, never from a dirty working tree:
 
 ```bash
-tar --exclude=.git --exclude=.tools --exclude=.cache --exclude=.cargo-home \
-    --exclude=target --exclude=dist -czf /tmp/marqdo-src.tgz .
-scp -P 2222 -i .tools/vm/marqdo_vm_key /tmp/marqdo-src.tgz dev@127.0.0.1:/home/dev/
-ssh -p 2222 -i .tools/vm/marqdo_vm_key dev@127.0.0.1
+export SOURCE_SHA="$(git rev-parse HEAD)"        # must be the reviewed SHA
+git status --porcelain                            # must be empty
+git archive --format=tar "$SOURCE_SHA" > "marqdo-${SOURCE_SHA}.tar"
+sha256sum "marqdo-${SOURCE_SHA}.tar" | tee "marqdo-${SOURCE_SHA}.tar.sha256"
+scp -P 2222 -i .tools/vm/marqdo_vm_key \
+  "marqdo-${SOURCE_SHA}.tar" dev@127.0.0.1:/home/dev/
 ```
 
-Inside the guest:
+Inside the guest (ordinary user, not root):
 
 ```bash
-mkdir -p ~/marqdo-src && tar -C ~/marqdo-src -xzf ~/marqdo-src.tgz
-cd ~/marqdo-src
+sed -n '1p' ~/marqdo-${SOURCE_SHA}.tar.sha256
+sha256sum ~/marqdo-${SOURCE_SHA}.tar
+mkdir -p ~/marqdo-${SOURCE_SHA}
+tar -C ~/marqdo-${SOURCE_SHA} -xf ~/marqdo-${SOURCE_SHA}.tar
+cd ~/marqdo-${SOURCE_SHA}
 export PATH="$HOME/.cargo/bin:$PATH"
+export MARQDO_TESTED_SHA="$SOURCE_SHA"
+export MARQDO_SOURCE_ARCHIVE="$HOME/marqdo-${SOURCE_SHA}.tar"
+export MARQDO_SOURCE_ARCHIVE_SHA256="sha256:<digest from the host>"
+export MARQDO_STRICT_EVIDENCE="$HOME/evidence-${SOURCE_SHA}/strict-evidence.json"
+export MARQDO_STRICT_LANE_LOG="$HOME/evidence-${SOURCE_SHA}/gc-lane.log"
+mkdir -p "$(dirname "$MARQDO_STRICT_EVIDENCE")"
 ./tests/security/run-lane.sh
 ```
 
-Expected final line: `G-C security lane: PASS`. The lane also checks that the read-only bundled stdlib works for `打印` and that a project-file `resource.open` is refused in strict mode. The script exports
-`MARQDO_REQUIRE_STRICT_SECURITY=1`; a missing bubblewrap, compiler or helper is
-a failure, never a skip.
+Expected final line: `G-C security lane: PASS`, followed by the evidence path.
+The evidence document records the tested SHA, archive digest, `uid`, `uname`,
+bwrap/rustc/cargo versions, cgroup2 view, runner kind and outcome. A root-only
+PASS is rejected. A missing bubblewrap, compiler, helper or skipped test is a
+failure, never a skip.
+
+If the archive digest in the guest does not match the host digest, stop: the
+transfer or the extraction is wrong and the run is not evidence.
 
 ## 6. Registering as a security runner
 
 Register this VM (not the development container) as a GitHub self-hosted
 runner with labels `linux` and `marqdo-security`. The workflow
 `.github/workflows/security-linux.yml` targets
-`runs-on: [self-hosted, linux, marqdo-security]`. Keep the runner disposable
-and recreate it from this document; do not give the runner access to secrets or
-the primary workspace. A CI URL from that runner is still required before a
-release may call G-C CI-verified.
+`runs-on: [self-hosted, linux, marqdo-security]`.
+
+The runner must be **ephemeral**:
+
+* provision a fresh VM (or a self-hosted runner with a genuinely one-shot
+  lifetime) for each job, from a pinned base image;
+* no persistent home, host mounts, Docker socket, SSH/Git/cloud credentials or
+  release token; only the short-lived runner registration credential;
+* job `permissions: contents: read`, `actions/checkout` with
+  `persist-credentials: false` (already in the workflow);
+* do not run arbitrary fork PRs on it: the workflow only runs on `master`
+  pushes or an explicit reviewed `source_sha`;
+* destroy the whole VM after the job and keep the uploaded
+  `strict-evidence.json` and lane log.
+
+A PASS from a persistent runner with production credentials is not acceptable
+evidence, even if the test output is green. If no ephemeral runner is
+available, report "local disposable-VM PASS, remote G3 UNVERIFIED" instead of a
+green CI claim.
 
 ## Reference environment
 

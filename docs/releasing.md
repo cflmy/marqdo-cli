@@ -7,8 +7,12 @@ required CI matrix on the exact commit.
 ## 1. Preconditions
 
 - All applicable gates in
-  [`NEXT_RELEASE_CI_CONVERGENCE.md`](NEXT_RELEASE_CI_CONVERGENCE.md) §7 are
-  PASS with a CI URL for the same SHA.
+  [`STABLE_RELEASE_IMPLEMENTATION.md`](STABLE_RELEASE_IMPLEMENTATION.md) are
+  PASS, and `docs/evidence/ci/<SHA>/manifest.json` has
+  `release_decision: RELEASE_CANDIDATE` with every gate's `tested_sha` equal to
+  the release SHA. The manifest is produced by
+  `tools/ci/release_evidence.py`; a missing, skipped, timed-out or
+  SHA-mismatched gate is not PASS.
 - **Language migration is closed through the release SHA.** The source language
   is [RFC-LANG-0002](architecture/RFC-LANG-0002-unified-semantics.md); the
   release notes must state that this is a **breaking** change and that pre-RFC
@@ -18,8 +22,14 @@ required CI matrix on the exact commit.
   release SHA. Platform and strict-lane evidence are still required before this
   is a releasable state; see [`STATUS.md`](STATUS.md) and
   [`migration/README.md`](migration/README.md).
-- G-C is either PASS with a security-lane URL, or the release explicitly says
-  strict isolation is unavailable. Never claim G-C from local root/sudo runs.
+- G-C is either PASS with a security-lane URL **and** a
+  `strict-evidence.json` whose `tested_sha` is the release SHA, or the release
+  explicitly says strict isolation is unavailable with owner approval. Never
+  claim G-C from a local root/sudo run, a container, or a TCG/QEMU timing run.
+  See [`security-gate.md`](security-gate.md) and [`security-vm.md`](security-vm.md).
+- G4 performance is `MEASURED` on the fixed node with `--approved-node`, or
+  explicitly `UNVERIFIED`/`WARN` with the reason recorded. Never copy a
+  development-container or TCG number. See [`performance.md`](performance.md).
 - `git status --porcelain` is clean apart from intended release files.
 - `Cargo.lock` is committed and the build uses `--locked`.
 

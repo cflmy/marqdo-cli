@@ -15,6 +15,13 @@
 > 为目标语法并标注历史；现行规范见 `spec/mapping.md` / `spec/expression.ebnf`。
 
 
+> **CI status refresh (2026-11-21):** the GitHub-hosted Windows/macOS matrix
+> exists in `.github/workflows/ci.yml`; it is not "unconfigured". The platform
+> `E0425`/`E0433` defect and the strict `--json` empty-stdout defect are fixed in
+> the RFC-CI-0001 series (ADR-0053). Those fixes do not turn this file's
+> `c9f01aa8` rows into current evidence: re-run the matrix on the candidate SHA
+> and record the result in `docs/evidence/ci/<SHA>/manifest.json`.
+>
 > **文档性质：** 可直接入库的执行规范 / Release Convergence Plan。供未阅读任何历史聊天的维护者、贡献者与 DeepSeek Harness 使用。
 >
 > **仓库：** `https://github.com/cflmy/marqdo-cli`；开发者的本地 Git 远端可能是 Gitee，不应混淆远端提交、GitHub 镜像与真实 CI 状态。

@@ -122,6 +122,40 @@ fn current_relative_markdown_links_resolve() {
     }
 }
 
+/// CI/security status drift is a defect: the current architecture table must
+/// not simultaneously claim a network endpoint is implemented and absent, and
+/// the CI doc must not claim the GitHub-hosted Windows/macOS matrix does not
+/// exist (it does; Woodpecker has no such agent).
+#[test]
+fn ci_and_architecture_status_do_not_contradict_the_workflows() {
+    let root = repo_root();
+    let current = read(&root.join("docs/architecture/CURRENT.md"));
+    assert!(
+        !current.contains("no DNS/TLS/server socket/UDP"),
+        "CURRENT.md repeats the stale TCP row that contradicts the network endpoint row"
+    );
+    assert!(
+        !current.contains("file metadata / directory / rename / remove / mkdir"),
+        "CURRENT.md repeats the stale not-implemented filesystem row"
+    );
+
+    let ci = read(&root.join("docs/ci.md"));
+    assert!(
+        !ci.contains("no runners are configured"),
+        "docs/ci.md denies the existing GitHub-hosted Windows/macOS matrix"
+    );
+    assert!(
+        ci.contains("windows-latest") && ci.contains("macos-latest"),
+        "docs/ci.md must name the native matrix it cannot replace with Woodpecker"
+    );
+
+    let historical = read(&root.join("docs/NEXT_RELEASE_CI_CONVERGENCE.md"));
+    assert!(
+        historical.contains("Historical / Superseded baseline"),
+        "the old convergence plan must keep its historical banner"
+    );
+}
+
 #[test]
 fn evidence_files_are_sha_pinned() {
     let evidence = repo_root().join("docs/evidence");

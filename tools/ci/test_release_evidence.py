@@ -1,0 +1,94 @@
+import importlib.util
+import unittest
+from pathlib import Path
+
+MODULE = Path(__file__).with_name("release_evidence.py")
+spec = importlib.util.spec_from_file_location("release_evidence", MODULE)
+release_evidence = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(release_evidence)
+
+SHA = "a" * 40
+OTHER = "b" * 40
+
+
+def gate(name: str, state: str, sha: str = SHA, url: str = "https://example.test/run") -> str:
+    return f"{name}={state}:{sha}:{url}"
+
+
+class ReleaseEvidenceTests(unittest.TestCase):
+    def test_all_required_pass_is_candidate(self) -> None:
+        manifest = release_evidence.build_manifest(
+            SHA,
+            [
+                gate("linux", "PASS"),
+                gate("windows", "PASS"),
+                gate("macos", "PASS"),
+                gate("strict_vm", "PASS"),
+                gate("performance", "WARN"),
+            ],
+        )
+        self.assertEqual(manifest["release_decision"], "RELEASE_CANDIDATE")
+        self.assertEqual(manifest["reasons"], [])
+
+    def test_missing_strict_vm_is_not_release(self) -> None:
+        manifest = release_evidence.build_manifest(
+            SHA,
+            [
+                gate("linux", "PASS"),
+                gate("windows", "PASS"),
+                gate("macos", "PASS"),
+                gate("performance", "PASS"),
+            ],
+        )
+        self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+        self.assertTrue(any("strict_vm" in reason for reason in manifest["reasons"]))
+
+    def test_sha_mismatch_is_not_release(self) -> None:
+        manifest = release_evidence.build_manifest(
+            SHA,
+            [
+                gate("linux", "PASS"),
+                gate("windows", "PASS", OTHER),
+                gate("macos", "PASS"),
+                gate("strict_vm", "PASS"),
+                gate("performance", "PASS"),
+            ],
+        )
+        self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+        self.assertTrue(any("windows" in reason for reason in manifest["reasons"]))
+
+    def test_failure_is_not_release(self) -> None:
+        manifest = release_evidence.build_manifest(
+            SHA,
+            [
+                gate("linux", "FAIL"),
+                gate("windows", "PASS"),
+                gate("macos", "PASS"),
+                gate("strict_vm", "PASS"),
+                gate("performance", "PASS"),
+            ],
+        )
+        self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+
+    def test_unverified_performance_is_not_release(self) -> None:
+        manifest = release_evidence.build_manifest(
+            SHA,
+            [
+                gate("linux", "PASS"),
+                gate("windows", "PASS"),
+                gate("macos", "PASS"),
+                gate("strict_vm", "PASS"),
+                gate("performance", "UNVERIFIED"),
+            ],
+        )
+        self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+
+    def test_unknown_gate_and_bad_sha_are_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            release_evidence.build_manifest(SHA, [gate("solaris", "PASS")])
+        with self.assertRaises(ValueError):
+            release_evidence.build_manifest("not-a-sha", [])
+
+
+if __name__ == "__main__":
+    unittest.main()

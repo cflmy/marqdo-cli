@@ -29,6 +29,8 @@ jobs:
         run: cargo test -p marqdo-cli --test docs_consistency
       - name: Architecture boundaries
         run: cargo test -p marqdo-cli --test architecture_boundaries
+      - name: CI evidence tool tests
+        run: python3 -m unittest discover -s tools/ci -p "test_*.py"
       - name: Whole stdlib product tests
         run: cargo test -p marqdo-cli --test stdlib_product
       - name: Validate public JSON schemas
@@ -144,6 +146,55 @@ jobs:
           test "$code" -eq 1
           echo "$output" | grep -qi "strict"
           echo "$output"
+      - name: Strict JSON refusal is exactly one document
+        shell: bash
+        run: |
+          set -euo pipefail
+          json=$(cargo run -q -p marqdo-cli -- run examples/hello.mq.md --mode strict --json)
+          JSON_DOC="$json" python3 - <<'PY'
+          import json, os
+          document = json.loads(os.environ["JSON_DOC"])
+          assert document["success"] is False, document
+          assert document["command"] == "run", document
+          assert document["code"] == "strict.probe_unavailable", document
+          PY
+
+  release-evidence:
+    name: release evidence manifest
+    needs: [test, schema, cross-platform]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build SHA-bound manifest
+        shell: bash
+        env:
+          TARGET_SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          LINUX_RESULT: ${{ needs.test.result }}
+          SCHEMA_RESULT: ${{ needs.schema.result }}
+          PORTABLE_RESULT: ${{ needs.cross-platform.result }}
+        run: |
+          set -euo pipefail
+          state() {
+            case "$1" in
+              success) echo PASS ;;
+              failure) echo FAIL ;;
+              *) echo UNVERIFIED ;;
+            esac
+          }
+          linux="$(state "$LINUX_RESULT")"
+          portable="$(state "$PORTABLE_RESULT")"
+          if [ "$(state "$SCHEMA_RESULT")" != "PASS" ]; then
+            linux="FAIL"
+          fi
+          python3 tools/ci/release_evidence.py             --target-sha "$TARGET_SHA"             --out "docs/evidence/ci/$TARGET_SHA/manifest.json"             --gate "linux=$linux:$TARGET_SHA:$RUN_URL"             --gate "windows=$portable:$TARGET_SHA:$RUN_URL"             --gate "macos=$portable:$TARGET_SHA:$RUN_URL"             --gate "strict_vm=UNVERIFIED::${{ github.server_url }}/${{ github.repository }}/actions/workflows/security-linux.yml"             --gate "performance=UNVERIFIED::"
+      - name: Upload release manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-evidence-${{ github.sha }}
+          path: docs/evidence/ci/${{ github.sha }}/manifest.json
+          if-no-files-found: error
 
   release-candidate:
     name: release candidate artifact (${{ matrix.os }})
