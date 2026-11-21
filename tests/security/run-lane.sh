@@ -12,11 +12,35 @@ set -euo pipefail
 repo="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$repo"
 
+started_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+evidence="${MARQDO_STRICT_EVIDENCE:-}"
+finish_lane() {
+    status=$?
+    trap - EXIT
+    set +e
+    if [ -n "$evidence" ]; then
+        outcome="FAIL"
+        if [ "$status" -eq 0 ]; then
+            outcome="PASS"
+        fi
+        python3 tools/ci/strict-evidence.py \
+            --repo "$repo" \
+            --out "$evidence" \
+            --outcome "$outcome" \
+            --started "$started_utc" \
+            --finished "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --log "${MARQDO_STRICT_LANE_LOG:-}" \
+            || echo "warning: could not write strict evidence" >&2
+    fi
+    exit "$status"
+}
+trap finish_lane EXIT
+
 if [ "$(id -u)" -eq 0 ]; then
     echo "error: the security lane must run as a non-root user" >&2
     exit 1
 fi
-for tool in bwrap cc cargo; do
+for tool in bwrap cc cargo python3; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "error: required tool '$tool' is missing (a missing mechanism must fail G-C)" >&2
         exit 1
@@ -28,10 +52,10 @@ export MARQDO_REQUIRE_STRICT_SECURITY=1
 export CARGO_TERM_COLOR=never
 
 echo "== adversarial helper matrix =="
-cargo test -p marqdo-sandbox --test security_linux -- --test-threads=1
+cargo test -p marqdo-sandbox --test security_linux --locked -- --test-threads=1
 
 echo "== build CLI =="
-cargo build -p marqdo-cli
+cargo build -p marqdo-cli --locked
 
 target_dir="${CARGO_TARGET_DIR:-$repo/target}"
 bin="$target_dir/debug/marqdo"
@@ -115,6 +139,23 @@ reject --trust-native-plugin --plugin examples/plugin-demo/build
 reject --kernel examples/kernel-mock/kernel.json
 reject --trace-file /tmp/marqdo-trace.json
 
+echo "== @knowledge payloads stay inert under strict =="
+rm -f .cache/security/knowledge-side-effect.txt
+cat > .cache/security/knowledge-inert.mq.md <<'MQ'
+## @exec main
+
+`return None`
+
+### @knowledge 说明
+
+`resource.open("file", "knowledge-side-effect.txt", ["write"])`
+MQ
+"$bin" run .cache/security/knowledge-inert.mq.md --mode strict >/dev/null
+if [ -e .cache/security/knowledge-side-effect.txt ]; then
+    echo "error: a @knowledge payload produced a host side effect in strict mode" >&2
+    exit 1
+fi
+
 echo "== forged active marker is rejected =="
 set +e
 MARQDO_STRICT_ACTIVE=1 "$bin" run examples/hello.mq.md --mode strict >/dev/null 2>&1
@@ -125,4 +166,32 @@ if [ "$code" -ne 1 ]; then
     exit 1
 fi
 
+# The JSON contract is part of the gate: a rejected marker still produces
+# exactly one parseable document with the stable code.
+forged_json="$(mktemp)"
+set +e
+MARQDO_STRICT_ACTIVE=1 "$bin" run examples/hello.mq.md --mode strict --json >"$forged_json" 2>/dev/null
+code=$?
+set -e
+if [ "$code" -ne 1 ]; then
+    echo "error: forged strict marker JSON path had unexpected exit $code" >&2
+    rm -f "$forged_json"
+    exit 1
+fi
+python3 - "$forged_json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    document = json.load(handle)
+if document.get("success") is not False:
+    raise SystemExit(f"forged marker JSON is not a failure: {document}")
+if document.get("code") != "strict.identity_invalid":
+    raise SystemExit(f"forged marker JSON code drifted: {document}")
+PY
+rm -f "$forged_json"
+
 echo "G-C security lane: PASS"
+if [ -n "$evidence" ]; then
+    echo "strict evidence: $evidence"
+fi

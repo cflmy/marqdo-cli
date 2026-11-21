@@ -5,27 +5,87 @@ name: Linux strict security lane (G-C)
 # mount, PID and network namespaces and the Bubblewrap AppArmor profile.
 # A missing runner or a skipped test fails the gate; it is never counted as a
 # pass. See docs/security-gate.md and ADR-0021.
+#
+# Trust model: the runner registration must be issued by a trusted, short-lived
+# orchestrator and the VM destroyed after the job. A persistent self-hosted
+# runner with GitHub/SSH/cloud credentials is NOT acceptable. The workflow
+# records tested_sha separately from workflow_sha and never runs on PRs.
 
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
-  schedule:
-    - cron: "17 3 * * 1"
+    inputs:
+      source_sha:
+        description: "Exact reviewed commit SHA"
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
   strict-security:
     name: strict isolation escape matrix
+    if: github.event_name != 'pull_request'
     runs-on: [self-hosted, linux, marqdo-security]
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - name: Host capability report
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_sha || github.sha }}
+          persist-credentials: false
+
+      - name: Bind tested SHA and archive
+        shell: bash
         run: |
+          set -euo pipefail
+          tested_sha="$(git rev-parse HEAD)"
+          expected="${{ github.event_name == 'workflow_dispatch' && inputs.source_sha || github.sha }}"
+          if [ "$tested_sha" != "$expected" ]; then
+            echo "tested SHA $tested_sha does not match expected $expected" >&2
+            exit 1
+          fi
+          printf 'TESTED_SHA=%s\n' "$tested_sha" >> "$GITHUB_ENV"
+          printf 'WORKFLOW_SHA=%s\n' "$GITHUB_SHA" >> "$GITHUB_ENV"
+          archive="$RUNNER_TEMP/marqdo-source-$tested_sha.tar"
+          git archive --format=tar "$tested_sha" > "$archive"
+          printf 'SOURCE_ARCHIVE_SHA256=%s\n' \
+            "sha256:$(sha256sum "$archive" | cut -d' ' -f1)" >> "$GITHUB_ENV"
+
+      - name: Host capability report
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(id -u)" -ne 0
           id
           uname -a
           systemd-detect-virt --container || true
           bwrap --version
           cc --version | head -1
+          rustc -vV
           cat /proc/self/uid_map
           findmnt -t cgroup2 || true
+
       - name: Run G-C matrix
-        run: ./tests/security/run-lane.sh
+        shell: bash
+        env:
+          MARQDO_STRICT_EVIDENCE: ${{ runner.temp }}/strict-evidence.json
+          MARQDO_STRICT_LANE_LOG: ${{ runner.temp }}/gc-lane.log
+          MARQDO_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MARQDO_SOURCE_ARCHIVE: ${{ runner.temp }}/marqdo-source-${{ env.TESTED_SHA }}.tar
+          MARQDO_RUNNER_KIND: disposable-vm
+        run: |
+          set -euo pipefail
+          ./tests/security/run-lane.sh 2>&1 | tee "$MARQDO_STRICT_LANE_LOG"
+
+      - name: Upload strict evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strict-evidence-${{ env.TESTED_SHA || github.sha }}
+          path: |
+            ${{ runner.temp }}/strict-evidence.json
+            ${{ runner.temp }}/gc-lane.log
+          if-no-files-found: warn
+          retention-days: 30
