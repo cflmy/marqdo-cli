@@ -100,12 +100,14 @@ The RFC-CI-0001 series fixes the release-blocking CI defects that the
 | 4 | `990e984` | G-C lane writes SHA-bound `strict-evidence.json`; workflow binds checkout/archive to the tested SHA and uploads evidence |
 | 5 | `d2267e9` | correctness-verified `marqdo.perf.v2` sampler and fixed-node workflow |
 | 6 | `0d7e11b` | SHA-bound release-evidence aggregator, docs drift cleanup, consistent `windows-latest`/`macos-latest` statement |
+| 7 | `512b9f5` | evidence-generation failure fails the lane; workflow archive/verification fixes; G-C re-run |
+| 8 | `beb68a9` | G-C evidence/status update and the cross-platform JSON smoke exit-code fix |
 
 Executed evidence:
 
 | Lane | Result | Evidence |
 |---|---|---|
-| Linux fmt/clippy/test/build (Woodpecker) | **PASS** | pipelines `#9`–`#12`, `#14` and `#16` on `512b9f5`; `#13`/`#15` were superseded/cancelled by the next push, not failures |
+| Linux fmt/clippy/test/build (Woodpecker) | **PASS** | pipelines `#9`–`#12`, `#14`, `#16` and `#17` on the series; `#13`/`#15` were superseded/cancelled by the next push, not failures |
 | Windows portability | **PASS (cross-target check)** | `cargo check --workspace --all-targets --locked --target x86_64-pc-windows-gnu` on this Linux host with MinGW; native `windows-latest` GitHub run still required for release |
 | macOS portability | **UNVERIFIED** | native `macos-latest` run required; cross-check from this Linux host is blocked by `ring`'s Darwin C/asm toolchain, not by Marqdo code |
 | G3 strict isolation | **PASS (local disposable VM) / remote UNVERIFIED** | `512b9f5`, `dev` uid 1000, QEMU/TCG, 7/7 + strict JSON/inert-`@knowledge`; [`evidence/2026-11-21-strict-gc-512b9f5.md`](evidence/2026-11-21-strict-gc-512b9f5.md) |
