@@ -83,6 +83,8 @@ fn product_tests() -> Vec<TestFile> {
                 ][..]
             } else if name == "process.mq.md" {
                 &["--allow-process", "/bin/echo"][..]
+            } else if name == "random.mq.md" {
+                &["--allow-random"][..]
             } else {
                 &[][..]
             };
@@ -158,6 +160,7 @@ fn every_public_stdlib_module_has_a_product_test() {
             "json.mq.md",
             "path.mq.md",
             "process.mq.md",
+            "random.mq.md",
             "regex.mq.md",
             "stream.mq.md",
             "table.mq.md",
@@ -363,6 +366,22 @@ fn process_test_runs_an_explicitly_granted_program() {
     assert_eq!(items[1]["decimal"], "0");
     assert_eq!(items[2]["value"], "hello\n");
     assert_eq!(items[3]["value"], "");
+}
+
+#[test]
+fn random_test_reads_bounded_entropy() {
+    let report = run_product_test(
+        product_tests()
+            .iter()
+            .find(|file| file.name == "random.mq.md")
+            .expect("random test"),
+    );
+    let items = report["value"]["items"].as_array().expect("list");
+    assert_eq!(items[0]["value"], true);
+    assert_eq!(items[1]["decimal"], "16");
+    assert_eq!(items[2]["value"], true);
+    assert_eq!(items[3]["value"], true);
+    assert_eq!(items[4]["value"], true);
 }
 
 #[test]

@@ -98,6 +98,9 @@ struct SandboxArgs {
     /// Grant execution of an exact program path (repeatable, ADR-0044).
     #[arg(long = "allow-process", value_name = "PROGRAM")]
     allow_process: Vec<String>,
+    /// Grant OS entropy reads (ADR-0046).
+    #[arg(long = "allow-random")]
+    allow_random: bool,
     /// Grant explicit foreign kernel execution.
     #[arg(long = "allow-foreign")]
     allow_foreign: bool,
@@ -151,6 +154,7 @@ impl SandboxArgs {
             allow_write: self.allow_write.clone(),
             allow_env: self.allow_env.clone(),
             allow_process: self.allow_process.clone(),
+            allow_random: self.allow_random,
             allow_foreign: self.allow_foreign,
             allow_plugin: self.allow_plugin.clone(),
             fuel: self.fuel,

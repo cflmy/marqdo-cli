@@ -210,6 +210,7 @@ resource.request("fs.read_at", [path, offset, len]) -> {ok:true, value:Text}
 resource.request("fs.walk",    [dir])           -> {ok:true, value:List<Text>}
 resource.request("clock.now",   [])             -> {ok:true, value:UnixMillis}
 resource.request("env.get",     [name])         -> {ok:true, value:Text}
+resource.request("random.bytes", [count])       -> {ok:true, value:List<Int>}
 resource.request("process.run", [program, args])-> {ok:true, value:{status, stdout, stderr}}
 ```
 
@@ -239,6 +240,8 @@ resource.request("process.run", [program, args])-> {ok:true, value:{status, stdo
 * `env.get` takes one exact variable name and requires an `--allow-env NAME`
   grant; un-granted names are `permission.denied`, missing names are recoverable
   `env.not_found` and non-UTF-8 values are `env.not_unicode` (ADR-0043).
+* `random.bytes` takes an Int count in `1..=65536`, requires
+  `--allow-random`, and returns a List of 0–255 OS entropy bytes (ADR-0046).
 * `process.run` takes an exact program path and a List of Text arguments,
   requires an `--allow-process PROGRAM` grant, runs without a shell with a
   cleared environment in the project root, and enforces a 5 second timeout and
@@ -339,7 +342,7 @@ host boundary. Names are stable; adding one requires a spec update.
 | `resource.read` | `(handle, memory: Memory, offset: Int, max_bytes: Int) -> Result` | bounded chunk read into Memory; `{count,eof}` |
 | `resource.write` | `(handle, memory: Memory, offset: Int, length: Int) -> Result` | bounded byte write; `{count}` |
 | `resource.close` | `(handle) -> Result` | releases the host slot |
-| `resource.request` | `(operation: Text, arguments: List) -> Result` | non-streaming `fs.*` operations (ADR-0041) `clock.now` (ADR-0042), `env.get` (ADR-0043) and `process.run` (ADR-0044); project-mode and grant-checked |
+| `resource.request` | `(operation: Text, arguments: List) -> Result` | non-streaming `fs.*` operations (ADR-0041) `clock.now` (ADR-0042), `env.get` (ADR-0043), `process.run` (ADR-0044) and `random.bytes` (ADR-0046); project-mode and grant-checked |
 | `math.parse/eval/substitute` | see `spec/math.md` | P5; `math.simplify`/`math.differentiate` are declared but return `math.unsupported` in this build |
 | `foreign.run/call` | see `spec/foreign.md` | P5, capability-gated |
 | `fs.read/write` | see `spec/security.md` | capability-gated |

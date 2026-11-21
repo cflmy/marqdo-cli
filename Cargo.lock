@@ -393,6 +393,7 @@ dependencies = [
 name = "marqdo-host"
 version = "0.1.0"
 dependencies = [
+ "getrandom",
  "glob",
  "libloading",
  "marqdo-foreign",

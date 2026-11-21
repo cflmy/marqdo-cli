@@ -785,6 +785,58 @@ impl Host for StdHost {
             self.record_resource_effect("resource.request", ctx, started, "process.run");
             return Ok(result);
         }
+        if operation == "random.bytes" {
+            if args.len() != 1 {
+                return Err(RuntimeError::new(
+                    ErrorCategory::Arity,
+                    ctx.span,
+                    format!(
+                        "resource operation `random.bytes` expects 1 argument, got {}",
+                        args.len()
+                    ),
+                ));
+            }
+            let count = match &args[0] {
+                Value::Int(value) => value
+                    .to_string()
+                    .parse::<usize>()
+                    .ok()
+                    .filter(|count| (1..=65536).contains(count)),
+                _ => None,
+            };
+            let Some(count) = count else {
+                return Err(RuntimeError::new(
+                    ErrorCategory::Type,
+                    ctx.span,
+                    "random.bytes requires an Int in 1..=65536",
+                ));
+            };
+            self.capabilities.check_random(ctx.span)?;
+            let mut bytes = vec![0u8; count];
+            getrandom::fill(&mut bytes).map_err(|error| {
+                RuntimeError::new(
+                    ErrorCategory::HostError,
+                    ctx.span,
+                    format!("OS entropy is unavailable: {error}"),
+                )
+            })?;
+            let values = bytes
+                .into_iter()
+                .map(|byte| Value::int(byte as i64))
+                .collect();
+            self.record_semantic(
+                "resource.request",
+                None,
+                Some(&ctx.module_id),
+                ctx.span,
+                Some("op=random.bytes"),
+            );
+            self.record_resource_effect("resource.request", ctx, started, "random.bytes");
+            let mut map = BTreeMap::new();
+            map.insert("ok".to_string(), Value::Bool(true));
+            map.insert("value".to_string(), Value::List(values));
+            return Ok(Value::Map(map));
+        }
         if operation == "env.get" {
             if args.len() != 1 {
                 return Err(RuntimeError::new(

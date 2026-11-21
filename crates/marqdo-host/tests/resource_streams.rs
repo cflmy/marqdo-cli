@@ -795,3 +795,51 @@ fn fs_append_read_at_and_walk_are_bounded() {
         .unwrap_err();
     assert_eq!(error.category, ErrorCategory::Type);
 }
+
+#[test]
+fn random_bytes_require_the_entropy_grant() {
+    let dir = tempfile::tempdir().unwrap();
+    let ctx = context();
+    let mut denied = StdHost::new(SandboxMode::Project, Capabilities::project(), dir.path());
+    let error = denied
+        .resource_request("random.bytes", vec![Value::int(8)], &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+
+    let mut host = StdHost::new(
+        SandboxMode::Project,
+        Capabilities::project().allow_random(),
+        dir.path(),
+    );
+    let value = host
+        .resource_request("random.bytes", vec![Value::int(16)], &ctx)
+        .unwrap();
+    assert_eq!(field(&value, "ok"), &Value::Bool(true));
+    let bytes = field(&value, "value").clone();
+    let Value::List(bytes) = bytes else {
+        panic!("random.bytes did not return a List");
+    };
+    assert_eq!(bytes.len(), 16);
+    for byte in bytes {
+        let Value::Int(byte) = byte else {
+            panic!("random byte is not an Int");
+        };
+        let byte = byte.to_string().parse::<i64>().unwrap();
+        assert!((0..=255).contains(&byte));
+    }
+
+    let error = host
+        .resource_request("random.bytes", vec![Value::int(0)], &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::Type);
+
+    let mut pure = StdHost::new(
+        SandboxMode::Pure,
+        Capabilities::pure().allow_random(),
+        dir.path(),
+    );
+    let error = pure
+        .resource_request("random.bytes", vec![Value::int(8)], &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+}

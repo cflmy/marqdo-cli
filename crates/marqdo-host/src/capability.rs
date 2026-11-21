@@ -321,6 +321,8 @@ pub struct Capabilities {
     pub env: Vec<String>,
     /// Allowed process program paths (empty = no process execution).
     pub process_programs: Vec<String>,
+    /// Whether OS entropy may be read (ADR-0046).
+    pub random: bool,
     /// May spawn processes (foreign kernels).
     pub process: bool,
     /// May run foreign kernels (Python/Node).
@@ -342,6 +344,7 @@ impl Capabilities {
             net_hosts: Vec::new(),
             env: Vec::new(),
             process_programs: Vec::new(),
+            random: false,
             process: false,
             foreign: false,
             plugins: Vec::new(),
@@ -405,6 +408,25 @@ impl Capabilities {
                 span,
                 format!("process `{program}` was not granted"),
                 format!("grant it with --allow-process {program}"),
+            ))
+        }
+    }
+
+    /// Grant OS entropy reads (ADR-0046).
+    pub fn allow_random(mut self) -> Self {
+        self.random = true;
+        self
+    }
+
+    /// Check the entropy grant.
+    pub fn check_random(&self, span: Option<Span>) -> Result<(), RuntimeError> {
+        if self.random {
+            Ok(())
+        } else {
+            Err(denied(
+                span,
+                "OS entropy was not granted",
+                "grant it with --allow-random",
             ))
         }
     }

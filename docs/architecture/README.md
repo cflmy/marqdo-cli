@@ -50,6 +50,7 @@ The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 | `env.get` resource operation | [0043](../adr/0043-env-resource-operation.md) | Accepted (exact-name project grant) |
 | `process.run` resource operation | [0044](../adr/0044-process-resource-operation.md) | Accepted (exact program grant, project only, not a sandbox) |
 | `fs.append`/`fs.read_at`/`fs.walk` | [0045](../adr/0045-fs-append-read-at-walk.md) | Accepted (bounded content, directory walk) |
+| `random.bytes` resource operation | [0046](../adr/0046-random-resource-operation.md) | Accepted (explicit `--allow-random`, project only) |
 | Table physical storage (T1/T2/T3), strict stdin/stderr/file/network resources | — | **Not decided**; do not implement by implication |
 
 ## Evidence and status
