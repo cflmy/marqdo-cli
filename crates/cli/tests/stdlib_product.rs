@@ -37,8 +37,8 @@ struct TestFile {
     name: String,
     stdin: &'static str,
     stdout: &'static str,
-    args: &'static [&'static str],
-    env: &'static [(&'static str, &'static str)],
+    args: Vec<String>,
+    env: Vec<(String, String)>,
 }
 
 fn product_tests() -> Vec<TestFile> {
@@ -52,8 +52,8 @@ fn product_tests() -> Vec<TestFile> {
                     name: String::new(),
                     stdin: "",
                     stdout: "",
-                    args: &[],
-                    env: &[],
+                    args: Vec::new(),
+                    env: Vec::new(),
                 };
             }
             let name = path.file_name().unwrap().to_string_lossy().to_string();
@@ -63,35 +63,50 @@ fn product_tests() -> Vec<TestFile> {
                 "stream.mq.md" => ("", "stream\n"),
                 _ => ("", ""),
             };
-            let args = if name == "fs.mq.md" {
-                &[
-                    "--allow-read",
-                    "out",
-                    "--allow-read",
-                    "out/**",
-                    "--allow-write",
-                    "out",
-                    "--allow-write",
-                    "out/**",
-                ][..]
-            } else if name == "env.mq.md" {
-                &[
-                    "--allow-env",
-                    "MARQDO_TEST_ENV",
-                    "--allow-env",
-                    "MARQDO_MISSING_ENV",
-                ][..]
-            } else if name == "process.mq.md" {
-                &["--allow-process", "/bin/echo"][..]
-            } else if name == "random.mq.md" {
-                &["--allow-random"][..]
-            } else {
-                &[][..]
+            let text_args = |values: &[&str]| -> Vec<String> {
+                values.iter().map(|value| value.to_string()).collect()
             };
-            let env = if name == "env.mq.md" {
-                &[("MARQDO_TEST_ENV", "env-value")][..]
+            let (args, env) = if name == "fs.mq.md" {
+                (
+                    text_args(&[
+                        "--allow-read",
+                        "out",
+                        "--allow-read",
+                        "out/**",
+                        "--allow-write",
+                        "out",
+                        "--allow-write",
+                        "out/**",
+                    ]),
+                    Vec::new(),
+                )
+            } else if name == "env.mq.md" {
+                (
+                    text_args(&[
+                        "--allow-env",
+                        "MARQDO_TEST_ENV",
+                        "--allow-env",
+                        "MARQDO_MISSING_ENV",
+                    ]),
+                    vec![("MARQDO_TEST_ENV".to_string(), "env-value".to_string())],
+                )
+            } else if name == "process.mq.md" {
+                // Use the test binary itself as the granted program: it exists
+                // on every native platform, unlike the old `/bin/echo` fixture.
+                let program = env!("CARGO_BIN_EXE_marqdo").to_string();
+                (
+                    vec![
+                        "--allow-env".to_string(),
+                        "MARQDO_TEST_PROCESS_PROGRAM".to_string(),
+                        "--allow-process".to_string(),
+                        program.clone(),
+                    ],
+                    vec![("MARQDO_TEST_PROCESS_PROGRAM".to_string(), program)],
+                )
+            } else if name == "random.mq.md" {
+                (text_args(&["--allow-random"]), Vec::new())
             } else {
-                &[][..]
+                (Vec::new(), Vec::new())
             };
             TestFile {
                 name,
@@ -114,11 +129,15 @@ fn run_product_test(file: &TestFile) -> serde_json::Value {
     let mut child = Command::new(env!("CARGO_BIN_EXE_marqdo"))
         .args(["run"])
         .arg(stdlib_dir().join("tests").join(&file.name))
-        .args(file.args)
+        .args(file.args.iter())
         .args(["--json"])
         .current_dir(stdlib_dir())
         .env("MARQDO_STDLIB_DIR", stdlib_dir())
-        .envs(file.env.iter().copied())
+        .envs(
+            file.env
+                .iter()
+                .map(|(key, value)| (key.as_str(), value.as_str())),
+        )
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -380,7 +399,16 @@ fn process_test_runs_an_explicitly_granted_program() {
     let items = report["value"]["items"].as_array().expect("list");
     assert_eq!(items[0]["value"], true);
     assert_eq!(items[1]["decimal"], "0");
-    assert_eq!(items[2]["value"], "hello\n");
+    let expected = Command::new(env!("CARGO_BIN_EXE_marqdo"))
+        .arg("--version")
+        .output()
+        .expect("run marqdo --version");
+    let expected_stdout = String::from_utf8_lossy(&expected.stdout);
+    assert_eq!(
+        items[2]["value"].as_str().expect("process stdout"),
+        expected_stdout.as_ref(),
+        "process stdout must match the granted program"
+    );
     assert_eq!(items[3]["value"], "");
 }
 

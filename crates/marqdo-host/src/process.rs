@@ -27,14 +27,25 @@ pub(crate) fn run_process(
     ctx: &ExecutionContext,
 ) -> Result<Value, RuntimeError> {
     const LIMIT: usize = 1024 * 1024;
-    let child = Command::new(program)
+    let mut command = Command::new(program);
+    command
         .args(args)
         .current_dir(root)
         .env_clear()
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn();
+        .stderr(Stdio::piped());
+    #[cfg(windows)]
+    {
+        // Windows process creation and DLL loading require the system root;
+        // this is not a package-resolution path or a capability grant.
+        for name in ["SYSTEMROOT", "WINDIR"] {
+            if let Some(value) = std::env::var_os(name) {
+                command.env(name, value);
+            }
+        }
+    }
+    let child = command.spawn();
     let child = match child {
         Ok(child) => child,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {

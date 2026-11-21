@@ -1377,8 +1377,29 @@ mod tests {
         format!("{}1{}", "(".repeat(depth), ")".repeat(depth))
     }
 
+    /// Run a deeply recursive parser test on an explicit stack.
+    ///
+    /// The test harness gives each test thread a small stack on some native
+    /// platforms (macOS arm64 aborted with a stack overflow at the 128-level
+    /// nesting check). Production parsing happens on the main thread; pinning
+    /// this test to 8 MiB keeps the contract test meaningful without depending
+    /// on the harness default.
+    fn with_parser_stack<F: FnOnce() + Send + 'static>(body: F) {
+        std::thread::Builder::new()
+            .name("parser-nesting-depth".to_string())
+            .stack_size(8 * 1024 * 1024)
+            .spawn(body)
+            .expect("spawn parser nesting thread")
+            .join()
+            .expect("parser nesting thread panicked");
+    }
+
     #[test]
     fn nesting_depth_limit_is_enforced() {
+        with_parser_stack(nesting_depth_limit_is_enforced_body);
+    }
+
+    fn nesting_depth_limit_is_enforced_body() {
         assert!(parse_expression(&nested_parens(MAX_NESTING_DEPTH)).is_ok());
         let err = parse_expression(&nested_parens(MAX_NESTING_DEPTH + 1)).unwrap_err();
         assert_eq!(err.code, "expr.parse");
