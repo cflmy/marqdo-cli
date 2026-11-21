@@ -18,7 +18,7 @@ steps:
       - apt-get install -y --no-install-recommends python3 util-linux ca-certificates
       - cargo build --release --locked -p marqdo-cli
       - |
-        set -euo pipefail
+        set -eu
         allowed="$(awk '/^Cpus_allowed_list:/ {print $2}' /proc/self/status)"
         cpu_list="${MARQDO_PERF_CPU_LIST:-$(printf '%s' "$allowed" | cut -d, -f1 | cut -d- -f1)}"
         echo "G4_NODE host=$(uname -n) kernel=$(uname -r) arch=$(uname -m) allowed_cpus=$allowed pin=$cpu_list"
