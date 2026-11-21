@@ -128,11 +128,13 @@ fn every_public_stdlib_module_has_a_product_test() {
         names,
         vec![
             "console.mq.md",
+            "csv.mq.md",
             "demo.mq.md",
             "format.mq.md",
             "fs.mq.md",
             "http.mq.md",
             "io.mq.md",
+            "json.mq.md",
             "stream.mq.md",
             "table.mq.md",
             "text.mq.md",
@@ -182,6 +184,51 @@ fn fs_test_exercises_the_file_operation_surface() {
         !stdlib_dir().join("tests/out").exists(),
         "the fs test did not remove its directory"
     );
+}
+
+#[test]
+fn json_test_parses_and_formats_nested_values() {
+    let report = run_product_test(
+        product_tests()
+            .iter()
+            .find(|file| file.name == "json.mq.md")
+            .expect("json test"),
+    );
+    let items = report["value"]["items"].as_array().expect("list");
+    assert_eq!(items[0]["value"], true);
+    assert_eq!(items[1]["decimal"], "1");
+    assert_eq!(items[2]["value"], "说\"好");
+    assert_eq!(
+        items[3]["value"],
+        "[1, 2.5, -300.0, 0.4, {\"a\": 1.0}, \"x\"]"
+    );
+    assert_eq!(items[4]["value"], false);
+    assert_eq!(items[5]["value"], "json.invalid_array");
+    assert_eq!(items[6]["value"], "json.trailing");
+}
+
+#[test]
+fn csv_test_parses_and_formats_quoted_rows() {
+    let report = run_product_test(
+        product_tests()
+            .iter()
+            .find(|file| file.name == "csv.mq.md")
+            .expect("csv test"),
+    );
+    let items = report["value"]["items"].as_array().expect("list");
+    let row = items[0]["items"].as_array().expect("row");
+    assert_eq!(row.len(), 3);
+    assert_eq!(row[0]["value"], "甲");
+    assert_eq!(row[1]["value"], "乙,丙");
+    assert_eq!(row[2]["value"], "说\"好");
+    assert_eq!(items[1]["value"], "甲,\"乙,丙\",\"说\"\"好\"");
+    let empty = items[2]["items"].as_array().expect("empty row");
+    assert_eq!(empty.len(), 1);
+    assert_eq!(empty[0]["value"], "");
+    assert_eq!(items[3]["value"], "csv.unterminated_quote");
+    let quoted = items[4]["items"].as_array().expect("quoted row");
+    assert_eq!(quoted[0]["value"], "a");
+    assert_eq!(quoted[1]["value"], "b");
 }
 
 #[test]

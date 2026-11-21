@@ -58,7 +58,7 @@ byte-identical).
 cargo fmt --all -- --check                            PASS
 cargo clippy --workspace --all-targets -- -D warnings PASS
 cargo test --workspace --locked                       PASS
-  467 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
+  469 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
 ```
 
 The documentation and test migration is local work; re-run this block after it
@@ -200,10 +200,11 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   `Value::Table`; inputs are never mutated; GFM AST laziness and physical T0
   storage are unchanged. `std:fs/file` provides bounded `读文本`/`写文本`/`复制文件`
   over the existing `resource.*` ABI plus `存在`/`元数据`/`列出目录`/`创建目录`/
-  `删除`/`重命名` over `resource.request` (ADR-0041). Append/seek/watch and a
-  recursive walk remain open.
+  `删除`/`重命名` over `resource.request` (ADR-0041); `data/json`/`data/csv`
+  provide recursive JSON and quoted single-row CSV product parsers. Append/seek/
+  watch, recursive walk, streaming JSON/CSV and a JSON depth bound remain open.
 - Bundled standard library (CM-A10, ADR-0028): `stdlib/` ships
-  `format`/`text`/`io`/`fs`; explicit `std:` imports resolve only inside the bundle;
+  `format`/`text`/`io`/`fs`/`data`; explicit `std:` imports resolve only inside the bundle;
   a SHA-256 digest over `*.mq.md` is verified before loading; Analysis records
   `project.stdlib`; a frozen-binary test asserts the CLI hash is unchanged after
   running a `std:io` project and that tampering is rejected. `打印/print` is
@@ -229,7 +230,7 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   status/index links and SHA-pinned evidence; `crates/cli/tests/architecture_boundaries.rs`
   pins the workspace graph, `marqdo-runtime -> marqdo-host`, the bundled stdlib
   digest and the stdio/file/TCP endpoints; `crates/cli/tests/stdlib_product.rs`
-  runs every public stdlib module (`console/demo/format/fs/http/io/stream/table/text/utf8`)
+  runs every public stdlib module (`console/csv/demo/format/fs/http/io/json/stream/table/text/utf8`)
   through `std:` imports over `stdlib/tests/*.mq.md`. `tools/pack-stdlib.py`
   now sorts `.mq.md` by the same relative path key as the CLI. Source/test baseline
   `0d40de7`; later docs-only commits keep code/test bytes identical. Evidence:
