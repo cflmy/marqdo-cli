@@ -1,0 +1,297 @@
+{
+  "normalized": {
+    "command": "run",
+    "stderr": "",
+    "stdout": "",
+    "success": true,
+    "value": {
+      "items": [
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "decimal": "16",
+              "type": "int"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "decimal": "32",
+              "type": "int"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "decimal": "16",
+              "type": "int"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "decimal": "16",
+              "type": "int"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "decimal": "32",
+              "type": "int"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "decimal": "56",
+              "type": "int"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "decimal": "56",
+              "type": "int"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "decimal": "72",
+              "type": "int"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "decimal": "96",
+              "type": "int"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "decimal": "112",
+              "type": "int"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "code": {
+              "type": "text",
+              "value": "alloc.no_space"
+            },
+            "message": {
+              "type": "text",
+              "value": "没有足够的空闲空间"
+            },
+            "ok": {
+              "type": "bool",
+              "value": false
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "decimal": "16",
+              "type": "int"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "decimal": "32",
+              "type": "int"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "decimal": "48",
+              "type": "int"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "decimal": "16",
+              "type": "int"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "code": {
+              "type": "text",
+              "value": "alloc.no_space"
+            },
+            "message": {
+              "type": "text",
+              "value": "没有足够的空闲空间"
+            },
+            "ok": {
+              "type": "bool",
+              "value": false
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "ok": {
+              "type": "bool",
+              "value": true
+            },
+            "value": {
+              "type": "none"
+            }
+          },
+          "type": "map"
+        },
+        {
+          "entries": {
+            "code": {
+              "type": "text",
+              "value": "alloc.double_free"
+            },
+            "message": {
+              "type": "text",
+              "value": "块已在空闲链表"
+            },
+            "ok": {
+              "type": "bool",
+              "value": false
+            }
+          },
+          "type": "map"
+        },
+        {
+          "decimal": "33",
+          "type": "int"
+        },
+        {
+          "decimal": "22",
+          "type": "int"
+        },
+        {
+          "decimal": "33",
+          "type": "int"
+        },
+        {
+          "decimal": "33",
+          "type": "int"
+        },
+        {
+          "decimal": "22",
+          "type": "int"
+        },
+        {
+          "decimal": "44",
+          "type": "int"
+        },
+        {
+          "decimal": "55",
+          "type": "int"
+        },
+        {
+          "decimal": "66",
+          "type": "int"
+        },
+        {
+          "decimal": "77",
+          "type": "int"
+        }
+      ],
+      "type": "list"
+    }
+  },
+  "schema": "marqdo.perf.expected.v1",
+  "wire_sha256": "sha256:039ec1523726f48375f1fb5fafdfe849e296e1ee39b8a4820a0a0970cf3f8c3b",
+  "workload": "allocator-free-list"
+}

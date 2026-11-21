@@ -1,0 +1,24 @@
+{
+  "normalized": {
+    "command": "call",
+    "diagnostics": [
+      {
+        "code": "sem.inferred_signature",
+        "column": 1,
+        "line": 3,
+        "message": "function signature was inferred; declare it with `params(...)`",
+        "severity": "warning"
+      }
+    ],
+    "stderr": "",
+    "stdout": "",
+    "success": true,
+    "value": {
+      "decimal": "120",
+      "type": "int"
+    }
+  },
+  "schema": "marqdo.perf.expected.v1",
+  "wire_sha256": "sha256:0cbd8ab0b0e9e671e7e54f707ff2de00181b2721924b7fdec998ff9611873275",
+  "workload": "factorial-run"
+}

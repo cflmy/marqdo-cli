@@ -1,0 +1,10 @@
+{
+  "normalized": {
+    "command": "check",
+    "errors": 0,
+    "success": true
+  },
+  "schema": "marqdo.perf.expected.v1",
+  "wire_sha256": "sha256:a1b2f1ab60f9b9d2e74b8841ae56909fe889aa643f856572f7fbb6729fc12380",
+  "workload": "hello-check"
+}

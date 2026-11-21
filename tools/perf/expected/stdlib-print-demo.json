@@ -1,0 +1,14 @@
+{
+  "normalized": {
+    "command": "run",
+    "stderr": "",
+    "stdout": "[\"文本\", 2, 1.5, [3, true], {a: 1, b: \"x\"}, None]\n[\"文本\", 2, 1.5, [3, true], {a: 1, b: \"x\"}, None]\nTable[名称 | 分数]{甲 | 87; 乙 | 92}\nTable[名称 | 分数]{甲 | 87; 乙 | 92}\n[Formula(\"a = 1\"), Code(\"text\", 9 bytes), FunctionRef(root:default::demo.mq.md::演示函数)]\n[Formula(\"a = 1\"), Code(\"text\", 9 bytes), FunctionRef(root:default::demo.mq.md::演示函数)]\n",
+    "success": true,
+    "value": {
+      "type": "none"
+    }
+  },
+  "schema": "marqdo.perf.expected.v1",
+  "wire_sha256": "sha256:80dfbfb894544b5cd4281999a67deaa9ce4fb19ef32d160fb4ee72dbd615d03c",
+  "workload": "stdlib-print-demo"
+}

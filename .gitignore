@@ -29,3 +29,9 @@ dist/
 
 # stdlib product test output
 stdlib/tests/out/
+
+# Python tooling caches and perf capture files
+__pycache__/
+*.pyc
+.perf-out-*
+.perf-err-*

@@ -1,0 +1,70 @@
+name: Linux performance measurements (G4)
+
+# This workflow needs a dedicated, fixed Linux performance node. It is never
+# run on GitHub-hosted runners or on TCG/QEMU guests: those numbers are not
+# comparable with a native release baseline. A short smoke run is not release
+# evidence; runner.py marks it SMOKE unless 5 warmups / 20 samples and
+# --approved-node are used.
+#
+# Trust model: the node carries no untrusted PR code and no repository
+# secrets. It must not share hardware with the G3 security VM.
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform_id:
+        description: "Fixed node identifier, e.g. linux-x86_64-fixed-node-01"
+        required: true
+        type: string
+      cpu_list:
+        description: "taskset CPU list, e.g. 2,3 (empty = unbound smoke only)"
+        required: false
+        default: ""
+        type: string
+      baseline_run_id:
+        description: "Optional previous run id whose artifact is the baseline"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: correctness-verified performance sample
+    runs-on: [self-hosted, linux, marqdo-perf]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Toolchain report
+        run: |
+          rustc -vV
+          uname -a
+          cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || true
+          cat /proc/loadavg
+      - name: Measure
+        shell: bash
+        env:
+          PLATFORM_ID: ${{ inputs.platform_id }}
+          CPU_LIST: ${{ inputs.cpu_list }}
+        run: |
+          set -euo pipefail
+          args=(--warmups 5 --samples 20 --approved-node --platform-id "$PLATFORM_ID" --out perf.json)
+          if [ -n "$CPU_LIST" ]; then
+            args+=(--cpu-list "$CPU_LIST")
+          else
+            echo "error: a release measurement requires a fixed --cpu-list" >&2
+            exit 1
+          fi
+          python3 tools/perf/runner.py "${args[@]}"
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: marqdo-perf-${{ inputs.platform_id }}
+          path: perf.json
+          if-no-files-found: warn
+          retention-days: 90

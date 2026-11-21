@@ -1,0 +1,98 @@
+{
+  "schema": "marqdo.perf.workloads.v1",
+  "workloads": [
+    {
+      "name": "hello-check",
+      "kind": "check",
+      "source": "examples/hello.mq.md",
+      "argv": [
+        "check",
+        "examples/hello.mq.md",
+        "--json"
+      ]
+    },
+    {
+      "name": "factorial-run",
+      "kind": "call",
+      "source": "examples/factorial.mq.md",
+      "argv": [
+        "call",
+        "examples/factorial.mq.md",
+        "数学.阶乘",
+        "--arg",
+        "n=5",
+        "--json"
+      ]
+    },
+    {
+      "name": "allocator-free-list",
+      "kind": "run",
+      "source": "tests/conformance/semantics/55-first-fit-free-list-allocator.mq.md",
+      "argv": [
+        "run",
+        "tests/conformance/semantics/55-first-fit-free-list-allocator.mq.md",
+        "--json"
+      ]
+    },
+    {
+      "name": "json-parser",
+      "kind": "run",
+      "source": "tests/conformance/semantics/62-json-array-parser.mq.md",
+      "argv": [
+        "run",
+        "tests/conformance/semantics/62-json-array-parser.mq.md",
+        "--json"
+      ]
+    },
+    {
+      "name": "table-sort",
+      "kind": "run",
+      "source": "tests/conformance/semantics/65-table-sort-stdlib.mq.md",
+      "argv": [
+        "run",
+        "tests/conformance/semantics/65-table-sort-stdlib.mq.md",
+        "--json"
+      ]
+    },
+    {
+      "name": "bytecode-vm",
+      "kind": "run",
+      "source": "tests/conformance/semantics/63-memory-bytecode-vm.mq.md",
+      "argv": [
+        "run",
+        "tests/conformance/semantics/63-memory-bytecode-vm.mq.md",
+        "--json"
+      ]
+    },
+    {
+      "name": "matrix-multiply",
+      "kind": "run",
+      "source": "tests/conformance/semantics/70-matrix-multiply.mq.md",
+      "argv": [
+        "run",
+        "tests/conformance/semantics/70-matrix-multiply.mq.md",
+        "--json"
+      ]
+    },
+    {
+      "name": "http-parser",
+      "kind": "run",
+      "source": "tests/conformance/semantics/71-http-parser.mq.md",
+      "argv": [
+        "run",
+        "tests/conformance/semantics/71-http-parser.mq.md",
+        "--json"
+      ]
+    },
+    {
+      "name": "stdlib-print-demo",
+      "kind": "run",
+      "source": "stdlib/demo.mq.md",
+      "argv": [
+        "run",
+        "stdlib/demo.mq.md",
+        "--json"
+      ]
+    }
+  ]
+}

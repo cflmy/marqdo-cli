@@ -1,0 +1,130 @@
+{
+  "normalized": {
+    "command": "run",
+    "stderr": "",
+    "stdout": "",
+    "success": true,
+    "value": {
+      "items": [
+        {
+          "items": [
+            {
+              "items": [
+                {
+                  "decimal": "1",
+                  "type": "int"
+                },
+                {
+                  "decimal": "2",
+                  "type": "int"
+                },
+                {
+                  "decimal": "3",
+                  "type": "int"
+                }
+              ],
+              "type": "list"
+            },
+            {
+              "items": [
+                {
+                  "decimal": "4",
+                  "type": "int"
+                },
+                {
+                  "decimal": "5",
+                  "type": "int"
+                },
+                {
+                  "decimal": "6",
+                  "type": "int"
+                }
+              ],
+              "type": "list"
+            }
+          ],
+          "type": "list"
+        },
+        {
+          "items": [
+            {
+              "items": [
+                {
+                  "decimal": "7",
+                  "type": "int"
+                },
+                {
+                  "decimal": "8",
+                  "type": "int"
+                }
+              ],
+              "type": "list"
+            },
+            {
+              "items": [
+                {
+                  "decimal": "9",
+                  "type": "int"
+                },
+                {
+                  "decimal": "10",
+                  "type": "int"
+                }
+              ],
+              "type": "list"
+            },
+            {
+              "items": [
+                {
+                  "decimal": "11",
+                  "type": "int"
+                },
+                {
+                  "decimal": "12",
+                  "type": "int"
+                }
+              ],
+              "type": "list"
+            }
+          ],
+          "type": "list"
+        },
+        {
+          "items": [
+            {
+              "items": [
+                {
+                  "decimal": "58",
+                  "type": "int"
+                },
+                {
+                  "decimal": "64",
+                  "type": "int"
+                }
+              ],
+              "type": "list"
+            },
+            {
+              "items": [
+                {
+                  "decimal": "139",
+                  "type": "int"
+                },
+                {
+                  "decimal": "154",
+                  "type": "int"
+                }
+              ],
+              "type": "list"
+            }
+          ],
+          "type": "list"
+        }
+      ],
+      "type": "list"
+    }
+  },
+  "schema": "marqdo.perf.expected.v1",
+  "wire_sha256": "sha256:c5edb02098191e081a143b8f5d23424fcc43172643a44912cdc8ae17ace99cc2",
+  "workload": "matrix-multiply"
+}
