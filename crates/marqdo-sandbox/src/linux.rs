@@ -30,9 +30,6 @@ use std::time::{Duration, Instant};
 
 use crate::{SandboxError, StrictHostCommand};
 
-/// Environment variable that marks a re-executed strict child.
-pub const ACTIVE_ENV: &str = "MARQDO_STRICT_ACTIVE";
-
 /// Path of the program inside the sandbox.
 const SANDBOX_PROGRAM: &str = "/run/marqdo-program";
 
@@ -158,7 +155,7 @@ fn common_args() -> Vec<OsString> {
 
 /// Verify that this process really is the strict child created by [`launch`].
 pub fn verify_active() -> Result<(), String> {
-    if std::env::var(ACTIVE_ENV).ok().as_deref() != Some("1") {
+    if std::env::var(crate::STRICT_ACTIVE_ENV).ok().as_deref() != Some("1") {
         return Err("strict active marker is absent".to_string());
     }
     // `--as-pid-1` makes the supervised program PID 1 in its own PID namespace.
@@ -204,7 +201,7 @@ pub fn verify_active() -> Result<(), String> {
 /// Whether the current process claims to be a strict child. The marker alone
 /// is not trusted; callers must use [`verify_active`].
 pub fn marker_present() -> bool {
-    std::env::var(ACTIVE_ENV).ok().as_deref() == Some("1")
+    std::env::var(crate::STRICT_ACTIVE_ENV).ok().as_deref() == Some("1")
 }
 
 /// Result of one supervised strict execution.
@@ -335,7 +332,7 @@ fn run_with(
         command.program.as_os_str().to_os_string(),
         OsString::from(SANDBOX_PROGRAM),
         OsString::from("--setenv"),
-        OsString::from(ACTIVE_ENV),
+        OsString::from(crate::STRICT_ACTIVE_ENV),
         OsString::from("1"),
         OsString::from("--chdir"),
         OsString::from("/project"),

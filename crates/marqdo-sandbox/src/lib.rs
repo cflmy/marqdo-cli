@@ -13,7 +13,12 @@ use serde::{Deserialize, Serialize};
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
-pub use linux::{marker_present, probe, verify_active, StrictOutcome};
+pub use linux::{probe, StrictOutcome};
+
+/// Environment variable set by the strict supervisor for its re-executed
+/// child. The marker alone never authorizes strict execution; [`inspect_strict_child`]
+/// verifies the child identity before anything is trusted.
+pub const STRICT_ACTIVE_ENV: &str = "MARQDO_STRICT_ACTIVE";
 
 /// Execution mode requested on the command line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -160,6 +165,46 @@ fn detect_strict() -> StrictIsolation {
     }
 }
 
+/// Whether the current process is a verified strict child.
+///
+/// This is the **only** supported platform boundary for strict-child
+/// detection. Linux performs the full identity verification; every other
+/// platform refuses even a forged marker instead of treating it as a child.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StrictChildState {
+    /// The process was not launched by the strict supervisor.
+    NotChild,
+    /// The process is the verified strict child and may run project code.
+    VerifiedChild,
+}
+
+/// Inspect whether this process is the strict supervisor's verified child.
+///
+/// Linux requires the marker **and** the full namespace/privilege identity
+/// check in [`linux::verify_active`]. Non-Linux builds reject any marker:
+/// without a verified OS isolation adapter there is no legitimate strict
+/// child, so a forged `MARQDO_STRICT_ACTIVE` must fail closed.
+pub fn inspect_strict_child() -> Result<StrictChildState, String> {
+    #[cfg(target_os = "linux")]
+    {
+        if !linux::marker_present() {
+            return Ok(StrictChildState::NotChild);
+        }
+        linux::verify_active().map(|()| StrictChildState::VerifiedChild)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        if std::env::var_os(STRICT_ACTIVE_ENV).is_some() {
+            return Err(
+                "strict active marker is unsupported on this platform; refusing to treat this                  process as a verified strict child"
+                    .to_string(),
+            );
+        }
+        Ok(StrictChildState::NotChild)
+    }
+}
+
 /// Failure to apply the requested sandbox mode.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SandboxError {
@@ -196,7 +241,7 @@ pub fn enforce(mode: SandboxMode, platform: &PlatformCapabilities) -> Result<(),
     match mode {
         SandboxMode::Strict => {
             #[cfg(target_os = "linux")]
-            if verify_active().is_ok() {
+            if linux::verify_active().is_ok() {
                 return Ok(());
             }
             if platform.strict.is_available() {
@@ -268,6 +313,27 @@ mod tests {
             assert_eq!(SandboxMode::parse(mode.as_str()), Some(mode));
         }
         assert_eq!(SandboxMode::parse("nope"), None);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn ordinary_process_is_not_a_strict_child() {
+        if std::env::var_os(STRICT_ACTIVE_ENV).is_none() {
+            assert_eq!(
+                inspect_strict_child().expect("inspection must not fail without a marker"),
+                StrictChildState::NotChild
+            );
+        }
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    #[test]
+    fn forged_marker_is_rejected_on_non_linux() {
+        std::env::set_var(STRICT_ACTIVE_ENV, "1");
+        let result = inspect_strict_child();
+        std::env::remove_var(STRICT_ACTIVE_ENV);
+        let error = result.expect_err("a forged marker must never authorize strict execution");
+        assert!(error.contains("unsupported"), "unexpected error: {error}");
     }
 
     #[test]

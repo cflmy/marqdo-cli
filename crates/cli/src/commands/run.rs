@@ -4,6 +4,7 @@
 //! runtime helpers, but keeps the run session out of the command table.
 
 use super::*;
+use marqdo_sandbox::StrictChildState;
 
 pub fn execute(
     file: Option<&Path>,
@@ -64,31 +65,34 @@ pub fn execute(
             }
             return 2;
         }
-        if marqdo_sandbox::marker_present() {
-            // We were re-executed by the supervisor: validate the marker set
-            // before running any project code.
-            if let Err(reason) = marqdo_sandbox::verify_active() {
+        match marqdo_sandbox::inspect_strict_child() {
+            // A verified supervisor child may run project code.
+            Ok(StrictChildState::VerifiedChild) => {}
+            // Not a child: enforce capability and launch under the supervisor.
+            Ok(StrictChildState::NotChild) => {
+                let platform = PlatformCapabilities::detect();
+                if let Err(error) = marqdo_sandbox::enforce(mode, &platform) {
+                    if json {
+                        output::print_json(&json!({"success": false, "error": error.to_string()}));
+                    } else {
+                        eprintln!("error: {error}");
+                    }
+                    return 1;
+                }
+                return launch_strict_process(&project.root, file, settings);
+            }
+            // A marker without a verified identity is never trusted, and the
+            // platform-neutral inspection keeps Linux-only symbols out of this
+            // module so macOS/Windows builds compile.
+            Err(reason) => {
+                let message = format!("strict isolation verification failed: {reason}");
                 if json {
-                    output::print_json(&json!({
-                        "success": false,
-                        "error": format!("strict isolation verification failed: {reason}"),
-                    }));
+                    output::print_json(&json!({"success": false, "error": message}));
                 } else {
-                    eprintln!("error: strict isolation verification failed: {reason}");
+                    eprintln!("error: {message}");
                 }
                 return 1;
             }
-        } else {
-            let platform = PlatformCapabilities::detect();
-            if let Err(error) = marqdo_sandbox::enforce(mode, &platform) {
-                if json {
-                    output::print_json(&json!({"success": false, "error": error.to_string()}));
-                } else {
-                    eprintln!("error: {error}");
-                }
-                return 1;
-            }
-            return launch_strict_process(&project.root, file, settings);
         }
     }
     let platform = PlatformCapabilities::detect();
