@@ -1,8 +1,8 @@
 # RFC-EXT-0001 implementation evidence (P0 core + PR-03/05/06/07 first pass)
 
-Status: **partial, honest record.** PR-00/01/02/03/05/06 are implemented and
-tested on Linux x86_64 in this tree; PR-04 (extension selection/lock v4) and the
-final frozen-release evidence are still in progress. This document is not a
+Status: **honest record of the implementation tree.** PR-00/01/02/03/04/05/06
+are implemented and tested on Linux x86_64; PR-07/PR-08 additional work is the
+SHA-bound evidence manifest and the tagged-release rerun. This document is not a
 release claim. The authoritative executed status is regenerated in
 `docs/STATUS.md` and `docs/evidence/extension/<SHA>/manifest.json`.
 
@@ -25,7 +25,7 @@ feature branch, so this file cannot be a same-SHA release artifact.
 cargo fmt --all -- --check                            PASS  (exit 0)
 cargo clippy --workspace --all-targets -- -D warnings PASS  (exit 0)
 cargo test --workspace --locked                       PASS  (exit 0)
-  66 test targets: 584 passed, 0 failed, 0 ignored
+  67 test targets: 599 passed, 0 failed, 0 ignored
 ```
 
 Targeted new suites:
@@ -35,6 +35,7 @@ cargo test -p marqdo-cli --test callable_resolution      14 passed
 cargo test -p marqdo-cli --test stdlib_alias_routing     5 passed
 cargo test -p marqdo-cli --test provider_cli             12 passed
 cargo test -p marqdo-cli --test analysis_trace           7 passed
+cargo test -p marqdo-cli --test extension_selection      13 passed
 cargo test -p marqdo-cli --test plugin_worker            4 passed
 cargo test -p marqdo-cli --test print_routing            2 passed
 cargo test -p marqdo-cli --test architecture_boundaries  9 passed
@@ -169,10 +170,35 @@ candidate, and `tools/ci/verify_extension_contracts.py` has not yet emitted a
 `docs/evidence/extension/<SHA>/manifest.json`. The external suite will be rerun
 against the frozen release binary after PR-04 lands.
 
+## 3a. PR-04 — extension selection and lock v4
+
+* `crates/marqdo-package/src/lib.rs`: `ExtensionKind`/`ExtensionSource`/
+  `Extensions` with only `./path` and `@alias/path` forms; lock v4
+  `LockedExtension` identity records, deterministic ordering, duplicate/
+  idempotent merge, `validate_extension_selection`/`validate_extension_declarations`,
+  explicit v3 migration error.
+* `PackageResolver::resolve_extension_sources`: resolves to canonical regular
+  files inside the owning package (project or dependency), no execution.
+* `crates/cli/src/project_prepare.rs`: merges project-declared plugin sources
+  with `--plugin`, compares declared identity with the lock, fails closed with
+  `ext.extension_lock_mismatch`; `pure`/`strict` refuse activation in `run`.
+* `crates/cli/src/extension_selection.rs`: static identity computation for
+  plugin/kernel/provider manifests (declared digests; no binary execution).
+* `crates/cli/src/commands/package.rs`: `lock` writes v4 extension identities;
+  `sync` validates declarations/identity before materialization.
+* `crates/cli/src/commands/inspect.rs`: new `inspect --extensions` reports
+  declared sources, lock status, static plugin descriptors and stdlib aliases;
+  authorization is always `not_granted`.
+* Tests: `crates/cli/tests/extension_selection.rs` (13), `crates/marqdo-package`
+  unit tests; docs `spec/extension-selection.md`, `spec/package-format.md` v4,
+  ADR-0056.
+
 ## 4. Known gaps / deviations (not hidden)
 
-1. **PR-04 not landed yet.** `marqdo.yaml.extensions` and lock v4 are still in
-   progress; the CLI composition root for extension selection is not wired.
+1. **Frozen release evidence is not yet bound to a tagged SHA.** The external
+   suite PASSes against a `--release` build of this tree, but
+   `docs/evidence/extension/<SHA>/manifest.json` must be regenerated on the
+   final release commit and every mandatory result must be PASS there.
 2. **Provider platform claims are Linux x86_64 only**; macOS/Windows are
    explicitly unsupported for the worker transport. The RFC's mac/Windows
    provider lanes are not claimed.
@@ -191,5 +217,6 @@ against the frozen release binary after PR-04 lands.
 6. **CALL-10's host-side mismatches** are unit-tested for missing/extra exports;
    a live TOCTOU signature/digest mismatch is covered by artifact-tamper tests
    plus exact reconciliation, not by swapping a manifest mid-run.
-7. Full `--release` build, frozen external rerun, SHA-bound evidence manifest,
-   docs/STATUS/CURRENT/COMPATIBILITY/CHANGELOG finalisation remain for PR-08.
+7. Remaining PR-08 step: regenerate the SHA-bound external evidence on the
+   tagged release commit (the generator refuses a dirty checkout), then run the
+   existing G3/G4/native lanes; local/container smoke is not a release claim.

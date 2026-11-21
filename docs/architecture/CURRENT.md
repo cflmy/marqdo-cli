@@ -19,11 +19,13 @@ replace `spec/` or a recorded test log.
 > **Extensibility closure (RFC-EXT-0001).** The current tree implements the
 > single static callable binding (ADR-0054), official stdlib public aliases
 > replacing print magic (ADR-0058), third-party resource providers through the
-> normal CLI (ADR-0055), and the capability-handler registry (ADR-0057). The
-> extension selection/lock v4 composition and the frozen external-binary
-> evidence are tracked as remaining PR-04/PR-08 work, not claimed here. The
-> normative resolution contract is
-> [`spec/callable-resolution.md`](../../spec/callable-resolution.md).
+> normal CLI (ADR-0055), the capability-handler registry (ADR-0057), and
+> explicit extension selection with lock v4 (ADR-0056). The remaining PR-08
+> action is a SHA-bound frozen-release rerun of the external conformance suite
+> on the tagged commit; the suite PASSes against the release build of this tree.
+> Normative boundaries: [`spec/callable-resolution.md`](../../spec/callable-resolution.md),
+> [`spec/extension-selection.md`](../../spec/extension-selection.md),
+> [`spec/resource-provider-v2.md`](../../spec/resource-provider-v2.md).
 
 ## 1. Four state dimensions
 
@@ -34,7 +36,7 @@ platform".
 | Dimension | Current state | Source |
 |---|---|---|
 | Implemented | Rust workspace `0.1.0`: RFC-LANG-0002 Markdown/frontend/IR, v2 statement parser, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, migrated bundled stdlib, CLI composition root | `Cargo.toml`, `crates/`, `stdlib/` |
-| Tested locally | `cargo test --workspace --locked`: **584 passed, 0 failed** across 66 targets on Linux x86_64 in the RFC-EXT-0001 tree; fmt and clippy clean. Historical baseline: 507 passed at `9c1723d`. | `docs/STATUS.md`, `docs/evidence/2026-11-22-ext-implementation.md` |
+| Tested locally | `cargo test --workspace --locked`: **599 passed, 0 failed** across 67 targets on Linux x86_64 in the RFC-EXT-0001 tree; fmt and clippy clean. Historical baseline: 507 passed at `9c1723d`. | `docs/STATUS.md`, `docs/evidence/2026-11-22-ext-implementation.md` |
 | Bundled stdlib released | In-repo bundle `marqdo-stdlib@0.1.0`, SHA-256 digest verified before loading; it is **not** an external registry package | `stdlib/stdlib.json`, `stdlib/README.md` |
 | Multi-platform verified | Linux local gate is the only executed lane here; Windows/macOS native lanes are **UNVERIFIED**, and the GitHub security lane remains a **VM-only** gate | `docs/STATUS.md` §1, §4 |
 
@@ -142,6 +144,7 @@ review RFC, not a new crate per provider.
 | Resource Provider | new resource kinds/devices/network/file endpoints | v2 CLI entry implemented for trusted worker transport on linux/x86_64 (ADR-0055); v1 in-process/trusted C ABI remain embedder APIs; not one provider per high-level algorithm |
 | Foreign kernel | explicit cross-language compatibility for Python/Node one-shot execution | implemented; registry accepts an explicitly declared unknown language; not a Marqdo implementation of common algorithms |
 | Official stdlib public alias | language-surface aliases such as `打印`/`print` declared in verified bundle metadata | implemented (ADR-0058); third parties cannot claim these names |
+| Extension selection / lock v4 | `marqdo.yaml.extensions` activation sources; lock v4 manifest+artifact identity; `inspect --extensions` | implemented (ADR-0056); declaration is never a grant, `pure`/`strict` refuse third-party activation |
 | Shared registry/policy/budget/audit/trace | package/adapter identity, descriptor/version checks, per-request grants, timeouts, error classes and trace metadata | housed inside `marqdo-host`; do not invent a shared binary ABI for function calls and resource streams |
 
 ## 5. Gap and closure backlog
@@ -165,8 +168,8 @@ that a phase is complete.
 | P3 | No concurrency tasks, atomics or cancellable long-running scheduling | open; separate ADR |
 | P3 | No native optimizer/JIT or columnar numeric backend | open; benchmark-first |
 | P3 | Windows Native/Worker ABI is unsupported; macOS/Windows CI is unverified | open |
-| P0 | RFC-EXT-0001 PR-04: `marqdo.yaml.extensions` + lock v4 extension selection, CLI composition-root wiring, `inspect --extensions` | **open / in progress** |
-| P0 | RFC-EXT-0001 PR-08: frozen release binary, external conformance rerun, SHA-bound evidence manifest, final docs/status convergence | **open / in progress** |
+| P0 | RFC-EXT-0001 PR-04: `marqdo.yaml.extensions` + lock v4 extension selection, CLI composition-root wiring, `inspect --extensions` | **implemented/tested**; see `spec/extension-selection.md`, ADR-0056, `extension_selection` tests |
+| P0 | RFC-EXT-0001 PR-08: frozen release binary rerun on the tagged commit + SHA-bound evidence manifest | **remaining release step** (`tools/ci/verify_extension_contracts.py`) |
 | P1 | Provider worker transport only linux/x86_64; macOS/Windows provider lanes fail closed | open; separate platform work |
 
 ## 6. Documentation governance

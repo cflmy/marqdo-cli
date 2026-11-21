@@ -435,6 +435,34 @@ manifest is the static contract: `run` verifies the loaded artifact and its
 exports/signatures match the manifest exactly
 (`ext.plugin_binding_mismatch` otherwise) and never synthesises a signature.
 
+#### Declaring extensions in the project (lock v4)
+
+A project can declare explicit activation sources and lock their identity; a
+declaration is visibility/activation, never a grant:
+
+```yaml
+extensions:
+  plugins:
+    - from: ./adapter/plugin.yaml
+  kernels: []
+  providers:
+    - from: "@vendor/device/provider.json"
+```
+
+```bash
+marqdo lock        # writes lock_version: 4 with manifest/artifact identities
+marqdo inspect index.mq.md --extensions --json   # identity + lock status, no execution
+```
+
+Only `./relative/path` (project) and `@alias/relative/path` (declared
+dependency) are accepted; absolute paths, URLs, globs and `..` are rejected.
+`check`/`sync` compare the declaration with the lock
+(`ext.extension_lock_mismatch`), `run` additionally re-verifies the real
+artifact bytes, and `pure`/`strict` refuse project-declared third-party
+extensions. Lock v3 requires an explicit `marqdo lock` migration. See
+[`spec/extension-selection.md`](spec/extension-selection.md) and
+[`docs/adr/0056-extension-selection-locking.md`](docs/adr/0056-extension-selection-locking.md).
+
 #### Official stdlib aliases, no print magic
 
 `打印`/`print` are declared in the verified `stdlib/stdlib.json`

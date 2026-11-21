@@ -161,6 +161,15 @@ def main() -> int:
     parser.add_argument("--out", type=Path, help="Evidence manifest output path")
     parser.add_argument("--validate", type=Path, help="Only validate an existing manifest")
     parser.add_argument("--allow-unverified", action="store_true", help="Record UNSUPPORTED/SKIPPED without failing")
+    parser.add_argument(
+        "--tested-sha",
+        help="Require the source checkout HEAD to be exactly this 40-hex SHA before testing",
+    )
+    parser.add_argument(
+        "--allow-dirty-source",
+        action="store_true",
+        help="Development only: permit a dirty source checkout (never valid for release evidence)",
+    )
     args = parser.parse_args()
 
     if args.validate:
@@ -192,8 +201,29 @@ def main() -> int:
         print("error: fixture repository has uncommitted changes", file=sys.stderr)
         return 2
 
+    source_repo = args.source_repo.resolve()
+    if not args.allow_dirty_source:
+        dirty = subprocess.run(
+            ["git", "-C", str(source_repo), "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        if dirty:
+            print(
+                "error: source checkout has uncommitted changes; release evidence must "
+                "name a committed SHA (use --allow-dirty-source only for local development)",
+                file=sys.stderr,
+            )
+            return 2
     cli_before = sha256_file(cli)
-    tested_sha = git_sha(args.source_repo.resolve())
+    tested_sha = git_sha(source_repo)
+    if args.tested_sha and args.tested_sha != tested_sha:
+        print(
+            f"error: --tested-sha {args.tested_sha} does not match checkout HEAD {tested_sha}",
+            file=sys.stderr,
+        )
+        return 2
     fixture_sha = git_sha(fixtures)
     ok, results, commands = run_suite(fixtures, cli)
     cli_after = sha256_file(cli)
