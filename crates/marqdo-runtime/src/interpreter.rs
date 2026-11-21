@@ -903,6 +903,22 @@ impl<'a> Interpreter<'a> {
             })
     }
 
+    /// Accept one inbound TCP connection from a listener handle.
+    pub(crate) fn resource_accept(
+        &mut self,
+        handle: ResourceHandle,
+        module: &ModuleId,
+        span: Option<Span>,
+    ) -> Result<Value, RuntimeError> {
+        let context = ExecutionContext::new(module.to_string(), span);
+        self.host
+            .resource_accept(handle, &context)
+            .map_err(|mut error| {
+                error.mark_callsite();
+                error
+            })
+    }
+
     /// Execute one non-streaming resource operation.
     pub(crate) fn resource_request(
         &mut self,

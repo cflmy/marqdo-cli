@@ -27,7 +27,7 @@ Normative implementation:
 | Mode | Intended guarantee | Actual status in this build |
 |---|---|---|
 | `pure` | No external I/O; memory computation and budgets only. | **Enforced.** `Capabilities::pure()` = `console`, `math` only; every FS/foreign/plugin grant flag makes the CLI exit 2 with "pure mode prohibits external I/O grants". |
-| `project` | Operator-approved project resources under `CapabilityHost` + bounded resources. | **Enforced for the implemented operations.** Defaults equal `pure`; `--allow-read`, `--allow-write`, `--allow-net`, `--allow-env`, `--allow-process`, `--allow-random`, `--allow-foreign`, `--allow-plugin` add grants. `resource.open` supports stdin read, separate stdout/stderr write, granted project-file read/write (ADR-0025/0026/0040), granted in-process provider kinds (ADR-0033) and granted IP-literal TCP streams (ADR-0034); process/device remain unsupported. Sandboxing is cooperative (in-process checks), not OS isolation; in-process providers are trusted, not sandboxed. |
+| `project` | Operator-approved project resources under `CapabilityHost` + bounded resources. | **Enforced for the implemented operations.** Defaults equal `pure`; `--allow-read`, `--allow-write`, `--allow-net`, `--allow-env`, `--allow-process`, `--allow-random`, `--allow-foreign`, `--allow-plugin` add grants. `resource.open` supports stdin read, separate stdout/stderr write, granted project-file read/write (ADR-0025/0026/0040), granted in-process provider kinds (ADR-0033) and granted TCP/UDP/listener/TLS streams, including DNS names after an exact host grant (ADR-0034/0047/0048); process/device remain unsupported. Sandboxing is cooperative (in-process checks), not OS isolation; in-process providers are trusted, not sandboxed. |
 | `strict` | Untrusted documents under real OS isolation. | **Linux: enforced when the runtime probe passes (ADR-0021).** `resource.open` is **refused** in strict except for the existing `stdio/stdout` console channel (console grant); stdin/stderr, file/TCP/provider/process resources remain refused until a provider passes the isolation lane (CM-A11, ADR-0030/0034/0040). `PlatformCapabilities::detect()` runs a real Bubblewrap smoke test; success reports `Available { mechanism }`, failure reports `Unavailable { reason }`. Strict L1 supports the interpreter, console, native Math and the read-only bundled stdlib (published at `/run/marqdo-stdlib` for the Compat-C print chain); `--allow-read/--allow-write/--allow-net/--allow-env/--allow-process/--allow-random/--allow-foreign/--allow-plugin/--plugin/--trust-native-plugin/--kernel/--trace-file` are rejected with exit 2. macOS/Windows and Linux hosts without the mechanisms remain `Unavailable`; there is **no fallback** to an unrestricted process. |
 
 `marqdo inspect <file> --platform` prints the detection report, for example:
@@ -59,7 +59,7 @@ set for one run:
 | `math: bool` | `true` | `math.*` host ops |
 | `fs_read: Vec<String>` | empty | `fs.read` and project `resource.open("file", path, ["read"])` |
 | `fs_write: Vec<String>` | empty | `fs.write` and project `resource.open("file", path, ["write"])` |
-| `net_hosts: Vec<String>` | empty | exact IP-literal grants for `resource.open("tcp", "<ip>:<port>", ["read","write"])`; DNS is not resolved; `--allow-net <IP>` adds a grant (ADR-0034) |
+| `net_hosts: Vec<String>` | empty | exact host/IP grants for `resource.open("tcp"|"udp"|"tcp-listener"|"tls", "host:port", ...)`; DNS is resolved only after the host grant; TLS still validates certificates; `--allow-net <HOST>` adds a grant (ADR-0034/0047/0048) |
 | `env: Vec<String>` | empty | exact-name grants for `resource.request("env.get", [name])`; no glob and no `env.list`; `--allow-env <NAME>` adds a grant (ADR-0043) |
 | `process_programs: Vec<String>` | empty | exact program paths for `resource.request("process.run", [program, args])`; no shell, `env_clear`, project root cwd, 5 s timeout, 1 MiB stdout/stderr cap; `--allow-process <PROGRAM>` adds a grant (ADR-0044); not an OS sandbox |
 | `random: bool` | `false` | OS entropy for `resource.request("random.bytes", [count])`; `--allow-random` enables it; project mode only (ADR-0046) |
@@ -79,8 +79,8 @@ Requests versus grants:
 * CLI grant flags (`crates/cli/src/main.rs::SandboxArgs`):
   * `--allow-read <GLOB>` and `--allow-write <GLOB>` (repeatable, project mode
     only);
-  * `--allow-net <IP>` (repeatable, exact IP literal, project mode only,
-    ADR-0034);
+  * `--allow-net <HOST>` (repeatable, exact host name or IP literal, project
+    mode only, ADR-0034/0047);
   * `--allow-env <NAME>` (repeatable, exact environment variable name, project
     mode only, ADR-0043);
   * `--allow-process <PROGRAM>` (repeatable, exact program path, project mode

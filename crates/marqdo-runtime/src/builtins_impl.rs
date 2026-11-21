@@ -478,6 +478,10 @@ pub(crate) fn dispatch(
                 Err(error) => resource_recoverable(error),
             }
         }
+        "resource.accept" => {
+            let handle = resource_handle(take(&bound, "handle", builtin, span)?, span)?;
+            interpreter.resource_accept(handle, &module, span)
+        }
         "resource.request" => {
             let operation = expect_text_value(take(&bound, "operation", builtin, span)?, span)?;
             let value_type = bound["arguments"].type_name();

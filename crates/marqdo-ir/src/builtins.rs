@@ -305,6 +305,13 @@ const RESOURCE_REQUEST: Builtin = Builtin {
     named_only: false,
     effectful: true,
 };
+const RESOURCE_ACCEPT: Builtin = Builtin {
+    name: "resource.accept",
+    aliases: &[],
+    params: &[req("handle")],
+    named_only: false,
+    effectful: true,
+};
 const TABLE_CELL: Builtin = Builtin {
     name: "table.cell",
     aliases: &[],
@@ -353,6 +360,7 @@ pub const BUILTINS: &[Builtin] = &[
     RESOURCE_WRITE,
     RESOURCE_CLOSE,
     RESOURCE_REQUEST,
+    RESOURCE_ACCEPT,
 ];
 
 /// Find a builtin by canonical name or alias.

@@ -471,28 +471,21 @@ fn tcp_resource_round_trips_with_a_network_grant() {
 }
 
 #[test]
-fn tcp_requires_network_grant_and_rejects_dns_names() {
+fn tcp_requires_a_host_grant_in_project_mode() {
     let dir = tempfile::tempdir().unwrap();
     let mut host = StdHost::new(SandboxMode::Project, Capabilities::project(), dir.path());
     let ctx = context();
-    let denied = host
-        .resource_open(
-            "tcp",
-            "127.0.0.1:9",
-            &["read".to_string(), "write".to_string()],
-            &ctx,
-        )
-        .unwrap_err();
-    assert_eq!(denied.category, ErrorCategory::PermissionDenied);
-    let dns = host
-        .resource_open(
-            "tcp",
-            "example.test:80",
-            &["read".to_string(), "write".to_string()],
-            &ctx,
-        )
-        .unwrap_err();
-    assert_eq!(dns.category, ErrorCategory::ResourceUnsupported);
+    for descriptor in ["127.0.0.1:9", "example.test:80"] {
+        let denied = host
+            .resource_open(
+                "tcp",
+                descriptor,
+                &["read".to_string(), "write".to_string()],
+                &ctx,
+            )
+            .unwrap_err();
+        assert_eq!(denied.category, ErrorCategory::PermissionDenied);
+    }
 
     for mode in [SandboxMode::Pure, SandboxMode::Strict] {
         let mut host = StdHost::new(
@@ -510,6 +503,42 @@ fn tcp_requires_network_grant_and_rejects_dns_names() {
             .unwrap_err();
         assert_eq!(error.category, ErrorCategory::PermissionDenied);
     }
+}
+
+#[test]
+fn tcp_dns_name_connects_with_a_host_grant() {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut buffer = [0u8; 4];
+        stream.read_exact(&mut buffer).unwrap();
+        stream.write_all(&buffer).unwrap();
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(
+        SandboxMode::Project,
+        Capabilities::project().allow_net("localhost"),
+        dir.path(),
+    );
+    let ctx = context();
+    let handle = handle(
+        host.resource_open(
+            "tcp",
+            &format!("localhost:{port}"),
+            &["read".to_string(), "write".to_string()],
+            &ctx,
+        )
+        .unwrap(),
+    );
+    assert_eq!(host.resource_write(handle, b"ping", &ctx).unwrap(), 4);
+    assert_eq!(host.resource_read(handle, 4, &ctx).unwrap().bytes, b"ping");
+    host.resource_close(handle, &ctx).unwrap();
+    server.join().unwrap();
 }
 
 fn field<'a>(value: &'a Value, name: &str) -> &'a Value {
@@ -840,6 +869,225 @@ fn random_bytes_require_the_entropy_grant() {
     );
     let error = pure
         .resource_request("random.bytes", vec![Value::int(8)], &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+}
+
+#[test]
+fn udp_resource_round_trips_a_datagram_with_a_network_grant() {
+    use std::net::UdpSocket;
+
+    let server = UdpSocket::bind("127.0.0.1:0").unwrap();
+    let port = server.local_addr().unwrap().port();
+    let server = std::thread::spawn(move || {
+        let mut buffer = [0u8; 16];
+        let (count, peer) = server.recv_from(&mut buffer).unwrap();
+        server.send_to(&buffer[..count], peer).unwrap();
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(
+        SandboxMode::Project,
+        Capabilities::project().allow_net("127.0.0.1"),
+        dir.path(),
+    );
+    let ctx = context();
+    let handle = handle(
+        host.resource_open(
+            "udp",
+            &format!("127.0.0.1:{port}"),
+            &["read".to_string(), "write".to_string()],
+            &ctx,
+        )
+        .unwrap(),
+    );
+    assert_eq!(host.resource_write(handle, b"ping", &ctx).unwrap(), 4);
+    let read = host.resource_read(handle, 16, &ctx).unwrap();
+    assert_eq!(read.bytes, b"ping");
+    assert!(!read.eof);
+    host.resource_close(handle, &ctx).unwrap();
+    server.join().unwrap();
+}
+
+#[test]
+fn udp_is_project_only_and_grant_checked() {
+    let dir = tempfile::tempdir().unwrap();
+    let ctx = context();
+    for mode in [SandboxMode::Pure, SandboxMode::Strict] {
+        let mut host = StdHost::new(
+            mode,
+            Capabilities::project().allow_net("127.0.0.1"),
+            dir.path(),
+        );
+        let error = host
+            .resource_open(
+                "udp",
+                "127.0.0.1:9",
+                &["read".to_string(), "write".to_string()],
+                &ctx,
+            )
+            .unwrap_err();
+        assert_eq!(error.category, ErrorCategory::PermissionDenied);
+    }
+    let mut project = StdHost::new(SandboxMode::Project, Capabilities::project(), dir.path());
+    let error = project
+        .resource_open(
+            "udp",
+            "127.0.0.1:9",
+            &["read".to_string(), "write".to_string()],
+            &ctx,
+        )
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+}
+
+#[test]
+fn tcp_listener_accepts_an_inbound_connection() {
+    use std::io::{Read, Write};
+    use std::net::{TcpListener, TcpStream};
+
+    let probe = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = probe.local_addr().unwrap().port();
+    drop(probe);
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(
+        SandboxMode::Project,
+        Capabilities::project().allow_net("127.0.0.1"),
+        dir.path(),
+    );
+    let ctx = context();
+    let listener = handle(
+        host.resource_open(
+            "tcp-listener",
+            &format!("127.0.0.1:{port}"),
+            &["accept".to_string()],
+            &ctx,
+        )
+        .unwrap(),
+    );
+    let client = std::thread::spawn(move || {
+        let mut stream = TcpStream::connect(format!("127.0.0.1:{port}")).unwrap();
+        stream.write_all(b"ping").unwrap();
+        let mut buffer = [0u8; 4];
+        stream.read_exact(&mut buffer).unwrap();
+        assert_eq!(&buffer, b"ping");
+    });
+
+    let accepted = host.resource_accept(listener, &ctx).unwrap();
+    let value = field(&accepted, "value");
+    let Value::Resource(connection) = value else {
+        panic!("resource.accept did not return a Resource");
+    };
+    assert_eq!(
+        host.resource_read(*connection, 4, &ctx).unwrap().bytes,
+        b"ping"
+    );
+    assert_eq!(host.resource_write(*connection, b"ping", &ctx).unwrap(), 4);
+    host.resource_close(*connection, &ctx).unwrap();
+    host.resource_close(listener, &ctx).unwrap();
+    client.join().unwrap();
+}
+
+#[test]
+fn tcp_listener_requires_accept_rights_and_project_mode() {
+    let dir = tempfile::tempdir().unwrap();
+    let ctx = context();
+    let mut project = StdHost::new(
+        SandboxMode::Project,
+        Capabilities::project().allow_net("127.0.0.1"),
+        dir.path(),
+    );
+    let error = project
+        .resource_open("tcp-listener", "127.0.0.1:9", &["read".to_string()], &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::ResourceUnsupported);
+    let mut strict = StdHost::new(
+        SandboxMode::Strict,
+        Capabilities::project().allow_net("127.0.0.1"),
+        dir.path(),
+    );
+    let error = strict
+        .resource_open("tcp-listener", "127.0.0.1:9", &["accept".to_string()], &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+}
+
+#[test]
+fn tls_resource_round_trips_with_an_explicit_root() {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::Arc;
+
+    let certified = rcgen::generate_simple_self_signed(vec!["localhost".to_string()]).unwrap();
+    let certificate = certified.cert.der().clone();
+    let key = rustls::pki_types::PrivateKeyDer::Pkcs8(rustls::pki_types::PrivatePkcs8KeyDer::from(
+        certified.key_pair.serialize_der(),
+    ));
+    let config = rustls::ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(vec![certificate.clone()], key)
+        .unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = std::thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        let connection = rustls::ServerConnection::new(Arc::new(config)).unwrap();
+        let mut stream = rustls::StreamOwned::new(connection, stream);
+        let mut buffer = [0u8; 4];
+        stream.read_exact(&mut buffer).unwrap();
+        stream.write_all(&buffer).unwrap();
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(
+        SandboxMode::Project,
+        Capabilities::project().allow_net("localhost"),
+        dir.path(),
+    )
+    .with_tls_ca(certificate);
+    let ctx = context();
+    let handle = handle(
+        host.resource_open(
+            "tls",
+            &format!("localhost:{port}"),
+            &["read".to_string(), "write".to_string()],
+            &ctx,
+        )
+        .unwrap(),
+    );
+    assert_eq!(host.resource_write(handle, b"ping", &ctx).unwrap(), 4);
+    assert_eq!(host.resource_read(handle, 4, &ctx).unwrap().bytes, b"ping");
+    host.resource_close(handle, &ctx).unwrap();
+    server.join().unwrap();
+}
+
+#[test]
+fn tls_requires_project_mode_and_a_host_grant() {
+    let dir = tempfile::tempdir().unwrap();
+    let ctx = context();
+    let mut project = StdHost::new(SandboxMode::Project, Capabilities::project(), dir.path());
+    let error = project
+        .resource_open(
+            "tls",
+            "localhost:9",
+            &["read".to_string(), "write".to_string()],
+            &ctx,
+        )
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+    let mut strict = StdHost::new(
+        SandboxMode::Strict,
+        Capabilities::project().allow_net("localhost"),
+        dir.path(),
+    );
+    let error = strict
+        .resource_open(
+            "tls",
+            "localhost:9",
+            &["read".to_string(), "write".to_string()],
+            &ctx,
+        )
         .unwrap_err();
     assert_eq!(error.category, ErrorCategory::PermissionDenied);
 }

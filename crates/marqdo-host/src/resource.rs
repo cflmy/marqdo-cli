@@ -7,7 +7,9 @@
 
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::net::{TcpListener, TcpStream, UdpSocket};
+
+use rustls::{ClientConnection, StreamOwned};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -81,6 +83,7 @@ struct StdinCursor {
     position: usize,
 }
 
+#[allow(clippy::large_enum_variant)]
 enum Stream {
     Stdin {
         cursor: Arc<Mutex<StdinCursor>>,
@@ -113,6 +116,18 @@ enum Stream {
         stream: TcpStream,
         closed: bool,
     },
+    Udp {
+        socket: UdpSocket,
+        closed: bool,
+    },
+    TcpListener {
+        listener: TcpListener,
+        closed: bool,
+    },
+    Tls {
+        stream: StreamOwned<ClientConnection, TcpStream>,
+        closed: bool,
+    },
 }
 
 struct Slot {
@@ -130,6 +145,9 @@ impl Slot {
             Stream::FileWriter { closed, .. } => *closed,
             Stream::Provider { closed, .. } => *closed,
             Stream::Tcp { closed, .. } => *closed,
+            Stream::Udp { closed, .. } => *closed,
+            Stream::TcpListener { closed, .. } => *closed,
+            Stream::Tls { closed, .. } => *closed,
         }
     }
 }
@@ -205,7 +223,11 @@ impl ResourceTable {
             Stream::Stdout { .. } => Some("stdout"),
             Stream::Stderr { .. } => Some("stderr"),
             Stream::File { .. } | Stream::FileWriter { .. } => None,
-            Stream::Provider { .. } | Stream::Tcp { .. } => None,
+            Stream::Provider { .. }
+            | Stream::Tcp { .. }
+            | Stream::Udp { .. }
+            | Stream::TcpListener { .. }
+            | Stream::Tls { .. } => None,
         })
     }
 
@@ -234,6 +256,83 @@ impl ResourceTable {
             stream,
             closed: false,
         })
+    }
+
+    /// Register a connected UDP socket.
+    pub fn open_udp(&mut self, socket: UdpSocket) -> ResourceHandle {
+        self.insert(Stream::Udp {
+            socket,
+            closed: false,
+        })
+    }
+
+    /// Register a bound TCP listener.
+    pub fn open_tcp_listener(&mut self, listener: TcpListener) -> ResourceHandle {
+        self.insert(Stream::TcpListener {
+            listener,
+            closed: false,
+        })
+    }
+
+    /// Register a TLS client stream over a TCP socket.
+    pub fn open_tls(&mut self, stream: StreamOwned<ClientConnection, TcpStream>) -> ResourceHandle {
+        self.insert(Stream::Tls {
+            stream,
+            closed: false,
+        })
+    }
+
+    /// Accept one inbound TCP connection from a listener, with a 5 s deadline.
+    pub fn accept(
+        &mut self,
+        handle: ResourceHandle,
+        span: Option<Span>,
+    ) -> Result<ResourceHandle, RuntimeError> {
+        let slot = self.slot_mut(handle, span)?;
+        if slot.closed() {
+            return Err(RuntimeError::new(
+                ErrorCategory::ResourceClosed,
+                span,
+                "Resource handle is closed",
+            ));
+        }
+        let Stream::TcpListener { listener, .. } = &mut slot.stream else {
+            return Err(RuntimeError::new(
+                ErrorCategory::ResourceUnsupported,
+                span,
+                "resource.accept requires a tcp-listener handle",
+            ));
+        };
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            match listener.accept() {
+                Ok((stream, _)) => {
+                    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
+                    let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(5)));
+                    return Ok(self.insert(Stream::Tcp {
+                        stream,
+                        closed: false,
+                    }));
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    if std::time::Instant::now() >= deadline {
+                        return Err(RuntimeError::new(
+                            ErrorCategory::HostError,
+                            span,
+                            "tcp-listener accept timed out after 5 seconds",
+                        ));
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(error) => {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("tcp-listener accept failed: {error}"),
+                    ))
+                }
+            }
+        }
     }
 
     /// Open a provider token and wrap it in a host-issued handle.
@@ -395,6 +494,41 @@ impl ResourceTable {
                     eof: count == 0,
                 })
             }
+            Stream::TcpListener { .. } => Err(RuntimeError::new(
+                ErrorCategory::ResourceUnsupported,
+                span,
+                "a tcp-listener does not support resource.read; use resource.accept",
+            )),
+            Stream::Tls { stream, .. } => {
+                let mut buffer = vec![0u8; max_bytes];
+                let count = stream.read(&mut buffer).map_err(|error| {
+                    RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("tls read failed: {error}"),
+                    )
+                })?;
+                buffer.truncate(count);
+                Ok(ResourceRead {
+                    bytes: buffer,
+                    eof: count == 0,
+                })
+            }
+            Stream::Udp { socket, .. } => {
+                let mut buffer = vec![0u8; max_bytes];
+                let count = socket.recv(&mut buffer).map_err(|error| {
+                    RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("udp read failed: {error}"),
+                    )
+                })?;
+                buffer.truncate(count);
+                Ok(ResourceRead {
+                    bytes: buffer,
+                    eof: false,
+                })
+            }
         }
     }
 
@@ -478,6 +612,25 @@ impl ResourceTable {
                     format!("tcp write failed: {error}"),
                 )
             }),
+            Stream::TcpListener { .. } => Err(RuntimeError::new(
+                ErrorCategory::ResourceUnsupported,
+                span,
+                "a tcp-listener does not support resource.write; use resource.accept",
+            )),
+            Stream::Tls { stream, .. } => stream.write(bytes).map_err(|error| {
+                RuntimeError::new(
+                    ErrorCategory::HostError,
+                    span,
+                    format!("tls write failed: {error}"),
+                )
+            }),
+            Stream::Udp { socket, .. } => socket.send(bytes).map_err(|error| {
+                RuntimeError::new(
+                    ErrorCategory::HostError,
+                    span,
+                    format!("udp write failed: {error}"),
+                )
+            }),
         }
     }
 
@@ -515,6 +668,9 @@ impl ResourceTable {
                 let _ = stream.shutdown(std::net::Shutdown::Both);
                 *closed = true;
             }
+            Stream::Udp { closed, .. } => *closed = true,
+            Stream::TcpListener { closed, .. } => *closed = true,
+            Stream::Tls { closed, .. } => *closed = true,
         }
         Ok(())
     }
@@ -555,6 +711,9 @@ impl ResourceTable {
             Stream::File { .. } | Stream::FileWriter { .. } => "file".to_string(),
             Stream::Provider { kind, .. } => kind.clone(),
             Stream::Tcp { .. } => "tcp".to_string(),
+            Stream::Udp { .. } => "udp".to_string(),
+            Stream::TcpListener { .. } => "tcp-listener".to_string(),
+            Stream::Tls { .. } => "tls".to_string(),
         })
     }
 }

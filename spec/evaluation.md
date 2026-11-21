@@ -166,6 +166,8 @@ resource.write(handle, memory: Memory, offset: Int, length: Int)
     -> {ok:true, value:{count:Int}} | {ok:false, code, message}
 resource.close(handle)
     -> {ok:true, value:None} | {ok:false, code, message}
+resource.accept(listener)
+    -> {ok:true, value:Resource} | {ok:false, code, message}
 resource.request(operation: Text, arguments: List) -> Result
 ```
 
@@ -342,6 +344,7 @@ host boundary. Names are stable; adding one requires a spec update.
 | `resource.read` | `(handle, memory: Memory, offset: Int, max_bytes: Int) -> Result` | bounded chunk read into Memory; `{count,eof}` |
 | `resource.write` | `(handle, memory: Memory, offset: Int, length: Int) -> Result` | bounded byte write; `{count}` |
 | `resource.close` | `(handle) -> Result` | releases the host slot |
+| `resource.accept` | `(listener) -> Result` | accepts one TCP connection from a `tcp-listener` handle (ADR-0047) |
 | `resource.request` | `(operation: Text, arguments: List) -> Result` | non-streaming `fs.*` operations (ADR-0041) `clock.now` (ADR-0042), `env.get` (ADR-0043), `process.run` (ADR-0044) and `random.bytes` (ADR-0046); project-mode and grant-checked |
 | `math.parse/eval/substitute` | see `spec/math.md` | P5; `math.simplify`/`math.differentiate` are declared but return `math.unsupported` in this build |
 | `foreign.run/call` | see `spec/foreign.md` | P5, capability-gated |

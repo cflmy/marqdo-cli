@@ -5,7 +5,7 @@
 //! execution, not at parse/compile time.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::net::{SocketAddr, TcpStream};
+use std::net::{TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -14,6 +14,7 @@ use marqdo_plugin_abi::{
 };
 use marqdo_span::Span;
 use marqdo_value::{ErrorCategory, ResourceHandle, RuntimeError, Value};
+use rustls::pki_types::CertificateDer;
 
 use crate::budget::Budget;
 use crate::capability::{Capabilities, CapabilityAudit, CapabilityBroker};
@@ -144,6 +145,22 @@ pub trait Host {
         ))
     }
 
+    /// Accept one inbound TCP connection from a `tcp-listener` handle.
+    ///
+    /// Default: unavailable. The standard host returns a new `Resource` in a
+    /// recoverable `{ok,value}` map or `{ok:false,code:"tcp.timeout"}`.
+    fn resource_accept(
+        &mut self,
+        _handle: ResourceHandle,
+        ctx: &ExecutionContext,
+    ) -> Result<Value, RuntimeError> {
+        Err(RuntimeError::new(
+            ErrorCategory::ResourceUnsupported,
+            ctx.span,
+            "this host does not provide tcp listeners",
+        ))
+    }
+
     /// Execute one non-streaming resource operation (ADR-0041).
     ///
     /// Default: unavailable. The standard host implements the `fs.*` group;
@@ -221,6 +238,8 @@ pub struct StdHost {
     plugin_exports: BTreeMap<String, usize>,
     /// Trusted vendor capability policy entries for the broker.
     vendor_capabilities: BTreeSet<String>,
+    /// Extra TLS roots explicitly trusted by the embedder (DER).
+    tls_extra_roots: Vec<CertificateDer<'static>>,
     /// Shared audit log for plugin capability requests.
     broker_audit: Arc<Mutex<Vec<CapabilityAudit>>>,
     /// Host-issued opaque plugin handles.
@@ -289,6 +308,7 @@ impl StdHost {
             plugins: Vec::new(),
             plugin_exports: BTreeMap::new(),
             vendor_capabilities: BTreeSet::new(),
+            tls_extra_roots: Vec::new(),
             broker_audit: Arc::new(Mutex::new(Vec::new())),
             handles: PluginHandleTable::default(),
             stderr: Vec::new(),
@@ -298,6 +318,16 @@ impl StdHost {
             next_event_seq: 0,
             trace_state: TraceState::default(),
         }
+    }
+
+    /// Add one explicit TLS root certificate (DER) for `resource.open("tls")`.
+    ///
+    /// System roots are always tried first; this adds a private CA for
+    /// embedders and tests. The certificate is a trust decision, not a grant:
+    /// the exact host grant is still required.
+    pub fn with_tls_ca(mut self, certificate: CertificateDer<'static>) -> Self {
+        self.tls_extra_roots.push(certificate);
+        self
     }
 
     /// Load a native plugin in-process after an explicit trust decision.
@@ -710,6 +740,27 @@ impl Host for StdHost {
             &format!("flushed_bytes={count}"),
         );
         Ok(())
+    }
+
+    fn resource_accept(
+        &mut self,
+        handle: ResourceHandle,
+        ctx: &ExecutionContext,
+    ) -> Result<Value, RuntimeError> {
+        let started = Instant::now();
+        let accepted = self.resources.accept(handle, ctx.span)?;
+        self.record_semantic(
+            "resource.accept",
+            None,
+            Some(&ctx.module_id),
+            ctx.span,
+            Some("kind=tcp-listener"),
+        );
+        self.record_resource_effect("resource.accept", ctx, started, "ok");
+        let mut map = BTreeMap::new();
+        map.insert("ok".to_string(), Value::Bool(true));
+        map.insert("value".to_string(), Value::Resource(accepted));
+        Ok(Value::Map(map))
     }
 
     fn resource_request(

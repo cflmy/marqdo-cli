@@ -10,6 +10,8 @@ authors.workspace = true
 
 [dependencies]
 libloading = { workspace = true }
+rustls = { workspace = true }
+rustls-native-certs = { workspace = true }
 marqdo-plugin-abi = { workspace = true }
 getrandom = { workspace = true }
 glob = { workspace = true }
@@ -25,3 +27,5 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+rcgen = { workspace = true }
+rustls-pemfile = { workspace = true }

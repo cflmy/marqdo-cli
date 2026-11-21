@@ -58,7 +58,7 @@ byte-identical).
 cargo fmt --all -- --check                            PASS
 cargo clippy --workspace --all-targets -- -D warnings PASS
 cargo test --workspace --locked                       PASS
-  481 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
+  488 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
 ```
 
 The documentation and test migration is local work; re-run this block after it
@@ -267,11 +267,12 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 4. `fs.write`, `net.request`, `process`, `clock`, `random` are not executed
    broker services; unsupported requests must return `capability.unavailable`.
 5. Resource streams cover project-file read/write (including `std:fs/file`
-   read/write/copy), non-streaming `resource.request` `fs.*` metadata/directory
-   operations, stdout, compatible print, trusted in-process providers and
-   IP-literal TCP; append/seek/watch, process, device, DNS/TLS/HTTP, UDP and
-   provider packaging remain open. Strict permits only stdio and refuses the
-   rest (CM-A11 lane PASS).
+   read/write/copy/append/read_at/walk), non-streaming `resource.request`
+   `fs.*` metadata/directory operations, stdout, compatible print, trusted
+   in-process providers and TCP/UDP/listener/TLS endpoints with DNS
+   resolution after an exact host grant. File watch, device and provider
+   packaging remain open. Strict permits only stdio and refuses the rest (CM-A11 lane
+   PASS).
 6. uv/npm/venv provisioning is not implemented. Only a pre-provisioned,
    digest-pinned directory with a regular-file executable is supported.
 7. No Windows/macOS RC archive exists from this host. The release-candidate

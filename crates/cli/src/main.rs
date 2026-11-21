@@ -86,8 +86,8 @@ struct SandboxArgs {
     /// Grant read access to a project-relative glob (repeatable).
     #[arg(long = "allow-read", value_name = "GLOB")]
     allow_read: Vec<String>,
-    /// Grant network access to an IP literal host (repeatable, ADR-0034).
-    #[arg(long = "allow-net", value_name = "IP")]
+    /// Grant network access to a host name or IP literal (repeatable, ADR-0034/0047).
+    #[arg(long = "allow-net", value_name = "HOST")]
     allow_net: Vec<String>,
     /// Grant write access to a project-relative glob (repeatable).
     #[arg(long = "allow-write", value_name = "GLOB")]
