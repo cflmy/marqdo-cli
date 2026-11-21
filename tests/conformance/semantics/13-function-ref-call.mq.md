@@ -1,11 +1,11 @@
-## 加一
+## @exec 加一
 
-**n = n + 1**
+`n = n + 1`
 
-*n*
+`return n`
 
-## main
+## @exec main
 
-**f = ref("#加一")**
+`f = ref("#加一")`
 
-*f(n=41)*
+`return f(n=41)`

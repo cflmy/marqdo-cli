@@ -50,39 +50,41 @@ import:
   编码: "std:text"
 ---
 
-## main
+## @exec main
 
-**流 = resource.open("tcp", "{address}", ["read", "write"])**
+`流 = resource.open("tcp", "{address}", ["read", "write"])`
 
-**请求 = http.构建请求("GET", "/", [["Host", "example.test"]], "")**
+`请求 = http.构建请求("GET", "/", [["Host", "example.test"]], "")`
 
-**请求内存 = memory.new(1, 1)**
+`请求内存 = memory.new(1, 1)`
 
-**请求长度 = 编码.utf8编码(请求, 请求内存, 0)**
+`请求长度 = 编码.utf8编码(请求, 请求内存, 0)`
 
-**写入 = resource.write(流, 请求内存, 0, 请求长度)**
+`写入 = resource.write(流, 请求内存, 0, 请求长度)`
 
-**接收 = memory.new(1, 1)**
+`接收 = memory.new(1, 1)`
 
-**读出 = resource.read(流, 接收, 0, 4096)**
+`读出 = resource.read(流, 接收, 0, 4096)`
 
-**数量 = 读出.value.count**
+`数量 = 读出.value.count`
 
-**响应文本 = ""**
+`响应文本 = ""`
 
-**下标 = 0**
+`下标 = 0`
 
-- `下标 < 数量`
+`while 下标 < 数量`
 
-  **响应文本 = 响应文本 + text.from_codepoint(接收[下标])**
+`响应文本 = 响应文本 + text.from_codepoint(接收[下标])`
 
-  **下标 = 下标 + 1**
+`下标 = 下标 + 1`
 
-**关闭 = resource.close(流)**
+`end`
 
-**响应 = http.解析响应(响应文本)**
+`关闭 = resource.close(流)`
 
-*[写入.ok, 读出.ok, 响应.状态, 响应.头["Content-Type"], 响应.体, 关闭.ok]*
+`响应 = http.解析响应(响应文本)`
+
+`return [写入.ok, 读出.ok, 响应.状态, 响应.头["Content-Type"], 响应.体, 关闭.ok]`
 "#
     );
     std::fs::write(dir.path().join("index.mq.md"), program).unwrap();

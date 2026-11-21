@@ -16,7 +16,7 @@
 use std::collections::BTreeMap;
 
 use marqdo_ir::{FunctionId, ModuleId, UnitId, UnitInfo, UnitKind};
-use marqdo_markdown::{normalize_name, plain_text, MarkdownDocument, MdKind};
+use marqdo_markdown::{normalize_name, plain_text, MarkdownDocument, MdKind, MdNode};
 use marqdo_span::Span;
 use marqdo_value::{codes, Diagnostic};
 
@@ -35,6 +35,8 @@ pub struct HeadingInfo {
     pub path: Vec<String>,
     /// Role derived from level and position.
     pub kind: UnitKind,
+    /// Semantic mode declared or inherited by this heading.
+    pub mode: SemanticMode,
 }
 
 /// A function range mapped from a level-2 heading.
@@ -93,6 +95,91 @@ impl UnitIndex {
     }
 }
 
+fn has_payload(node: &MdNode) -> bool {
+    match &node.kind {
+        MdKind::Strong | MdKind::Emph | MdKind::Code { .. } => true,
+        MdKind::Paragraph | MdKind::List { .. } | MdKind::Item { .. } | MdKind::BlockQuote => {
+            node.children.iter().any(has_payload)
+        }
+        _ => false,
+    }
+}
+
+/// Build the heading/function index for a parsed document.
+/// Semantic mode declared or inherited by a heading (RFC-LANG-0002).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SemanticMode {
+    /// Document/knowledge region; no executable statements.
+    Knowledge,
+    /// Executable region; only an Exec H2 is callable.
+    Exec,
+}
+
+fn heading_declaration(
+    node: &MdNode,
+) -> (Option<SemanticMode>, Option<String>, Option<Diagnostic>) {
+    let Some(first) = node.children.first() else {
+        return (None, None, None);
+    };
+    let MdKind::Text = first.kind else {
+        return (None, None, None);
+    };
+    let literal = first.literal.as_deref().unwrap_or_default();
+    let (mode, rest) = if let Some(rest) = literal.strip_prefix("@exec") {
+        if !rest.is_empty() && !rest.starts_with(char::is_whitespace) {
+            return (None, None, None);
+        }
+        (SemanticMode::Exec, rest)
+    } else if let Some(rest) = literal.strip_prefix("@knowledge") {
+        if !rest.is_empty() && !rest.starts_with(char::is_whitespace) {
+            return (None, None, None);
+        }
+        (SemanticMode::Knowledge, rest)
+    } else if literal.starts_with('@')
+        && literal
+            .trim_start_matches('@')
+            .chars()
+            .next()
+            .is_some_and(char::is_alphabetic)
+    {
+        return (
+            None,
+            None,
+            Some(Diagnostic::error(
+                codes::SEM_INVALID_MODE_MARKER,
+                Some(first.span),
+                "unknown heading mode marker; use exactly `@exec` or `@knowledge`",
+            )),
+        );
+    } else {
+        return (None, None, None);
+    };
+    let title = rest.trim();
+    if title.is_empty() {
+        return (
+            Some(mode),
+            None,
+            Some(Diagnostic::error(
+                codes::SEM_EMPTY_UNIT_NAME,
+                Some(node.span),
+                "mode declaration has an empty heading name",
+            )),
+        );
+    }
+    if title.starts_with("@exec") || title.starts_with("@knowledge") {
+        return (
+            Some(mode),
+            None,
+            Some(Diagnostic::error(
+                codes::SEM_INVALID_MODE_MARKER,
+                Some(node.span),
+                "a heading may declare only one semantic mode",
+            )),
+        );
+    }
+    (Some(mode), Some(title.to_string()), None)
+}
+
 /// Build the heading/function index for a parsed document.
 pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
     let mut index = UnitIndex::default();
@@ -108,8 +195,8 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
         function: None,
     });
 
-    // Stack of (level, path) for ancestor headings with smaller level.
-    let mut stack: Vec<(u8, Vec<String>)> = Vec::new();
+    // Stack of (level, path, mode) for ancestors.
+    let mut stack: Vec<(u8, Vec<String>, SemanticMode)> = Vec::new();
     let mut seen: BTreeMap<(Vec<String>, String), Span> = BTreeMap::new();
     let mut current_namespace: Option<String> = None;
     let mut current_function: Option<FunctionId> = None;
@@ -120,11 +207,26 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
             continue;
         };
         let level = *level;
-        let raw_name = normalize_name(&plain_text(child));
-        let Some(name) = raw_name else {
+        let (declared, declared_name, declaration_error) = heading_declaration(child);
+        if let Some(error) = declaration_error {
+            index.diagnostics.push(error);
+            if declared_name.is_none() {
+                continue;
+            }
+        }
+        let inherited = stack
+            .last()
+            .map(|(_, _, mode)| *mode)
+            .unwrap_or(SemanticMode::Knowledge);
+        let mode = declared.unwrap_or(inherited);
+        let raw_name = match declared_name {
+            Some(name) => name,
+            None => plain_text(child),
+        };
+        let Some(name) = normalize_name(&raw_name) else {
             index.diagnostics.push(
                 Diagnostic::error(
-                    codes::MARKDOWN_INVALID_CONSTRUCT,
+                    codes::SEM_EMPTY_UNIT_NAME,
                     Some(child.span),
                     "heading name must not be empty",
                 )
@@ -133,7 +235,7 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
             continue;
         };
 
-        while let Some((parent_level, _)) = stack.last() {
+        while let Some((parent_level, _, _)) = stack.last() {
             if *parent_level >= level {
                 stack.pop();
             } else {
@@ -142,7 +244,7 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
         }
         let parent_path = stack
             .last()
-            .map(|(_, path)| path.clone())
+            .map(|(_, path, _)| path.clone())
             .unwrap_or_default();
         let path = {
             let mut path = parent_path.clone();
@@ -150,14 +252,12 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
             path
         };
 
-        // Duplicate canonical names in the same scope are a hard error; never
-        // silently rename with -1/-2 suffixes.
         let key = (parent_path.clone(), name.clone());
         if let Some(previous) = seen.get(&key) {
             let previous = *previous;
             index.diagnostics.push(
                 Diagnostic::error(
-                    codes::MARKDOWN_INVALID_CONSTRUCT,
+                    codes::SEM_DUPLICATE_UNIT_NAME,
                     Some(child.span),
                     format!("duplicate heading name `{name}` in the same scope"),
                 )
@@ -170,14 +270,25 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
 
         let kind = match level {
             1 => UnitKind::Namespace,
-            2 => UnitKind::Function,
+            2 if mode == SemanticMode::Exec => UnitKind::Function,
+            2 => UnitKind::Knowledge,
             _ => UnitKind::Section,
         };
         if level == 1 {
             current_namespace = Some(name.clone());
             current_function = None;
         }
-        let function = if level == 2 {
+        if level >= 3 && mode == SemanticMode::Exec && current_function.is_none() {
+            index.diagnostics.push(
+                Diagnostic::error(
+                    codes::SEM_EXEC_WITHOUT_FUNCTION,
+                    Some(child.span),
+                    "executable section has no owning Exec H2 function",
+                )
+                .with_hint("put the section under an Exec H2, or mark it @knowledge"),
+            );
+        }
+        let function = if level == 2 && mode == SemanticMode::Exec {
             let local = name.clone();
             let qualified = match &current_namespace {
                 Some(namespace) => format!("{namespace}.{local}"),
@@ -189,9 +300,12 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
             };
             current_function = Some(id.clone());
             Some(id)
-        } else if level >= 3 {
+        } else if level >= 3 && mode == SemanticMode::Exec {
             current_function.clone()
         } else {
+            if level <= 2 {
+                current_function = None;
+            }
             None
         };
 
@@ -202,6 +316,7 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
             span: child.span,
             path: path.clone(),
             kind,
+            mode,
         };
         let unit_id = UnitId {
             module: module.clone(),
@@ -215,12 +330,40 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
             kind,
             function,
         });
+        if level == 1 && mode == SemanticMode::Exec {
+            // H1 Exec: direct-body carriers before the next heading have no
+            // owning H2 function. A Knowledge H2 body is inert (inline code
+            // there is documentation), and Exec H3 sections are checked above.
+            let mut scan = node_index + 1;
+            while scan < doc.root.children.len() {
+                if let MdKind::Heading { .. } = doc.root.children[scan].kind {
+                    break;
+                }
+                if has_payload(&doc.root.children[scan]) {
+                    index.diagnostics.push(Diagnostic::error(
+                        codes::SEM_EXEC_WITHOUT_FUNCTION,
+                        Some(doc.root.children[scan].span),
+                        "executable payload has no owning Exec H2 function",
+                    ));
+                    break;
+                }
+                scan += 1;
+            }
+        }
         heading_infos.push(info.clone());
-        stack.push((level, info.path.clone()));
+        stack.push((level, info.path.clone(), mode));
     }
 
     // Function body ranges and spans.
     for heading in heading_infos.iter().filter(|h| h.level == 2) {
+        // A Knowledge H2 has no function range.
+        if !index
+            .units
+            .iter()
+            .any(|unit| unit.id.path == heading.path && unit.kind == UnitKind::Function)
+        {
+            continue;
+        }
         let body_start = heading.node_index + 1;
         let body_end = doc.root.children[body_start..]
             .iter()
@@ -239,33 +382,23 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
         } else {
             heading.span
         };
-        let local_name = heading.name.clone();
-        let namespace = match heading.path.len() {
-            0 => None,
-            _ if heading.path.len() == 1 => None,
-            _ => Some(heading.path[0].clone()),
-        };
-        let namespace = namespace.filter(|_| {
-            index
-                .units
-                .iter()
-                .any(|unit| unit.kind == UnitKind::Namespace && unit.name == heading.path[0])
-        });
-        let qualified = match &namespace {
-            Some(namespace) => format!("{namespace}.{local_name}"),
-            None => local_name.clone(),
+        let unit = index
+            .units
+            .iter()
+            .find(|unit| unit.id.path == heading.path && unit.kind == UnitKind::Function)
+            .expect("function unit exists");
+        let FunctionId { name, .. } = unit.function.clone().expect("function id");
+        let local_name = name.rsplit('.').next().unwrap_or(&name).to_string();
+        let namespace = if name.contains('.') {
+            Some(name.rsplit_once('.').unwrap().0.to_string())
+        } else {
+            None
         };
         index.functions.push(FunctionScope {
-            id: FunctionId {
-                module: module.clone(),
-                name: qualified,
-            },
+            id: unit.function.clone().unwrap(),
             local_name,
             namespace,
-            unit: UnitId {
-                module: module.clone(),
-                path: heading.path.clone(),
-            },
+            unit: unit.id.clone(),
             heading_span: heading.span,
             body_start,
             body_end,
@@ -273,66 +406,33 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
         });
     }
 
-    // Warnings for would-be execution nodes outside every function body.
-    for (node_index, child) in doc.root.children.iter().enumerate() {
-        if index.function_containing_block(node_index).is_some() {
+    for heading in &heading_infos {
+        let Some(unit) = index.units.iter().find(|unit| unit.id.path == heading.path) else {
+            continue;
+        };
+        let slug = github_slug(&heading.name);
+        if slug.is_empty() {
             continue;
         }
-        let mut warn = |span: Span, what: &str| {
-            index.diagnostics.push(
-                Diagnostic::warning(
-                    codes::MARKDOWN_INERT_EXECUTABLE,
-                    Some(span),
-                    format!("{what} outside a function body is inert document content"),
-                )
-                .with_hint("move it under a level-2 heading (`## 函数名`) to execute it"),
-            );
-        };
-        match &child.kind {
-            MdKind::BlockQuote => warn(child.span, "a block quote invocation"),
-            MdKind::List { .. } => warn(child.span, "a list control structure"),
-            MdKind::Paragraph => {
-                let mut found: Option<(Span, &'static str)> = None;
-                child.walk(&mut |node| {
-                    if found.is_none() {
-                        match node.kind {
-                            MdKind::Strong => found = Some((node.span, "an execution statement")),
-                            MdKind::Emph => found = Some((node.span, "a return statement")),
-                            _ => {}
-                        }
-                    }
-                });
-                if let Some((span, what)) = found {
-                    warn(span, what);
+        let mut count = index.anchors.keys().filter(|key| *key == &slug).count();
+        let key = if count == 0 {
+            slug.clone()
+        } else {
+            loop {
+                count += 1;
+                let candidate = format!("{slug}-{count}");
+                if !index.anchors.contains_key(&candidate) {
+                    break candidate;
                 }
             }
-            _ => {}
-        }
-    }
-
-    // Derive GitHub-style anchors for navigation and `ref("#...")`. Anchors are
-    // not identity: they may collide and receive -1/-2 suffixes exactly like
-    // GitHub's slugger, while internal ids stay canonical.
-    let mut slug_counts: BTreeMap<String, usize> = BTreeMap::new();
-    for unit in &index.units {
-        if unit.level == 0 {
-            continue;
-        }
-        let base = github_slug(&unit.name);
-        if base.is_empty() {
-            continue;
-        }
-        let count = slug_counts.entry(base.clone()).or_insert(0);
-        let slug = if *count == 0 {
-            base
-        } else {
-            format!("{base}-{count}")
         };
-        *count += 1;
-        index.anchors.insert(slug, unit.id.clone());
+        index.anchors.insert(key, unit.id.clone());
     }
 
     index.headings = heading_infos;
+    index
+        .diagnostics
+        .dedup_by(|a, b| a.code == b.code && a.span == b.span && a.message == b.message);
     index
 }
 
@@ -366,7 +466,7 @@ mod tests {
     #[test]
     fn builds_function_ranges() {
         let index = index_of(
-            "# 命名空间\n\n## 阶乘\n\n**x = 1**\n\n### 小节\n\n正文\n\n## 下一个\n\n*y*\n",
+            "# @knowledge 命名空间\n\n## @exec 阶乘\n\n`x = 1`\n\n### 小节\n\n正文\n\n## @exec 下一个\n\n`return y`\n",
         );
         assert_eq!(index.functions.len(), 2);
         assert_eq!(index.functions[0].local_name, "阶乘");
@@ -380,7 +480,7 @@ mod tests {
 
     #[test]
     fn root_level_function_without_namespace() {
-        let index = index_of("## main\n\n> 打印(1)\n");
+        let index = index_of("## @exec main\n\n`打印(1)`\n");
         assert_eq!(index.functions.len(), 1);
         assert_eq!(index.functions[0].id.name, "main");
         assert!(index.functions[0].namespace.is_none());
@@ -389,16 +489,16 @@ mod tests {
 
     #[test]
     fn empty_heading_is_an_error() {
-        let index = index_of("##   \n\n正文\n");
+        let index = index_of("## @exec\n\n正文\n");
         assert!(index
             .diagnostics
             .iter()
-            .any(|d| d.code == codes::MARKDOWN_INVALID_CONSTRUCT && d.message.contains("empty")));
+            .any(|d| d.code == "sem.empty_unit_name" && d.message.contains("empty")));
     }
 
     #[test]
     fn duplicate_function_names_are_errors() {
-        let index = index_of("## f\n\n## f\n");
+        let index = index_of("## @exec f\n\n## @exec f\n");
         let errors = index
             .diagnostics
             .iter()
@@ -409,7 +509,7 @@ mod tests {
 
     #[test]
     fn same_name_in_different_namespaces_is_allowed() {
-        let index = index_of("# a\n\n## f\n\n# b\n\n## f\n");
+        let index = index_of("# @knowledge a\n\n## @exec f\n\n# @knowledge b\n\n## @exec f\n");
         let duplicates = index
             .diagnostics
             .iter()
@@ -423,11 +523,10 @@ mod tests {
 
     #[test]
     fn executable_outside_function_warns_but_does_not_execute() {
-        let index = index_of("**x = 1**\n\n## f\n\n*y*\n");
-        assert!(index
-            .diagnostics
-            .iter()
-            .any(|d| d.code == codes::MARKDOWN_INERT_EXECUTABLE));
+        // RFC-LANG-0002: a Strong at the Knowledge root is inert prose with no
+        // diagnostic; only an Exec H2 is a callable function.
+        let index = index_of("**x = 1**\n\n## @exec f\n\n`return y`\n");
+        assert!(index.diagnostics.is_empty());
         assert_eq!(index.functions.len(), 1);
     }
 }

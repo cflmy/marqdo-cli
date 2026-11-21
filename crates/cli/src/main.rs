@@ -23,7 +23,7 @@ use clap::{Args, Parser, Subcommand};
     name = "marqdo",
     version,
     about = "Markdown-native programming language (independent Rust interpreter)",
-    long_about = "Marqdo executes Markdown documents whose AST structures carry program meaning. `check` and `inspect` never execute project code; `run` and `call` execute through the capability host."
+    long_about = "Marqdo executes .mq.md documents: headings declare @exec/@knowledge modes, Strong/Emph/inline Code carry one statement each, and if/else/while/end/return/params decide control flow. `check` and `inspect` never execute project code; `run` and `call` execute through the capability host."
 )]
 struct Cli {
     #[command(subcommand)]

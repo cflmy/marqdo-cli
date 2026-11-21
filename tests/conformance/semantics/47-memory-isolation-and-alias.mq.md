@@ -1,4 +1,4 @@
-## main
+## @exec main
 
 Two regions never alias even at the same offset. A copied name does share
 the region identity, and equality compares that identity, not the bytes.
@@ -15,4 +15,4 @@ the region identity, and equality compares that identity, not the bytes.
 
 **`别名[1] = 7`**
 
-*[甲[0], 乙[0], 甲[1], 甲 == 别名, 甲 == 乙]*
+*return [甲[0], 乙[0], 甲[1], 甲 == 别名, 甲 == 乙]*

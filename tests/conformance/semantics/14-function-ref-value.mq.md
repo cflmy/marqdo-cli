@@ -1,9 +1,9 @@
-## 加一
+## @exec 加一
 
-**n = n + 1**
+`n = n + 1`
 
-*n*
+`return n`
 
-## main
+## @exec main
 
-*ref("#加一")*
+`return ref("#加一")`

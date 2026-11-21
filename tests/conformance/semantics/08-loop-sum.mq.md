@@ -1,13 +1,15 @@
-## 求和
+## @exec 求和
 
-**i = 1**
+`i = 1`
 
-**total = 0**
+`total = 0`
 
-- `i <= n`
+`while i <= n`
 
-  **total = total + i**
+`total = total + i`
 
-  **i = i + 1**
+`i = i + 1`
 
-*total*
+`end`
+
+`return total`

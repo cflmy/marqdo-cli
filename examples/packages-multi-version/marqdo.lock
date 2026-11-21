@@ -4,24 +4,24 @@ root:
   package: root:multi-version@0.1.0
   manifest_digest: 959bfcdd1f8174365e43a2690d80bb61ea2b7c9ca5e1476abc582600551a0d40
 packages:
-- instance_id: dep:geometry@1.0.0#76cb510d5f6ef15845a648ddf20749bc5a87bbce04008f4666cf9ac9ea14f643
+- instance_id: dep:geometry@1.0.0#d856df8a5cc47974ec256d3c939d8a1e206d82126111d2ffe1b959fcc29a4311
   name: geometry
   version: 1.0.0
   source:
     kind: path
     path: packages/geometry-v1
-  content_digest: 76cb510d5f6ef15845a648ddf20749bc5a87bbce04008f4666cf9ac9ea14f643
+  content_digest: d856df8a5cc47974ec256d3c939d8a1e206d82126111d2ffe1b959fcc29a4311
   manifest_digest: 3049840e18aefb2766c62406db0545cb9cc100d9d12b1dd9585e6ecb358c321a
   dependencies: {}
-- instance_id: dep:geometry@2.0.0#f364164e6b6927e85bd9e4c360de575ee7bef2b3e8bd30180cab04052ceaff29
+- instance_id: dep:geometry@2.0.0#7c625a31b3f95a1fba38f0d87afd95554937b6c2ae261e8c9208637d76e5389d
   name: geometry
   version: 2.0.0
   source:
     kind: path
     path: packages/geometry-v2
-  content_digest: f364164e6b6927e85bd9e4c360de575ee7bef2b3e8bd30180cab04052ceaff29
+  content_digest: 7c625a31b3f95a1fba38f0d87afd95554937b6c2ae261e8c9208637d76e5389d
   manifest_digest: b206f83f82af59995a6bda82a36627d98deb709cfac36c684ced1531f4afba2a
   dependencies: {}
 root_dependencies:
-  geometry_v1: dep:geometry@1.0.0#76cb510d5f6ef15845a648ddf20749bc5a87bbce04008f4666cf9ac9ea14f643
-  geometry_v2: dep:geometry@2.0.0#f364164e6b6927e85bd9e4c360de575ee7bef2b3e8bd30180cab04052ceaff29
+  geometry_v1: dep:geometry@1.0.0#d856df8a5cc47974ec256d3c939d8a1e206d82126111d2ffe1b959fcc29a4311
+  geometry_v2: dep:geometry@2.0.0#7c625a31b3f95a1fba38f0d87afd95554937b6c2ae261e8c9208637d76e5389d

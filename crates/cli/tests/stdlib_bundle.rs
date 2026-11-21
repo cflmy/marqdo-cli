@@ -71,11 +71,11 @@ import:
   io: "std:io"
 ---
 
-## main
+## @exec main
 
-> io.写值(["bundle", 1, 2.5])
+`io.写值(["bundle", 1, 2.5])`
 
-*None*
+`return None`
 "#;
 
 #[test]
@@ -154,7 +154,7 @@ fn tampered_bundle_is_rejected_before_module_loading() {
     let dir = TempDir::new("tamper");
     let bundle = dir.path().join("stdlib");
     copy_stdlib(&stdlib_dir(), &bundle);
-    std::fs::write(bundle.join("io.mq.md"), "## tampered\n").unwrap();
+    std::fs::write(bundle.join("io.mq.md"), "## @knowledge tampered\n").unwrap();
     write_project(dir.path(), IMPORT_IO);
     let output = run(dir.path(), &bundle, &["run", "index.mq.md"]);
     assert!(!output.status.success());

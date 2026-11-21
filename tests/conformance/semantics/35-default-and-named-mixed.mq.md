@@ -1,9 +1,9 @@
-## 混合
+## @exec 混合
 
-`(x: Int, y: Int = 5, z: Int = 1)`
+`params(x: Int, y: Int = 5, z: Int = 1)`
 
-*x * y + z*
+`return x * y + z`
 
-## main
+## @exec main
 
-*混合(x=2, z=3)*
+`return 混合(x=2, z=3)`

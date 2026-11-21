@@ -129,7 +129,7 @@ fn foreign_and_plugin_shortcuts_are_unavailable_in_the_pure_lane() {
     let foreign = dir.path().join("foreign.mq.md");
     std::fs::write(
         &foreign,
-        "## 代码\n\n```python\nprint(1)\n```\n\n## main\n\n*foreign.call(ref(\"#代码\"), None)*\n",
+        "## @knowledge 代码\n\n```python\nprint(1)\n```\n\n## @exec main\n\n`return foreign.call(ref(\"#代码\"), None)`\n",
     )
     .unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
@@ -145,7 +145,7 @@ fn foreign_and_plugin_shortcuts_are_unavailable_in_the_pure_lane() {
     let plugin = dir.path().join("plugin.mq.md");
     std::fs::write(
         &plugin,
-        "## main\n\n> plugin.invoke(\"missing.export\", {})\n\n*None*\n",
+        "## @exec main\n\n`plugin.invoke(\"missing.export\", {})`\n\n`return None`\n",
     )
     .unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))

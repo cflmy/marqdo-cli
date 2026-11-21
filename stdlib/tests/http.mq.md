@@ -3,6 +3,8 @@ import:
   http: "std:net/http"
 ---
 
+# @exec http
+
 ## main
 
 **响应文本 = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n6\r\n world\r\n0\r\n\r\n"**
@@ -19,4 +21,4 @@ import:
 
 **请求文本 = http.字节文本(请求字节)**
 
-*[响应.状态, 响应.原因, 响应.头["Content-Type"], 响应.体, 请求, 响应字节.value.status, 正文.value, 请求文本.value]*
+`return [响应.状态, 响应.原因, 响应.头["Content-Type"], 响应.体, 请求, 响应字节.value.status, 正文.value, 请求文本.value]`

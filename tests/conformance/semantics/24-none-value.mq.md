@@ -1,3 +1,3 @@
-## main
+## @exec main
 
-*None*
+*return None*

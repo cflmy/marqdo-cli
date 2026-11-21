@@ -49,21 +49,21 @@ fn write(dir: &Path, name: &str, source: &str) -> PathBuf {
     path
 }
 
-const PROGRAM: &str = r#"# 数学
+const PROGRAM: &str = r#"# @knowledge 数学
 
-## 加一
+## @exec 加一
 
-`(n)`
+`params(n)`
 
-*n + 1*
+`return n + 1`
 
-## main
+## @exec main
 
-**结果 = 加一(41)**
+`结果 = 加一(41)`
 
-> 打印("secret-value")
+`打印("secret-value")`
 
-*结果*
+`return 结果`
 "#;
 
 #[test]
@@ -143,7 +143,7 @@ fn analysis_is_deterministic_and_has_stable_semantic_nodes() {
 fn analysis_v2_identity_is_location_independent() {
     let first = TempDir::new("analysis-identity-a");
     let second = TempDir::new("analysis-identity-b");
-    let source = "## main\n\n**x = 1**\n\n*x*\n";
+    let source = "## @exec main\n\n`x = 1`\n\n`return x`\n";
     for dir in [&first, &second] {
         write(
             dir.path(),
@@ -184,7 +184,8 @@ fn analysis_v2_identity_is_location_independent() {
 #[test]
 fn analysis_v2_projects_memory_place_targets_additively() {
     let dir = TempDir::new("analysis-place");
-    let source = "## main\n\n**内存 = memory.new(1, 2)**\n\n**`内存[0] = 7`**\n\n*内存[0]*\n";
+    let source =
+        "## @exec main\n\n`内存 = memory.new(1, 2)`\n\n`内存[0] = 7`\n\n`return 内存[0]`\n";
     write(dir.path(), "index.mq.md", source);
     let target = dir.path().join("analysis.json");
     let output = cli(
@@ -212,9 +213,9 @@ fn analysis_v2_projects_memory_place_targets_additively() {
 #[test]
 fn analysis_v2_projects_addressable_formula_and_code_resources() {
     let dir = TempDir::new("analysis-resources");
-    let source = r#"## calc
+    let source = r#"## @exec calc
 
-`(x)`
+`params(x)`
 
 $$A = x + 1$$
 
@@ -222,7 +223,7 @@ $$A = x + 1$$
 print(1)
 ```
 
-*x*
+`return x`
 "#;
     write(
         dir.path(),
@@ -275,7 +276,7 @@ fn trace_v2_budget_truncates_long_loops_without_failing_the_run() {
     write(
         dir.path(),
         "index.mq.md",
-        "## main\n\n**i = 0**\n\n- `i < 500`\n\n  **i = i + 1**\n\n*i*\n",
+        "## @exec main\n\n`i = 0`\n\n`while i < 500`\n\n`i = i + 1`\n\n`end`\n\n`return i`\n",
     );
     let trace_path = dir.path().join("trace.json");
     let output = cli(
@@ -318,7 +319,7 @@ fn trace_v2_budget_truncates_long_loops_without_failing_the_run() {
 #[test]
 fn failed_check_removes_stale_analysis() {
     let dir = TempDir::new("analysis-error");
-    write(dir.path(), "bad.mq.md", "## main\n\n1. 没有条件\n");
+    write(dir.path(), "bad.mq.md", "## @exec main\n\n`return x +`\n");
     let target = dir.path().join("analysis.json");
     std::fs::write(&target, "stale").unwrap();
     let output = cli(
@@ -376,7 +377,7 @@ fn trace_records_calls_effects_and_status_without_secrets() {
     }
 
     // Error runs still write a terminal trace.
-    write(dir.path(), "bad.mq.md", "## main\n\n**x = 1 // 0**\n");
+    write(dir.path(), "bad.mq.md", "## @exec main\n\n`x = 1 // 0`\n");
     let error_trace = dir.path().join("error-trace.json");
     let output = cli(
         dir.path(),

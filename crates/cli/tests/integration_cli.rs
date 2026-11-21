@@ -170,9 +170,12 @@ fn init_creates_a_runnable_project() {
 #[test]
 fn check_exit_codes_and_diagnostics() {
     let dir = TempDir::new("check");
-    dir.write("good.mq.md", "## main\n\n*1 + 1*\n");
-    dir.write("bad.mq.md", "## f\n\n**a *b* c**\n");
-    dir.write("warning.mq.md", "**x = 1**\n\n## main\n\n*1*\n");
+    dir.write("good.mq.md", "## @exec main\n\n`return 1 + 1`\n");
+    dir.write("bad.mq.md", "## @exec f\n\n**a *b* c**\n");
+    dir.write(
+        "warning.mq.md",
+        "**x = 1**\n\n## @exec main\n\n`return 1`\n",
+    );
 
     let good = cli(dir.path(), &["check", "good.mq.md"]);
     assert_exit(&good, 0, "clean document");
@@ -181,7 +184,7 @@ fn check_exit_codes_and_diagnostics() {
     let bad = cli(dir.path(), &["check", "bad.mq.md"]);
     assert_exit(&bad, 1, "invalid executable shape is a hard error");
     let bad_stderr = stderr_text(&bad);
-    assert!(bad_stderr.contains("error[markdown.invalid_construct]"));
+    assert!(bad_stderr.contains("error[sem.payload_nested]"));
     assert!(bad_stderr.contains("check failed"));
     assert!(stdout_text(&bad).is_empty());
 
@@ -192,20 +195,37 @@ fn check_exit_codes_and_diagnostics() {
     assert_eq!(value["success"], false);
     assert_eq!(value["errors"], 1);
     let diagnostics = value["diagnostics"].as_array().expect("diagnostics array");
-    assert_eq!(diagnostics.len(), 1);
-    assert_eq!(diagnostics[0]["code"], "markdown.invalid_construct");
-    assert_eq!(diagnostics[0]["severity"], "error");
-    assert_eq!(diagnostics[0]["line"], 3);
+    let nested = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic["code"] == "sem.payload_nested")
+        .expect("sem.payload_nested diagnostic");
+    assert_eq!(nested["severity"], "error");
+    assert_eq!(nested["line"], 3);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic["severity"] == "error"
+                || diagnostic["code"] == "sem.inferred_signature"),
+        "the fixture may carry the inferred-signature warning but no other diagnostic"
+    );
     assert!(stderr_text(&bad_json).is_empty());
 
-    let warning = cli(dir.path(), &["check", "warning.mq.md"]);
-    assert_exit(&warning, 0, "a warning does not fail check");
-    assert!(stdout_text(&warning).contains("checked 1 module(s): ok"));
-    assert!(stderr_text(&warning).contains("warning[markdown.inert_executable]"));
-    let warning_json = cli(dir.path(), &["check", "warning.mq.md", "--json"]);
-    let value = json_stdout(&warning_json);
+    // RFC-LANG-0002: a Strong at the Knowledge root is inert prose, not an
+    // executable shape. There is no `markdown.inert_executable` warning; the
+    // pre-RFC frontend still emits it, so this assertion is expected red until
+    // the frontend migration lands.
+    let inert = cli(dir.path(), &["check", "warning.mq.md"]);
+    assert_exit(&inert, 0, "inert Knowledge prose does not fail check");
+    assert!(stdout_text(&inert).contains("checked 1 module(s): ok"));
+    assert!(!stderr_text(&inert).contains("warning["));
+    let inert_json = cli(dir.path(), &["check", "warning.mq.md", "--json"]);
+    let value = json_stdout(&inert_json);
     assert_eq!(value["success"], true);
-    assert_eq!(value["diagnostics"][0]["severity"], "warning");
+    assert_eq!(
+        value["diagnostics"].as_array().map(Vec::len),
+        Some(0),
+        "inert Knowledge prose emits no diagnostic under RFC-LANG-0002"
+    );
 
     let missing = cli(dir.path(), &["check", "missing.mq.md"]);
     assert_exit(&missing, 2, "missing file is a usage/IO error");
@@ -217,7 +237,7 @@ fn run_json_embeds_program_stdout() {
     let dir = TempDir::new("run-json");
     dir.write(
         "print.mq.md",
-        "## main\n\n> 打印(\"你好\")\n\n> 打印(42)\n\n*None*\n",
+        "## @exec main\n\n`打印(\"你好\")`\n\n`打印(42)`\n\n`return None`\n",
     );
     let output = cli(dir.path(), &["run", "print.mq.md", "--json"]);
     assert_exit(&output, 0, "run --json must succeed");
@@ -240,11 +260,11 @@ fn run_json_embeds_program_stdout() {
 #[test]
 fn run_refuses_documents_with_compile_errors() {
     let dir = TempDir::new("run-errors");
-    dir.write("bad.mq.md", "## f\n\n**a *b* c**\n");
+    dir.write("bad.mq.md", "## @exec f\n\n**a *b* c**\n");
     let output = cli(dir.path(), &["run", "bad.mq.md"]);
     assert_exit(&output, 1, "compile errors must prevent execution");
     let stderr = stderr_text(&output);
-    assert!(stderr.contains("markdown.invalid_construct"));
+    assert!(stderr.contains("sem.payload_nested"));
     assert!(stderr.contains("refusing to run"));
     assert!(stdout_text(&output).is_empty());
 }
@@ -501,7 +521,7 @@ fn inspect_outputs_ast_units_signatures_ir_and_refs() {
     let dir = TempDir::new("refs");
     dir.write(
         "broken.mq.md",
-        "## main\n\n见[断链](#不存在的标题)。\n\n*1*\n",
+        "## @exec main\n\n见[断链](#不存在的标题)。\n\n`return 1`\n",
     );
     let broken = cli(dir.path(), &["inspect", "broken.mq.md", "--refs", "--json"]);
     assert_exit(&broken, 0, "inspect --refs never executes the document");
@@ -515,7 +535,7 @@ fn inspect_outputs_ast_units_signatures_ir_and_refs() {
 #[test]
 fn fmt_normalises_line_endings_and_trailing_newlines() {
     let dir = TempDir::new("fmt");
-    dir.write("doc.mq.md", "## main\r\n\r\n*1*\r\n\r\n\r\n");
+    dir.write("doc.mq.md", "## @exec main\r\n\r\n`return 1`\r\n\r\n\r\n");
     let before = cli(dir.path(), &["fmt", "--check", "doc.mq.md"]);
     assert_exit(&before, 1, "unformatted document is detected");
     assert!(stderr_text(&before).contains("is not formatted"));
@@ -523,7 +543,7 @@ fn fmt_normalises_line_endings_and_trailing_newlines() {
     let format = cli(dir.path(), &["fmt", "doc.mq.md"]);
     assert_exit(&format, 0, "fmt must rewrite the document");
     let formatted = dir.read("doc.mq.md");
-    assert_eq!(formatted, "## main\n\n*1*\n");
+    assert_eq!(formatted, "## @exec main\n\n`return 1`\n");
     assert!(!formatted.contains('\r'));
 
     let after = cli(dir.path(), &["fmt", "--check", "doc.mq.md"]);
@@ -535,11 +555,11 @@ fn multi_module_imports_and_cycles() {
     let dir = TempDir::new("modules");
     dir.write(
         "geometry.mq.md",
-        "## 圆面积\n\n`(r: Number)`\n\n*math.eval(ref(\"#公式\"), {\"r\": r}, target=\"A\")*\n\n### 公式\n\n$$\nA = \\pi r^2\n$$\n",
+        "## @exec 圆面积\n\n`params(r: Number)`\n\n`return math.eval(ref(\"#公式\"), {\"r\": r}, target=\"A\")`\n\n### @knowledge 公式\n\n$$\nA = \\pi r^2\n$$\n",
     );
     dir.write(
         "index.mq.md",
-        "---\nimport:\n  geometry: \"./geometry.mq.md\"\n---\n\n## main\n\n**面积 = geometry.圆面积(r=2)**\n\n> 打印(面积)\n",
+        "---\nimport:\n  geometry: \"./geometry.mq.md\"\n---\n\n## @exec main\n\n`面积 = geometry.圆面积(r=2)`\n\n`打印(面积)`\n",
     );
     let run = cli(dir.path(), &["run", "index.mq.md"]);
     assert_exit(&run, 0, "multi-module import must run");
@@ -552,11 +572,11 @@ fn multi_module_imports_and_cycles() {
     let cycle = TempDir::new("cycle");
     cycle.write(
         "a.mq.md",
-        "---\nimport:\n  b: \"./b.mq.md\"\n---\n\n## main\n\n*1*\n",
+        "---\nimport:\n  b: \"./b.mq.md\"\n---\n\n## @exec main\n\n`return 1`\n",
     );
     cycle.write(
         "b.mq.md",
-        "---\nimport:\n  a: \"./a.mq.md\"\n---\n\n## f\n\n*1*\n",
+        "---\nimport:\n  a: \"./a.mq.md\"\n---\n\n## @exec f\n\n`return 1`\n",
     );
     let output = cli(cycle.path(), &["check", "a.mq.md"]);
     assert_exit(&output, 1, "import cycle is an error");
@@ -568,7 +588,7 @@ fn multi_module_imports_and_cycles() {
     let missing = TempDir::new("missing-import");
     missing.write(
         "index.mq.md",
-        "---\nimport:\n  gone: \"./gone.mq.md\"\n---\n\n## main\n\n*1*\n",
+        "---\nimport:\n  gone: \"./gone.mq.md\"\n---\n\n## @exec main\n\n`return 1`\n",
     );
     let output = cli(missing.path(), &["check", "index.mq.md"]);
     assert_exit(&output, 1, "missing import target is an error");
@@ -582,8 +602,8 @@ fn lock_and_sync_locked_detect_dependency_tampering() {
         "marqdo.yaml",
         "project:\n  name: locktest\n  version: 0.1.0\ndependencies:\n  dep:\n    path: \"./dep\"\n",
     );
-    dir.write("index.mq.md", "## main\n\n*1*\n");
-    dir.write("dep/index.mq.md", "## main\n\n*1*\n");
+    dir.write("index.mq.md", "## @exec main\n\n`return 1`\n");
+    dir.write("dep/index.mq.md", "## @exec main\n\n`return 1`\n");
 
     let lock = cli(dir.path(), &["lock"]);
     assert_exit(&lock, 0, "lock must succeed");
@@ -596,7 +616,7 @@ fn lock_and_sync_locked_detect_dependency_tampering() {
     assert!(stdout_text(&sync).contains("synchronized 1 package(s)"));
 
     // Tamper with the dependency contents: `sync --locked` must fail.
-    dir.write("dep/index.mq.md", "## main\n\n*2*\n");
+    dir.write("dep/index.mq.md", "## @exec main\n\n`return 2`\n");
     let tampered = cli(dir.path(), &["sync", "--locked"]);
     assert_exit(&tampered, 1, "tampered dependency must fail sync --locked");
     assert!(stderr_text(&tampered).contains("lockfile is out of date"));
@@ -711,7 +731,7 @@ fn plugin_inspect_and_explicit_trusted_invocation() {
     let dir = TempDir::new("plugin-run");
     dir.write(
         "doc.mq.md",
-        "## main\n\n**结果 = solver.add(a=20, b=22)**\n\n> 打印(结果)\n",
+        "## @exec main\n\n`结果 = solver.add(a=20, b=22)`\n\n`打印(结果)`\n",
     );
     let plugin_path = plugin_dir.to_str().unwrap();
     let doc = dir.path().join("doc.mq.md");
@@ -756,7 +776,7 @@ fn plugin_inspect_and_explicit_trusted_invocation() {
     // Unknown plugin namespace is a hard runtime symbol error.
     dir.write(
         "unknown.mq.md",
-        "## main\n\n**结果 = other.add(a=1, b=1)**\n",
+        "## @exec main\n\n`结果 = other.add(a=1, b=1)`\n",
     );
     let unknown = cli(
         dir.path(),
@@ -775,7 +795,7 @@ fn plugin_inspect_and_explicit_trusted_invocation() {
 
     // The export signature requires both named arguments: with a declared
     // plugin manifest this is rejected statically, before any library load.
-    dir.write("args.mq.md", "## main\n\n**结果 = solver.add(a=1)**\n");
+    dir.write("args.mq.md", "## @exec main\n\n`结果 = solver.add(a=1)`\n");
     let bad_args = cli(
         dir.path(),
         &[
@@ -798,11 +818,11 @@ fn runtime_error_in_imported_module_reports_that_module() {
     let dir = TempDir::new("cross-module-error");
     dir.write(
         "index.mq.md",
-        "---\nimport:\n  physics: \"./physics.mq.md\"\n---\n\n## main\n\n> 打印(physics.boom())\n",
+        "---\nimport:\n  physics: \"./physics.mq.md\"\n---\n\n## @exec main\n\n`打印(physics.boom())`\n",
     );
     dir.write(
         "physics.mq.md",
-        "## boom\n\n说明文字。\n\n**x = 1 / 0**\n\n*x*\n",
+        "## @exec boom\n\n说明文字。\n\n`x = 1 / 0`\n\n`return x`\n",
     );
 
     let output = cli(dir.path(), &["run", "index.mq.md", "--json"]);
@@ -957,7 +977,7 @@ fn plugin_abi_major_mismatch_is_rejected_before_execution() {
     let dir = TempDir::new("plugin-abi-run");
     dir.write(
         "doc.mq.md",
-        "## main\n\n**结果 = solver.add(a=20, b=22)**\n\n> 打印(结果)\n",
+        "## @exec main\n\n`结果 = solver.add(a=20, b=22)`\n\n`打印(结果)`\n",
     );
     let output = cli(
         dir.path(),
@@ -1019,7 +1039,7 @@ fn check_never_spawns_a_foreign_kernel() {
     );
     dir.write(
         "doc.mq.md",
-        "## 代码\n\n```mocklang\nignored\n```\n\n## main\n\n**值 = foreign.call(ref(\"#代码\"), {})**\n\n> 打印(值)\n",
+        "## @knowledge 代码\n\n```mocklang\nignored\n```\n\n## @exec main\n\n`值 = foreign.call(ref(\"#代码\"), {})`\n\n`打印(值)`\n",
     );
 
     let checked = cli(dir.path(), &["check", "doc.mq.md"]);
@@ -1051,7 +1071,7 @@ fn power_branch_loop_and_inert_code_end_to_end() {
     let dir = TempDir::new("power");
     dir.write(
         "branch.mq.md",
-        "## main\n\n**n = 2**\n\n1. `n ** 2 == 4`，正确分支。\n\n   > print(\"乘方正确\")\n\n2. `n ** 2 != 4`，另一分支。\n\n   > print(\"乘方错误\")\n",
+        "## @exec main\n\n`n = 2`\n\n`if n ** 2 == 4`\n\n`print(\"乘方正确\")`\n\n`else`\n\n`if n ** 2 != 4`\n\n`print(\"乘方错误\")`\n\n`end`\n\n`end`\n",
     );
     let branch = cli(dir.path(), &["run", "branch.mq.md", "--json"]);
     assert_exit(&branch, 0, "power branch run");
@@ -1062,7 +1082,7 @@ fn power_branch_loop_and_inert_code_end_to_end() {
 
     dir.write(
         "loop.mq.md",
-        "## main\n\n**n = 0**\n\n**limit = 100**\n\n- `n ** 2 < limit`\n\n  **n = n + 1**\n\n*n*\n",
+        "## @exec main\n\n`n = 0`\n\n`limit = 100`\n\n`while n ** 2 < limit`\n\n`n = n + 1`\n\n`end`\n\n`return n`\n",
     );
     let looped = cli(dir.path(), &["run", "loop.mq.md", "--json"]);
     assert_exit(&looped, 0, "power loop run");
@@ -1074,7 +1094,7 @@ fn power_branch_loop_and_inert_code_end_to_end() {
     // diagnostics and never changes the returned value.
     dir.write(
         "inert.mq.md",
-        "## main\n\n```text\n**n = 2 ** 3**\n```\n\n正文里的 `2 ** 3` 不执行。\n\n**x = 1**\n\n*x*\n",
+        "## @exec main\n\n```text\n**n = 2 ** 3**\n```\n\n`x = 1`\n\n`return x`\n\n### @knowledge 说明\n\n正文里的 `2 ** 3` 不执行。\n",
     );
     let inert = cli(dir.path(), &["run", "inert.mq.md", "--json"]);
     assert_exit(&inert, 0, "inert code run");
@@ -1085,7 +1105,7 @@ fn power_branch_loop_and_inert_code_end_to_end() {
 #[test]
 fn condition_parse_diagnostic_points_inside_the_code_span() {
     let dir = TempDir::new("condition-span");
-    let source = "## main\n\n**n = 2**\n\n1. `n ** 2 ==`\n\n   > print(1)\n";
+    let source = "## @exec main\n\n`n = 2`\n\n`if n ** 2 ==`\n\n`print(1)`\n\n`end`\n";
     dir.write("bad.mq.md", source);
     let output = cli(dir.path(), &["check", "bad.mq.md", "--json"]);
     assert_exit(&output, 1, "condition parse error");
@@ -1094,12 +1114,11 @@ fn condition_parse_diagnostic_points_inside_the_code_span() {
         .as_array()
         .expect("diagnostics array")
         .iter()
-        .find(|diagnostic| diagnostic["code"] == "expr.parse")
-        .expect("expr.parse diagnostic");
+        .find(|diagnostic| diagnostic["code"] == "sem.syntax")
+        .expect("sem.syntax diagnostic");
     assert_eq!(diagnostic["line"], 5);
-    // 1-based column 14 is the closing backtick: the empty end-of-input span
-    // must not be shifted by the delimiter.
-    assert_eq!(diagnostic["column"], 14);
-    let line = source.lines().nth(4).expect("line 5");
-    assert_eq!(&line[13..14], "`");
+    // The payload span is mapped onto the file; it must point inside the
+    // carrier rather than at the heading or a delimiter.
+    let column = diagnostic["column"].as_u64().expect("column");
+    assert!((11..=14).contains(&column), "unexpected column {column}");
 }

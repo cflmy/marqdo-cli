@@ -273,7 +273,7 @@ mod tests {
     fn excludes_git_and_marqdo_directories() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
-        write(&root.join("index.mq.md"), b"## main\n");
+        write(&root.join("index.mq.md"), b"## @exec main\n");
         write(&root.join(".git/HEAD"), b"ref: main\n");
         write(&root.join(".marqdo/env/env.json"), b"{}");
         write(&root.join("nested/.marqdo/state"), b"x");
@@ -343,7 +343,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let source = dir.path().join("source");
         let target = dir.path().join("target");
-        write(&source.join("index.mq.md"), b"## main\n");
+        write(&source.join("index.mq.md"), b"## @exec main\n");
         write(&source.join("data/value.txt"), b"42");
         write(&source.join(".git/HEAD"), b"ignored");
         let digest = hash_tree(&source).unwrap();

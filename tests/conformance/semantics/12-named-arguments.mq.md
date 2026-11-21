@@ -1,9 +1,9 @@
-## 减法
+## @exec 减法
 
-`(a: Int, b: Int)`
+`params(a: Int, b: Int)`
 
-*a - b*
+`return a - b`
 
-## main
+## @exec main
 
-*减法(b=3, a=10)*
+`return 减法(b=3, a=10)`

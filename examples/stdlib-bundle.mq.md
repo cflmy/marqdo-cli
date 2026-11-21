@@ -3,8 +3,8 @@ import:
   io: "std:io"
 ---
 
-## main
+## @exec main
 
-> io.写值(["bundle", 1, 2.5])
+> **io.写值(["bundle", 1, 2.5])**
 
-*None*
+`return None`

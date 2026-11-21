@@ -1,5 +1,5 @@
-## main
+## @exec main
 
 **`n = 2 ** 3`**
 
-*n*
+*return n*

@@ -64,28 +64,28 @@ fn run_and_output(source: &str, function: &str) -> (Result<Value, RuntimeError>,
 
 #[test]
 fn recursion_branch_and_return() {
-    let source = "## 阶乘\n\n1. `n <= 1`\n\n   *1*\n\n2. `n > 1`\n\n   **结果 = n * 阶乘(n=n-1)**\n\n   *结果*\n";
+    let source = "## @exec 阶乘\n\n`if n <= 1`\n\n`return 1`\n\n`else`\n\n`if n > 1`\n\n`结果 = n * 阶乘(n=n-1)`\n\n`return 结果`\n\n`end`\n\n`end`\n";
     let value = run_named(source, "阶乘", &[("n", Value::int(5))]).unwrap();
     assert_eq!(value, Value::int(120));
 }
 
 #[test]
 fn loop_mutates_and_returns_unit_for_fallthrough() {
-    let source = "## 倒计时\n\n**n = 3**\n\n- `n > 0`\n\n  **n = n - 1**\n";
+    let source = "## @exec 倒计时\n\n`n = 3`\n\n`while n > 0`\n\n`n = n - 1`\n\n`end`\n";
     let (result, _) = run_and_output(source, "倒计时");
     assert_eq!(result.unwrap(), Value::Unit);
 }
 
 #[test]
 fn return_inside_loop_propagates() {
-    let source = "## 找\n\n**i = 0**\n\n- `true`\n\n  **i = i + 1**\n\n  - `i >= 3`\n\n    *i*\n";
+    let source = "## @exec 找\n\n`i = 0`\n\n`while true`\n\n`i = i + 1`\n\n`if i >= 3`\n\n`return i`\n\n`end`\n\n`end`\n";
     let (result, _) = run_and_output(source, "找");
     assert_eq!(result.unwrap(), Value::int(3));
 }
 
 #[test]
 fn explicit_signature_supports_positional_arguments() {
-    let source = "## 加\n\n`(a: Int, b: Int = 10)`\n\n*a + b*\n";
+    let source = "## @exec 加\n\n`params(a: Int, b: Int = 10)`\n\n`return a + b`\n";
     let program = build(source);
     let mut host = host();
     let result = run(
@@ -101,7 +101,7 @@ fn explicit_signature_supports_positional_arguments() {
 
 #[test]
 fn builtins_for_conversions_and_length() {
-    let source = "## f\n\n*长度(\"你好\") + 整数(\"40\") + 整数(2.0)*\n";
+    let source = "## @exec f\n\n`return 长度(\"你好\") + 整数(\"40\") + 整数(2.0)`\n";
     let value = run_named(source, "f", &[]).unwrap();
     assert_eq!(value, Value::int(44));
 }
@@ -109,21 +109,21 @@ fn builtins_for_conversions_and_length() {
 #[test]
 fn function_reference_can_be_called() {
     let source =
-        "## 平方\n\n`(n: Int)`\n\n*n * n*\n\n## 主\n\n**f = ref(\"#平方\")**\n\n*f(n=4)*\n";
+        "## @exec 平方\n\n`params(n: Int)`\n\n`return n * n`\n\n## @exec 主\n\n`f = ref(\"#平方\")`\n\n`return f(n=4)`\n";
     let value = run_named(source, "主", &[]).unwrap();
     assert_eq!(value, Value::int(16));
 }
 
 #[test]
 fn non_bool_condition_is_a_runtime_error() {
-    let source = "## f\n\n**x = 1**\n\n- `x`\n\n  **x = x + 1**\n\n*x*\n";
+    let source = "## @exec f\n\n`x = 1`\n\n`while x`\n\n`x = x + 1`\n\n`end`\n\n`return x`\n";
     let error = run_named(source, "f", &[]).unwrap_err();
     assert_eq!(error.code(), "runtime.type");
 }
 
 #[test]
 fn fuel_budget_is_enforced() {
-    let program = build("## f\n\n- `true`\n\n  **x = 1**\n\n*0*\n");
+    let program = build("## @exec f\n\n`while true`\n\n`x = 1`\n\n`end`\n\n`return 0`\n");
     let mut host = StdHost::new(
         SandboxMode::Project,
         Capabilities::pure(),
@@ -143,7 +143,7 @@ fn fuel_budget_is_enforced() {
 
 #[test]
 fn recursion_depth_is_bounded() {
-    let source = "## f\n\n*f(n=n + 1)*\n";
+    let source = "## @exec f\n\n`return f(n=n + 1)`\n";
     let program = build(source);
     let mut host = StdHost::new(
         SandboxMode::Project,
@@ -165,14 +165,15 @@ fn recursion_depth_is_bounded() {
 
 #[test]
 fn ambiguous_ref_resource_is_an_error() {
-    let source = "## f\n\n### 公式\n\n$$a = 1$$\n\n$$b = 2$$\n\n**x = ref(\"#公式\")**\n\n*x*\n";
+    let source =
+        "## @exec f\n\n### 公式\n\n$$a = 1$$\n\n$$b = 2$$\n\n`x = ref(\"#公式\")`\n\n`return x`\n";
     let error = run_named(source, "f", &[]).unwrap_err();
     assert_eq!(error.code(), "ref.ambiguous");
 }
 
 #[test]
 fn print_without_the_bundled_stdlib_is_a_structured_error() {
-    let source = "## f\n\n> 打印(1)\n\n*None*\n";
+    let source = "## @exec f\n\n`打印(1)`\n\n`return None`\n";
     let error = run_named(source, "f", &[]).unwrap_err();
     assert_eq!(error.code(), "kernel.unavailable");
     assert!(
@@ -184,7 +185,7 @@ fn print_without_the_bundled_stdlib_is_a_structured_error() {
 
 #[test]
 fn function_ref_and_resource_members_are_readable() {
-    let source = "## 目标\n\n*1*\n\n## main\n\n### 公式\n\n$$a = 1$$\n\n### 代码\n\n```text\nx\n```\n\n**f = ref(\"#目标\")**\n\n**g = ref(\"#公式\")**\n\n**c = ref(\"#代码\")**\n\n*[f.module, f.name, g.latex, g.display, c.language, c.source]*\n";
+    let source = "## @exec 目标\n\n`return 1`\n\n## @exec main\n\n### 公式\n\n$$a = 1$$\n\n### 代码\n\n```text\nx\n```\n\n`f = ref(\"#目标\")`\n\n`g = ref(\"#公式\")`\n\n`c = ref(\"#代码\")`\n\n`return [f.module, f.name, g.latex, g.display, c.language, c.source]`\n";
     let value = run_named(source, "main", &[]).unwrap();
     let Value::List(items) = value else {
         panic!("expected list");
@@ -199,7 +200,7 @@ fn function_ref_and_resource_members_are_readable() {
 
 #[test]
 fn memory_region_is_shared_by_handle_identity() {
-    let source = "## f\n\n**m = memory.new(1, 2)**\n\n**n = m**\n\n**`m[3] = 7`**\n\n*[n[3], m == n, memory.size(n)]*\n";
+    let source = "## @exec f\n\n`m = memory.new(1, 2)`\n\n`n = m`\n\n`m[3] = 7`\n\n`return [n[3], m == n, memory.size(n)]`\n";
     let value = run_named(source, "f", &[]).unwrap();
     assert_eq!(
         value,
@@ -209,7 +210,7 @@ fn memory_region_is_shared_by_handle_identity() {
 
 #[test]
 fn memory_handle_cannot_reach_the_host_boundary() {
-    let source = "## f\n\n**m = memory.new(1, 1)**\n\n> fs.read(m)\n\n*0*\n";
+    let source = "## @exec f\n\n`m = memory.new(1, 1)`\n\n`fs.read(m)`\n\n`return 0`\n";
     let error = run_named(source, "f", &[]).unwrap_err();
     assert_eq!(error.code(), "runtime.type");
     assert!(
@@ -223,7 +224,8 @@ fn memory_handle_cannot_reach_the_host_boundary() {
 
 #[test]
 fn memory_budget_is_enforced_without_changing_the_region() {
-    let program = build("## f\n\n**m = memory.new(1, 1)**\n\n*[m[0], memory.grow(m, 1)]*\n");
+    let program =
+        build("## @exec f\n\n`m = memory.new(1, 1)`\n\n`return [m[0], memory.grow(m, 1)]`\n");
     let mut host = host();
     let error = run_with_limits(
         &program,

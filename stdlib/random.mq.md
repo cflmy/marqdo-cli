@@ -1,37 +1,42 @@
+
+# @exec random
 ## 字节
 
-`(数量)`
+`params(数量)`
 
-读取 `数量` 个 OS 熵字节，返回 `List<Int>`（每个 0–255）。仅项目模式，
-需要显式 `--allow-random`；`pure`/`strict` 拒绝。
+读取 数量 个 OS 熵字节，返回 List<Int>（每个 0–255）。仅项目模式，
+需要显式 --allow-random；pure/strict 拒绝。
 
-*resource.request("random.bytes", [数量])*
+`return resource.request("random.bytes", [数量])`
 
 ## 整数
 
-`(上限)`
+`params(上限)`
 
-返回 `0 <= 值 < 上限` 的整数。`上限` 必须大于 0；使用 8 个熵字节
+返回 0 <= 值 < 上限 的整数。上限 必须大于 0；使用 8 个熵字节
 组合后取模（无偏拒绝采样尚未实现）。
 
-1. `上限 <= 0`
+`if 上限 <= 0`
 
-   *{ok: false, code: "random.invalid", message: "上限必须大于 0"}*
+`return {ok: false, code: "random.invalid", message: "上限必须大于 0"}`
 
+`end`
 **字节结果 = 字节(8)**
 
-1. `not 字节结果.ok`
+`if not 字节结果.ok`
 
-   *字节结果*
+`return 字节结果`
 
+`end`
 **值 = 0**
 
 **下标 = 0**
 
-- `下标 < 8`
+`while 下标 < 8`
 
-  **值 = 值 * 256 + 字节结果.value[下标]**
+**值 = 值 * 256 + 字节结果.value[下标]**
 
-  **下标 = 下标 + 1**
+**下标 = 下标 + 1**
 
-*{ok: true, value: 值 % 上限}*
+`end`
+`return {ok: true, value: 值 % 上限}`

@@ -1,9 +1,9 @@
-## 代码
+## @knowledge 代码
 
 ```python
 print(1)
 ```
 
-## main
+## @exec main
 
-*foreign.call(ref("#代码"), None)*
+`foreign.call(ref("#代码"), None)`

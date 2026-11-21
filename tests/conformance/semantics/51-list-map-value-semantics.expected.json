@@ -3,43 +3,87 @@
   "function": "main",
   "stdout": "",
   "value": {
-    "type": "list",
     "items": [
       {
-        "type": "list",
         "items": [
-          {"type": "int", "decimal": "1"},
-          {"type": "int", "decimal": "2"}
-        ]
+          {
+            "decimal": "1",
+            "type": "int"
+          },
+          {
+            "decimal": "2",
+            "type": "int"
+          }
+        ],
+        "type": "list"
       },
       {
-        "type": "list",
         "items": [
-          {"type": "int", "decimal": "1"},
-          {"type": "int", "decimal": "2"},
-          {"type": "int", "decimal": "3"}
-        ]
+          {
+            "decimal": "1",
+            "type": "int"
+          },
+          {
+            "decimal": "2",
+            "type": "int"
+          },
+          {
+            "decimal": "3",
+            "type": "int"
+          }
+        ],
+        "type": "list"
       },
-      {"type": "int", "decimal": "2"},
-      {"type": "int", "decimal": "2"},
-      {"type": "int", "decimal": "2"},
       {
-        "type": "list",
-        "items": [
-          {"type": "text", "value": "b"},
-          {"type": "text", "value": "c"}
-        ]
+        "decimal": "2",
+        "type": "int"
       },
-      {"type": "bool", "value": false},
-      {"type": "none"},
       {
-        "type": "list",
+        "decimal": "2",
+        "type": "int"
+      },
+      {
+        "decimal": "2",
+        "type": "int"
+      },
+      {
         "items": [
-          {"type": "int", "decimal": "1"},
-          {"type": "int", "decimal": "2"},
-          {"type": "int", "decimal": "3"}
-        ]
+          {
+            "type": "text",
+            "value": "b"
+          },
+          {
+            "type": "text",
+            "value": "c"
+          }
+        ],
+        "type": "list"
+      },
+      {
+        "type": "bool",
+        "value": false
+      },
+      {
+        "type": "none"
+      },
+      {
+        "items": [
+          {
+            "decimal": "1",
+            "type": "int"
+          },
+          {
+            "decimal": "2",
+            "type": "int"
+          },
+          {
+            "decimal": "3",
+            "type": "int"
+          }
+        ],
+        "type": "list"
       }
-    ]
+    ],
+    "type": "list"
   }
 }

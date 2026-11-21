@@ -1,3 +1,3 @@
-## main
+## @exec main
 
-*[memory.new(0 - 1, 1)]*
+`[memory.new(0 - 1, 1)]`

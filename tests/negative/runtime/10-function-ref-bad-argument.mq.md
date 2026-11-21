@@ -1,11 +1,11 @@
-## f
+## @exec f
 
-**n = n + 1**
+`params(n: Int)`
 
-*n*
+`return n + 1`
 
-## main
+## @exec main
 
-**g = ref("#f")**
+`g = ref("#f")`
 
-*g(bad=1)*
+`g(bad=1)`

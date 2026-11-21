@@ -1,4 +1,4 @@
-## main
+## @exec main
 
 This function demonstrates an addressable byte region next to ordinary prose.
 A copied name shares the same region identity.
@@ -11,4 +11,4 @@ A copied name shares the same region identity.
 
 **`另一个名字[9] = 99`**
 
-*区域[8] + 区域[9]*
+*return 区域[8] + 区域[9]*

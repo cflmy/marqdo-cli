@@ -44,7 +44,7 @@ fn print_is_routed_through_the_stdlib_and_not_hostop_print() {
     write(
         dir.path(),
         "index.mq.md",
-        "## main\n\n> 打印([\"x\", 1])\n\n*None*\n",
+        "## @exec main\n\n`打印([\"x\", 1])`\n\n`return None`\n",
     );
     let trace = dir.path().join("trace.json");
     let output = cli(
@@ -84,11 +84,11 @@ fn print_is_routed_through_the_stdlib_and_not_hostop_print() {
 #[test]
 fn stdlib_print_modules_are_injected_only_when_print_is_used() {
     let dir = TempDir::new("lazy");
-    write(dir.path(), "plain.mq.md", "## main\n\n*1*\n");
+    write(dir.path(), "plain.mq.md", "## @exec main\n\n`return 1`\n");
     write(
         dir.path(),
         "prints.mq.md",
-        "## main\n\n> 打印(1)\n\n*None*\n",
+        "## @exec main\n\n`打印(1)`\n\n`return None`\n",
     );
     for (file, expected_stdlib) in [("plain.mq.md", false), ("prints.mq.md", true)] {
         let target = dir.path().join(format!("{file}.json"));

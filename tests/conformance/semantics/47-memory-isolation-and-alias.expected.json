@@ -3,13 +3,28 @@
   "function": "main",
   "stdout": "",
   "value": {
-    "type": "list",
     "items": [
-      {"type": "int", "decimal": "5"},
-      {"type": "int", "decimal": "6"},
-      {"type": "int", "decimal": "7"},
-      {"type": "bool", "value": true},
-      {"type": "bool", "value": false}
-    ]
+      {
+        "decimal": "5",
+        "type": "int"
+      },
+      {
+        "decimal": "6",
+        "type": "int"
+      },
+      {
+        "decimal": "7",
+        "type": "int"
+      },
+      {
+        "type": "bool",
+        "value": true
+      },
+      {
+        "type": "bool",
+        "value": false
+      }
+    ],
+    "type": "list"
   }
 }

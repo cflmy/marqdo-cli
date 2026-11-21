@@ -1,9 +1,11 @@
-## 找平方
+## @exec 找平方
 
-**i = 0**
+`i = 0`
 
-- `i * i < target`
+`while i * i < target`
 
-  **i = i + 1**
+`i = i + 1`
 
-*i * i*
+`end`
+
+`return i * i`

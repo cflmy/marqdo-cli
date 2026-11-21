@@ -1,3 +1,3 @@
-## main
+## @exec main
 
-*(true and false) or (not false)*
+`return (true and false) or (not false)`

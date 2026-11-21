@@ -3,24 +3,42 @@
   "function": "main",
   "stdout": "",
   "value": {
-    "type": "list",
     "items": [
       {
-        "type": "list",
         "items": [
-          {"type": "text", "value": "名称"},
-          {"type": "text", "value": "分数"}
-        ]
+          {
+            "type": "text",
+            "value": "名称"
+          },
+          {
+            "type": "text",
+            "value": "分数"
+          }
+        ],
+        "type": "list"
       },
       {
-        "type": "list",
         "items": [
-          {"type": "text", "value": "乙"},
-          {"type": "int", "decimal": "92"}
-        ]
+          {
+            "type": "text",
+            "value": "乙"
+          },
+          {
+            "decimal": "92",
+            "type": "int"
+          }
+        ],
+        "type": "list"
       },
-      {"type": "int", "decimal": "87"},
-      {"type": "int", "decimal": "2"}
-    ]
+      {
+        "decimal": "87",
+        "type": "int"
+      },
+      {
+        "decimal": "2",
+        "type": "int"
+      }
+    ],
+    "type": "list"
   }
 }

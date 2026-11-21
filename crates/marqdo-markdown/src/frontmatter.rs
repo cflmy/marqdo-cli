@@ -66,6 +66,19 @@ impl FrontMatter {
         Ok(result)
     }
 
+    /// Whether the top-level YAML mapping contains `key`.
+    ///
+    /// Returns `false` for invalid YAML. Used to reject removed syntax
+    /// selectors such as `marqdo_semantics` or `syntax` without making the
+    /// frontend depend on a YAML crate.
+    pub fn has_key(&self, key: &str) -> bool {
+        let Ok(yaml) = &self.yaml else {
+            return false;
+        };
+        yaml.as_mapping()
+            .is_some_and(|mapping| mapping.contains_key(key))
+    }
+
     /// The raw YAML parses successfully.
     pub fn is_valid(&self) -> bool {
         self.yaml.is_ok()

@@ -42,4 +42,5 @@ pub fn init(dir: Option<&Path>) -> i32 {
     0
 }
 
-const INIT_TEMPLATE: &str = "## main\n\n**问候 = \"你好，Marqdo\"**\n\n> 打印(问候)\n\n*问候*\n";
+const INIT_TEMPLATE: &str =
+    "## @exec main\n\n`问候 = \"你好，Marqdo\"`\n\n`打印(问候)`\n\n`return 问候`\n";

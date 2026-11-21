@@ -3,8 +3,8 @@ import:
   geometry: "./geometry.mq.md"
 ---
 
-## main
+## @exec main
 
-**面积 = geometry.圆面积(r=2)**
+`面积 = geometry.圆面积(r=2)`
 
-> 打印(面积)
+> **打印(面积)**

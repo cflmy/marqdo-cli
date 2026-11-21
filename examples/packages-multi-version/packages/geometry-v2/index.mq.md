@@ -1,3 +1,3 @@
-## area
+## @exec area
 
-*2*
+`return 2`

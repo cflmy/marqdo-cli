@@ -1599,7 +1599,7 @@ capabilities:
             "project:\n  name: geometry\n  version: 0.1.0\n",
         )
         .unwrap();
-        std::fs::write(first.join("index.mq.md"), "## f\n\n*1*\n").unwrap();
+        std::fs::write(first.join("index.mq.md"), "## @exec f\n\n`return 1`\n").unwrap();
         let manifest = Manifest::load(&root.join(MANIFEST_FILE)).unwrap();
         let resolver =
             PackageResolver::new(root.clone(), Some(manifest.clone()), None).with_unlocked(true);
@@ -1668,7 +1668,7 @@ capabilities:
             "project:\n  name: remote\n  version: 0.2.0\n",
         )
         .unwrap();
-        std::fs::write(dep.join("index.mq.md"), "## hello\n\n*1*\n").unwrap();
+        std::fs::write(dep.join("index.mq.md"), "## @exec hello\n\n`return 1`\n").unwrap();
         git(&dep, &["init", "-q"]);
         git(&dep, &["add", "."]);
         git(&dep, &["commit", "-q", "-m", "initial"]);
@@ -1721,7 +1721,7 @@ capabilities:
             "project:\n  name: geometry\n  version: 0.1.0\n",
         )
         .unwrap();
-        std::fs::write(dep.join("index.mq.md"), "## area\n\n*1*\n").unwrap();
+        std::fs::write(dep.join("index.mq.md"), "## @exec area\n\n`return 1`\n").unwrap();
         std::fs::write(
             root.join(MANIFEST_FILE),
             "project:\n  name: p\n  version: 0.1.0\ndependencies:\n  geometry:\n    path: ./deps/geometry\n",
@@ -1765,19 +1765,19 @@ capabilities:
             "project:\n  name: root\n  version: 0.1.0\ndependencies:\n  a:\n    path: ./deps/a\n",
         )
         .unwrap();
-        std::fs::write(root.join("index.mq.md"), "## main\n\n*1*\n").unwrap();
+        std::fs::write(root.join("index.mq.md"), "## @exec main\n\n`return 1`\n").unwrap();
         std::fs::write(
             a.join(MANIFEST_FILE),
             "project:\n  name: a\n  version: 0.1.0\ndependencies:\n  b:\n    path: ./b\n",
         )
         .unwrap();
-        std::fs::write(a.join("index.mq.md"), "## a\n\n*1*\n").unwrap();
+        std::fs::write(a.join("index.mq.md"), "## @exec a\n\n`return 1`\n").unwrap();
         std::fs::write(
             b.join(MANIFEST_FILE),
             "project:\n  name: b\n  version: 0.1.0\n",
         )
         .unwrap();
-        std::fs::write(b.join("index.mq.md"), "## b\n\n*2*\n").unwrap();
+        std::fs::write(b.join("index.mq.md"), "## @exec b\n\n`return 2`\n").unwrap();
         let manifest = Manifest::load(&root.join(MANIFEST_FILE)).unwrap();
         let resolver = PackageResolver::new(root.clone(), Some(manifest), None).with_unlocked(true);
         let graph = resolver.resolve_lock_graph().unwrap();
@@ -1813,7 +1813,7 @@ capabilities:
             "project:\n  name: geometry\n  version: 0.1.0\n",
         )
         .unwrap();
-        std::fs::write(dep.join("index.mq.md"), "## area\n\n*1*\n").unwrap();
+        std::fs::write(dep.join("index.mq.md"), "## @exec area\n\n`return 1`\n").unwrap();
         std::fs::write(
             root.join(MANIFEST_FILE),
             "project:\n  name: p\n  version: 0.1.0\ndependencies:\n  geometry:\n    path: ./deps/geometry\n",

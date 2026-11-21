@@ -311,40 +311,42 @@ mod extra_span_tests {
 
     #[test]
     fn condition_literal_span_excludes_backticks_for_one_and_two_ticks() {
-        for source in ["## f\n\n1. `n ** 2 ==`\n", "## f\n\n1. ``n ** 2 ==``\n"] {
+        for source in [
+            "## @exec f\n\n`if n ** 2 ==`\n",
+            "## @exec f\n\n``if n ** 2 ==``\n",
+        ] {
             let result = crate::analyze_source("index.mq.md", source);
             let diagnostic = result
                 .diagnostics
                 .iter()
-                .find(|diagnostic| diagnostic.code == marqdo_value::codes::EXPR_PARSE)
-                .unwrap_or_else(|| panic!("no expr.parse diagnostic for {source:?}"));
+                .find(|diagnostic| diagnostic.code == marqdo_value::codes::SEM_SYNTAX)
+                .unwrap_or_else(|| panic!("no sem.syntax diagnostic for {source:?}"));
             let span = diagnostic
                 .span
                 .expect("condition parse error has a source span");
-            assert_eq!(
-                source.as_bytes()[span.start],
-                b'`',
-                "span must stop before the closing backtick: {span:?} in {source:?}"
-            );
-            assert_eq!(
-                &source[span.start.saturating_sub(2)..span.start],
-                "==",
-                "span must point at the missing operand"
+            let condition = source.find("n ** 2 ==").expect("condition text");
+            let closing = source.rfind('`').expect("closing backtick");
+            assert!(
+                span.start >= condition && span.end <= closing,
+                "span must point inside the carrier payload, before the closing backtick:                  {span:?} in {source:?}"
             );
         }
     }
 
     #[test]
     fn condition_description_rejects_executable_roles() {
+        // RFC-LANG-0002 no longer rejects Strong/Emph next to a code span:
+        // every carrier is an independent statement. The preserved intent is
+        // that a malformed control sequence after `if` is a hard error; it is
+        // repurposed as an unclosed-control negative.
         for tail in ["**print(1)**", "*1*"] {
-            let source = format!("## f\n\n1. `n > 0` {tail}\n\n   > print(1)\n");
+            let source = format!("## @exec f\n\n`if n > 0` {tail}\n");
             let result = crate::analyze_source("index.mq.md", &source);
             assert!(
                 result
                     .diagnostics
                     .iter()
-                    .any(|diagnostic| diagnostic.code
-                        == marqdo_value::codes::MARKDOWN_INVALID_CONSTRUCT),
+                    .any(|diagnostic| diagnostic.code == "sem.unclosed_control"),
                 "executable tail `{tail}` was not rejected: {:#?}",
                 result.diagnostics
             );
@@ -353,7 +355,10 @@ mod extra_span_tests {
 
     #[test]
     fn condition_description_allows_inert_inline_content() {
-        let source = "## f\n\n**n = 1**\n\n1. `n > 0` 普通说明、`惰性代码` 与 [链接](#f)。\n\n   > print(1)\n";
+        // Inline code spans are payload carriers in Exec scope, so the old inert
+        // `惰性代码` example is now a statement; prose, a link and a carrier-free
+        // block quote remain inert and must not be rejected.
+        let source = "## @exec f\n\n`n = 1`\n\n1. `n > 0` 普通说明与 [链接](#f)。\n\n   > print(1)\n\n`return n`\n";
         let result = crate::analyze_source("index.mq.md", source);
         assert!(
             !result.has_errors(),

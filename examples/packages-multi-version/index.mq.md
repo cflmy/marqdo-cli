@@ -4,12 +4,12 @@ import:
   geometry_v2: "@geometry_v2"
 ---
 
-## main
+## @exec main
 
-**一 = geometry_v1.area()**
+`一 = geometry_v1.area()`
 
-**二 = geometry_v2.area()**
+`二 = geometry_v2.area()`
 
-> 打印(一)
+> **打印(一)**
 
-> 打印(二)
+> **打印(二)**

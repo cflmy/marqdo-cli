@@ -3,40 +3,76 @@
   "function": "main",
   "stdout": "",
   "value": {
-    "type": "list",
     "items": [
       {
-        "type": "table",
-        "header": ["名称", "分数"],
+        "header": [
+          "名称",
+          "分数"
+        ],
         "rows": [
           [
-            {"type": "text", "value": "甲"},
-            {"type": "int", "decimal": "87"}
+            {
+              "type": "text",
+              "value": "甲"
+            },
+            {
+              "decimal": "87",
+              "type": "int"
+            }
           ],
           [
-            {"type": "text", "value": "乙"},
-            {"type": "int", "decimal": "92"}
+            {
+              "type": "text",
+              "value": "乙"
+            },
+            {
+              "decimal": "92",
+              "type": "int"
+            }
           ],
           [
-            {"type": "text", "value": "丙"},
-            {"type": "int", "decimal": "71"}
+            {
+              "type": "text",
+              "value": "丙"
+            },
+            {
+              "decimal": "71",
+              "type": "int"
+            }
           ]
-        ]
+        ],
+        "type": "table"
       },
       {
-        "type": "table",
-        "header": ["名称", "分数"],
+        "header": [
+          "名称",
+          "分数"
+        ],
         "rows": [
           [
-            {"type": "text", "value": "甲"},
-            {"type": "int", "decimal": "87"}
+            {
+              "type": "text",
+              "value": "甲"
+            },
+            {
+              "decimal": "87",
+              "type": "int"
+            }
           ],
           [
-            {"type": "text", "value": "乙"},
-            {"type": "int", "decimal": "92"}
+            {
+              "type": "text",
+              "value": "乙"
+            },
+            {
+              "decimal": "92",
+              "type": "int"
+            }
           ]
-        ]
+        ],
+        "type": "table"
       }
-    ]
+    ],
+    "type": "list"
   }
 }

@@ -29,39 +29,45 @@ struct Base {
 const BASES: &[Base] = &[
     Base {
         name: "factorial",
-        source: r##"# 数学
+        source: r##"# @knowledge 数学
 
-## 阶乘
+## @exec 阶乘
 
 计算阶乘的叙述一。
 
-1. `n <= 1`
+`if n <= 1`
 
-   递归终点叙述。
+递归终点叙述。
 
-   *1*
+`return 1`
 
-2. `n > 1`
+`else`
 
-   递归步骤叙述。
+`if n > 1`
 
-   **结果 = n * 阶乘(n=n-1)**
+递归步骤叙述。
 
-   *结果*
+`结果 = n * 阶乘(n=n-1)`
+
+`return 结果`
+
+`end`
+
+`end`
 "##,
         narration: &["计算阶乘的叙述一。", "递归终点叙述。", "递归步骤叙述。"],
     },
     Base {
         name: "explicit-signature",
-        source: r##"## 圆面积
+        source: r##"## @exec 圆面积
 
-`(r: Number)`
+`params(r: Number)`
 
 半径叙述。
 
-*math.eval(ref("#公式"), {"r": r}, target="A")*
+`return math.eval(ref("#公式"), {"r": r}, target="A")`
 
-### 公式
+### @knowledge 公式
 
 $$
 A = \pi r^2
@@ -71,117 +77,133 @@ $$
     },
     Base {
         name: "countdown-loop",
-        source: r##"## 倒计时
+        source: r##"## @exec 倒计时
 
 循环叙述。
 
-**n = 3**
+`n = 3`
 
-- `n > 0`
+`while n > 0`
 
-  循环体叙述。
+循环体叙述。
 
-  > 打印(n)
+`打印(n)`
 
-  **n = n - 1**
+`n = n - 1`
 
-*n*
+`end`
+
+`return n`
 "##,
         narration: &["循环叙述。", "循环体叙述。"],
     },
     Base {
         name: "branch-classification",
-        source: r##"## 分类
+        source: r##"## @exec 分类
 
 背景叙述。
 
-**结果 = 0**
+`结果 = 0`
 
-1. `n < 0`
+`if n < 0`
 
-   负数分支叙述。
+负数分支叙述。
 
-   **结果 = -1**
+`结果 = -1`
 
-2. `n >= 0`
+`else`
 
-   非负分支叙述。
+`if n >= 0`
 
-   **结果 = 1**
+非负分支叙述。
 
-*结果*
+`结果 = 1`
+
+`end`
+
+`end`
+
+`return 结果`
 "##,
         narration: &["背景叙述。", "负数分支叙述。", "非负分支叙述。"],
     },
     Base {
         name: "call-and-print",
-        source: r##"## 问候
+        source: r##"## @exec 问候
 
 说明为什么这样写。
 
-> 打印("你好")
+`打印("你好")`
 
-**问候 = "你好，Marqdo"**
+`问候 = "你好，Marqdo"`
 
 再补充一句叙述。
 
-*问候*
+`return 问候`
 "##,
         narration: &["说明为什么这样写。", "再补充一句叙述。"],
     },
     Base {
         name: "inline-prose-in-executable-paragraph",
-        source: r##"## 加一
+        source: r##"## @exec 加一
 
 这是行内叙述 **结果 = 1 + 1** 后面继续叙述。
 
-*结果*
+`return 结果`
 "##,
         narration: &["这是行内叙述 ", " 后面继续叙述。"],
     },
     Base {
         name: "nested-control-flow",
-        source: r##"## 嵌套
+        source: r##"## @exec 嵌套
 
 说明嵌套结构。
 
-**total = 0**
+`total = 0`
 
-1. `n > 0`
+`if n > 0`
 
-   **m = 3**
+`m = 3`
 
-   - `m > 0`
+`while m > 0`
 
-     **total = total + m**
+`total = total + m`
 
-     **m = m - 1**
+`m = m - 1`
 
-2. `n <= 0`
+`end`
 
-   **total = 0**
+`else`
 
-*total*
+`if n <= 0`
+
+`total = 0`
+
+`end`
+
+`end`
+
+`return total`
 "##,
         narration: &["说明嵌套结构。"],
     },
     Base {
         name: "two-namespaces",
-        source: r##"# 数学
+        source: r##"# @knowledge 数学
 
 命名空间叙述。
 
-## 平方
+## @exec 平方
 
-**结果 = n * n**
+`结果 = n * n`
 
-*结果*
+`return 结果`
 
-# 文本
+# @knowledge 文本
 
-## 长度
+## @exec 长度
 
-*长度(s)*
+`return 长度(s)`
 "##,
         narration: &["命名空间叙述。"],
     },
@@ -265,7 +287,7 @@ fn insert_prose_after_headings(source: &str) -> String {
             while next < lines.len() && lines[next].trim().is_empty() {
                 next += 1;
             }
-            let signature = next < lines.len() && lines[next].trim_start().starts_with("`(");
+            let signature = next < lines.len() && lines[next].trim_start().starts_with("`params(");
             if signature {
                 while index + 1 < lines.len() && lines[index + 1].trim().is_empty() {
                     index += 1;

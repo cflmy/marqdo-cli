@@ -1,9 +1,9 @@
-## 加法
+## @exec 加法
 
-`(a: Int, b: Int)`
+`params(a: Int, b: Int)`
 
-*a + b*
+`return a + b`
 
-## main
+## @exec main
 
-*加法(2, 3)*
+`return 加法(2, 3)`

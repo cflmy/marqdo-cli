@@ -5,10 +5,8 @@
 //! parsed only after the role is known. Invalid executable shapes produce hard
 //! diagnostics and never fall back to prose.
 
-use marqdo_expression::{
-    parse_arguments, parse_expression, parse_statement, Arg, AssignTarget, Expr, StatementKind,
-};
-use marqdo_ir::{CallSite, CallTarget, ImportDecl, PlaceTarget, Stmt};
+use marqdo_expression::{parse_expression, parse_statement, AssignTarget, Expr, StatementKind};
+use marqdo_ir::{PlaceTarget, Stmt};
 use marqdo_markdown::{normalize_name, MarkdownDocument, MdKind, MdNode};
 use marqdo_span::Span;
 use marqdo_value::{codes, Diagnostic};
@@ -29,30 +27,74 @@ pub struct MappedBody {
 pub fn map_function(
     doc: &MarkdownDocument,
     index: &UnitIndex,
-    imports: &[ImportDecl],
     scope: &FunctionScope,
 ) -> MappedBody {
     let mut mapper = Mapper {
-        index,
-        imports,
         diagnostics: Vec::new(),
+        saw_params: None,
     };
-    let blocks = &doc.root.children[scope.body_start..scope.body_end];
-    let stmts = mapper.blocks(blocks);
+    let mut stmts = Vec::new();
+    let mut segment = Vec::new();
+    let mut mode = crate::units::SemanticMode::Exec;
+    for (node_index, block) in doc.root.children.iter().enumerate() {
+        if node_index < scope.body_start || node_index >= scope.body_end {
+            continue;
+        }
+        if let MdKind::Heading { .. } = block.kind {
+            if mode == crate::units::SemanticMode::Exec {
+                stmts.extend(mapper.blocks(&segment));
+            }
+            segment.clear();
+            if let Some(heading) = index.headings.iter().find(|h| h.node_index == node_index) {
+                mode = heading.mode;
+            }
+            continue;
+        }
+        if mode == crate::units::SemanticMode::Exec {
+            segment.push(block.clone());
+        }
+    }
+    if mode == crate::units::SemanticMode::Exec {
+        stmts.extend(mapper.blocks(&segment));
+    }
     MappedBody {
         stmts,
         diagnostics: mapper.diagnostics,
     }
 }
 
-struct Mapper<'a> {
-    index: &'a UnitIndex,
-    #[allow(dead_code)]
-    imports: &'a [ImportDecl],
+struct Mapper {
     diagnostics: Vec<Diagnostic>,
+    saw_params: Option<Span>,
 }
 
-impl<'a> Mapper<'a> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Stop {
+    End,
+    Else,
+    Eof,
+}
+
+enum Payload {
+    If(Expr),
+    Else,
+    While(Expr),
+    End,
+    Return(Expr),
+    Params,
+    Statement(marqdo_expression::Statement),
+}
+
+struct RawPayload {
+    payload: Payload,
+    span: Span,
+    segments: PayloadSegments,
+    /// True only for a carrier in the heading's direct body, not inside a
+    /// list or block quote (`params` is legal only there).
+    direct: bool,
+}
+
+impl Mapper {
     fn error(&mut self, code: &str, span: Option<Span>, message: impl Into<String>) {
         self.diagnostics
             .push(Diagnostic::error(code, span, message));
@@ -70,468 +112,386 @@ impl<'a> Mapper<'a> {
     }
 
     fn blocks(&mut self, blocks: &[MdNode]) -> Vec<Stmt> {
-        let mut stmts = Vec::new();
+        let mut raw = Vec::new();
         for block in blocks {
-            stmts.extend(self.block(block));
+            self.extract(block, &mut raw, true);
+        }
+        let mut position = 0;
+        let (stmts, stop) = self.sequence(&raw, &mut position, false, false);
+        if stop != Stop::Eof {
+            self.error(
+                codes::SEM_UNMATCHED_END,
+                raw.get(position.saturating_sub(1)).map(|node| node.span),
+                "control frame ends outside its owning function segment",
+            );
         }
         stmts
     }
 
-    fn block(&mut self, block: &MdNode) -> Vec<Stmt> {
-        match &block.kind {
-            MdKind::Paragraph => self.paragraph(block),
-            MdKind::List { ordered, .. } => self.list(block, *ordered),
-            MdKind::BlockQuote => self.quote(block),
-            // Level>=3 headings and inert document values stay out of the IR.
-            _ => Vec::new(),
-        }
-    }
-
-    fn paragraph(&mut self, paragraph: &MdNode) -> Vec<Stmt> {
-        let mut stmts = Vec::new();
-        for child in &paragraph.children {
-            match &child.kind {
-                MdKind::Strong => {
-                    if let Some(stmt) = self.exec_statement(child) {
-                        stmts.push(stmt);
+    fn extract(&mut self, node: &MdNode, out: &mut Vec<RawPayload>, direct: bool) {
+        match &node.kind {
+            MdKind::Paragraph => {
+                for child in &node.children {
+                    self.extract(child, out, direct);
+                }
+            }
+            MdKind::BlockQuote | MdKind::Item { .. } | MdKind::List { .. } => {
+                for child in &node.children {
+                    self.extract(child, out, false);
+                }
+            }
+            MdKind::Strong | MdKind::Emph => {
+                let (text, segments) = match PayloadSegments::of(node) {
+                    Ok(result) => result,
+                    Err(error) => {
+                        self.error(
+                            codes::SEM_PAYLOAD_NESTED,
+                            Some(error.span),
+                            format!("invalid payload carrier: {}", error.reason),
+                        );
+                        return;
                     }
-                }
-                MdKind::Emph => {
-                    if let Some(stmt) = self.return_statement(child) {
-                        stmts.push(stmt);
-                    }
-                }
-                // Lazy/inert inline structures: never recurse into them.
-                MdKind::Link { .. }
-                | MdKind::Image { .. }
-                | MdKind::Strikethrough
-                | MdKind::Code { .. }
-                | MdKind::Math { .. }
-                | MdKind::Text
-                | MdKind::SoftBreak
-                | MdKind::LineBreak
-                | MdKind::HtmlInline
-                | MdKind::FootnoteReference { .. } => {}
-                _ => {}
+                };
+                self.push(text, node.span, segments, out, direct);
             }
+            MdKind::Code { ticks } => {
+                let literal = node.literal.as_deref().unwrap_or_default();
+                let inner = Span::new(
+                    node.span.start.saturating_add(*ticks),
+                    node.span.end.saturating_sub(*ticks),
+                );
+                self.push(
+                    literal.to_string(),
+                    node.span,
+                    PayloadSegments::single(literal, inner),
+                    out,
+                    direct,
+                );
+            }
+            MdKind::Heading { .. } => {}
+            _ => {}
         }
-        stmts
     }
 
-    fn exec_statement(&mut self, node: &MdNode) -> Option<Stmt> {
-        let (payload, segments) = match PayloadSegments::of(node) {
-            Ok(result) => result,
-            Err(error) => {
-                self.error_with_hint(
-                    codes::MARKDOWN_INVALID_CONSTRUCT,
-                    Some(error.span),
-                    error.reason,
-                    "keep the executable payload as plain text or a single code span",
-                );
-                return None;
-            }
-        };
-        if payload.trim().is_empty() {
+    fn push(
+        &mut self,
+        text: String,
+        span: Span,
+        segments: PayloadSegments,
+        out: &mut Vec<RawPayload>,
+        direct: bool,
+    ) {
+        if text.trim().is_empty() {
             self.error(
-                codes::MARKDOWN_INVALID_CONSTRUCT,
-                Some(node.span),
-                "execution statement has an empty payload",
+                codes::SEM_EMPTY_PAYLOAD,
+                Some(span),
+                "executable payload is empty",
             );
-            return None;
+            return;
         }
-        match parse_statement(&payload) {
-            Ok(mut statement) => {
-                segments.rewrite_statement(&mut statement);
-                Some(match statement.kind {
-                    StatementKind::Assign { target, value } => Stmt::Assign {
-                        target: match target {
-                            AssignTarget::Local { name, name_span } => {
-                                PlaceTarget::Local { name, name_span }
-                            }
-                            AssignTarget::Index {
-                                base,
-                                index,
-                                span: target_span,
-                            } => PlaceTarget::Index {
-                                base: *base,
-                                index: *index,
-                                span: target_span,
-                            },
-                        },
-                        value,
-                        span: node.span,
-                    },
-                    StatementKind::Expr(expr) => Stmt::Eval {
-                        expr,
-                        span: node.span,
-                    },
-                })
+        if let Some(mut payload) = self.parse_payload(&text, span, &segments) {
+            if let Payload::If(expr) | Payload::While(expr) | Payload::Return(expr) = &mut payload {
+                segments.rewrite_expr(expr);
             }
-            Err(error) => {
-                self.error_with_hint(
-                    codes::EXPR_PARSE,
-                    Some(segments.map_span(error.span)),
-                    format!("invalid execution statement: {}", error.message),
-                    "statements are `name = expression` or an expression; put the payload in a code span when Markdown emphasis conflicts",
-                );
-                None
-            }
-        }
-    }
-
-    fn return_statement(&mut self, node: &MdNode) -> Option<Stmt> {
-        let (payload, segments) = match PayloadSegments::of(node) {
-            Ok(result) => result,
-            Err(error) => {
-                self.error_with_hint(
-                    codes::MARKDOWN_INVALID_CONSTRUCT,
-                    Some(error.span),
-                    error.reason,
-                    "a return payload must be plain text or a single code span",
-                );
-                return None;
-            }
-        };
-        if payload.trim().is_empty() {
-            self.error(
-                codes::MARKDOWN_INVALID_CONSTRUCT,
-                Some(node.span),
-                "return statement has an empty payload",
-            );
-            return None;
-        }
-        match parse_expression(&payload) {
-            Ok(mut expr) => {
-                segments.rewrite_expr(&mut expr);
-                Some(Stmt::Return {
-                    value: expr,
-                    span: node.span,
-                })
-            }
-            Err(error) => {
-                self.error_with_hint(
-                    codes::EXPR_PARSE,
-                    Some(segments.map_span(error.span)),
-                    format!("invalid return expression: {}", error.message),
-                    "`*表达式*` returns the value of the expression",
-                );
-                None
-            }
-        }
-    }
-
-    fn list(&mut self, list: &MdNode, ordered: bool) -> Vec<Stmt> {
-        if list.children.is_empty() {
-            self.error(
-                codes::MARKDOWN_INVALID_CONSTRUCT,
-                Some(list.span),
-                "list in an executable position has no items",
-            );
-            return Vec::new();
-        }
-        let mut arms = Vec::new();
-        let mut loops = Vec::new();
-        for item in &list.children {
-            let Some((condition, condition_span, body_blocks)) = self.condition_of(item) else {
-                continue;
-            };
-            let body = self.blocks(body_blocks);
-            if ordered {
-                arms.push(marqdo_ir::BranchArm {
-                    condition,
-                    condition_span,
-                    body,
-                    span: item.span,
-                });
-            } else {
-                loops.push(Stmt::Loop {
-                    condition,
-                    condition_span,
-                    body,
-                    span: item.span,
-                });
-            }
-        }
-        if ordered {
-            if arms.is_empty() {
-                return Vec::new();
-            }
-            vec![Stmt::Branch {
-                arms,
-                span: list.span,
-            }]
-        } else {
-            loops
-        }
-    }
-
-    /// Extract the condition header of a list item and its remaining blocks.
-    fn condition_of<'b>(&mut self, item: &'b MdNode) -> Option<(Expr, Span, &'b [MdNode])> {
-        let Some(first) = item.children.first() else {
-            self.error_with_hint(
-                codes::MARKDOWN_INVALID_CONSTRUCT,
-                Some(item.span),
-                "list item in an executable position must start with a condition code span",
-                "write the condition first: `` `n > 0` ``",
-            );
-            return None;
-        };
-        if !matches!(first.kind, MdKind::Paragraph) {
-            self.error_with_hint(
-                codes::MARKDOWN_INVALID_CONSTRUCT,
-                Some(first.span),
-                "list item must start with a paragraph containing the condition code span",
-                "put the condition on the first line of the item",
-            );
-            return None;
-        }
-        let Some(condition_node) = first.children.first() else {
-            self.error(
-                codes::MARKDOWN_INVALID_CONSTRUCT,
-                Some(first.span),
-                "list item paragraph is empty; a condition code span is required",
-            );
-            return None;
-        };
-        if !matches!(condition_node.kind, MdKind::Code { .. }) {
-            self.error_with_hint(
-                codes::MARKDOWN_INVALID_CONSTRUCT,
-                Some(condition_node.span),
-                "list item must start with a condition inside an inline code span",
-                "the condition is a `Code` span: `` `n > 0` ``; other text is description",
-            );
-            return None;
-        }
-        // The remainder of the condition paragraph is description only. The
-        // semantic mapper does not descend into it, so an executable `Strong`
-        // or `Emph` there would otherwise be silently swallowed. Reject it as
-        // a hard shape error instead of guessing the author's intent.
-        for tail in first.children.iter().skip(1) {
-            if matches!(tail.kind, MdKind::Strong | MdKind::Emph) {
-                self.error_with_hint(
-                    codes::MARKDOWN_INVALID_CONSTRUCT,
-                    Some(tail.span),
-                    format!(
-                        "`{}` inside a list-item condition paragraph is not executed and cannot be silently ignored",
-                        tail.kind.tag()
-                    ),
-                    "put executable statements in their own paragraph after the condition line",
-                );
-                return None;
-            }
-        }
-        let literal = condition_node.literal.clone().unwrap_or_default();
-        // `condition_node.span` includes the backtick delimiters. The payload
-        // map must start at the first literal byte so parse diagnostics and
-        // expression spans point at the expression, not at a delimiter.
-        let ticks = match condition_node.kind {
-            MdKind::Code { ticks } => ticks,
-            _ => 0,
-        };
-        let literal_span = Span::new(
-            condition_node.span.start.saturating_add(ticks),
-            condition_node.span.end.saturating_sub(ticks),
-        );
-        let segments = PayloadSegments::single(&literal, literal_span);
-        match parse_expression(&literal) {
-            Ok(mut expr) => {
-                segments.rewrite_expr(&mut expr);
-                Some((expr, condition_node.span, &item.children[1..]))
-            }
-            Err(error) => {
-                self.error_with_hint(
-                    codes::EXPR_PARSE,
-                    Some(segments.map_span(error.span)),
-                    format!("invalid condition expression: {}", error.message),
-                    "conditions are Boolean expressions, e.g. `n > 0`",
-                );
-                None
-            }
-        }
-    }
-
-    fn quote(&mut self, quote: &MdNode) -> Vec<Stmt> {
-        if quote.children.len() != 1 || quote.children[0].kind != MdKind::Paragraph {
-            self.error_with_hint(
-                codes::MARKDOWN_INVALID_CONSTRUCT,
-                Some(quote.span),
-                "a block quote invocation must contain exactly one paragraph",
-                "use one block quote per call; prose belongs in normal paragraphs",
-            );
-            return Vec::new();
-        }
-        let paragraph = &quote.children[0];
-        self.call_paragraph(quote, paragraph)
-    }
-
-    fn call_paragraph(&mut self, quote: &MdNode, paragraph: &MdNode) -> Vec<Stmt> {
-        let first = paragraph.children.first();
-        let is_link_form = first
-            .map(|node| matches!(node.kind, MdKind::Link { .. }))
-            .unwrap_or(false);
-        if is_link_form {
-            return self.link_call(quote, paragraph);
-        }
-        let (payload, segments) = match PayloadSegments::of(paragraph) {
-            Ok(result) => result,
-            Err(error) => {
-                self.error_with_hint(
-                    codes::MARKDOWN_INVALID_CONSTRUCT,
-                    Some(error.span),
-                    error.reason,
-                    "a block quote call payload must be plain text or one code span",
-                );
-                return Vec::new();
-            }
-        };
-        if payload.trim().is_empty() {
-            self.error(
-                codes::MARKDOWN_INVALID_CONSTRUCT,
-                Some(quote.span),
-                "block quote invocation has an empty payload",
-            );
-            return Vec::new();
-        }
-        match parse_expression(&payload) {
-            Ok(mut expr) => {
-                segments.rewrite_expr(&mut expr);
-                if !matches!(expr, Expr::Call { .. }) {
-                    self.error_with_hint(
-                        codes::MARKDOWN_INVALID_CONSTRUCT,
-                        Some(segments.map_span(expr_span(&expr))),
-                        "a block quote must be a complete function call",
-                        "write `> 函数(参数)`; use a `**strong**` statement to bind a result",
-                    );
-                    return Vec::new();
-                }
-                vec![Stmt::Eval {
-                    expr,
-                    span: quote.span,
-                }]
-            }
-            Err(error) => {
-                self.error_with_hint(
-                    codes::EXPR_PARSE,
-                    Some(segments.map_span(error.span)),
-                    format!("invalid call expression: {}", error.message),
-                    "block quotes call functions explicitly: `> 函数(参数)`",
-                );
-                Vec::new()
-            }
-        }
-    }
-
-    fn link_call(&mut self, quote: &MdNode, paragraph: &MdNode) -> Vec<Stmt> {
-        let link = &paragraph.children[0];
-        let (url, link_span) = match &link.kind {
-            MdKind::Link { url, .. } => (url.clone(), link.span),
-            _ => unreachable!("link form checked by caller"),
-        };
-        let target = self.resolve_link_target(&url, link_span);
-        let rest = &paragraph.children[1..];
-        let (suffix, segments) = match PayloadSegments::from_children(rest) {
-            Ok(result) => result,
-            Err(error) => {
-                self.error_with_hint(
-                    codes::MARKDOWN_INVALID_CONSTRUCT,
-                    Some(error.span),
-                    error.reason,
-                    "link call arguments must follow the link as plain text or code spans",
-                );
-                return Vec::new();
-            }
-        };
-        if suffix.trim().is_empty() {
-            self.error_with_hint(
-                codes::MARKDOWN_INVALID_CONSTRUCT,
-                Some(quote.span),
-                "link-form call requires an explicit argument list",
-                "write `> [函数](#函数)()` even for zero arguments",
-            );
-            return Vec::new();
-        }
-        let mut args: Vec<Arg> = match parse_arguments(&suffix) {
-            Ok(args) => args,
-            Err(error) => {
-                self.error_with_hint(
-                    codes::EXPR_PARSE,
-                    Some(segments.map_span(error.span)),
-                    format!("invalid call arguments: {}", error.message),
-                    "arguments are `name = value` or positional values",
-                );
-                return Vec::new();
-            }
-        };
-        segments.rewrite_args(&mut args);
-        let Some(target) = target else {
-            return Vec::new();
-        };
-        vec![Stmt::Call {
-            call: CallSite {
-                target,
-                args,
-                span: quote.span,
-            },
-            span: quote.span,
-        }]
-    }
-
-    fn resolve_link_target(&mut self, url: &str, span: Span) -> Option<CallTarget> {
-        if let Some(fragment) = url.strip_prefix('#') {
-            let unit_id = self.index.anchors.get(fragment).cloned().or_else(|| {
-                self.index
-                    .units
-                    .iter()
-                    .find(|unit| unit.name == fragment)
-                    .map(|unit| unit.id.clone())
+            out.push(RawPayload {
+                payload,
+                span,
+                segments,
+                direct,
             });
-            let Some(unit_id) = unit_id else {
-                self.error(
-                    codes::REF_UNRESOLVED,
-                    Some(span),
-                    format!("no heading matches call target `{url}`"),
-                );
-                return None;
-            };
-            let Some(scope) = self
-                .index
-                .functions
-                .iter()
-                .find(|scope| scope.unit == unit_id)
-            else {
-                self.error(
-                    codes::REF_UNRESOLVED,
-                    Some(span),
-                    format!("call target `{url}` is not a function"),
-                );
-                return None;
-            };
-            Some(CallTarget::Resolved {
-                module: unit_id.module.clone(),
-                function: scope.id.name.clone(),
-            })
-        } else if url.starts_with("http://") || url.starts_with("https://") {
-            self.error_with_hint(
-                codes::REF_UNRESOLVED,
-                Some(span),
-                "external links cannot be called",
-                "link targets used as calls must resolve to a Marqdo function",
-            );
-            None
-        } else {
-            self.error_with_hint(
-                codes::MODULE_UNRESOLVED,
-                Some(span),
-                format!("cannot resolve cross-module call target `{url}`"),
-                "import the module explicitly in front matter and call it through the alias",
-            );
-            None
         }
     }
-}
 
-fn expr_span(expr: &Expr) -> Span {
-    marqdo_expression::Expr::span(expr)
+    fn parse_payload(
+        &mut self,
+        text: &str,
+        span: Span,
+        segments: &PayloadSegments,
+    ) -> Option<Payload> {
+        let map = |span: Span| segments.map_span(span);
+        let text = text.trim();
+        if text.starts_with("params(") {
+            // Signature syntax and diagnostics are owned by `signature::parse`;
+            // the mapper only recognizes the declaration payload.
+            return Some(Payload::Params);
+        }
+        if text == "params" || text.starts_with("params ") {
+            self.error(
+                codes::SEM_SYNTAX,
+                Some(span),
+                "malformed params declaration; write `params(name: Type, ...)`",
+            );
+            return None;
+        }
+        let (word, rest) = match text.split_once(char::is_whitespace) {
+            Some((word, rest)) => (word, rest.trim()),
+            None => (text, ""),
+        };
+        // Parse control expressions with the keyword replaced by spaces so the
+        // expression AST keeps payload-relative (not rest-relative) spans.
+        let expression_at = |rest: &str| {
+            let offset = text.len().saturating_sub(rest.len());
+            parse_expression(&format!("{}{}", " ".repeat(offset), rest))
+        };
+        match word {
+            "if" => {
+                if rest.is_empty() {
+                    self.error(codes::SEM_SYNTAX, Some(span), "`if` requires a condition");
+                    return None;
+                }
+                match expression_at(rest) {
+                    Ok(expr) => Some(Payload::If(expr)),
+                    Err(error) => {
+                        self.error(
+                            codes::SEM_SYNTAX,
+                            Some(map(error.span)),
+                            format!("invalid if condition: {}", error.message),
+                        );
+                        None
+                    }
+                }
+            }
+            "else" if rest.is_empty() => Some(Payload::Else),
+            "else" => {
+                self.error(codes::SEM_SYNTAX, Some(span), "`else` takes no expression");
+                None
+            }
+            "while" => {
+                if rest.is_empty() {
+                    self.error(
+                        codes::SEM_SYNTAX,
+                        Some(span),
+                        "`while` requires a condition",
+                    );
+                    return None;
+                }
+                match expression_at(rest) {
+                    Ok(expr) => Some(Payload::While(expr)),
+                    Err(error) => {
+                        self.error(
+                            codes::SEM_SYNTAX,
+                            Some(map(error.span)),
+                            format!("invalid while condition: {}", error.message),
+                        );
+                        None
+                    }
+                }
+            }
+            "end" if rest.is_empty() => Some(Payload::End),
+            "end" => {
+                self.error(codes::SEM_SYNTAX, Some(span), "`end` takes no expression");
+                None
+            }
+            "return" => {
+                if rest.is_empty() {
+                    self.error(
+                        codes::SEM_SYNTAX,
+                        Some(span),
+                        "`return` requires an expression",
+                    );
+                    return None;
+                }
+                match expression_at(rest) {
+                    Ok(expr) => Some(Payload::Return(expr)),
+                    Err(error) => {
+                        self.error(
+                            codes::SEM_SYNTAX,
+                            Some(map(error.span)),
+                            format!("invalid return expression: {}", error.message),
+                        );
+                        None
+                    }
+                }
+            }
+            "params" => {
+                if text.starts_with("params(") && text.ends_with(')') {
+                    Some(Payload::Params)
+                } else {
+                    self.error(
+                        codes::SEM_SYNTAX,
+                        Some(span),
+                        "malformed params declaration",
+                    );
+                    None
+                }
+            }
+            "ifdef" | "returning" | "paramsx" => self.statement_payload(text, span),
+            _ => self.statement_payload(text, span),
+        }
+    }
+
+    fn statement_payload(&mut self, text: &str, span: Span) -> Option<Payload> {
+        match parse_statement(text) {
+            Ok(statement) => Some(Payload::Statement(statement)),
+            Err(error) => {
+                self.error_with_hint(
+                    codes::SEM_SYNTAX,
+                    Some(span),
+                    format!("invalid execution payload: {}", error.message),
+                    "one payload is exactly one statement; put control keywords in their own carriers",
+                );
+                None
+            }
+        }
+    }
+
+    fn sequence(
+        &mut self,
+        nodes: &[RawPayload],
+        position: &mut usize,
+        stop_on_else: bool,
+        in_else_body: bool,
+    ) -> (Vec<Stmt>, Stop) {
+        let mut out = Vec::new();
+        while *position < nodes.len() {
+            let raw = &nodes[*position];
+            match &raw.payload {
+                Payload::Else => {
+                    if stop_on_else {
+                        return (out, Stop::Else);
+                    }
+                    self.error(
+                        if in_else_body {
+                            codes::SEM_DUPLICATE_ELSE
+                        } else {
+                            codes::SEM_UNMATCHED_ELSE
+                        },
+                        Some(raw.span),
+                        if in_else_body {
+                            "`if` has more than one `else`"
+                        } else {
+                            "`else` has no open `if`"
+                        },
+                    );
+                    *position += 1;
+                }
+                Payload::End => {
+                    return (out, Stop::End);
+                }
+                Payload::If(condition) => {
+                    let condition = condition.clone();
+                    let span = raw.span;
+                    *position += 1;
+                    let (then_body, stop) = self.sequence(nodes, position, true, false);
+                    let mut else_body = Vec::new();
+                    let finish = match stop {
+                        Stop::Else => {
+                            *position += 1;
+                            let (body, stop) = self.sequence(nodes, position, false, true);
+                            else_body = body;
+                            stop
+                        }
+                        other => other,
+                    };
+                    if finish != Stop::End {
+                        self.error(
+                            codes::SEM_UNCLOSED_CONTROL,
+                            Some(span),
+                            "`if` is not closed by `end`",
+                        );
+                    } else {
+                        *position += 1;
+                    }
+                    let mut arms = vec![marqdo_ir::BranchArm {
+                        condition,
+                        condition_span: span,
+                        body: then_body,
+                        span,
+                    }];
+                    if !else_body.is_empty() {
+                        arms.push(marqdo_ir::BranchArm {
+                            condition: Expr::Bool(true),
+                            condition_span: span,
+                            body: else_body,
+                            span,
+                        });
+                    }
+                    out.push(Stmt::Branch { arms, span });
+                }
+                Payload::While(condition) => {
+                    let condition = condition.clone();
+                    let span = raw.span;
+                    *position += 1;
+                    let (body, stop) = self.sequence(nodes, position, false, false);
+                    if stop != Stop::End {
+                        self.error(
+                            codes::SEM_UNCLOSED_CONTROL,
+                            Some(span),
+                            "`while` is not closed by `end`",
+                        );
+                    } else {
+                        *position += 1;
+                    }
+                    out.push(Stmt::Loop {
+                        condition,
+                        condition_span: span,
+                        body,
+                        span,
+                    });
+                }
+                Payload::Return(value) => {
+                    out.push(Stmt::Return {
+                        value: value.clone(),
+                        span: raw.span,
+                    });
+                    *position += 1;
+                }
+                Payload::Params => {
+                    let duplicate = self.saw_params.is_some();
+                    if !raw.direct {
+                        self.error(
+                            codes::SEM_SIGNATURE_POSITION,
+                            Some(raw.span),
+                            "`params(...)` must be a direct payload, not inside a list or block quote",
+                        );
+                    } else if *position != 0 {
+                        self.error(
+                            codes::SEM_SIGNATURE_POSITION,
+                            Some(raw.span),
+                            "`params(...)` must be the first payload of an Exec H2",
+                        );
+                    } else if duplicate {
+                        self.error(
+                            codes::SEM_SIGNATURE_POSITION,
+                            Some(raw.span),
+                            "`params(...)` may be declared only once per function",
+                        );
+                    } else {
+                        self.saw_params = Some(raw.span);
+                    }
+                    *position += 1;
+                }
+                Payload::Statement(statement) => {
+                    let mut statement = statement.clone();
+                    raw.segments.rewrite_statement(&mut statement);
+                    let span = raw.span;
+                    match statement.kind {
+                        StatementKind::Assign { target, value } => out.push(Stmt::Assign {
+                            target: match target {
+                                AssignTarget::Local { name, name_span } => {
+                                    PlaceTarget::Local { name, name_span }
+                                }
+                                AssignTarget::Index {
+                                    base,
+                                    index,
+                                    span: target_span,
+                                } => PlaceTarget::Index {
+                                    base: *base,
+                                    index: *index,
+                                    span: target_span,
+                                },
+                            },
+                            value,
+                            span,
+                        }),
+                        StatementKind::Expr(expr) => out.push(Stmt::Eval { expr, span }),
+                    }
+                    *position += 1;
+                }
+            }
+        }
+        (out, Stop::Eof)
+    }
 }
 
 /// Normalise a heading name (re-exported for callers that resolve link targets).

@@ -1,3 +1,3 @@
-## main
+## @exec main
 
-*1.5 * 2.0*
+`return 1.5 * 2.0`

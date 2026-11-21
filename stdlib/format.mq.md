@@ -1,6 +1,8 @@
+
+# @exec format
 ## 字节长度
 
-`(文本)`
+`params(文本)`
 
 **点 = text.codepoints(文本)**
 
@@ -8,119 +10,156 @@
 
 **下标 = 0**
 
-- `下标 < 长度(点)`
+`while 下标 < 长度(点)`
 
-  **码点 = 点[下标]**
+**码点 = 点[下标]**
 
-  1. `码点 < 128`
+`if 码点 < 128`
 
-     **总字节 = 总字节 + 1**
+**总字节 = 总字节 + 1**
 
-  2. `码点 < 2048`
+`else`
+`if 码点 < 2048`
 
-     **总字节 = 总字节 + 2**
+**总字节 = 总字节 + 2**
 
-  3. `码点 < 65536`
+`else`
+`if 码点 < 65536`
 
-     **总字节 = 总字节 + 3**
+**总字节 = 总字节 + 3**
 
-  4. `true`
+`else`
+`if true`
 
-     **总字节 = 总字节 + 4**
+**总字节 = 总字节 + 4**
 
-  **下标 = 下标 + 1**
+`end`
+`end`
+`end`
+`end`
+**下标 = 下标 + 1**
 
-*总字节*
+`end`
+`return 总字节`
 
 ## 显示
 
-`(值)`
+`params(值)`
 
-按语言值语义格式化，用于与内置 `打印` 的输出对照。
+按语言值语义格式化，用于与内置 打印 的输出对照。
 覆盖 Unit/None/Bool/Int/Float/Text/List/Map/Table/Formula/Code/
 FunctionRef/PluginHandle/Memory/Resource。
 
 **类别 = 类型(值)**
 
-1. `类别 == "Unit"`
+`if 类别 == "Unit"`
 
-   *"Unit"*
+`return "Unit"`
 
-2. `类别 == "None"`
+`else`
+`if 类别 == "None"`
 
-   *"None"*
+`return "None"`
 
-3. `类别 == "Text"`
+`else`
+`if 类别 == "Text"`
 
-   *值*
+`return 值`
 
-4. `类别 == "List"`
+`else`
+`if 类别 == "List"`
 
-   *列表显示(值)*
+`return 列表显示(值)`
 
-5. `类别 == "Map"`
+`else`
+`if 类别 == "Map"`
 
-   *映射显示(值)*
+`return 映射显示(值)`
 
-6. `类别 == "Table"`
+`else`
+`if 类别 == "Table"`
 
-   *表格显示(值)*
+`return 表格显示(值)`
 
-7. `类别 == "Formula"`
+`else`
+`if 类别 == "Formula"`
 
-   *"Formula(" + 转义文本(值.latex) + ")"*
+`return "Formula(" + 转义文本(值.latex) + ")"`
 
-8. `类别 == "Code"`
+`else`
+`if 类别 == "Code"`
 
-   *"Code(" + 转义文本(值.language) + ", " + 文本(字节长度(值.source)) + " bytes)"*
+`return "Code(" + 转义文本(值.language) + ", " + 文本(字节长度(值.source)) + " bytes)"`
 
-9. `类别 == "FunctionRef"`
+`else`
+`if 类别 == "FunctionRef"`
 
-   *"FunctionRef(" + 值.module + "::" + 值.name + ")"*
+`return "FunctionRef(" + 值.module + "::" + 值.name + ")"`
 
-10. `类别 == "PluginHandle"`
+`else`
+`if 类别 == "PluginHandle"`
 
-    *"PluginHandle(" + 值.plugin + "::" + 值.export + ")"*
+`return "PluginHandle(" + 值.plugin + "::" + 值.export + ")"`
 
-11. `类别 == "Memory"`
+`else`
+`if 类别 == "Memory"`
 
-    *"Memory"*
+`return "Memory"`
 
-12. `类别 == "Resource"`
+`else`
+`if 类别 == "Resource"`
 
-    *"Resource"*
+`return "Resource"`
 
-13. `true`
+`else`
+`if true`
 
-    *文本(值)*
+`return 文本(值)`
 
+`end`
+`end`
+`end`
+`end`
+`end`
+`end`
+`end`
+`end`
+`end`
+`end`
+`end`
+`end`
+`end`
 ## 列表显示
 
-`(列表)`
+`params(列表)`
 
 **结果 = "["**
 
 **下标 = 0**
 
-- `下标 < 长度(列表)`
+`while 下标 < 长度(列表)`
 
-  1. `下标 > 0`
+`if 下标 > 0`
 
-     **结果 = 结果 + ", "**
+**结果 = 结果 + ", "**
 
-  2. `true`
+`else`
+`if true`
 
-     **忽略 = 0**
+**忽略 = 0**
 
-  **结果 = 结果 + 值显示(列表[下标])**
+`end`
+`end`
+**结果 = 结果 + 值显示(列表[下标])**
 
-  **下标 = 下标 + 1**
+**下标 = 下标 + 1**
 
-*结果 + "]"*
+`end`
+`return 结果 + "]"`
 
 ## 映射显示
 
-`(映射)`
+`params(映射)`
 
 **键 = map.keys(映射)**
 
@@ -128,27 +167,31 @@ FunctionRef/PluginHandle/Memory/Resource。
 
 **下标 = 0**
 
-- `下标 < 长度(键)`
+`while 下标 < 长度(键)`
 
-  1. `下标 > 0`
+`if 下标 > 0`
 
-     **结果 = 结果 + ", "**
+**结果 = 结果 + ", "**
 
-  2. `true`
+`else`
+`if true`
 
-     **忽略 = 0**
+**忽略 = 0**
 
-  **当前键 = 键[下标]**
+`end`
+`end`
+**当前键 = 键[下标]**
 
-  **结果 = 结果 + 当前键 + ": " + 值显示(map.get(映射, 当前键))**
+**结果 = 结果 + 当前键 + ": " + 值显示(map.get(映射, 当前键))**
 
-  **下标 = 下标 + 1**
+**下标 = 下标 + 1**
 
-*结果 + "}"*
+`end`
+`return 结果 + "}"`
 
 ## 表格显示
 
-`(表格)`
+`params(表格)`
 
 **列 = table.columns(表格)**
 
@@ -156,77 +199,89 @@ FunctionRef/PluginHandle/Memory/Resource。
 
 **行号 = 0**
 
-- `行号 < 长度(表格)`
+`while 行号 < 长度(表格)`
 
-  1. `行号 > 0`
+`if 行号 > 0`
 
-     **结果 = 结果 + "; "**
+**结果 = 结果 + "; "**
 
-  2. `true`
+`else`
+`if true`
 
-     **忽略 = 0**
+**忽略 = 0**
 
-  **行 = table.row(表格, 行号)**
+`end`
+`end`
+**行 = table.row(表格, 行号)**
 
-  **单元格 = []**
+**单元格 = []**
 
-  **列号 = 0**
+**列号 = 0**
 
-  - `列号 < 长度(行)`
+`while 列号 < 长度(行)`
 
-    **单元格 = list.append(单元格, 显示(行[列号]))**
+**单元格 = list.append(单元格, 显示(行[列号]))**
 
-    **列号 = 列号 + 1**
+**列号 = 列号 + 1**
 
-  **结果 = 结果 + 连接文本(单元格, " | ")**
+`end`
+**结果 = 结果 + 连接文本(单元格, " | ")**
 
-  **行号 = 行号 + 1**
+**行号 = 行号 + 1**
 
-*结果 + "}"*
+`end`
+`return 结果 + "}"`
 
 ## 连接文本
 
-`(列表, 分隔)`
+`params(列表, 分隔)`
 
 **结果 = ""**
 
 **下标 = 0**
 
-- `下标 < 长度(列表)`
+`while 下标 < 长度(列表)`
 
-  1. `下标 > 0`
+`if 下标 > 0`
 
-     **结果 = 结果 + 分隔**
+**结果 = 结果 + 分隔**
 
-  2. `true`
+`else`
+`if true`
 
-     **忽略 = 0**
+**忽略 = 0**
 
-  **结果 = 结果 + 列表[下标]**
+`end`
+`end`
+**结果 = 结果 + 列表[下标]**
 
-  **下标 = 下标 + 1**
+**下标 = 下标 + 1**
 
-*结果*
+`end`
+`return 结果`
 
 ## 值显示
 
-`(值)`
+`params(值)`
 
 列表/映射/表格内部使用 repr 语义：Text 带引号并转义，其它值递归显示。
 
 **类别 = 类型(值)**
 
-1. `类别 == "Text"`
+`if 类别 == "Text"`
 
-   *转义文本(值)*
+`return 转义文本(值)`
 
-2. `true`
+`else`
+`if true`
 
-   *显示(值)*
+`return 显示(值)`
 
+`end`
+`end`
 ## 转义文本
 
-`(文本)`
+`params(文本)`
 
 **点 = text.codepoints(文本)**
 
@@ -234,34 +289,46 @@ FunctionRef/PluginHandle/Memory/Resource。
 
 **下标 = 0**
 
-- `下标 < 长度(点)`
+`while 下标 < 长度(点)`
 
-  **码点 = 点[下标]**
+**码点 = 点[下标]**
 
-  1. `码点 == 34`
+`if 码点 == 34`
 
-     **`结果 = 结果 + "\\\""`**
+**`结果 = 结果 + "\\\""`**
 
-  2. `码点 == 92`
+`else`
+`if 码点 == 92`
 
-     **`结果 = 结果 + "\\\\"`**
+**`结果 = 结果 + "\\\\"`**
 
-  3. `码点 == 10`
+`else`
+`if 码点 == 10`
 
-     **`结果 = 结果 + "\\n"`**
+**`结果 = 结果 + "\\n"`**
 
-  4. `码点 == 9`
+`else`
+`if 码点 == 9`
 
-     **`结果 = 结果 + "\\t"`**
+**`结果 = 结果 + "\\t"`**
 
-  5. `码点 == 13`
+`else`
+`if 码点 == 13`
 
-     **`结果 = 结果 + "\\r"`**
+**`结果 = 结果 + "\\r"`**
 
-  6. `true`
+`else`
+`if true`
 
-     **结果 = 结果 + text.from_codepoint(码点)**
+**结果 = 结果 + text.from_codepoint(码点)**
 
-  **下标 = 下标 + 1**
+`end`
+`end`
+`end`
+`end`
+`end`
+`end`
+**下标 = 下标 + 1**
 
-*`结果 + "\""`*
+`end`
+``return 结果 + "\""``

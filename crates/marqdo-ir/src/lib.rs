@@ -152,6 +152,8 @@ pub enum UnitKind {
     Namespace,
     /// Level-2 heading: function.
     Function,
+    /// Level-2 heading in Knowledge mode: inert knowledge unit.
+    Knowledge,
     /// Level-3+ heading inside a function: named section, not a callable unit.
     Section,
 }

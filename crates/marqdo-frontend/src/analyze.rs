@@ -57,25 +57,45 @@ pub fn analyze_source(module_id: &str, source: &str) -> AnalysisResult {
                 )
                 .with_hint("front matter must be valid YAML between `---` delimiters"),
             ),
-            Ok(_) => match frontmatter.imports() {
-                Ok(mapping) => {
-                    for (alias, target) in mapping {
-                        imports.push(ImportDecl {
-                            alias,
-                            target,
-                            span: frontmatter.span,
-                        });
+            Ok(_) => {
+                for key in ["marqdo_semantics", "syntax"] {
+                    if frontmatter.has_key(key) {
+                        diagnostics.push(
+                            Diagnostic::error(
+                                codes::SEM_UNSUPPORTED_VERSION_DIRECTIVE,
+                                Some(frontmatter.yaml_span),
+                                format!(
+                                    "`{key}` is not a syntax selector; there is one current syntax"
+                                ),
+                            )
+                            .with_hint(
+                                "remove the directive and migrate the source to RFC-LANG-0002 syntax",
+                            ),
+                        );
                     }
                 }
-                Err(error) => diagnostics.push(
-                    Diagnostic::error(
-                        codes::FRONTMATTER_INVALID,
-                        Some(frontmatter.span),
-                        format!("invalid import declaration: {error}"),
-                    )
-                    .with_hint("imports are an explicit mapping: `import: { alias: \"@module\" }`"),
-                ),
-            },
+                match frontmatter.imports() {
+                    Ok(mapping) => {
+                        for (alias, target) in mapping {
+                            imports.push(ImportDecl {
+                                alias,
+                                target,
+                                span: frontmatter.span,
+                            });
+                        }
+                    }
+                    Err(error) => diagnostics.push(
+                        Diagnostic::error(
+                            codes::FRONTMATTER_INVALID,
+                            Some(frontmatter.span),
+                            format!("invalid import declaration: {error}"),
+                        )
+                        .with_hint(
+                            "imports are an explicit mapping: `import: { alias: \"@module\" }`",
+                        ),
+                    ),
+                }
+            }
         }
     }
 
@@ -92,7 +112,7 @@ pub fn analyze_source(module_id: &str, source: &str) -> AnalysisResult {
         let signature = signature::detect(&document, &blocks);
         let explicit = signature.as_ref().map(|(_, sig)| sig);
 
-        let mut mapped = map::map_function(&document, &units, &imports, scope);
+        let mut mapped = map::map_function(&document, &units, scope);
         diagnostics.append(&mut mapped.diagnostics);
 
         let mut params: Vec<Param> = Vec::new();
@@ -104,7 +124,12 @@ pub fn analyze_source(module_id: &str, source: &str) -> AnalysisResult {
         }
         let inference = infer::infer(&mapped.stmts, explicit, &import_names);
         diagnostics.extend(inference.diagnostics);
-        if kind == SignatureKind::Inferred {
+        if kind == SignatureKind::Inferred && !inference.params.is_empty() {
+            diagnostics.push(Diagnostic::warning(
+                codes::SEM_INFERRED_SIGNATURE,
+                Some(scope.heading_span),
+                "function signature was inferred; declare it with `params(...)`",
+            ));
             params = inference
                 .params
                 .into_iter()
@@ -157,19 +182,25 @@ mod tests {
 
     #[test]
     fn maps_recursive_factorial() {
-        let source = r#"# 数学
+        let source = r#"# @knowledge 数学
 
-## 阶乘
+## @exec 阶乘
 
-1. `n <= 1`
+`if n <= 1`
 
-   *1*
+`return 1`
 
-2. `n > 1`
+`else`
 
-   **结果 = n * 阶乘(n=n-1)**
+`if n > 1`
 
-   *结果*
+`结果 = n * 阶乘(n=n-1)`
+
+`return 结果`
+
+`end`
+
+`end`
 "#;
         let result = analyze(source);
         assert!(
@@ -186,17 +217,19 @@ mod tests {
 
     #[test]
     fn maps_countdown_loop() {
-        let source = r#"## 倒计时
+        let source = r#"## @exec 倒计时
 
-**n = 3**
+`n = 3`
 
-- `n > 0`
+`while n > 0`
 
-  > 打印(n)
+`打印(n)`
 
-  **n = n - 1**
+`n = n - 1`
 
-*n*
+`end`
+
+`return n`
 "#;
         let result = analyze(source);
         assert!(!result.has_errors(), "{:#?}", result.diagnostics);
@@ -207,22 +240,24 @@ mod tests {
 
     #[test]
     fn invalid_strong_payload_is_a_hard_error() {
-        let result = analyze("## f\n\n**a *b* c**\n");
+        let result = analyze("## @exec f\n\n**a *b* c**\n");
         assert!(result.has_errors());
         assert!(result
             .diagnostics
             .iter()
-            .any(|d| d.code == codes::MARKDOWN_INVALID_CONSTRUCT));
+            .any(|d| d.code == "sem.payload_nested"));
     }
 
     #[test]
     fn invalid_list_header_is_a_hard_error() {
-        let result = analyze("## f\n\n1. 没有条件\n");
+        // RFC-LANG-0002: a plain list is inert Markdown; the v2 negative is an
+        // unclosed control frame inside the owning Exec H2.
+        let result = analyze("## @exec f\n\n`if 1`\n");
         assert!(result.has_errors());
         assert!(result
             .diagnostics
             .iter()
-            .any(|d| d.code == codes::MARKDOWN_INVALID_CONSTRUCT));
+            .any(|d| d.code == "sem.unclosed_control"));
     }
 
     /// Strip source spans so that pure narrative edits (which shift byte
@@ -252,8 +287,9 @@ mod tests {
 
     #[test]
     fn prose_changes_do_not_change_ir() {
-        let base = "## f\n\n说明文字。\n\n**x = 1**\n\n更多说明。\n\n*x*\n";
-        let edited = "## f\n\n另一段完全不同的叙述。\n\n**x = 1**\n\n继续叙述。\n\n*x*\n";
+        let base = "## @exec f\n\n说明文字。\n\n`x = 1`\n\n更多说明。\n\n`return x`\n";
+        let edited =
+            "## @exec f\n\n另一段完全不同的叙述。\n\n`x = 1`\n\n继续叙述。\n\n`return x`\n";
         let a = analyze(base);
         let b = analyze(edited);
         let a_ir = serde_json::to_value(&a.module.functions).unwrap();

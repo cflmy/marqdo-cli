@@ -3,12 +3,24 @@
   "function": "main",
   "stdout": "",
   "value": {
-    "type": "list",
     "items": [
-      {"type": "int", "decimal": "0"},
-      {"type": "int", "decimal": "1"},
-      {"type": "int", "decimal": "9"},
-      {"type": "int", "decimal": "0"}
-    ]
+      {
+        "decimal": "0",
+        "type": "int"
+      },
+      {
+        "decimal": "1",
+        "type": "int"
+      },
+      {
+        "decimal": "9",
+        "type": "int"
+      },
+      {
+        "decimal": "0",
+        "type": "int"
+      }
+    ],
+    "type": "list"
   }
 }

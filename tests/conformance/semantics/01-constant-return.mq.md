@@ -1,3 +1,3 @@
-## main
+## @exec main
 
-*1 + 2*
+*return 1 + 2*

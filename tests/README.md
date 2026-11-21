@@ -1,13 +1,27 @@
 # Marqdo conformance and integration test corpus
 
 This directory holds the P0/P1 conformance corpus required by
-`docs/DEVELOPMENT_BLUEPRINT.md` §13/§14. The Rust harnesses live in
+RFC-LANG-0002 and `docs/DEVELOPMENT_BLUEPRINT.md` §13/§14. The Rust harnesses live in
 `crates/cli/tests/` (they use the workspace libraries directly and the
 `marqdo` binary via `CARGO_BIN_EXE_marqdo`); the fixtures are plain files here
 so they can be rendered, diffed and reviewed like Markdown documents.
 
 Everything here is data. Nothing in this directory modifies the repository, and
 no test commits, copies or rewrites files outside a throw-away temp directory.
+
+> **Migration state (RFC-LANG-0002).** The source text in this corpus uses the
+> current single syntax. The Rust frontend still implements the pre-RFC mapping,
+> so the semantic, negative, property and CLI suites that execute Marqdo source
+> are **expected to be red** until the frontend migration lands. `conformance_ast`
+> is unaffected by the semantic change (the Markdown profile is unchanged).
+> `tests/negative/warnings/01-inferred-signature` pins the optional
+> `sem.inferred_signature` lint as enabled; the current frontend does not emit
+> it. `sem.no_entry_function` is a `run` entry-selection diagnostic and cannot be
+> pinned by `crates/cli/tests/negative.rs`, which only calls `analyze_source` /
+> `marqdo_runtime::run`; that coverage needs a CLI integration test. Do not
+> regenerate goldens or restore the old mapper to turn these suites green. See
+> [`../docs/STATUS.md`](../docs/STATUS.md) and
+> [`../docs/migration/README.md`](../docs/migration/README.md).
 
 ## Layout
 
@@ -17,8 +31,8 @@ tests/
 │   ├── ast/            160 × *.mq.md + sibling *.ast.json goldens
 │   └── semantics/       73 × *.mq.md + sibling *.expected.json goldens
 ├── negative/
-│   ├── *.mq.md          52 × compile-time hard-error fixtures + *.expected.json
-│   ├── warnings/         6 × inert-executable warning fixtures + *.expected.json
+│   ├── *.mq.md          45 × compile-time hard-error fixtures + *.expected.json
+│   ├── warnings/         2 × warning-model/control fixtures + *.expected.json
 │   └── runtime/         21 × runtime-error fixtures + *.expected.json
 └── README.md           this file
 ```
@@ -29,7 +43,7 @@ Rust harnesses (all in `crates/cli/tests/`):
 |---|---|
 | `conformance_ast.rs` | The frozen `marqdo.md.v1` profile parses each fixture into exactly the checked-in AST (node kinds, attributes, literals, byte spans, order). |
 | `conformance_semantics.rs` | Each semantic fixture compiles through `marqdo_frontend`, is assembled into `marqdo_ir::Program` and executed with `marqdo_runtime` + `marqdo_host::StdHost`; returned wire value and program stdout match. |
-| `negative.rs` | Invalid executable shapes are **hard errors** (never prose fallbacks), exact sorted diagnostic-code lists; warnings and runtime error codes are asserted in their own suites. |
+| `negative.rs` | Current-syntax diagnostics are **hard errors** (never prose fallbacks): exact sorted `sem.*`/`symbol.*`/`call.*`/`frontmatter.*` code lists, the `sem.inferred_signature` warning model with inert-knowledge controls, and runtime error codes — each asserted in its own suite. |
 | `properties.rs` | Blueprint §14.2 prose invariance: inserting/removing pure narration paragraphs never changes the executable function IR (modulo source spans) and diagnostics stay error-free. |
 | `integration_cli.rs` | Real CLI contract: `init`, `check`, `run`, `call`, `inspect`, `fmt`, multi-module imports/cycles, `lock`/`sync --locked`, plugin inspection and explicitly trusted plugin invocation. |
 
@@ -63,8 +77,11 @@ The power/control-flow slice is pinned by:
 * semantic fixtures 37–44: right-associative power, unary-minus precedence,
   parentheses, float negative exponents, Strong+CodeSpan assignment, branch,
   loop and inert prose;
-* negative fixtures 49–52: missing power/condition operands and executable
-  nodes swallowed by a condition paragraph;
+* negative fixtures 18–23: malformed payload statements (missing condition,
+  trailing colon, `end if`, empty `return`, multi-statement payload, bad
+  `params` syntax); fixtures 24–29 pin control-stack pairing, including the
+  heading boundary that reports `sem.unclosed_control` and `sem.unmatched_end`
+  independently;
 * runtime negatives 11–12: negative integer exponent and exponent budget;
 * `crates/marqdo-frontend/src/payload.rs` span tests and
   `crates/cli/tests/integration_cli.rs` CLI span/E2E assertions.
@@ -77,8 +94,8 @@ The addressable-memory slice (RFC-CM P1, ADR-0022) is pinned by:
 * runtime negatives 13–18: out-of-bounds and huge offsets, byte values outside
   `0..=255`, index assignment on a `List`, growth beyond the declared maximum
   and negative page counts;
-* `tests/negative/runtime/15-index-assign-non-memory.mq.md` also guards the v1
-  value semantics of `List` (it must not become shared mutable memory);
+* `tests/negative/runtime/15-index-assign-non-memory.mq.md` also guards the
+  current value semantics of `List` (it must not become shared mutable memory);
 * `crates/marqdo-runtime/src/memory.rs` unit tests (aliasing, atomic failed
   growth, forged/stale handles, page arithmetic) and
   `crates/marqdo-runtime/tests/interpreter.rs` host-boundary/budget tests;
@@ -277,8 +294,9 @@ RFC-CM CM-A06 resource streams (ADR-0025) are pinned by:
 
 Fixture discovery is directory-based and sorted by file name, so the order is
 deterministic on every platform. The AST and semantic suites fail loudly if the
-corpus shrinks below 100 / 25 fixtures, and the negative suite fails below 30
-compile-time hard-error fixtures.
+corpus shrinks below 100 / 25 fixtures; the warning and runtime suites fail if
+their directories are empty; the negative suite fails below 30 compile-time
+hard-error fixtures.
 
 ## AST goldens and `UPDATE_GOLDENS`
 
@@ -326,38 +344,103 @@ golden without verifying the value would defeat the purpose of the corpus.
 
 ## Negative fixtures
 
-Compile-time (`tests/negative/*.mq.md`):
+All three suites use the single current language contract
+(`docs/architecture/RFC-LANG-0002-unified-semantics.md`,
+`spec/mapping.md`, `spec/expression.ebnf`): `@exec`/`@knowledge` heading
+modes, interchangeable `Strong`/`Emph`/inline-`Code` one-statement payloads,
+and explicit `if`/`else`/`while`/`end`/`return`/`params`. Ordinary Markdown
+lists, block quotes, tables and emphasis are **not** errors: they are inert
+containers/knowledge with an empty execution projection. The v1
+`markdown.invalid_construct` shape errors ("ordered list must have a
+condition", "block quote must be a call", "Strong must not nest Emph", "empty
+heading") were removed with the old mapping; `markdown.inert_executable`
+warnings no longer exist either.
+
+Compile-time (`tests/negative/*.mq.md`, 45 fixtures):
 
 ```json
-{"codes": ["markdown.invalid_construct"]}
+{"codes": ["sem.unclosed_control"]}
 ```
 
 The expected list is the exact sorted multiset of **error** diagnostic codes
 produced by `marqdo_frontend::analyze_source`. Warnings emitted by the same
 document are ignored here. Every listed code is additionally asserted to have
-`error` severity, and every fixture must produce at least one error — invalid
-executable shapes never fall back to prose.
+`error` severity, and every fixture must produce at least one error — an
+invalid Exec payload never falls back to prose.
 
-Warnings (`tests/negative/warnings/*.mq.md`):
+Coverage by group:
+
+| Group | Fixtures | Codes |
+|---|---|---|
+| heading modes and unit identity | 01–07, 44–45 | `sem.invalid_mode_marker`, `sem.empty_unit_name`, `sem.duplicate_unit_name`, `sem.exec_without_function` |
+| payload extraction | 08–17 | `sem.payload_nested` (nested `Emph`/`Strong`/`Link`/math/strikethrough/line break), `sem.empty_payload` (whitespace-only `Strong`/`Emph`) |
+| statement grammar | 18–23 | `sem.syntax` |
+| control stack and heading boundary | 24–29 | `sem.unmatched_else`, `sem.duplicate_else`, `sem.unmatched_end`, `sem.unclosed_control` |
+| signatures | 30–32 | `sem.signature_position` |
+| version selection | 33–34 | `sem.unsupported_version_directive` |
+| kept non-`sem` errors | 35–43 | `symbol.unknown`, `call.arity`, `symbol.uninitialized`, `frontmatter.invalid` |
+
+Fixture 29 crosses a heading boundary on purpose: the opener's segment reports
+`sem.unclosed_control` and the later `### @exec` segment reports
+`sem.unmatched_end`; both are asserted, and neither is "repaired" across the
+boundary (`spec/mapping.md` §7).
+
+`sem.no_entry_function` is a `run` entry-selection diagnostic: it is produced
+when the CLI cannot find an Exec H2 `main`. `crates/cli/tests/negative.rs` only
+calls `marqdo_frontend::analyze_source` and `marqdo_runtime::run`, and the
+latter reports an unknown *function* for a missing name; there is no CLI-entry
+suite in that harness, so this corpus cannot pin the code without a harness
+change. It is recorded here as a known gap rather than replaced by a weaker
+assertion (see `spec/references.md` §7 and `spec/mapping.md` §8).
+
+### v1 → current reclassification
+
+| v1 fixtures | v1 expectation | Current disposition |
+|---|---|---|
+| 01–08 nested `Strong`/`Emph` children | `markdown.invalid_construct` | kept as 08–15 with `sem.payload_nested` |
+| 09–12 empty/parse-error carriers | `markdown.invalid_construct`, `expr.parse` | empty carriers kept as 16–17 (`sem.empty_payload`); the unqualified expression-parse cases are replaced by the explicit `sem.syntax` statements in 18–23 |
+| 13–24 list/quote shape errors | `markdown.invalid_construct`, `expr.parse` | **removed**: ordinary lists/quotes are valid inert Markdown now; the positive control is `warnings/02-knowledge-and-containers-are-inert` |
+| 25–27 link-form calls (external/cross-module/anchor) | `ref.unresolved`, `module.unresolved` | **removed**: link-form calls no longer exist; `ref.unresolved`/`module.unresolved` are now `check --refs`/loader diagnostics outside this harness (`spec/references.md` §7) |
+| 28–29 duplicate function/namespace names | `markdown.invalid_construct` | kept as 44–45 with `sem.duplicate_unit_name` (duplicate canonical name, `spec/references.md` §2.3) |
+| 30–31 empty function/namespace headings | `markdown.invalid_construct` | replaced by 04–05 with `sem.empty_unit_name` on an actual mode declaration |
+| 32–40 unknown/call/signature/frontmatter errors | `symbol.unknown`, `call.arity`, `symbol.uninitialized`, `expr.parse`, `frontmatter.invalid` | kept 35–43 (`frontmatter.*`, `symbol.*`, `call.arity`, `symbol.uninitialized`); malformed-signature cases moved to `sem.syntax`/`sem.signature_position` (23, 30–32) |
+| 41–48 frontmatter/link/assignment/power shapes | `frontmatter.invalid`, `expr.parse` | frontmatter cases kept as 40–42; link/quote/assignment shapes removed with the old mapping; power/condition cases replaced by 18–29 |
+| 49–52 power/condition operands swallowed by a branch condition | `expr.parse`, `markdown.invalid_construct` | **removed**: executable nodes inside list items are now independent payloads. Replacement negatives are the `sem.syntax` (18–23) and control-stack (24–29) fixtures |
+
+Warnings (`tests/negative/warnings/*.mq.md`, 2 fixtures):
 
 ```json
-{"severity": "warning", "codes": ["markdown.inert_executable"]}
+{"severity": "warning", "codes": ["sem.inferred_signature"]}
 ```
 
 These documents must compile **without errors**; the sorted multiset of warning
-codes must match exactly. `return`/`strong`/lists/block quotes outside a
-function body are inert content (warning), not hard errors.
+codes must match exactly. Fixture 01 pins the `sem.inferred_signature` lint for
+an Exec H2 that relies on free-variable inference. Fixture 02 is a
+zero-diagnostic control: it proves that ordinary ordered lists, bullet lists
+and block quotes are valid inert Markdown even inside an `@exec` section, and
+that an explicit `params(...)` declaration (allowed after prose) suppresses the
+inferred-signature warning. The lint is specified as **optional**
+(`spec/mapping.md` §6, "may be enabled"); these fixtures pin it enabled, so if
+an implementation leaves it off the warning suite — not the hard-error corpus —
+is what must be revisited.
 
-Runtime (`tests/negative/runtime/*.mq.md`):
+Runtime (`tests/negative/runtime/*.mq.md`, 21 fixtures):
 
 ```json
 {"function": "main", "args": {}, "codes": ["runtime.division_by_zero"]}
 ```
 
 These documents compile, then must fail at runtime with the expected stable
-error code. Optional keys: `"grants": ["foreign"]` and `"stack_limit": 24`
-(used for the recursion-depth fixture so the budget — not the host process
-stack — is what fails).
+error code. Sources were migrated to the current syntax (explicit `## @exec`
+functions, `params(...)` where a function has arguments, payload calls and
+explicit `if`/`end`), but the genuine runtime expectations were preserved:
+arithmetic type/zero-division, index/field/memory bounds, `call.not_callable`,
+`call.arity` through a `ref` function value, non-Bool branch condition,
+capability (`permission.denied` for a foreign kernel in pure mode), unsupported
+math subset, recursion budget and the addressable-memory/collection errors.
+Optional keys: `"grants": ["foreign"]` and `"stack_limit": 24` (used for the
+recursion-depth fixture so the budget — not the host process stack — is what
+fails).
 
 ## CLI integration notes
 
@@ -374,13 +457,15 @@ stack — is what fails).
 
 ## Notes discovered while authoring (all since fixed)
 
-The fixtures initially pinned three observations that were reported and then
-fixed in the implementation; the goldens below reflect the fixed behaviour:
+Two observations were reported and then fixed in the implementation; the
+goldens reflect the fixed behaviour:
 
 * wire floats round-trip exactly (`serde_json/float_roundtrip` is enabled), so
   Python `math.pi * 9` keeps `28.274333882308138`;
 * the default interpreter stack budget is 128 frames so a deeply recursive
   document returns a structured `resource.exhausted` instead of exhausting the
-  native debug-build stack (`--stack` can raise it deliberately);
-* an external-link call form (`> [x](https://example.com)()`) is rejected with
-  `ref.unresolved`, the same code used for other unresolvable call targets.
+  native debug-build stack (`--stack` can raise it deliberately).
+
+The old link-form block-quote call (`> [x](https://example.com)()`) no longer
+exists: a Markdown link is a static reference, so a call is now an ordinary
+expression payload (`spec/references.md` §6.2).

@@ -3,6 +3,8 @@ import:
   fs: "std:fs/file"
 ---
 
+# @exec fs
+
 ## main
 
 **创建 = fs.创建目录("out")**
@@ -33,4 +35,4 @@ import:
 
 **删除目录 = fs.删除("out")**
 
-*[创建.ok, 写入.value.count, 存在.value, 元数据.value.kind, 元数据.value.size, 列表.value, 是文件.value, 是目录.value, 重命名.ok, 读取.value, 追加.value, 片段.value, 遍历.value, 删除.ok, 删除目录.ok]*
+`return [创建.ok, 写入.value.count, 存在.value, 元数据.value.kind, 元数据.value.size, 列表.value, 是文件.value, 是目录.value, 重命名.ok, 读取.value, 追加.value, 片段.value, 遍历.value, 删除.ok, 删除目录.ok]`

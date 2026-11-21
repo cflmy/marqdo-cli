@@ -3,7 +3,7 @@
   "function": "main",
   "stdout": "",
   "value": {
-    "type": "int",
-    "decimal": "141"
+    "decimal": "141",
+    "type": "int"
   }
 }

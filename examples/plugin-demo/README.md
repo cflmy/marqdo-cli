@@ -125,11 +125,11 @@ are callable through the namespace that prefixes their export names. Plugin
 calls take **named arguments only** in this build:
 
 ```markdown
-## main
+## @exec main
 
-**结果 = solver.add(a=20, b=22)**
+`结果 = solver.add(a=20, b=22)`
 
-> 打印(结果)
+> **打印(结果)**
 ```
 
 ```sh

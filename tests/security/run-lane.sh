@@ -56,13 +56,11 @@ echo "== positive CLI contract =="
 echo "== strict language resources are console-only =="
 mkdir -p .cache/security
 cat > .cache/security/file-resource.mq.md <<'MQ'
-## main
+## @exec main
 
-**内存 = memory.new(1, 1)**
-
-> resource.open("file", "README.md", ["read"])
-
-*None*
+`内存 = memory.new(1, 1)`
+`resource.open("file", "README.md", ["read"])`
+`return None`
 MQ
 set +e
 "$bin" run .cache/security/file-resource.mq.md --mode strict >/dev/null 2>.cache/security/file-resource.err
@@ -79,11 +77,10 @@ grep -q "permission.denied" .cache/security/file-resource.err || {
 }
 
 cat > .cache/security/tcp-resource.mq.md <<'MQ'
-## main
+## @exec main
 
-> resource.open("tcp", "127.0.0.1:9", ["read", "write"])
-
-*None*
+`resource.open("tcp", "127.0.0.1:9", ["read", "write"])`
+`return None`
 MQ
 set +e
 "$bin" run .cache/security/tcp-resource.mq.md --mode strict >/dev/null 2>.cache/security/tcp-resource.err

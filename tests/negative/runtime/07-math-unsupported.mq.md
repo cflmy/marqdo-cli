@@ -1,9 +1,9 @@
-## 公式
+## @knowledge 公式
 
 $$
 \sin(x)
 $$
 
-## main
+## @exec main
 
-*math.eval(ref("#公式"), {})*
+`math.eval(ref("#公式"), {})`

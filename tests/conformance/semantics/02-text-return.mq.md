@@ -1,3 +1,3 @@
-## main
+## @exec main
 
-*"你好，Marqdo"*
+*return "你好，Marqdo"*

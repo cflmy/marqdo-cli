@@ -13,6 +13,36 @@ pub mod codes {
     pub const MARKDOWN_INERT_EXECUTABLE: &str = "markdown.inert_executable";
     /// Front matter is malformed or appears somewhere other than the document start.
     pub const FRONTMATTER_INVALID: &str = "frontmatter.invalid";
+    /// A heading uses an invalid `@exec`/`@knowledge` mode marker.
+    pub const SEM_INVALID_MODE_MARKER: &str = "sem.invalid_mode_marker";
+    /// A mode declaration has no semantic heading name.
+    pub const SEM_EMPTY_UNIT_NAME: &str = "sem.empty_unit_name";
+    /// Duplicate canonical heading/unit name in one scope.
+    pub const SEM_DUPLICATE_UNIT_NAME: &str = "sem.duplicate_unit_name";
+    /// Executable payload appears under no Exec H2 function.
+    pub const SEM_EXEC_WITHOUT_FUNCTION: &str = "sem.exec_without_function";
+    /// A payload carrier contains a nested inline structure.
+    pub const SEM_PAYLOAD_NESTED: &str = "sem.payload_nested";
+    /// A payload carrier is empty in an Exec scope.
+    pub const SEM_EMPTY_PAYLOAD: &str = "sem.empty_payload";
+    /// A payload failed semantic statement validation.
+    pub const SEM_SYNTAX: &str = "sem.syntax";
+    /// `else` does not bind an open `if`.
+    pub const SEM_UNMATCHED_ELSE: &str = "sem.unmatched_else";
+    /// A second `else` appears for one `if`.
+    pub const SEM_DUPLICATE_ELSE: &str = "sem.duplicate_else";
+    /// `end` closes no open frame.
+    pub const SEM_UNMATCHED_END: &str = "sem.unmatched_end";
+    /// A control frame is not closed before the heading ends.
+    pub const SEM_UNCLOSED_CONTROL: &str = "sem.unclosed_control";
+    /// `params(...)` is not the first direct Exec H2 payload.
+    pub const SEM_SIGNATURE_POSITION: &str = "sem.signature_position";
+    /// A version directive such as `marqdo_semantics` is forbidden.
+    pub const SEM_UNSUPPORTED_VERSION_DIRECTIVE: &str = "sem.unsupported_version_directive";
+    /// `run` found no callable entry function.
+    pub const SEM_NO_ENTRY_FUNCTION: &str = "sem.no_entry_function";
+    /// A signature was inferred rather than declared.
+    pub const SEM_INFERRED_SIGNATURE: &str = "sem.inferred_signature";
     /// An executable payload failed to parse as an expression or statement.
     pub const EXPR_PARSE: &str = "expr.parse";
     /// A function name is referenced but no such function exists.

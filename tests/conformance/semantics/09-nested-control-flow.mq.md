@@ -1,19 +1,23 @@
-## 嵌套
+## @exec 嵌套
 
 **total = 0**
 
-1. `n > 0`
+`if n > 0`
 
-   **m = 3**
+**m = 3**
 
-   - `m > 0`
+`while m > 0`
 
-     **total = total + m**
+**total = total + m**
 
-     **m = m - 1**
+**m = m - 1**
 
-2. `n <= 0`
+`end`
 
-   **total = 0**
+`else`
 
-*total*
+**total = 0**
+
+`end`
+
+*return total*

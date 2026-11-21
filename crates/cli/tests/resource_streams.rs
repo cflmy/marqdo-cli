@@ -56,21 +56,21 @@ fn write_file(path: &Path, contents: &str) {
     std::fs::write(path, contents).unwrap();
 }
 
-const READER: &str = r#"## main
+const READER: &str = r#"## @exec main
 
-**内存 = memory.new(1, 1)**
+`内存 = memory.new(1, 1)`
 
-**流 = resource.open("file", "data.txt", ["read"])**
+`流 = resource.open("file", "data.txt", ["read"])`
 
-**第一次 = resource.read(流, 内存, 0, 2)**
+`第一次 = resource.read(流, 内存, 0, 2)`
 
-**第二次 = resource.read(流, 内存, 2, 4)**
+`第二次 = resource.read(流, 内存, 2, 4)`
 
-**第三次 = resource.read(流, 内存, 6, 1)**
+`第三次 = resource.read(流, 内存, 6, 1)`
 
-**关闭 = resource.close(流)**
+`关闭 = resource.close(流)`
 
-*[第一次.value.count, 第一次.value.eof, 第二次.value.count, 第二次.value.eof, 第三次.value.count, 第三次.value.eof, 内存[0], 内存[1], 内存[2], 内存[3], 内存[4], 内存[5], 关闭.ok]*
+`return [第一次.value.count, 第一次.value.eof, 第二次.value.count, 第二次.value.eof, 第三次.value.count, 第三次.value.eof, 内存[0], 内存[1], 内存[2], 内存[3], 内存[4], 内存[5], 关闭.ok]`
 "#;
 
 #[test]
@@ -110,29 +110,29 @@ fn project_file_stream_reads_chunks_into_memory() {
     assert_eq!(values[12]["value"], true);
 }
 
-const WRITER: &str = r#"## main
+const WRITER: &str = r#"## @exec main
 
-**内存 = memory.new(1, 1)**
+`内存 = memory.new(1, 1)`
 
-**`内存[0] = 65`**
+`内存[0] = 65`
 
-**`内存[1] = 66`**
+`内存[1] = 66`
 
-**`内存[2] = 67`**
+`内存[2] = 67`
 
-**写 = resource.open("file", "out.bin", ["write"])**
+`写 = resource.open("file", "out.bin", ["write"])`
 
-**写入 = resource.write(写, 内存, 0, 3)**
+`写入 = resource.write(写, 内存, 0, 3)`
 
-**关闭写 = resource.close(写)**
+`关闭写 = resource.close(写)`
 
-**读 = resource.open("file", "out.bin", ["read"])**
+`读 = resource.open("file", "out.bin", ["read"])`
 
-**读出 = resource.read(读, 内存, 0, 3)**
+`读出 = resource.read(读, 内存, 0, 3)`
 
-**关闭读 = resource.close(读)**
+`关闭读 = resource.close(读)`
 
-*[写入.value.count, 关闭写.ok, 读出.value.count, 读出.value.eof, 内存[0], 内存[1], 内存[2], 关闭读.ok]*
+`return [写入.value.count, 关闭写.ok, 读出.value.count, 读出.value.eof, 内存[0], 内存[1], 内存[2], 关闭读.ok]`
 "#;
 
 #[test]
@@ -171,39 +171,43 @@ fn project_file_stream_writes_on_close_then_reads_back() {
     assert_eq!(std::fs::read(dir.path().join("out.bin")).unwrap(), b"ABC");
 }
 
-const COPY: &str = r#"## main
+const COPY: &str = r#"## @exec main
 
-**输入 = resource.open("file", "data.txt", ["read"])**
+`输入 = resource.open("file", "data.txt", ["read"])`
 
-**输出 = resource.open("file", "out.bin", ["write"])**
+`输出 = resource.open("file", "out.bin", ["write"])`
 
-**内存 = memory.new(1, 1)**
+`内存 = memory.new(1, 1)`
 
-**总数 = 0**
+`总数 = 0`
 
-**继续 = true**
+`继续 = true`
 
-- `继续`
+`while 继续`
 
-  **块 = resource.read(输入, 内存, 0, 16)**
+`块 = resource.read(输入, 内存, 0, 16)`
 
-  1. `块.ok`
+`if 块.ok`
 
-     > resource.write(输出, 内存, 0, 块.value.count)
+`resource.write(输出, 内存, 0, 块.value.count)`
 
-     **总数 = 总数 + 块.value.count**
+`总数 = 总数 + 块.value.count`
 
-     **继续 = not 块.value.eof**
+`继续 = not 块.value.eof`
 
-  2. `true`
+`else`
 
-     **继续 = false**
+`继续 = false`
 
-**关闭读 = resource.close(输入)**
+`end`
 
-**关闭写 = resource.close(输出)**
+`end`
 
-*[总数, 关闭读.ok, 关闭写.ok]*
+`关闭读 = resource.close(输入)`
+
+`关闭写 = resource.close(输出)`
+
+`return [总数, 关闭读.ok, 关闭写.ok]`
 "#;
 
 #[test]
@@ -257,27 +261,27 @@ fn tcp_stream_round_trips_through_mqmd_with_a_network_grant() {
 
     let dir = TempDir::new("tcp");
     let program = format!(
-        r#"## main
+        r#"## @exec main
 
-**内存 = memory.new(1, 1)**
+`内存 = memory.new(1, 1)`
 
-**`内存[0] = 112`**
+`内存[0] = 112`
 
-**`内存[1] = 105`**
+`内存[1] = 105`
 
-**`内存[2] = 110`**
+`内存[2] = 110`
 
-**`内存[3] = 103`**
+`内存[3] = 103`
 
-**流 = resource.open("tcp", "{address}", ["read", "write"])**
+`流 = resource.open("tcp", "{address}", ["read", "write"])`
 
-**写入 = resource.write(流, 内存, 0, 4)**
+`写入 = resource.write(流, 内存, 0, 4)`
 
-**读出 = resource.read(流, 内存, 0, 4)**
+`读出 = resource.read(流, 内存, 0, 4)`
 
-**关闭 = resource.close(流)**
+`关闭 = resource.close(流)`
 
-*[写入.value.count, 读出.value.count, 内存[0], 内存[1], 内存[2], 内存[3], 关闭.ok]*
+`return [写入.value.count, 读出.value.count, 内存[0], 内存[1], 内存[2], 内存[3], 关闭.ok]`
 "#
     );
     write_file(&dir.path().join("index.mq.md"), &program);
@@ -315,19 +319,19 @@ fn file_stream_requires_a_read_grant() {
     assert_eq!(report["error"]["code"], "permission.denied");
 }
 
-const STDIN_READER: &str = r#"## main
+const STDIN_READER: &str = r#"## @exec main
 
-**输入 = resource.open("stdio", "stdin", ["read"])**
+`输入 = resource.open("stdio", "stdin", ["read"])`
 
-**内存 = memory.new(1, 1)**
+`内存 = memory.new(1, 1)`
 
-**第一 = resource.read(输入, 内存, 0, 2)**
+`第一 = resource.read(输入, 内存, 0, 2)`
 
-**第二 = resource.read(输入, 内存, 2, 8)**
+`第二 = resource.read(输入, 内存, 2, 8)`
 
-**第三 = resource.read(输入, 内存, 0, 1)**
+`第三 = resource.read(输入, 内存, 0, 1)`
 
-*[第一.value.count, 第一.value.eof, 第二.value.count, 第二.value.eof, 第三.value.eof, 内存[0], 内存[1], 内存[2], 内存[3]]*
+`return [第一.value.count, 第一.value.eof, 第二.value.count, 第二.value.eof, 第三.value.eof, 内存[0], 内存[1], 内存[2], 内存[3]]`
 "#;
 
 #[test]
@@ -354,35 +358,35 @@ fn piped_stdin_is_chunked_and_reaches_eof() {
     }
 }
 
-const STDERR_WRITER: &str = r#"## main
+const STDERR_WRITER: &str = r#"## @exec main
 
-**错误 = resource.open("stdio", "stderr", ["write"])**
+`错误 = resource.open("stdio", "stderr", ["write"])`
 
-**输出 = resource.open("stdio", "stdout", ["write"])**
+`输出 = resource.open("stdio", "stdout", ["write"])`
 
-**内存 = memory.new(1, 1)**
+`内存 = memory.new(1, 1)`
 
-**`内存[0] = 101`**
+`内存[0] = 101`
 
-**`内存[1] = 114`**
+`内存[1] = 114`
 
-**`内存[2] = 114`**
+`内存[2] = 114`
 
-**写错误 = resource.write(错误, 内存, 0, 3)**
+`写错误 = resource.write(错误, 内存, 0, 3)`
 
-**`内存[0] = 111`**
+`内存[0] = 111`
 
-**`内存[1] = 117`**
+`内存[1] = 117`
 
-**`内存[2] = 116`**
+`内存[2] = 116`
 
-**写输出 = resource.write(输出, 内存, 0, 3)**
+`写输出 = resource.write(输出, 内存, 0, 3)`
 
-**关闭错误 = resource.close(错误)**
+`关闭错误 = resource.close(错误)`
 
-**关闭输出 = resource.close(输出)**
+`关闭输出 = resource.close(输出)`
 
-*[写错误.value.count, 写输出.value.count, 关闭错误.ok, 关闭输出.ok]*
+`return [写错误.value.count, 写输出.value.count, 关闭错误.ok, 关闭输出.ok]`
 "#;
 
 #[test]
@@ -412,17 +416,17 @@ import:
   console: "std:io/console"
 ---
 
-## main
+## @exec main
 
-**第一 = console.读取行()**
+`第一 = console.读取行()`
 
-**第二 = console.读取行()**
+`第二 = console.读取行()`
 
-**第三 = console.读取行()**
+`第三 = console.读取行()`
 
-**输出 = console.打印(第一.value + "|" + 第二.value)**
+`输出 = console.打印(第一.value + "|" + 第二.value)`
 
-*[第一.ok, 第二.ok, 第三.ok, 第三.code, 输出.ok]*
+`return [第一.ok, 第二.ok, 第三.ok, 第三.code, 输出.ok]`
 "#;
 
 #[test]

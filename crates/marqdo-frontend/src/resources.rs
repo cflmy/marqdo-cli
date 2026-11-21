@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn formulas_and_code_are_attributed_to_functions() {
         let resources = resources_of(
-            "# ns\n\n## f\n\n$$A = pi r^2$$\n\n```python\nprint(1)\n```\n\n## g\n\n$$B = 1$$\n",
+            "# @knowledge ns\n\n## @exec f\n\n$$A = pi r^2$$\n\n```python\nprint(1)\n```\n\n## @exec g\n\n$$B = 1$$\n",
         );
         assert_eq!(resources.len(), 3);
         let Resource::Formula { unit, latex, .. } = &resources[0] else {

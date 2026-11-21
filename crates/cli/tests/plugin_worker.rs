@@ -112,7 +112,7 @@ fn write_manifest(dir: &Path, sha: &str) {
     .unwrap();
     std::fs::write(
         dir.join("doc.mq.md"),
-        "## main\n\n**结果 = solver.add(a=20, b=22)**\n\n> 打印(结果)\n",
+        "## @exec main\n\n`结果 = solver.add(a=20, b=22)`\n\n`打印(结果)`\n",
     )
     .unwrap();
 }
@@ -227,7 +227,7 @@ fn write_capability_manifest(dir: &Path, sha: &str) {
     .unwrap();
     std::fs::write(
         dir.join("doc.mq.md"),
-        "## main\n\n**结果 = capability.read()**\n\n> 打印(结果)\n",
+        "## @exec main\n\n`结果 = capability.read()`\n\n`打印(结果)`\n",
     )
     .unwrap();
     std::fs::create_dir_all(dir.join("data")).unwrap();

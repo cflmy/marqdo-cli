@@ -3,6 +3,8 @@ import:
   csv: "std:data/csv"
 ---
 
+# @exec csv
+
 ## main
 
 **`行 = csv.解析行("甲,\"乙,丙\",\"说\"\"好\"")`**
@@ -17,4 +19,4 @@ import:
 
 **格式化 = csv.格式化(多行.value)**
 
-*[行.value, csv.格式化行(行.value), 空.value, 坏.code, 框.value, 多行.ok, 多行.value, 格式化]*
+`return [行.value, csv.格式化行(行.value), 空.value, 坏.code, 框.value, 多行.ok, 多行.value, 格式化]`

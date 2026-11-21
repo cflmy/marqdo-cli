@@ -3,13 +3,28 @@
   "function": "main",
   "stdout": "",
   "value": {
-    "type": "list",
     "items": [
-      {"type": "int", "decimal": "4"},
-      {"type": "int", "decimal": "12"},
-      {"type": "int", "decimal": "28"},
-      {"type": "int", "decimal": "36"},
-      {"type": "int", "decimal": "255"}
-    ]
+      {
+        "decimal": "4",
+        "type": "int"
+      },
+      {
+        "decimal": "12",
+        "type": "int"
+      },
+      {
+        "decimal": "28",
+        "type": "int"
+      },
+      {
+        "decimal": "36",
+        "type": "int"
+      },
+      {
+        "decimal": "255",
+        "type": "int"
+      }
+    ],
+    "type": "list"
   }
 }

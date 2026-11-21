@@ -42,37 +42,41 @@ pub fn detect(_doc: &MarkdownDocument, blocks: &[&MdNode]) -> Option<(usize, Sig
         match &block.kind {
             MdKind::Heading { level, .. } if *level >= 3 => continue,
             MdKind::Paragraph => {
-                let is_candidate = block.children.len() == 1
-                    && matches!(block.children[0].kind, MdKind::Code { .. })
-                    && block.children[0]
-                        .literal
-                        .as_deref()
-                        .map(|text| text.trim_start().starts_with('('))
-                        .unwrap_or(false);
-                if !is_candidate {
+                if block.children.len() != 1 {
+                    continue;
+                }
+                let carrier = &block.children[0];
+                let (source, span, segments) = match &carrier.kind {
+                    MdKind::Code { ticks } => {
+                        let literal = carrier.literal.clone().unwrap_or_default();
+                        let inner = Span::new(
+                            carrier.span.start.saturating_add(*ticks),
+                            carrier.span.end.saturating_sub(*ticks),
+                        );
+                        (
+                            literal.clone(),
+                            carrier.span,
+                            PayloadSegments::single(&literal, inner),
+                        )
+                    }
+                    MdKind::Strong | MdKind::Emph => match PayloadSegments::of(carrier) {
+                        Ok((source, segments)) => (source, carrier.span, segments),
+                        Err(_) => continue,
+                    },
+                    _ => continue,
+                };
+                if !source.trim_start().starts_with("params(") {
                     return None;
                 }
-                let code = &block.children[0];
-                let source = code.literal.clone().unwrap_or_default();
-                let mut signature = parse(&source, code.span);
-                // Rewrite parameter default expression spans onto the file.
-                let segments = PayloadSegments::of(&MdNode {
-                    kind: MdKind::Strong,
-                    span: code.span,
-                    literal: None,
-                    children: vec![code.clone()],
-                })
-                .ok()
-                .map(|(_, segments)| segments);
-                if let Some(segments) = segments {
-                    for param in &mut signature.params {
-                        if let Some(default) = &mut param.default {
-                            segments.rewrite_expr(default);
-                        }
+                let mut signature = parse(&source, span);
+                for param in &mut signature.params {
+                    if let Some(default) = &mut param.default {
+                        segments.rewrite_expr(default);
                     }
                 }
                 return Some((index, signature));
             }
+            MdKind::List { .. } | MdKind::BlockQuote | MdKind::Item { .. } => continue,
             _ => return None,
         }
     }
@@ -83,13 +87,33 @@ pub fn detect(_doc: &MarkdownDocument, blocks: &[&MdNode]) -> Option<(usize, Sig
 pub fn parse(source: &str, span: Span) -> Signature {
     let mut diagnostics = Vec::new();
     let trimmed = source.trim();
-    let inner = if let Some(rest) = trimmed.strip_prefix('(') {
+    let is_params = trimmed.starts_with("params(");
+    let syntax_code = if is_params {
+        codes::SEM_SYNTAX
+    } else {
+        codes::EXPR_PARSE
+    };
+    let inner = if let Some(rest) = trimmed.strip_prefix("params(") {
+        match rest.strip_suffix(')') {
+            Some(inner) => inner,
+            None => {
+                diagnostics.push(Diagnostic::error(
+                    codes::SEM_SYNTAX,
+                    Some(span),
+                    "function signature must be closed by `)`",
+                ));
+                rest
+            }
+        }
+    } else if let Some(rest) = trimmed.strip_prefix('(') {
+        // Plugin/ABI descriptors keep their existing parenthesised signature
+        // spelling; language payloads are detected only as `params(...)`.
         rest.strip_suffix(')').unwrap_or(rest)
     } else {
         diagnostics.push(Diagnostic::error(
-            codes::EXPR_PARSE,
+            syntax_code,
             Some(span),
-            "function signature must be parenthesised, e.g. `(r: Number)`",
+            "function signature must be `params(...)`, e.g. `params(r: Number)`",
         ));
         trimmed
     };
@@ -102,7 +126,7 @@ pub fn parse(source: &str, span: Span) -> Signature {
         if entry.trim().is_empty() {
             if !inner.trim().is_empty() {
                 diagnostics.push(Diagnostic::error(
-                    codes::EXPR_PARSE,
+                    syntax_code,
                     Some(span),
                     "empty parameter in function signature",
                 ));
@@ -129,7 +153,7 @@ pub fn parse(source: &str, span: Span) -> Signature {
                 }
             }
             Err(message) => diagnostics.push(Diagnostic::error(
-                codes::EXPR_PARSE,
+                syntax_code,
                 Some(span),
                 format!("invalid function signature: {message}"),
             )),
@@ -293,7 +317,7 @@ mod tests {
 
     #[test]
     fn parses_typed_signature_with_default() {
-        let signature = parse("(r: Number, precision: Int = 2)", Span::new(0, 38));
+        let signature = parse("params(r: Number, precision: Int = 2)", Span::new(0, 38));
         assert!(!signature.has_errors(), "{:?}", signature.diagnostics);
         assert_eq!(signature.params.len(), 2);
         assert_eq!(signature.params[0].name, "r");
@@ -307,20 +331,20 @@ mod tests {
 
     #[test]
     fn parses_untyped_and_empty() {
-        let signature = parse("()", Span::new(0, 2));
+        let signature = parse("params()", Span::new(0, 8));
         assert!(signature.params.is_empty());
         assert!(!signature.has_errors());
-        let signature = parse("(n)", Span::new(0, 3));
+        let signature = parse("params(n)", Span::new(0, 9));
         assert_eq!(signature.params[0].name, "n");
     }
 
     #[test]
     fn rejects_duplicates_and_bad_defaults() {
-        let duplicate = parse("(a, a)", Span::new(0, 6));
+        let duplicate = parse("params(a, a)", Span::new(0, 12));
         assert!(duplicate.has_errors());
-        let bad_default = parse("(a = f())", Span::new(0, 10));
+        let bad_default = parse("params(a = f())", Span::new(0, 16));
         assert!(bad_default.has_errors());
-        let bad_name = parse("(1x)", Span::new(0, 4));
+        let bad_name = parse("params(1x)", Span::new(0, 10));
         assert!(bad_name.has_errors());
     }
 

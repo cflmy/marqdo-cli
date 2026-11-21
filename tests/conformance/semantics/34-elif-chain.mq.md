@@ -1,13 +1,23 @@
-## 符号
+## @exec 符号
 
-1. `n < 0`
+`if n < 0`
 
-   *-1*
+`return -1`
 
-2. `n == 0`
+`else`
 
-   *0*
+`if n == 0`
 
-3. `n > 0`
+`return 0`
 
-   *1*
+`else`
+
+`if n > 0`
+
+`return 1`
+
+`end`
+
+`end`
+
+`end`

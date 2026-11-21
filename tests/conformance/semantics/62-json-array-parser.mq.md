@@ -1,627 +1,847 @@
-## 成功值
+## @exec 成功值
 
-`(值, 下一位置)`
+`params(值, 下一位置)`
 
-*{ok: true, value: 值, next: 下一位置}*
+`return {ok: true, value: 值, next: 下一位置}`
 
-## 失败
+## @exec 失败
 
-`(代码, 消息)`
+`params(代码, 消息)`
 
-*{ok: false, code: 代码, message: 消息}*
+`return {ok: false, code: 代码, message: 消息}`
 
-## 是空白
+## @exec 是空白
 
-`(码点)`
+`params(码点: Int)`
 
-*码点 == 32 or 码点 == 9 or 码点 == 10 or 码点 == 13*
+`return 码点 == 32 or 码点 == 9 or 码点 == 10 or 码点 == 13`
 
-## 是数字
+## @exec 是数字
 
-`(码点)`
+`params(码点: Int)`
 
-*码点 >= 48 and 码点 <= 57*
+`return 码点 >= 48 and 码点 <= 57`
 
-## 跳过空白
+## @exec 跳过空白
 
-`(点, 位置)`
+`params(点: List, 位置: Int)`
 
-**当前 = 位置**
+`当前 = 位置`
 
-- `当前 < 长度(点) and 是空白(点[当前])`
+`while 当前 < 长度(点) and 是空白(点[当前])`
 
-  **当前 = 当前 + 1**
+`当前 = 当前 + 1`
 
-*当前*
+`end`
 
-## 匹配
+`return 当前`
 
-`(点, 位置, 文本)`
+## @exec 匹配
 
-**目标 = text.codepoints(文本)**
+`params(点: List, 位置: Int, 文本: Text)`
 
-**下标 = 0**
+`目标 = text.codepoints(文本)`
 
-**结果 = true**
+`下标 = 0`
 
-- `下标 < 长度(目标) and 结果`
+`结果 = true`
 
-  1. `位置 + 下标 >= 长度(点)`
+`while 下标 < 长度(目标) and 结果`
 
-     **结果 = false**
+`if 位置 + 下标 >= 长度(点)`
 
-  2. `点[位置 + 下标] != 目标[下标]`
+`结果 = false`
 
-     **结果 = false**
+`else`
 
-  3. `true`
+`if 点[位置 + 下标] != 目标[下标]`
 
-     **继续 = 0**
+`结果 = false`
 
-  **下标 = 下标 + 1**
+`else`
 
-*结果*
+`继续 = 0`
 
-## 片段
+`end`
 
-`(点, 起点, 终点)`
+`end`
 
-**结果 = ""**
+`下标 = 下标 + 1`
 
-**下标 = 起点**
+`end`
 
-- `下标 < 终点`
+`return 结果`
 
-  **结果 = 结果 + text.from_codepoint(点[下标])**
+## @exec 片段
 
-  **下标 = 下标 + 1**
+`params(点: List, 起点: Int, 终点: Int)`
 
-*结果*
+`结果 = ""`
 
-## 解析数字
+`下标 = 起点`
 
-`(点, 位置)`
+`while 下标 < 终点`
 
-JSON 数字：可选负号、整数位、可选小数位、可选指数；含 `.`/`e` 返回 Float。
+`结果 = 结果 + text.from_codepoint(点[下标])`
 
-**开始 = 位置**
+`下标 = 下标 + 1`
 
-**当前 = 位置**
+`end`
 
-1. `text.from_codepoint(点[当前]) == "-"`
+`return 结果`
 
-   **当前 = 当前 + 1**
+## @exec 解析数字
 
-2. `true`
+`params(点: List, 位置: Int)`
 
-   **非负 = 0**
+JSON 数字：可选负号、整数位、可选小数位、可选指数；含 ./e 返回 Float。
 
-**整数位 = 0**
+`开始 = 位置`
 
-- `当前 < 长度(点) and 是数字(点[当前])`
+`当前 = 位置`
 
-  **整数位 = 整数位 + 1**
+`if text.from_codepoint(点[当前]) == "-"`
 
-  **当前 = 当前 + 1**
+`当前 = 当前 + 1`
 
-**有小数 = false**
+`else`
 
-**小数位 = 0**
+`非负 = 0`
 
-1. `当前 < 长度(点) and text.from_codepoint(点[当前]) == "."`
+`end`
 
-   **有小数 = true**
+`整数位 = 0`
 
-   **当前 = 当前 + 1**
+`while 当前 < 长度(点) and 是数字(点[当前])`
 
-   - `当前 < 长度(点) and 是数字(点[当前])`
+`整数位 = 整数位 + 1`
 
-     **小数位 = 小数位 + 1**
+`当前 = 当前 + 1`
 
-     **当前 = 当前 + 1**
+`end`
 
-2. `true`
+`有小数 = false`
 
-   **忽略 = 0**
+`小数位 = 0`
 
-**指数位 = 0**
+`if 当前 < 长度(点) and text.from_codepoint(点[当前]) == "."`
 
-**指数标记 = false**
+`有小数 = true`
 
-1. `当前 < 长度(点) and (text.from_codepoint(点[当前]) == "e" or text.from_codepoint(点[当前]) == "E")`
+`当前 = 当前 + 1`
 
-   **有小数 = true**
+`while 当前 < 长度(点) and 是数字(点[当前])`
 
-   **指数标记 = true**
+`小数位 = 小数位 + 1`
 
-   **当前 = 当前 + 1**
+`当前 = 当前 + 1`
 
-   1. `当前 < 长度(点) and (text.from_codepoint(点[当前]) == "+" or text.from_codepoint(点[当前]) == "-")`
+`end`
 
-      **当前 = 当前 + 1**
+`else`
 
-   2. `true`
+`忽略 = 0`
 
-      **忽略指数符号 = 0**
+`end`
 
-   - `当前 < 长度(点) and 是数字(点[当前])`
+`指数位 = 0`
 
-     **指数位 = 指数位 + 1**
+`指数标记 = false`
 
-     **当前 = 当前 + 1**
+`if 当前 < 长度(点) and (text.from_codepoint(点[当前]) == "e" or text.from_codepoint(点[当前]) == "E")`
 
-1. `整数位 == 0`
+`有小数 = true`
 
-   *失败("json.invalid_number", "数字缺少整数位")*
+`指数标记 = true`
 
-1. `有小数 and not 指数标记 and 小数位 == 0`
+`当前 = 当前 + 1`
 
-   *失败("json.invalid_number", "小数缺少位数")*
+`if 当前 < 长度(点) and (text.from_codepoint(点[当前]) == "+" or text.from_codepoint(点[当前]) == "-")`
 
-1. `指数标记 and 指数位 == 0`
+`当前 = 当前 + 1`
 
-   *失败("json.invalid_number", "指数缺少位数")*
+`else`
 
-**原文 = 片段(点, 开始, 当前)**
+`忽略指数符号 = 0`
 
-1. `有小数`
+`end`
 
-   *成功值(小数(原文), 当前)*
+`while 当前 < 长度(点) and 是数字(点[当前])`
 
-*成功值(整数(原文), 当前)*
+`指数位 = 指数位 + 1`
 
-## 十六进制值
+`当前 = 当前 + 1`
 
-`(码点)`
+`end`
 
-1. `码点 >= 48 and 码点 <= 57`
+`else`
 
-   *码点 - 48*
+`if 整数位 == 0`
 
-2. `码点 >= 65 and 码点 <= 70`
+`return 失败("json.invalid_number", "数字缺少整数位")`
 
-   *码点 - 55*
+`else`
 
-3. `码点 >= 97 and 码点 <= 102`
+`if 有小数 and not 指数标记 and 小数位 == 0`
 
-   *码点 - 87*
+`return 失败("json.invalid_number", "小数缺少位数")`
 
-*0 - 1*
+`else`
 
-## 解析字符串
+`if 指数标记 and 指数位 == 0`
 
-`(点, 位置)`
+`return 失败("json.invalid_number", "指数缺少位数")`
 
-**当前 = 位置 + 1**
+`end`
 
-**结果 = ""**
+`end`
 
-**完成 = false**
+`end`
 
-**错误 = ""**
+`end`
 
-- `当前 < 长度(点) and not 完成 and 错误 == ""`
+`原文 = 片段(点, 开始, 当前)`
 
-  **码点 = 点[当前]**
+`if 有小数`
 
-  1. `码点 == 34`
+`return 成功值(小数(原文), 当前)`
 
-     **完成 = true**
+`end`
 
-     **当前 = 当前 + 1**
+`return 成功值(整数(原文), 当前)`
 
-  2. `码点 == 92`
+## @exec 十六进制值
 
-     1. `当前 + 1 >= 长度(点)`
+`params(码点: Int)`
 
-        **错误 = "json.invalid_escape"**
+`if 码点 >= 48 and 码点 <= 57`
 
-     2. `true`
+`return 码点 - 48`
 
-        **转义码点 = 点[当前 + 1]**
+`else`
 
-        1. `转义码点 == 34`
+`if 码点 >= 65 and 码点 <= 70`
 
-           **结果 = 结果 + text.from_codepoint(34)**
+`return 码点 - 55`
 
-           **当前 = 当前 + 2**
+`else`
 
-        2. `转义码点 == 92`
+`if 码点 >= 97 and 码点 <= 102`
 
-           **结果 = 结果 + text.from_codepoint(92)**
+`return 码点 - 87`
 
-           **当前 = 当前 + 2**
+`end`
 
-        3. `转义码点 == 47`
+`end`
 
-           **结果 = 结果 + text.from_codepoint(47)**
+`end`
 
-           **当前 = 当前 + 2**
+`return 0 - 1`
 
-        4. `转义码点 == 98`
+## @exec 解析字符串
 
-           **结果 = 结果 + text.from_codepoint(8)**
+`params(点: List, 位置: Int)`
 
-           **当前 = 当前 + 2**
+`当前 = 位置 + 1`
 
-        5. `转义码点 == 102`
+`结果 = ""`
 
-           **结果 = 结果 + text.from_codepoint(12)**
+`完成 = false`
 
-           **当前 = 当前 + 2**
+`错误 = ""`
 
-        6. `转义码点 == 110`
+`while 当前 < 长度(点) and not 完成 and 错误 == ""`
 
-           **结果 = 结果 + text.from_codepoint(10)**
+`码点 = 点[当前]`
 
-           **当前 = 当前 + 2**
+`if 码点 == 34`
 
-        7. `转义码点 == 114`
+`完成 = true`
 
-           **结果 = 结果 + text.from_codepoint(13)**
+`当前 = 当前 + 1`
 
-           **当前 = 当前 + 2**
+`else`
 
-        8. `转义码点 == 116`
+`if 码点 == 92`
 
-           **结果 = 结果 + text.from_codepoint(9)**
+`if 当前 + 1 >= 长度(点)`
 
-           **当前 = 当前 + 2**
+`错误 = "json.invalid_escape"`
 
-        9. `转义码点 == 117`
+`else`
 
-           1. `当前 + 5 >= 长度(点)`
+`转义码点 = 点[当前 + 1]`
 
-              **错误 = "json.invalid_escape"**
+`if 转义码点 == 34`
 
-           2. `true`
+`结果 = 结果 + text.from_codepoint(34)`
 
-              **数字 = 十六进制值(点[当前 + 2]) * 4096 + 十六进制值(点[当前 + 3]) * 256 + 十六进制值(点[当前 + 4]) * 16 + 十六进制值(点[当前 + 5])**
+`当前 = 当前 + 2`
 
-              1. `数字 < 0 or (数字 >= 55296 and 数字 <= 57343)`
+`else`
 
-                 **错误 = "json.invalid_escape"**
+`if 转义码点 == 92`
 
-              2. `true`
+`结果 = 结果 + text.from_codepoint(92)`
 
-                 **结果 = 结果 + text.from_codepoint(数字)**
+`当前 = 当前 + 2`
 
-                 **当前 = 当前 + 6**
+`else`
 
-        10. `true`
+`if 转义码点 == 47`
 
-            **错误 = "json.invalid_escape"**
+`结果 = 结果 + text.from_codepoint(47)`
 
-  3. `true`
+`当前 = 当前 + 2`
 
-     **结果 = 结果 + text.from_codepoint(码点)**
+`else`
 
-     **当前 = 当前 + 1**
+`if 转义码点 == 98`
 
-1. `错误 != ""`
+`结果 = 结果 + text.from_codepoint(8)`
 
-   *失败("json.invalid_string", "字符串转义无效")*
+`当前 = 当前 + 2`
 
-1. `not 完成`
+`else`
 
-   *失败("json.unexpected_eof", "字符串未闭合")*
+`if 转义码点 == 102`
 
-*成功值(结果, 当前)*
+`结果 = 结果 + text.from_codepoint(12)`
 
-## 解析对象
+`当前 = 当前 + 2`
 
-`(点, 位置)`
+`else`
 
-*解析对象项(点, 位置 + 1, {})*
+`if 转义码点 == 110`
 
-## 解析对象项
+`结果 = 结果 + text.from_codepoint(10)`
 
-`(点, 位置, 已解析)`
+`当前 = 当前 + 2`
 
-**位置 = 跳过空白(点, 位置)**
+`else`
 
-1. `位置 >= 长度(点)`
+`if 转义码点 == 114`
 
-   *失败("json.unexpected_eof", "对象未闭合")*
+`结果 = 结果 + text.from_codepoint(13)`
 
-**当前 = text.from_codepoint(点[位置])**
+`当前 = 当前 + 2`
 
-1. `当前 == "}"`
+`else`
 
-   *成功值(已解析, 位置 + 1)*
+`if 转义码点 == 116`
 
-**键结果 = 解析字符串(点, 位置)**
+`结果 = 结果 + text.from_codepoint(9)`
 
-1. `not 键结果.ok`
+`当前 = 当前 + 2`
 
-   *键结果*
+`else`
 
-**键 = 键结果.value**
+`if 转义码点 == 117`
 
-**位置 = 跳过空白(点, 键结果.next)**
+`if 当前 + 5 >= 长度(点)`
 
-1. `位置 >= 长度(点)`
+`错误 = "json.invalid_escape"`
 
-   *失败("json.unexpected_eof", "对象缺少冒号")*
+`else`
 
-1. `text.from_codepoint(点[位置]) != ":"`
+`数字 = 十六进制值(点[当前 + 2]) * 4096 + 十六进制值(点[当前 + 3]) * 256 + 十六进制值(点[当前 + 4]) * 16 + 十六进制值(点[当前 + 5])`
 
-   *失败("json.invalid_object", "对象缺少冒号")*
+`if 数字 < 0 or (数字 >= 55296 and 数字 <= 57343)`
 
-**位置 = 跳过空白(点, 位置 + 1)**
+`错误 = "json.invalid_escape"`
 
-**值结果 = 解析值(点, 位置)**
+`else`
 
-1. `not 值结果.ok`
+`结果 = 结果 + text.from_codepoint(数字)`
 
-   *值结果*
+`当前 = 当前 + 6`
 
-**新的已解析 = map.set(已解析, 键, 值结果.value)**
+`end`
 
-**位置 = 跳过空白(点, 值结果.next)**
+`end`
 
-1. `位置 >= 长度(点)`
+`else`
 
-   *失败("json.unexpected_eof", "对象未闭合")*
+`错误 = "json.invalid_escape"`
 
-**分隔 = text.from_codepoint(点[位置])**
+`end`
 
-1. `分隔 == ","`
+`end`
 
-   *解析对象项(点, 位置 + 1, 新的已解析)*
+`end`
 
-2. `分隔 == "}"`
+`end`
 
-   *成功值(新的已解析, 位置 + 1)*
+`end`
 
-3. `true`
+`end`
 
-   *失败("json.invalid_object", "对象缺少逗号或 }")*
+`end`
 
-## 解析值
+`end`
 
-`(点, 位置)`
+`end`
 
-**位置 = 跳过空白(点, 位置)**
+`end`
 
-1. `位置 >= 长度(点)`
+`else`
 
-   *失败("json.unexpected_eof", "需要值")*
+`结果 = 结果 + text.from_codepoint(码点)`
 
-**首 = text.from_codepoint(点[位置])**
+`当前 = 当前 + 1`
 
-**首码点 = 点[位置]**
+`end`
 
-1. `首码点 == 34`
+`end`
 
-   *解析字符串(点, 位置)*
+`end`
 
-2. `首码点 == 123`
+`if 错误 != ""`
 
-   *解析对象(点, 位置)*
+`return 失败("json.invalid_string", "字符串转义无效")`
 
-3. `首 == "["`
+`else`
 
-   *解析数组(点, 位置)*
+`if not 完成`
 
-4. `首 == "-" or 是数字(点[位置])`
+`return 失败("json.unexpected_eof", "字符串未闭合")`
 
-   *解析数字(点, 位置)*
+`end`
 
-5. `首 == "t"`
+`end`
 
-   1. `匹配(点, 位置, "true")`
+`return 成功值(结果, 当前)`
 
-      *成功值(true, 位置 + 4)*
+## @exec 解析对象
 
-   2. `true`
+`params(点: List, 位置: Int)`
 
-      *失败("json.invalid_literal", "无效字面量")*
+`return 解析对象项(点, 位置 + 1, {})`
 
-6. `首 == "f"`
+## @exec 解析对象项
 
-   1. `匹配(点, 位置, "false")`
+`params(点: List, 位置: Int, 已解析: Map)`
 
-      *成功值(false, 位置 + 5)*
+`位置 = 跳过空白(点, 位置)`
 
-   2. `true`
+`if 位置 >= 长度(点)`
 
-      *失败("json.invalid_literal", "无效字面量")*
+`return 失败("json.unexpected_eof", "对象未闭合")`
 
-7. `首 == "n"`
+`end`
 
-   1. `匹配(点, 位置, "null")`
+`当前 = text.from_codepoint(点[位置])`
 
-      *成功值(None, 位置 + 4)*
+`if 当前 == "}"`
 
-   2. `true`
+`return 成功值(已解析, 位置 + 1)`
 
-      *失败("json.invalid_literal", "无效字面量")*
+`end`
 
-8. `true`
+`键结果 = 解析字符串(点, 位置)`
 
-   *失败("json.unexpected_token", "不支持的值")*
+`if not 键结果.ok`
 
-## 解析数组
+`return 键结果`
 
-`(点, 位置)`
+`end`
 
-*解析数组项(点, 位置 + 1, [])*
+`键 = 键结果.value`
 
-## 解析数组项
+`位置 = 跳过空白(点, 键结果.next)`
 
-`(点, 位置, 已解析)`
+`if 位置 >= 长度(点)`
 
-**位置 = 跳过空白(点, 位置)**
+`return 失败("json.unexpected_eof", "对象缺少冒号")`
 
-1. `位置 >= 长度(点)`
+`else`
 
-   *失败("json.unexpected_eof", "数组未闭合")*
+`if text.from_codepoint(点[位置]) != ":"`
 
-**当前 = text.from_codepoint(点[位置])**
+`return 失败("json.invalid_object", "对象缺少冒号")`
 
-1. `当前 == "]"`
+`end`
 
-   *成功值(已解析, 位置 + 1)*
+`end`
 
-**项 = 解析值(点, 位置)**
+`位置 = 跳过空白(点, 位置 + 1)`
 
-1. `not 项.ok`
+`值结果 = 解析值(点, 位置)`
 
-   *项*
+`if not 值结果.ok`
 
-**新的已解析 = list.append(已解析, 项.value)**
+`return 值结果`
 
-**位置 = 跳过空白(点, 项.next)**
+`end`
 
-1. `位置 >= 长度(点)`
+`新的已解析 = map.set(已解析, 键, 值结果.value)`
 
-   *失败("json.unexpected_eof", "数组未闭合")*
+`位置 = 跳过空白(点, 值结果.next)`
 
-**分隔 = text.from_codepoint(点[位置])**
+`if 位置 >= 长度(点)`
 
-1. `分隔 == ","`
+`return 失败("json.unexpected_eof", "对象未闭合")`
 
-   *解析数组项(点, 位置 + 1, 新的已解析)*
+`end`
 
-2. `分隔 == "]"`
+`分隔 = text.from_codepoint(点[位置])`
 
-   *成功值(新的已解析, 位置 + 1)*
+`if 分隔 == ","`
 
-3. `true`
+`return 解析对象项(点, 位置 + 1, 新的已解析)`
 
-   *失败("json.invalid_array", "数组缺少逗号或 ]")*
+`else`
 
-## 格式化文本
+`if 分隔 == "}"`
 
-`(文本)`
+`return 成功值(新的已解析, 位置 + 1)`
 
-**点 = text.codepoints(文本)**
+`else`
 
-**`结果 = "\""`**
+`return 失败("json.invalid_object", "对象缺少逗号或 }")`
 
-**下标 = 0**
+`end`
 
-- `下标 < 长度(点)`
+`end`
 
-  **码点 = 点[下标]**
+## @exec 解析值
 
-  1. `码点 == 34`
+`params(点: List, 位置: Int)`
 
-     **`结果 = 结果 + "\\\""`**
+`位置 = 跳过空白(点, 位置)`
 
-  2. `码点 == 92`
+`if 位置 >= 长度(点)`
 
-     **`结果 = 结果 + "\\\\"`**
+`return 失败("json.unexpected_eof", "需要值")`
 
-  3. `码点 == 10`
+`end`
 
-     **`结果 = 结果 + "\\n"`**
+`首 = text.from_codepoint(点[位置])`
 
-  4. `码点 == 9`
+`首码点 = 点[位置]`
 
-     **`结果 = 结果 + "\\t"`**
+`if 首码点 == 34`
 
-  5. `码点 == 13`
+`return 解析字符串(点, 位置)`
 
-     **`结果 = 结果 + "\\r"`**
+`else`
 
-  6. `true`
+`if 首码点 == 123`
 
-     **结果 = 结果 + text.from_codepoint(码点)**
+`return 解析对象(点, 位置)`
 
-  **下标 = 下标 + 1**
+`else`
 
-*`结果 + "\""`*
+`if 首 == "["`
 
-## 格式化列表
+`return 解析数组(点, 位置)`
 
-`(列表)`
+`else`
 
-**结果 = "["**
+`if 首 == "-" or 是数字(点[位置])`
 
-**下标 = 0**
+`return 解析数字(点, 位置)`
 
-- `下标 < 长度(列表)`
+`else`
 
-  1. `下标 > 0`
+`if 首 == "t"`
 
-     **结果 = 结果 + ", "**
+`if 匹配(点, 位置, "true")`
 
-  2. `true`
+`return 成功值(true, 位置 + 4)`
 
-     **忽略 = 0**
+`else`
 
-  **结果 = 结果 + 格式化(列表[下标])**
+`return 失败("json.invalid_literal", "无效字面量")`
 
-  **下标 = 下标 + 1**
+`end`
 
-*结果 + "]"*
+`else`
 
-## 格式化对象
+`if 首 == "f"`
 
-`(映射)`
+`if 匹配(点, 位置, "false")`
 
-**键列表 = map.keys(映射)**
+`return 成功值(false, 位置 + 5)`
 
-**结果 = "{"**
+`else`
 
-**下标 = 0**
+`return 失败("json.invalid_literal", "无效字面量")`
 
-- `下标 < 长度(键列表)`
+`end`
 
-  1. `下标 > 0`
+`else`
 
-     **结果 = 结果 + ", "**
+`if 首 == "n"`
 
-  2. `true`
+`if 匹配(点, 位置, "null")`
 
-     **忽略 = 0**
+`return 成功值(None, 位置 + 4)`
 
-  **当前键 = 键列表[下标]**
+`else`
 
-  **结果 = 结果 + 格式化文本(当前键) + ": " + 格式化(map.get(映射, 当前键))**
+`return 失败("json.invalid_literal", "无效字面量")`
 
-  **下标 = 下标 + 1**
+`end`
 
-*结果 + "}"*
+`else`
 
-## 格式化
+`return 失败("json.unexpected_token", "不支持的值")`
 
-`(值)`
+`end`
 
-**类别 = 类型(值)**
+`end`
 
-1. `类别 == "Text"`
+`end`
 
-   *格式化文本(值)*
+`end`
 
-2. `类别 == "None"`
+`end`
 
-   *"null"*
+`end`
 
-3. `类别 == "Bool" or 类别 == "Int" or 类别 == "Float"`
+`end`
 
-   *文本(值)*
+## @exec 解析数组
 
-4. `类别 == "List"`
+`params(点: List, 位置: Int)`
 
-   *格式化列表(值)*
+`return 解析数组项(点, 位置 + 1, [])`
 
-5. `类别 == "Map"`
+## @exec 解析数组项
 
-   *格式化对象(值)*
+`params(点: List, 位置: Int, 已解析: List)`
 
-*"null"*
+`位置 = 跳过空白(点, 位置)`
 
-## main
+`if 位置 >= 长度(点)`
 
-**`对象结果 = 解析值(text.codepoints("{\"a\": 1, \"b\": [true, null, \"说\\\"好\"]}"), 0)`**
+`return 失败("json.unexpected_eof", "数组未闭合")`
 
-**`字符串结果 = 解析值(text.codepoints("\"a\\nb\""), 0)`**
+`end`
 
-**`浮点结果 = 解析值(text.codepoints("[1, 2.5, -3e2, 4E-1, {\"a\": 1.0}, \"x\"]"), 0)`**
+`当前 = text.from_codepoint(点[位置])`
 
-**格式化结果 = 格式化(浮点结果.value)**
+`if 当前 == "]"`
 
-*[解析值(text.codepoints(" [1, 23, [4, 5], -6] "), 0), 解析值(text.codepoints("[1 2]"), 0), 解析值(text.codepoints("[1,"), 0), 对象结果, 字符串结果, 浮点结果, 格式化结果]*
+`return 成功值(已解析, 位置 + 1)`
+
+`end`
+
+`项 = 解析值(点, 位置)`
+
+`if not 项.ok`
+
+`return 项`
+
+`end`
+
+`新的已解析 = list.append(已解析, 项.value)`
+
+`位置 = 跳过空白(点, 项.next)`
+
+`if 位置 >= 长度(点)`
+
+`return 失败("json.unexpected_eof", "数组未闭合")`
+
+`end`
+
+`分隔 = text.from_codepoint(点[位置])`
+
+`if 分隔 == ","`
+
+`return 解析数组项(点, 位置 + 1, 新的已解析)`
+
+`else`
+
+`if 分隔 == "]"`
+
+`return 成功值(新的已解析, 位置 + 1)`
+
+`else`
+
+`return 失败("json.invalid_array", "数组缺少逗号或 ]")`
+
+`end`
+
+`end`
+
+## @exec 格式化文本
+
+`params(文本: Text)`
+
+`点 = text.codepoints(文本)`
+
+`结果 = "\""`
+
+`下标 = 0`
+
+`while 下标 < 长度(点)`
+
+`码点 = 点[下标]`
+
+`if 码点 == 34`
+
+`结果 = 结果 + "\\\""`
+
+`else`
+
+`if 码点 == 92`
+
+`结果 = 结果 + "\\\\"`
+
+`else`
+
+`if 码点 == 10`
+
+`结果 = 结果 + "\\n"`
+
+`else`
+
+`if 码点 == 9`
+
+`结果 = 结果 + "\\t"`
+
+`else`
+
+`if 码点 == 13`
+
+`结果 = 结果 + "\\r"`
+
+`else`
+
+`结果 = 结果 + text.from_codepoint(码点)`
+
+`end`
+
+`end`
+
+`end`
+
+`end`
+
+`end`
+
+`下标 = 下标 + 1`
+
+`end`
+
+`return 结果 + "\""`
+
+## @exec 格式化列表
+
+`params(列表: List)`
+
+`结果 = "["`
+
+`下标 = 0`
+
+`while 下标 < 长度(列表)`
+
+`if 下标 > 0`
+
+`结果 = 结果 + ", "`
+
+`else`
+
+`忽略 = 0`
+
+`end`
+
+`结果 = 结果 + 格式化(列表[下标])`
+
+`下标 = 下标 + 1`
+
+`end`
+
+`return 结果 + "]"`
+
+## @exec 格式化对象
+
+`params(映射: Map)`
+
+`键列表 = map.keys(映射)`
+
+`结果 = "{"`
+
+`下标 = 0`
+
+`while 下标 < 长度(键列表)`
+
+`if 下标 > 0`
+
+`结果 = 结果 + ", "`
+
+`else`
+
+`忽略 = 0`
+
+`end`
+
+`当前键 = 键列表[下标]`
+
+`结果 = 结果 + 格式化文本(当前键) + ": " + 格式化(map.get(映射, 当前键))`
+
+`下标 = 下标 + 1`
+
+`end`
+
+`return 结果 + "}"`
+
+## @exec 格式化
+
+`params(值)`
+
+`类别 = 类型(值)`
+
+`if 类别 == "Text"`
+
+`return 格式化文本(值)`
+
+`else`
+
+`if 类别 == "None"`
+
+`return "null"`
+
+`else`
+
+`if 类别 == "Bool" or 类别 == "Int" or 类别 == "Float"`
+
+`return 文本(值)`
+
+`else`
+
+`if 类别 == "List"`
+
+`return 格式化列表(值)`
+
+`else`
+
+`if 类别 == "Map"`
+
+`return 格式化对象(值)`
+
+`end`
+
+`end`
+
+`end`
+
+`end`
+
+`end`
+
+`return "null"`
+
+## @exec main
+
+`对象结果 = 解析值(text.codepoints("{\"a\": 1, \"b\": [true, null, \"说\\\"好\"]}"), 0)`
+
+`字符串结果 = 解析值(text.codepoints("\"a\\nb\""), 0)`
+
+`浮点结果 = 解析值(text.codepoints("[1, 2.5, -3e2, 4E-1, {\"a\": 1.0}, \"x\"]"), 0)`
+
+`格式化结果 = 格式化(浮点结果.value)`
+
+`return [解析值(text.codepoints(" [1, 23, [4, 5], -6] "), 0), 解析值(text.codepoints("[1 2]"), 0), 解析值(text.codepoints("[1,"), 0), 对象结果, 字符串结果, 浮点结果, 格式化结果]`

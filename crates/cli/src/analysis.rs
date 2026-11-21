@@ -199,6 +199,7 @@ fn units_json(module: &Module) -> Vec<Value> {
                 UnitKind::Root => "root",
                 UnitKind::Namespace => "namespace",
                 UnitKind::Function => "function",
+                UnitKind::Knowledge => "knowledge",
                 UnitKind::Section => "section",
             };
             json!({

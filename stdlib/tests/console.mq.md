@@ -3,8 +3,10 @@ import:
   console: "std:io/console"
 ---
 
+# @exec console
+
 ## main
 
 **行 = console.读取行()**
 
-*[行.ok, 行.value]*
+`return [行.ok, 行.value]`

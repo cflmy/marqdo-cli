@@ -82,20 +82,23 @@ fn transitive_path_dependency_resolves_from_its_own_manifest() {
     );
     write(
         &root.join("deps/a/index.mq.md"),
-        "---\nimport:\n  b: \"@b\"\n---\n\n## outer\n\n*b.inner()*\n",
+        "---\nimport:\n  b: \"@b\"\n---\n\n## @exec outer\n\n`return b.inner()`\n",
     );
     write(
         &root.join("deps/a/b/marqdo.yaml"),
         "project:\n  name: b\n  version: 0.1.0\n",
     );
-    write(&root.join("deps/a/b/index.mq.md"), "## inner\n\n*42*\n");
+    write(
+        &root.join("deps/a/b/index.mq.md"),
+        "## @exec inner\n\n`return 42`\n",
+    );
     write(
         &root.join("marqdo.yaml"),
         "project:\n  name: root\n  version: 0.1.0\ndependencies:\n  a:\n    path: ./deps/a\n",
     );
     write(
         &root.join("index.mq.md"),
-        "---\nimport:\n  a: \"@a\"\n---\n\n## main\n\n> 打印(a.outer())\n",
+        "---\nimport:\n  a: \"@a\"\n---\n\n## @exec main\n\n`打印(a.outer())`\n",
     );
     let lock = cli(root, &["lock"]);
     assert_eq!(
@@ -133,7 +136,7 @@ fn pinned_git_dependency_locks_syncs_and_runs() {
         &dep.join("marqdo.yaml"),
         "project:\n  name: remote\n  version: 0.3.0\n",
     );
-    write(&dep.join("index.mq.md"), "## hello\n\n*7*\n");
+    write(&dep.join("index.mq.md"), "## @exec hello\n\n`return 7`\n");
     git(&dep, &["init", "-q"]);
     git(&dep, &["add", "."]);
     git(&dep, &["commit", "-q", "-m", "initial"]);
@@ -156,7 +159,7 @@ fn pinned_git_dependency_locks_syncs_and_runs() {
     );
     write(
         &root.join("index.mq.md"),
-        "---\nimport:\n  remote: \"@remote\"\n---\n\n## main\n\n> 打印(remote.hello())\n",
+        "---\nimport:\n  remote: \"@remote\"\n---\n\n## @exec main\n\n`打印(remote.hello())`\n",
     );
 
     let lock = cli(&root, &["lock"]);
@@ -206,7 +209,7 @@ fn check_does_not_fetch_a_missing_git_revision() {
     );
     write(
         &root.join("index.mq.md"),
-        "---\nimport:\n  remote: \"@remote\"\n---\n\n## main\n\n*1*\n",
+        "---\nimport:\n  remote: \"@remote\"\n---\n\n## @exec main\n\n`return 1`\n",
     );
     let output = cli(root, &["check", "index.mq.md"]);
     assert_eq!(output.status.code(), Some(1));
@@ -223,10 +226,13 @@ fn run_and_check_require_a_lock_when_dependencies_exist() {
         &root.join("marqdo.yaml"),
         "project:\n  name: root\n  version: 0.1.0\ndependencies:\n  dep:\n    path: ./dep\n",
     );
-    write(&root.join("dep/index.mq.md"), "## value\n\n*1*\n");
+    write(
+        &root.join("dep/index.mq.md"),
+        "## @exec value\n\n`return 1`\n",
+    );
     write(
         &root.join("index.mq.md"),
-        "---\nimport:\n  dep: \"@dep\"\n---\n\n## main\n\n*1*\n",
+        "---\nimport:\n  dep: \"@dep\"\n---\n\n## @exec main\n\n`return 1`\n",
     );
     for command in ["check", "run"] {
         let output = cli(root, &[command, "index.mq.md"]);
@@ -244,14 +250,20 @@ fn sync_is_strict_and_never_rewrites_the_lock() {
         &root.join("marqdo.yaml"),
         "project:\n  name: root\n  version: 0.1.0\ndependencies:\n  dep:\n    path: ./dep\n",
     );
-    write(&root.join("dep/index.mq.md"), "## value\n\n*1*\n");
-    write(&root.join("index.mq.md"), "## main\n\n*1*\n");
+    write(
+        &root.join("dep/index.mq.md"),
+        "## @exec value\n\n`return 1`\n",
+    );
+    write(&root.join("index.mq.md"), "## @exec main\n\n`return 1`\n");
 
     let lock = cli(root, &["lock"]);
     assert_eq!(lock.status.code(), Some(0));
     let original = std::fs::read(root.join("marqdo.lock")).unwrap();
 
-    write(&root.join("dep/index.mq.md"), "## value\n\n*2*\n");
+    write(
+        &root.join("dep/index.mq.md"),
+        "## @exec value\n\n`return 2`\n",
+    );
     let stale = cli(root, &["sync"]);
     assert_eq!(stale.status.code(), Some(1), "plain sync must be strict");
     let stderr = String::from_utf8_lossy(&stale.stderr);
@@ -285,13 +297,19 @@ fn lock_records_transitive_closure_and_sync_materializes_it() {
         &root.join("deps/a/marqdo.yaml"),
         "project:\n  name: a\n  version: 0.1.0\ndependencies:\n  b:\n    path: ./b\n",
     );
-    write(&root.join("deps/a/index.mq.md"), "## a\n\n*1*\n");
+    write(
+        &root.join("deps/a/index.mq.md"),
+        "## @exec a\n\n`return 1`\n",
+    );
     write(
         &root.join("deps/a/b/marqdo.yaml"),
         "project:\n  name: b\n  version: 0.1.0\n",
     );
-    write(&root.join("deps/a/b/index.mq.md"), "## b\n\n*2*\n");
-    write(&root.join("index.mq.md"), "## main\n\n*1*\n");
+    write(
+        &root.join("deps/a/b/index.mq.md"),
+        "## @exec b\n\n`return 2`\n",
+    );
+    write(&root.join("index.mq.md"), "## @exec main\n\n`return 1`\n");
 
     let lock = cli(root, &["lock"]);
     assert_eq!(lock.status.code(), Some(0));
@@ -326,10 +344,13 @@ fn deleted_lock_edge_fails_check_and_run() {
         &root.join("marqdo.yaml"),
         "project:\n  name: root\n  version: 0.1.0\ndependencies:\n  dep:\n    path: ./dep\n",
     );
-    write(&root.join("dep/index.mq.md"), "## value\n\n*1*\n");
+    write(
+        &root.join("dep/index.mq.md"),
+        "## @exec value\n\n`return 1`\n",
+    );
     write(
         &root.join("index.mq.md"),
-        "---\nimport:\n  dep: \"@dep\"\n---\n\n## main\n\n*1*\n",
+        "---\nimport:\n  dep: \"@dep\"\n---\n\n## @exec main\n\n`return 1`\n",
     );
     assert_eq!(cli(root, &["lock"]).status.code(), Some(0));
     let lock = std::fs::read_to_string(root.join("marqdo.lock")).unwrap();
@@ -362,10 +383,13 @@ fn tampered_path_dependency_content_is_rejected_by_locked_sync() {
         &root.join("dep/marqdo.yaml"),
         "project:\n  name: dep\n  version: 0.1.0\n",
     );
-    write(&root.join("dep/index.mq.md"), "## value\n\n*1*\n");
+    write(
+        &root.join("dep/index.mq.md"),
+        "## @exec value\n\n`return 1`\n",
+    );
     write(
         &root.join("index.mq.md"),
-        "---\nimport:\n  dep: \"@dep\"\n---\n\n## main\n\n*1*\n",
+        "---\nimport:\n  dep: \"@dep\"\n---\n\n## @exec main\n\n`return 1`\n",
     );
     assert_eq!(cli(root, &["lock"]).status.code(), Some(0));
     let lock_before = std::fs::read(root.join("marqdo.lock")).unwrap();
@@ -375,7 +399,10 @@ fn tampered_path_dependency_content_is_rejected_by_locked_sync() {
     // Content change after the lock is a tamper/staleness signal. `run` and
     // `check` must never silently accept it, re-lock, or materialize a new
     // environment.
-    write(&root.join("dep/index.mq.md"), "## value\n\n*2*\n");
+    write(
+        &root.join("dep/index.mq.md"),
+        "## @exec value\n\n`return 2`\n",
+    );
     for args in [
         vec!["sync", "--locked"],
         vec!["run", "index.mq.md"],

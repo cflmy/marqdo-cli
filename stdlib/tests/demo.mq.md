@@ -3,6 +3,8 @@ import:
   demo: "std:demo"
 ---
 
+# @exec demo
+
 ## main
 
-*demo.演示函数()*
+`return demo.演示函数()`

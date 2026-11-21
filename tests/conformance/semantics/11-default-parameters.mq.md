@@ -1,9 +1,9 @@
-## 默认
+## @exec 默认
 
-`(x: Int, y: Int = 10)`
+`params(x: Int, y: Int = 10)`
 
-*x + y*
+`return x + y`
 
-## main
+## @exec main
 
-*默认(x=2)*
+`return 默认(x=2)`

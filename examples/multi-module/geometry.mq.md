@@ -1,10 +1,10 @@
-## 圆面积
+## @exec 圆面积
 
-`(r: Number)`
+`params(r: Number)`
 
-*math.eval(ref("#公式"), {"r": r}, target="A")*
+`return math.eval(ref("#公式"), {"r": r}, target="A")`
 
-### 公式
+### @knowledge 公式
 
 $$
 A = \pi r^2

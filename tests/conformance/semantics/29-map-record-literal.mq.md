@@ -1,3 +1,3 @@
-## main
+## @exec main
 
-*{"a": 1, "b": [true, None]}*
+`return {"a": 1, "b": [true, None]}`

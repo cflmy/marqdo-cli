@@ -258,7 +258,7 @@ mod tests {
                 std::fs::copy(entry.path(), dir.path().join(entry.file_name())).unwrap();
             }
         }
-        std::fs::write(dir.path().join("io.mq.md"), "## tampered\n").unwrap();
+        std::fs::write(dir.path().join("io.mq.md"), "## @knowledge tampered\n").unwrap();
         let error = StdlibBundle::load(dir.path()).unwrap_err();
         assert!(error.contains("digest mismatch"), "{error}");
     }
