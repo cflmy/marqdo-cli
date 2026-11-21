@@ -5,6 +5,8 @@
 - Git remote: `https://git.cflmy.cn/cflmy/marqdo-cli.git`
 - Woodpecker: `https://ci.cflmy.cn`
 - Pipeline definition: [`.woodpecker.yml`](../.woodpecker.yml)
+- Current hardening plan/RFC:
+  [`MARQDO_CI_SECURITY_PLATFORM_PERFORMANCE_RFC_20261121.md`](MARQDO_CI_SECURITY_PLATFORM_PERFORMANCE_RFC_20261121.md)
 - Credentials are local-only and ignored; see
   [development-credentials.md](development-credentials.md). Do not put tokens in
   pipeline files or commit messages.

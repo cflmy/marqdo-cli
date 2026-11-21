@@ -1,24 +1,27 @@
 # Linux strict-isolation security gate (G-C) — evidence
 
-Status: **PASSED in a disposable Ubuntu VM; Linux strict is enabled only when
-the runtime probe succeeds.** Current convergence evidence is for source
-archive `8af7262` (see
-[`evidence/2026-11-20-strict-gc-8af7262.md`](evidence/2026-11-20-strict-gc-8af7262.md));
-the earlier `b6fc182` run is retained below as history. **No remote
-self-hosted security-lane CI URL exists yet.**
-Snapshot: workspace `0.1.0`, 2026-11-20. See ADR-0021.
+Status: **PASSED on the current CI-fix series in a local disposable Ubuntu
+VM; Linux strict is enabled only when the runtime probe succeeds. REMOTE G3
+UNVERIFIED: no self-hosted security-lane CI URL exists yet.**
 
-> **Language-syntax migration note.** This evidence predates RFC-LANG-0002
-> ([`architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md)):
-> the `.mq.md` fixtures and the example paths used by the lane are migrated to
-> the unified syntax, but the lane has **not** been re-run at the language SHA
-> `ffd1cc9`; re-run it before citing this evidence for the current syntax. The **security facts
-> here do not change** — `@exec` is a compile-time projection, not a capability
+Current evidence: source SHA `0d7e11b6f1553fb5fc24214dddac11d5db65cf91`,
+ordinary user `dev` (uid 1000), QEMU/TCG guest, 7/7 adversarial tests plus the
+strict `--json` and inert-`@knowledge` contracts — see
+[`evidence/2026-11-21-strict-gc-0d7e11b.md`](evidence/2026-11-21-strict-gc-0d7e11b.md).
+The older `8af7262` and `b6fc182` runs are retained below as history.
+Snapshot: workspace `0.1.0`, 2026-11-21. See ADR-0021 and ADR-0053.
+
+> **Language-syntax status.** The lane was re-run on the RFC-LANG-0002 tree
+> ([`architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md))
+> at `0d7e11b`, including the strict `@knowledge`-inert check. The security
+> facts are unchanged: `@exec` is a compile-time projection, not a capability
 > grant; `@knowledge` produces no IR and therefore no host effect; resource,
 > file, network, stdin/stdout, memory and budget checks remain at the
 > `CapabilityHost` boundary, and the strict sandbox is unaffected. See
 > [`STATUS.md`](STATUS.md) for the language gate and
 > [`evidence/2026-11-21-semantics-v2-green.md`](evidence/2026-11-21-semantics-v2-green.md).
+> The `990e984` run is the earlier code-equivalent evidence; `0d7e11b` adds
+> only the CI/docs evidence commit on top.
 
 This report separates three things that are often conflated:
 
@@ -134,7 +137,29 @@ run --mode strict --kernel ...                    -> exit 2
 run --mode strict --trace-file ...                -> exit 2
 MARQDO_STRICT_ACTIVE=1 run --mode strict          -> exit 1 (not PID 1)
 hide /usr/bin/bwrap; run --mode strict            -> exit 1 (not installed)
+MARQDO_STRICT_ACTIVE=1 run --mode strict --json   -> one JSON doc,
+                                                     code=strict.identity_invalid
+@knowledge payload with resource.open --mode strict -> no host side effect
 ```
+
+### 4.1 Current evidence document
+
+`0d7e11b` was archived with `git archive` and transferred as an ordinary user:
+
+```text
+tested_sha:            0d7e11b6f1553fb5fc24214dddac11d5db65cf91
+source archive:        sha256:8a5af9712f994ac88ed43ec1cf9708b38bc92d76a8ad761b7e07e8e23b7e3503
+strict-evidence.json:  sha256:c9de85c60b13b9b4a71b9ccba6d1812fc0d4af6e64187c67ae7bd0e602f083e8
+lane log:              sha256:6e9f0e6e96f505c413e008c4b0ac3bee3d65cf4a2182136dfd27678ae8e75dea
+base image:            sha256:7b90593f5532b49b7e3fe3d2743f0d1f0d822e5b07cebcd8e00c0df8069ecab9
+guest:                 Ubuntu 26.04.1, kernel 7.0.0-43-generic, bwrap 0.11.1
+user:                  dev uid 1000 (root=false), container=none
+runner_kind:           disposable-qemu-tcg (not a performance node)
+```
+
+The machine-readable document is `marqdo.strict-evidence.v1`; it records
+`tested_sha`, archive digest, uid/root, kernel, cgroup2, bwrap/rustc/cargo and
+the outcome. A root PASS is rejected by the generator; this run is non-root.
 
 ## 5. Explicit non-goals / remaining work
 
@@ -147,8 +172,12 @@ hide /usr/bin/bwrap; run --mode strict            -> exit 1 (not installed)
 * Network is denied by a network namespace, not a seccomp allowlist.
 * The disposable VM is reproducible from
   [`security-vm.md`](security-vm.md); that document also explains how to
-  register it as a dedicated self-hosted runner.
-* **A remote security-lane CI URL is still required** before a release calls
-  G-C CI-verified. `.github/workflows/security-linux.yml` targets a dedicated
-  self-hosted runner; `MARQDO_REQUIRE_STRICT_SECURITY=1` makes missing
-  mechanisms fail instead of skip.
+  register it as an ephemeral self-hosted runner.
+* **A remote security-lane CI URL and artifact are still required** before a
+  release calls G-C CI-verified. `.github/workflows/security-linux.yml` now
+  runs on trusted `master` pushes or an explicit `source_sha`, binds the
+  checkout to the tested SHA, writes `strict-evidence.json` and uploads it.
+  `MARQDO_REQUIRE_STRICT_SECURITY=1` makes missing mechanisms fail instead of
+  skip.
+* The current run is QEMU/TCG. It is evidence for **isolation correctness**,
+  never for performance; see [`performance.md`](performance.md).

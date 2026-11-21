@@ -126,6 +126,11 @@ reproduce the Windows checkout byte behavior.
 
 ## Release decision
 
-**DO NOT RELEASE.** G1/G2/G3 (native CI) and G9 (self-hosted security-lane CI
-URL) have no real remote PASS for this SHA. See
-[`docs/evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md`](docs/evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md).
+**DO NOT RELEASE.** The RFC-CI-0001 series fixed the platform `E0425` build
+break and the strict `--json` empty-stdout defect (ADR-0053), Woodpecker is
+green at `0d7e11b`, and the G3 lane PASSes locally as a normal user. However
+the same SHA has **no remote Windows/macOS native PASS, no remote G3 security
+artifact and no `MEASURED` G4 performance report**. Those gates remain
+`UNVERIFIED`; a local or cross-target PASS is not a platform/security release
+proof. See [`docs/STATUS.md`](docs/STATUS.md) §0.1 and
+[`docs/evidence/ci/README.md`](docs/evidence/ci/README.md).

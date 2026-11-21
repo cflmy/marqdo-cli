@@ -80,11 +80,46 @@ The intermediate "text migrated, implementation pending" record is kept as
 [`evidence/2026-11-21-semantic-docs-migration.md`](evidence/2026-11-21-semantic-docs-migration.md)
 and is superseded by the green gate.
 
-**Not claimed:** Windows/macOS native lanes and the disposable-VM strict
-security lane were not re-run at this SHA. Those remain `UNVERIFIED`; see §1,
-§4 and [`../COMPATIBILITY.md`](../COMPATIBILITY.md). The release decision is
-still **DO NOT RELEASE** until the platform/security evidence is attached to a
-single remote SHA.
+**Not claimed:** Windows/macOS **native** lanes remain `UNVERIFIED` at this
+SHA. The CI/security series below fixes the platform compile defect and the
+strict JSON protocol, but a native remote matrix and a remote G3 job are still
+required. See §0.1, §1, §4 and [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
+The release decision is still **DO NOT RELEASE** until the platform/security
+evidence is attached to a single remote SHA.
+
+## 0.1 CI/security convergence (2026-11-21)
+
+The RFC-CI-0001 series fixes the release-blocking CI defects that the
+`32d8fe1` GitHub run exposed. Commits on `master`:
+
+| Step | Commit | Content |
+|---|---|---|
+| 1 | `f4a404b` | platform-neutral `StrictChildState`/`inspect_strict_child`; macOS/Windows no longer reference Linux-only functions (`E0425`) |
+| 2 | `f817cce` | strict capture/routing: one JSON document on every `--json` path, stable failure codes, ADR-0053, deterministic routing tests |
+| 3 | `c9f509e` | architecture guard against direct marker access; Windows cross-target check |
+| 4 | `990e984` | G-C lane writes SHA-bound `strict-evidence.json`; workflow binds checkout/archive to the tested SHA and uploads evidence |
+| 5 | `d2267e9` | correctness-verified `marqdo.perf.v2` sampler and fixed-node workflow |
+| 6 | `0d7e11b` | SHA-bound release-evidence aggregator, docs drift cleanup, consistent `windows-latest`/`macos-latest` statement |
+
+Executed evidence:
+
+| Lane | Result | Evidence |
+|---|---|---|
+| Linux fmt/clippy/test/build (Woodpecker) | **PASS** | pipelines `#9`–`#12` and `#14` on `0d7e11b`; `#13` was superseded/cancelled by the next push, not a failure |
+| Windows portability | **PASS (cross-target check)** | `cargo check --workspace --all-targets --locked --target x86_64-pc-windows-gnu` on this Linux host with MinGW; native `windows-latest` GitHub run still required for release |
+| macOS portability | **UNVERIFIED** | native `macos-latest` run required; cross-check from this Linux host is blocked by `ring`'s Darwin C/asm toolchain, not by Marqdo code |
+| G3 strict isolation | **PASS (local disposable VM) / remote UNVERIFIED** | `0d7e11b`, `dev` uid 1000, QEMU/TCG, 7/7 + strict JSON/inert-`@knowledge`; [`evidence/2026-11-21-strict-gc-0d7e11b.md`](evidence/2026-11-21-strict-gc-0d7e11b.md) |
+| G4 performance | **SMOKE / UNVERIFIED** | nine workloads `VERIFIED` on the dev container, 1 warmup + 3 samples; [`evidence/2026-11-21-perf-smoke-0d7e11b.md`](evidence/2026-11-21-perf-smoke-0d7e11b.md) |
+
+Release decision: **DO NOT RELEASE.** Linux is green on Woodpecker, the strict
+isolation mechanism PASSes locally as a normal user, and the platform compile
+defect is fixed; but the release gate requires the same SHA to have PASSing
+remote Windows/macOS jobs, a remote G3 artifact whose `tested_sha` matches, and
+a `MEASURED` G4 report. None of those three remote claims is made here.
+
+The manifest contract is in
+[`evidence/ci/README.md`](evidence/ci/README.md); `tools/ci/release_evidence.py`
+reports `DO_NOT_RELEASE` for any missing/failed/SHA-mismatched gate.
 
 ## 1. Remote baseline and current evidence
 
@@ -439,6 +474,12 @@ user-written allocator is explicitly **not** claimed.
   print, strict file-resource refusal, forged-marker rejection and raw log.
 - [`evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md`](evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md)
   — G0..G12 matrix and RC decision.
+- [`evidence/2026-11-21-strict-gc-0d7e11b.md`](evidence/2026-11-21-strict-gc-0d7e11b.md)
+  — RFC-CI-0001 series G-C: local disposable VM, `dev` uid 1000, 7/7 plus the
+  strict JSON and inert-`@knowledge` contracts at `0d7e11b`.
+- [`evidence/2026-11-21-perf-smoke-0d7e11b.md`](evidence/2026-11-21-perf-smoke-0d7e11b.md)
+  — `marqdo.perf.v2` smoke: nine workloads correctness-verified, explicitly
+  not a G4 release baseline.
 - [`security-gate.md`](security-gate.md) — mechanism, attack matrix and strict
   L1/L2 limits.
 
@@ -462,8 +503,17 @@ python3 tests/consumers/analysis_consumer.py /tmp/a.json
 python3 tests/consumers/trace_consumer.py /tmp/a.json /tmp/t.json
 ```
 
-G-C (ordinary user, disposable VM only):
+G-C (ordinary user, disposable VM only; bind the source archive and write the
+evidence document):
 
 ```bash
-MARQDO_REQUIRE_STRICT_SECURITY=1 ./tests/security/run-lane.sh
+export MARQDO_TESTED_SHA="$(git rev-parse HEAD)"
+export MARQDO_SOURCE_ARCHIVE="/path/to/marqdo-${MARQDO_TESTED_SHA}.tar"
+export MARQDO_SOURCE_ARCHIVE_SHA256="sha256:<host-computed digest>"
+export MARQDO_STRICT_EVIDENCE="/tmp/evidence-${MARQDO_TESTED_SHA}/strict-evidence.json"
+export MARQDO_REQUIRE_STRICT_SECURITY=1
+./tests/security/run-lane.sh
 ```
+
+A root-only PASS, a container PASS or a missing/shorter archive is not
+evidence. See [`security-vm.md`](security-vm.md).
