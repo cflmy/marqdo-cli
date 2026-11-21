@@ -241,6 +241,12 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   now sorts `.mq.md` by the same relative path key as the CLI. Source/test baseline
   `0d40de7`; later docs-only commits keep code/test bytes identical. Evidence:
   [`docs-and-test-migration`](evidence/2026-11-21-docs-and-test-migration.md).
+- Module-boundary refactor (review RFC-CM P1): CLI sandbox/capability policy
+  moved to `crates/cli/src/commands/sandbox.rs`; host resource open dispatch to
+  `crates/marqdo-host/src/host/resource_ops.rs`; explicitly granted process
+  execution to `crates/marqdo-host/src/process.rs`. `commands.rs` still owns
+  run/check/inspect and `host.rs` still owns provider registration; this is a
+  partial, behavior-preserving split.
 - Minimal structure observation/construction (RFC-CM CM-A04, ADR-0023):
   value-semantics `list.append/concat`, `map.keys/has/get/set/remove`,
   Unicode scalar `text.codepoints`/`text.from_codepoint`, and non-negative

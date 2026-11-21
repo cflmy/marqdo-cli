@@ -12,6 +12,7 @@ pub mod handles;
 pub mod host;
 pub mod kernels;
 mod plugin_worker;
+mod process;
 mod provider_c;
 mod provider_worker;
 pub mod resource;
