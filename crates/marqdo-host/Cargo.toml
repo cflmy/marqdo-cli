@@ -13,6 +13,7 @@ libloading = { workspace = true }
 rustls = { workspace = true }
 rustls-native-certs = { workspace = true }
 marqdo-plugin-abi = { workspace = true }
+flate2 = { workspace = true }
 getrandom = { workspace = true }
 glob = { workspace = true }
 marqdo-span = { workspace = true }

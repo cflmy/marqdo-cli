@@ -17,6 +17,7 @@ module; a mismatch is a hard error.
 - `data/table.mq.md` — value-returning table select/filter/sort/append/set/join/group/GFM
 - `env.mq.md` — explicitly granted `env.get` names over `resource.request`
 - `process.mq.md` — explicitly granted `process.run` with timeout/output caps
+- `compress.mq.md` — deterministic gzip compress/decompress over byte lists
 - `random.mq.md` — explicitly granted OS entropy bytes/integers
 - `datetime.mq.md` — UTC ISO-8601 format/parse over Unix milliseconds (pure)
 - `clock.mq.md` — project-mode `clock.now` over `resource.request`
@@ -24,7 +25,7 @@ module; a mismatch is a hard error.
 - `regex.mq.md` — `^ $ . * + ? [...]` matcher and search (no groups)
 - `net/http.mq.md` — HTTP/1.1 response parsing (headers/chunked) and request builder
 - `tests/` — product self-tests for every public module
-  (`clock`, `console`, `csv`, `datetime`, `demo`, `env`, `format`, `fs`, `http`,
+  (`clock`, `compress`, `console`, `csv`, `datetime`, `demo`, `env`, `format`, `fs`, `http`,
   `io`, `json`, `path`, `process`, `random`, `regex`, `stream`, `table`, `text`, `utf8`)
 
 The digest is a SHA-256 over sorted `*.mq.md` relative paths, a NUL, file

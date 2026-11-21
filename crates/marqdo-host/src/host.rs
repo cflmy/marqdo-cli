@@ -5,6 +5,7 @@
 //! execution, not at parse/compile time.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -628,6 +629,14 @@ impl StdHost {
     }
 }
 
+fn result_error(code: &str, message: &str) -> Value {
+    let mut map = BTreeMap::new();
+    map.insert("ok".to_string(), Value::Bool(false));
+    map.insert("code".to_string(), Value::text(code));
+    map.insert("message".to_string(), Value::text(message));
+    Value::Map(map)
+}
+
 impl Host for StdHost {
     fn invoke(
         &mut self,
@@ -835,6 +844,146 @@ impl Host for StdHost {
             );
             self.record_resource_effect("resource.request", ctx, started, "process.run");
             return Ok(result);
+        }
+        if operation == "compress.gzip" {
+            if args.len() != 1 {
+                return Err(RuntimeError::new(
+                    ErrorCategory::Arity,
+                    ctx.span,
+                    format!(
+                        "resource operation `compress.gzip` expects 1 argument, got {}",
+                        args.len()
+                    ),
+                ));
+            }
+            let text_type = args[0].type_name();
+            let Value::Text(text) = args[0].clone() else {
+                return Err(RuntimeError::type_error(
+                    ctx.span,
+                    format!("compress.gzip expects Text, got {text_type}"),
+                ));
+            };
+            if text.len() > 8 * 1024 * 1024 {
+                return Err(RuntimeError::new(
+                    ErrorCategory::ResourceExhausted,
+                    ctx.span,
+                    "compress.gzip input exceeds 8 MiB",
+                ));
+            }
+            let mut encoder =
+                flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+            encoder.write_all(text.as_bytes()).map_err(|error| {
+                RuntimeError::new(
+                    ErrorCategory::HostError,
+                    ctx.span,
+                    format!("gzip failed: {error}"),
+                )
+            })?;
+            let bytes = encoder.finish().map_err(|error| {
+                RuntimeError::new(
+                    ErrorCategory::HostError,
+                    ctx.span,
+                    format!("gzip failed: {error}"),
+                )
+            })?;
+            let values = bytes
+                .into_iter()
+                .map(|byte| Value::int(byte as i64))
+                .collect();
+            self.record_semantic(
+                "resource.request",
+                None,
+                Some(&ctx.module_id),
+                ctx.span,
+                Some("op=compress.gzip"),
+            );
+            self.record_resource_effect("resource.request", ctx, started, "compress.gzip");
+            let mut map = BTreeMap::new();
+            map.insert("ok".to_string(), Value::Bool(true));
+            map.insert("value".to_string(), Value::List(values));
+            return Ok(Value::Map(map));
+        }
+        if operation == "compress.gunzip" {
+            if args.len() != 1 {
+                return Err(RuntimeError::new(
+                    ErrorCategory::Arity,
+                    ctx.span,
+                    format!(
+                        "resource operation `compress.gunzip` expects 1 argument, got {}",
+                        args.len()
+                    ),
+                ));
+            }
+            let list_type = args[0].type_name();
+            let Value::List(values) = args[0].clone() else {
+                return Err(RuntimeError::type_error(
+                    ctx.span,
+                    format!("compress.gunzip expects List<Int>, got {list_type}"),
+                ));
+            };
+            if values.len() > 8 * 1024 * 1024 {
+                return Err(RuntimeError::new(
+                    ErrorCategory::ResourceExhausted,
+                    ctx.span,
+                    "compress.gunzip input exceeds 8 MiB",
+                ));
+            }
+            let mut bytes = Vec::with_capacity(values.len());
+            for value in values {
+                let Value::Int(value) = value else {
+                    return Err(RuntimeError::type_error(
+                        ctx.span,
+                        "compress.gunzip bytes must be Int",
+                    ));
+                };
+                let Some(byte) = value.to_string().parse::<u8>().ok() else {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::Type,
+                        ctx.span,
+                        format!("`{value}` is not a byte in 0..=255"),
+                    ));
+                };
+                bytes.push(byte);
+            }
+            let mut decoder = flate2::read::GzDecoder::new(bytes.as_slice());
+            let mut output = Vec::new();
+            if let Err(error) = decoder
+                .by_ref()
+                .take(8 * 1024 * 1024 + 1)
+                .read_to_end(&mut output)
+            {
+                return Ok(result_error(
+                    "compress.invalid",
+                    &format!("gunzip failed: {error}"),
+                ));
+            }
+            if output.len() > 8 * 1024 * 1024 {
+                return Ok(result_error(
+                    "compress.too_large",
+                    "gunzip output exceeds 8 MiB",
+                ));
+            }
+            let text = match String::from_utf8(output) {
+                Ok(text) => text,
+                Err(_) => {
+                    return Ok(result_error(
+                        "compress.not_utf8",
+                        "gunzip output is not UTF-8",
+                    ))
+                }
+            };
+            self.record_semantic(
+                "resource.request",
+                None,
+                Some(&ctx.module_id),
+                ctx.span,
+                Some("op=compress.gunzip"),
+            );
+            self.record_resource_effect("resource.request", ctx, started, "compress.gunzip");
+            let mut map = BTreeMap::new();
+            map.insert("ok".to_string(), Value::Bool(true));
+            map.insert("value".to_string(), Value::text(text));
+            return Ok(Value::Map(map));
         }
         if operation == "random.bytes" {
             if args.len() != 1 {

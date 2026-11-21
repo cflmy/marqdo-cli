@@ -213,6 +213,8 @@ resource.request("fs.walk",    [dir])           -> {ok:true, value:List<Text>}
 resource.request("clock.now",   [])             -> {ok:true, value:UnixMillis}
 resource.request("env.get",     [name])         -> {ok:true, value:Text}
 resource.request("random.bytes", [count])       -> {ok:true, value:List<Int>}
+resource.request("compress.gzip",   [text])     -> {ok:true, value:List<Int>}
+resource.request("compress.gunzip", [bytes])    -> {ok:true, value:Text}
 resource.request("process.run", [program, args])-> {ok:true, value:{status, stdout, stderr}}
 ```
 
@@ -242,6 +244,9 @@ resource.request("process.run", [program, args])-> {ok:true, value:{status, stdo
 * `env.get` takes one exact variable name and requires an `--allow-env NAME`
   grant; un-granted names are `permission.denied`, missing names are recoverable
   `env.not_found` and non-UTF-8 values are `env.not_unicode` (ADR-0043).
+* `compress.gzip`/`compress.gunzip` codec UTF-8 Text through a byte List;
+  input/output are capped at 8 MiB and bad gzip/UTF-8 is recoverable
+  `compress.invalid`/`compress.not_utf8` (ADR-0049).
 * `random.bytes` takes an Int count in `1..=65536`, requires
   `--allow-random`, and returns a List of 0–255 OS entropy bytes (ADR-0046).
 * `process.run` takes an exact program path and a List of Text arguments,

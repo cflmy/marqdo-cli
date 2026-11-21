@@ -148,6 +148,7 @@ fn every_public_stdlib_module_has_a_product_test() {
         names,
         vec![
             "clock.mq.md",
+            "compress.mq.md",
             "console.mq.md",
             "csv.mq.md",
             "datetime.mq.md",
@@ -382,6 +383,21 @@ fn random_test_reads_bounded_entropy() {
     assert_eq!(items[2]["value"], true);
     assert_eq!(items[3]["value"], true);
     assert_eq!(items[4]["value"], true);
+}
+
+#[test]
+fn compress_test_round_trips_gzip_text() {
+    let report = run_product_test(
+        product_tests()
+            .iter()
+            .find(|file| file.name == "compress.mq.md")
+            .expect("compress test"),
+    );
+    let items = report["value"]["items"].as_array().expect("list");
+    assert_eq!(items[0]["value"], true);
+    assert_eq!(items[1]["value"], true);
+    assert_eq!(items[2]["value"], true);
+    assert_eq!(items[3]["value"], "hello 世界");
 }
 
 #[test]

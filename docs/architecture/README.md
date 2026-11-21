@@ -53,6 +53,7 @@ The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 | `random.bytes` resource operation | [0046](../adr/0046-random-resource-operation.md) | Accepted (explicit `--allow-random`, project only) |
 | DNS/UDP/TCP-listener endpoints | [0047](../adr/0047-net-dns-udp-listener.md) | Accepted (project only, exact host grant, no TLS) |
 | TLS client endpoint | [0048](../adr/0048-tls-resource-endpoint.md) | Accepted (rustls, validated, project only) |
+| gzip compression operations | [0049](../adr/0049-compression-resource-operations.md) | Accepted (bounded byte-list gzip) |
 | Table physical storage (T1/T2/T3), strict stdin/stderr/file/network resources | — | **Not decided**; do not implement by implication |
 
 ## Evidence and status

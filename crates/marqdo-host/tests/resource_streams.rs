@@ -1091,3 +1091,29 @@ fn tls_requires_project_mode_and_a_host_grant() {
         .unwrap_err();
     assert_eq!(error.category, ErrorCategory::PermissionDenied);
 }
+
+#[test]
+fn compression_round_trips_and_rejects_invalid_gzip() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut host = StdHost::new(SandboxMode::Project, Capabilities::project(), dir.path());
+    let ctx = context();
+    let compressed = host
+        .resource_request("compress.gzip", vec![Value::text("hello 世界")], &ctx)
+        .unwrap();
+    assert_eq!(field(&compressed, "ok"), &Value::Bool(true));
+    let bytes = field(&compressed, "value").clone();
+    let decompressed = host
+        .resource_request("compress.gunzip", vec![bytes], &ctx)
+        .unwrap();
+    assert_eq!(field(&decompressed, "value"), &Value::text("hello 世界"));
+
+    let invalid = host
+        .resource_request(
+            "compress.gunzip",
+            vec![Value::List(vec![Value::int(1), Value::int(2)])],
+            &ctx,
+        )
+        .unwrap();
+    assert_eq!(field(&invalid, "ok"), &Value::Bool(false));
+    assert_eq!(field(&invalid, "code"), &Value::text("compress.invalid"));
+}

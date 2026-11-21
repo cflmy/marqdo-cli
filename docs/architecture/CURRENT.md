@@ -18,7 +18,7 @@ platform".
 | Dimension | Current state | Source |
 |---|---|---|
 | Implemented | Rust workspace `0.1.0`: Markdown/frontend/IR, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, bundled stdlib, CLI composition root | `Cargo.toml`, `crates/`, `stdlib/` |
-| Tested locally | `cargo test --workspace --locked`: **488 passed, 0 failed, 2 ignored** on Linux x86_64 at the baseline | `docs/STATUS.md` §3 |
+| Tested locally | `cargo test --workspace --locked`: **490 passed, 0 failed, 2 ignored** on Linux x86_64 at the baseline | `docs/STATUS.md` §3 |
 | Bundled stdlib released | In-repo bundle `marqdo-stdlib@0.1.0`, SHA-256 digest verified before loading; it is **not** an external registry package | `stdlib/stdlib.json`, `stdlib/README.md` |
 | Multi-platform verified | Linux local gate is the only executed lane here; Windows/macOS native lanes are **UNVERIFIED**, and the GitHub security lane remains a **VM-only** gate | `docs/STATUS.md` §1, §4 |
 
@@ -101,6 +101,7 @@ review RFC, not a new crate per provider.
 | `std:env` | `env.读取/存在` -> `resource.request("env.get", [name])`; exact `--allow-env` grant | implemented (project mode; no `env.list`) | `resource_streams`, `stdlib_product` |
 | `std:process` | `process.运行(程序, 参数列表)` -> `resource.request("process.run", ...)`; exact `--allow-process` grant, 5 s timeout, 1 MiB caps | implemented (project mode; not an OS sandbox) | `resource_streams`, `stdlib_product` |
 | `std:random` | `random.字节/整数` -> `resource.request("random.bytes", [count])`; exact `--allow-random` grant | implemented (project mode; byte-list RNG) | `resource_streams`, `stdlib_product` |
+| `std:compress` | `compress.压缩/解压` -> gzip byte list <-> Text; 8 MiB caps | implemented (project mode; no grant) | `resource_streams`, `stdlib_product` |
 | network endpoints | `tcp`/`udp`/`tcp-listener`/`tls` open + `resource.accept`; exact host grant, DNS after grant, TLS certificate validation | implemented (project mode) | `resource_streams` |
 | file metadata / directory / rename / remove / mkdir | not part of the current Resource contract | **not implemented**; needs a separate Resource Operation ADR | — |
 | TCP | `resource.open("tcp", ip:port, ["read","write"])`; exact IP grant, 5 s timeout | implemented; no DNS/TLS/server socket/UDP | `tcp_endpoint`, `http_over_tcp` |
@@ -133,7 +134,7 @@ that a phase is complete.
 | P1 | CLI split into `commands/{sandbox,run,check,inspect,init,package,tool}.rs`; host split into `host/{resource_ops,providers,effects,dispatch}.rs` plus `process.rs`; `commands.rs` keeps shared project/runtime helpers and `host.rs` keeps the `Host` trait methods and capability checks | split; shared helpers and trait methods remain by design |
 | P2 | HTTP parsing is Unicode-codepoint oriented; a general byte body is not the only path | open; convert before a general network release |
 | P2 | DNS, UDP, TCP listener and TLS client endpoints are implemented; no TLS server/mTLS or custom-CA CLI | open |
-| P2 | `std:path`, a regex subset, `std:datetime`, `std:clock`, `std:env`, `std:process` and `std:random` are implemented; no compression | open |
+| P2 | `std:path`, regex subset, `std:datetime`, `std:clock`, `std:env`, `std:process`, `std:random` and gzip compression are implemented; no streaming/zstd/brotli | open |
 | P2 | Memory limits: 16 MiB per region, 64 MiB per run | current budget, not a product limit |
 | P3 | No concurrency tasks, atomics or cancellable long-running scheduling | open; separate ADR |
 | P3 | No native optimizer/JIT or columnar numeric backend | open; benchmark-first |
@@ -171,5 +172,6 @@ that a phase is complete.
 - [ADR-0046: `random.bytes`](../adr/0046-random-resource-operation.md) — accepted explicitly granted OS entropy.
 - [ADR-0047: DNS/UDP/TCP listener](../adr/0047-net-dns-udp-listener.md) — accepted project-mode network endpoints.
 - [ADR-0048: TLS client endpoint](../adr/0048-tls-resource-endpoint.md) — accepted validated rustls client; system + embedder DER roots.
+- [ADR-0049: gzip compression](../adr/0049-compression-resource-operations.md) — accepted bounded gzip byte-list codec.
 - [Compute-machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) and [core/stdlib RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) — design input.
 - [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) — review input for this migration.
