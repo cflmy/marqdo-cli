@@ -31,8 +31,11 @@ def interesting_lines(lines: list[str]) -> list[tuple[int, str]]:
         if "panicked at" in line:
             for offset in range(-2, 19):
                 add(index + offset)
-        elif line.startswith("failures:") or line.startswith("---- "):
-            for offset in range(0, 6):
+        elif line.startswith("failures:"):
+            for offset in range(0, 8):
+                add(index + offset)
+        elif line.startswith("---- "):
+            for offset in range(0, 30):
                 add(index + offset)
         elif re.match(r"^error(\[|:)", line):
             for offset in range(-1, 7):

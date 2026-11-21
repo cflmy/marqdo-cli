@@ -1058,6 +1058,14 @@ struct TempArtifacts {
 
 impl TempArtifacts {
     fn create(extension: &str) -> Result<Self, ForeignError> {
+        // `fs::canonicalize` on Windows returns a verbatim `\\?\C:\...`
+        // path. Node's module loader uses the working directory/script path
+        // with `lstat` and rejects that form (`node:fs` ENOENT/UNKNOWN), even
+        // though Rust can open it. Use the native temp path on Windows and
+        // keep canonicalization for Unix symlink safety.
+        #[cfg(windows)]
+        let base = std::env::temp_dir();
+        #[cfg(not(windows))]
         let base = fs::canonicalize(std::env::temp_dir()).unwrap_or_else(|_| std::env::temp_dir());
         let mut last_error: Option<io::Error> = None;
         for _ in 0..16 {
