@@ -6,10 +6,12 @@ use serde::{Deserialize, Serialize};
 /// Stable diagnostic codes. CI may depend on these strings; they must not be
 /// renamed without an ADR because they are part of the CLI contract.
 pub mod codes {
-    /// A Markdown AST node occupies an executable position but has an invalid shape.
+    /// Retired by RFC-LANG-0002: executable payload shapes are reported as
+    /// `sem.*` instead. Kept only for decoding historical Analysis/Trace JSON.
     pub const MARKDOWN_INVALID_CONSTRUCT: &str = "markdown.invalid_construct";
-    /// A node that would be executable appears outside any function body and is
-    /// therefore inert document content.
+    /// Retired by RFC-LANG-0002: a payload with no owning Exec H2 is
+    /// `sem.exec_without_function`, and Knowledge content is inert without a
+    /// warning. Kept only for decoding historical Analysis/Trace JSON.
     pub const MARKDOWN_INERT_EXECUTABLE: &str = "markdown.inert_executable";
     /// Front matter is malformed or appears somewhere other than the document start.
     pub const FRONTMATTER_INVALID: &str = "frontmatter.invalid";

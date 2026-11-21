@@ -72,9 +72,9 @@ pub enum MdKind {
     Paragraph,
     /// Literal text.
     Text,
-    /// Strong emphasis: an execution statement in executable position.
+    /// Strong emphasis: one payload carrier in an `@exec` scope.
     Strong,
-    /// Emphasis: a return statement in executable position.
+    /// Emphasis: one payload carrier in an `@exec` scope.
     Emph,
     /// GFM strikethrough.
     Strikethrough,

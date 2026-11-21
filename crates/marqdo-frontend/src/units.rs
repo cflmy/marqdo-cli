@@ -1,17 +1,19 @@
-//! Heading scope index.
+//! Heading scope and semantic-mode index (RFC-LANG-0002).
 //!
-//! Markdown headings are sibling blocks, so function scopes are derived from
-//! heading levels, not from container nesting:
+//! Markdown headings are sibling blocks, so scopes are derived from heading
+//! levels, not from container nesting:
 //!
-//! * `heading(level=1)` -> namespace / object domain (blueprint 1.2, 2.1)
-//! * `heading(level=2)` -> function
-//! * `heading(level>=3)` -> named section inside the enclosing unit, never a
-//!   new callable function
+//! * `heading(level=1)` -> namespace / top-level unit
+//! * `heading(level=2, mode=Exec)` -> callable function
+//! * `heading(level=2, mode=Knowledge)` -> inert knowledge unit
+//! * `heading(level>=3)` -> section of the enclosing unit, never a callable
+//!   function
 //!
-//! The range of a heading extends to the next heading of the same or a lower
-//! level (same or smaller number). Headings inside block quotes, list items or
-//! code fences cannot appear as direct children of the document, hence they can
-//! never create functions.
+//! Each heading declares `@exec`/`@knowledge` or inherits the nearest ancestor
+//! heading's mode; the document root is Knowledge. The range of a heading
+//! extends to the next heading of the same or a lower level (same or smaller
+//! number). Headings inside block quotes, list items or code fences cannot
+//! appear as direct children of the document, hence they never create units.
 
 use std::collections::BTreeMap;
 
@@ -105,7 +107,6 @@ fn has_payload(node: &MdNode) -> bool {
     }
 }
 
-/// Build the heading/function index for a parsed document.
 /// Semantic mode declared or inherited by a heading (RFC-LANG-0002).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SemanticMode {

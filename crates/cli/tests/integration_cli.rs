@@ -211,9 +211,8 @@ fn check_exit_codes_and_diagnostics() {
     assert!(stderr_text(&bad_json).is_empty());
 
     // RFC-LANG-0002: a Strong at the Knowledge root is inert prose, not an
-    // executable shape. There is no `markdown.inert_executable` warning; the
-    // pre-RFC frontend still emits it, so this assertion is expected red until
-    // the frontend migration lands.
+    // executable shape, and the old `markdown.inert_executable` warning no
+    // longer exists.
     let inert = cli(dir.path(), &["check", "warning.mq.md"]);
     assert_exit(&inert, 0, "inert Knowledge prose does not fail check");
     assert!(stdout_text(&inert).contains("checked 1 module(s): ok"));

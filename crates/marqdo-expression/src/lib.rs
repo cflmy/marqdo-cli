@@ -1,10 +1,12 @@
-//! Strict, independent expression and statement parser for executable Markdown
-//! payloads.
+//! Strict, independent payload statement and expression parser for executable
+//! Markdown payloads.
 //!
 //! This crate is the only grammar for Marqdo executable payloads. It knows
 //! nothing about Markdown and nothing about the runtime: the Markdown AST
 //! decides *where* a payload exists, this crate decides *what the payload
-//! means* (see `spec/expression.ebnf` and `spec/evaluation.md`).
+//! means* (see `spec/expression.ebnf` and `spec/evaluation.md`). The
+//! [`statement`] module owns the `if`/`else`/`while`/`end`/`return`/`params`
+//! statement keywords; the parser here owns their expressions.
 //!
 //! # Public API
 //!
@@ -21,10 +23,15 @@
 //! The contractual surface is:
 //!
 //! * [`parse_expression`] — parse a complete expression payload.
-//! * [`parse_statement`] — parse a complete statement payload (assignment or
-//!   expression).
-//! * [`parse_arguments`] — parse a leading `( ... )` argument list, used for
-//!   Markdown-link calls such as `> [计算面积](./math.mq.md#计算面积)(r=3)`.
+//! * [`parse_payload_statement`]/[`PayloadStatement`] — parse one complete
+//!   payload under the v2 statement grammar (control keyword, `params`, or an
+//!   ordinary assignment/expression).
+//! * [`parse_statement`] — parse a complete assignment/expression payload
+//!   (without control keywords).
+//! * [`parse_arguments`] — parse a leading `( ... )` argument list. There is no
+//!   Markdown-link call in the current language; this remains the shared
+//!   argument-list grammar used by callers that must parse arguments without a
+//!   callee (for example builtin signature validation tests).
 //! * the [`ast`] module (re-exported at the crate root).
 //! * [`ParseError`] — structured `expr.parse` diagnostics with byte spans.
 //!
@@ -33,11 +40,14 @@
 //!
 //! # Grammar summary
 //!
-//! The grammar is frozen in `spec/expression.ebnf`. In order of decreasing
-//! precedence: prefix `not` / `-` / `+`, `**` (right associative), postfix
-//! calls `.name` / `[index]`, `* / // %`, `+ -`, a single non-associative
-//! comparison, `and`, `or`. Assignment is only available at statement start;
-//! its target is a bare identifier or an index expression (`m[8] = 42`).
+//! The grammar is frozen in `spec/expression.ebnf`. One payload is exactly one
+//! statement: `if <expr>`, `else`, `while <expr>`, `end`, `return <expr>`,
+//! `params(...)`, an assignment or a bare expression. Within an expression, in
+//! order of decreasing precedence: prefix `not` / `-` / `+`, `**` (right
+//! associative), postfix calls `.name` / `[index]`, `* / // %`, `+ -`, a single
+//! non-associative comparison, `and`, `or`. Assignment is only available at
+//! statement start; its target is a bare identifier or an index expression
+//! (`m[8] = 42`).
 //!
 //! Notable lexical rules:
 //!
@@ -156,8 +166,8 @@ pub fn parse_statement(source: &str) -> Result<Statement, ParseError> {
 /// positional arguments precede named arguments, named arguments are unique,
 /// and a single trailing comma is allowed. Trailing tokens are an error.
 ///
-/// This exists so the frontend can parse Markdown-link calls of the form
-/// `> [计算面积](./math.mq.md#计算面积)(r=3)` without re-lexing the payload.
+/// This is the shared argument-list grammar (call postfixes and callers that
+/// validate arguments without a callee expression).
 pub fn parse_arguments(source: &str) -> Result<Vec<Arg>, ParseError> {
     parser::parse_arguments(source)
 }

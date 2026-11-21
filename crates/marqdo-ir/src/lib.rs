@@ -228,8 +228,9 @@ pub struct Function {
 
 /// Writable place of an assignment (ADR-0022).
 ///
-/// The Markdown surface is unchanged: both variants are `strong` nodes whose
-/// payload contains `target = expression`. `Local` rebinds a frame slot;
+/// Both variants come from an executable payload whose text is
+/// `target = expression` (any carrier: `Strong`, `Emph` or inline `Code`).
+/// `Local` rebinds a frame slot;
 /// `Index` writes one byte into an addressable runtime `Memory` region and is
 /// rejected for every other base value.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -283,14 +284,14 @@ pub enum Stmt {
         /// Span of the whole statement.
         span: Span,
     },
-    /// Ordered list: first matching condition wins.
+    /// `if`/`else` group: the first true arm wins.
     Branch {
         /// Arms in AST order.
         arms: Vec<BranchArm>,
         /// Span of the list node.
         span: Span,
     },
-    /// Bullet list item: a `while` loop.
+    /// `while`/`end` group.
     Loop {
         /// Loop condition.
         condition: Expr,
@@ -298,10 +299,10 @@ pub enum Stmt {
         condition_span: Span,
         /// Loop body.
         body: Vec<Stmt>,
-        /// Span of the list item.
+        /// Span of the whole `while` statement.
         span: Span,
     },
-    /// Return from the enclosing function (`emph` node).
+    /// Return from the enclosing function (`return` statement).
     Return {
         /// Returned expression.
         value: Expr,
@@ -323,12 +324,12 @@ impl Stmt {
     }
 }
 
-/// One arm of a branch (ordered list item).
+/// One arm of an `if`/`else` group.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BranchArm {
     /// Boolean condition expression.
     pub condition: Expr,
-    /// Span of the condition code span.
+    /// Span of the condition payload.
     pub condition_span: Span,
     /// Statements executed when the condition is true.
     pub body: Vec<Stmt>,

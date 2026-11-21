@@ -1,7 +1,9 @@
-//! Executable payload extraction with a payload → file span map.
+//! Payload extraction with a payload → file span map.
 //!
-//! A payload is the concatenation of the direct `text` and `code` children of
-//! an executable node. The expression parser sees only that concatenated
+//! Inside an `@exec` scope, `Strong`, `Emph` and inline `Code` are equivalent
+//! one-statement carriers. For `Strong`/`Emph` the payload is the
+//! concatenation of their direct `text` and `code` children; a nested carrier
+//! is an error. The expression/statement parser sees only the concatenated
 //! string, so its spans are payload-relative; this module maps them back to the
 //! original file so diagnostics point at real source.
 

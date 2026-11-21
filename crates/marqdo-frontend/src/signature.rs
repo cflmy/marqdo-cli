@@ -1,8 +1,10 @@
 //! Optional explicit function signatures.
 //!
-//! `` `(r: Number, precision: Int = 2)` `` as the first paragraph of a
-//! function body declares the public parameter list. It is a *declaration*:
-//! it does not execute. Without it, parameters are inferred from free reads.
+//! `` `params(r: Number, precision: Int = 2)` `` as the first function-wide
+//! direct payload of an Exec H2 declares the public parameter list. It is a
+//! *declaration*: it does not execute. Without it, parameters are inferred from
+//! free reads (and an inferred signature keeps the named-arguments-only rule).
+//! See RFC-LANG-0002 and `spec/mapping.md` §6.
 
 use marqdo_expression::{parse_expression, Expr, Statement, StatementKind};
 use marqdo_ir::{Param, SignatureKind};

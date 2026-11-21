@@ -28,6 +28,33 @@ HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
 MODE = re.compile(r"^@(exec|knowledge)\b\s*(.*)$")
 
 
+def split_semicolons(text: str) -> list[str]:
+    """Split a payload on `;` outside text literals and backtick spans."""
+    parts, current = [], []
+    in_text = in_code = False
+    escaped = False
+    for ch in text:
+        if escaped:
+            current.append(ch)
+            escaped = False
+            continue
+        if ch == "\\" and in_text:
+            current.append(ch)
+            escaped = True
+            continue
+        if ch == '"' and not in_code:
+            in_text = not in_text
+        elif ch == "`" and not in_text:
+            in_code = not in_code
+        if ch == ";" and not in_text and not in_code:
+            parts.append("".join(current))
+            current = []
+            continue
+        current.append(ch)
+    parts.append("".join(current))
+    return parts
+
+
 def payload_of(line: str):
     s = line.strip()
     while True:
@@ -46,6 +73,14 @@ def payload_of(line: str):
 
 
 def check(path: Path) -> list[str]:
+    # AST fixtures pin the native Markdown profile, not the language mapping;
+    # several intentionally contain empty/invalid carriers as raw Markdown.
+    if "conformance/ast" in path.as_posix():
+        return []
+    # Negative fixtures intentionally contain invalid declarations and broken
+    # control stacks; their expected diagnostics are asserted by the Rust
+    # negative harness, so this review aid only checks them structurally.
+    expected_invalid = "tests/negative" in path.as_posix()
     errors: list[str] = []
     stack: list[tuple[str, int]] = []
     headings: list[tuple[int, str | None, int]] = []  # level, explicit mode
@@ -74,9 +109,9 @@ def check(path: Path) -> list[str]:
             mm = MODE.match(body)
             mode = mm.group(1) if mm else None
             name = mm.group(2).strip() if mm else body.strip()
-            if mm and not name:
+            if mm and not name and not expected_invalid:
                 errors.append(f"{path}:{i}: mode without heading name")
-            if not mm and re.match(r"^@[A-Za-z]", name):
+            if not mm and re.match(r"^@[A-Za-z]", name) and not expected_invalid:
                 errors.append(f"{path}:{i}: unknown mode marker {name.split()[0]}")
             while headings and headings[-1][0] >= level:
                 headings.pop()
@@ -97,8 +132,8 @@ def check(path: Path) -> list[str]:
                 break
         if not owning:
             continue
-        if ";" in text:
-            errors.append(f"{path}:{i}: semicolon in one payload: {text!r}")
+        if len(split_semicolons(text)) > 1:
+            errors.append(f"{path}:{i}: semicolon-separated statements in one payload: {text!r}")
         first = text.split(None, 1)[0]
         if first in ("if", "while"):
             if len(text.split()) == 1:
