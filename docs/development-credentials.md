@@ -41,12 +41,12 @@ curl -fsS -H "Authorization: Bearer $MARQDO_WOODPECKER_TOKEN" \
   "$MARQDO_WOODPECKER_URL/api/user/repos"
 ```
 
-CI itself is defined in `.woodpecker.yml`; the token is only for local API
+CI itself is defined in `.woodpecker/main.yml`; the token is only for local API
 queries/triggering, not for the pipeline. Configure any privileged secrets in
 the Woodpecker repository settings, never in this repository.
 
 ## What is tracked
 
-- `.woodpecker.yml` — public CI pipeline definition.
+- `.woodpecker/main.yml` — public CI pipeline definition.
 - this document — names/usage only, no values.
 - `.secrets/` and `.env.local` — ignored local files.

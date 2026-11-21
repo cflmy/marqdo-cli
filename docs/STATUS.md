@@ -152,7 +152,7 @@ The remote SHA must be refreshed from CI after a push; do not read `c9f01aa8`
 as the current tree.
 
 This checkout's private remote is `https://git.cflmy.cn/cflmy/marqdo-cli` with
-Woodpecker CI at `https://ci.cflmy.cn` (`.woodpecker.yml`). The Linux Docker
+Woodpecker CI at `https://ci.cflmy.cn` (`.woodpecker/main.yml`). The Linux Docker
 pipeline runs fmt/clippy/test/release-build; the docs-consistency gate runs in
 `cargo test --workspace`. The GitHub-hosted native matrix is now green at
 `5fcc111` ([run 30](https://github.com/cflmy/marqdo-cli/actions/runs/44896671929)).

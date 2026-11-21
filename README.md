@@ -43,7 +43,7 @@ plugin ABI v2 are not claimed to work here.
 > (historical baseline; refresh before use).
 
 CI: the private remote [git.cflmy.cn/cflmy/marqdo-cli](https://git.cflmy.cn/cflmy/marqdo-cli)
-uses Woodpecker at [ci.cflmy.cn](https://ci.cflmy.cn); [`.woodpecker.yml`](.woodpecker.yml)
+uses Woodpecker at [ci.cflmy.cn](https://ci.cflmy.cn); [`.woodpecker/main.yml`](.woodpecker/main.yml)
 runs fmt, clippy, workspace tests and a release build. The strict OS-isolation
 lane still requires the disposable VM described in [docs/ci.md](docs/ci.md).
 
