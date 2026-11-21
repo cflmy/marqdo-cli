@@ -19,6 +19,41 @@ not be read as current status.
 Status is generated from executed commands and logs; a gate row without a command,
 log or source path is a defect, not a state.
 
+## 0. Language migration in progress (RFC-LANG-0002)
+
+The repository adopted a **breaking, single-syntax** language contract:
+[`architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md)
+and [ADR-0052](adr/0052-unified-markdown-semantics.md), with the normative
+summary in [`../spec/mapping.md`](../spec/mapping.md) and
+[`../spec/expression.ebnf`](../spec/expression.ebnf).
+
+What changed in this migration:
+
+* active docs/spec/READMEs and all repository examples were rewritten to the
+  new heading-mode + unified-payload + keyword syntax;
+* test-case source text (`tests/conformance/semantics`, `tests/negative`,
+  `tests/negative/runtime`, `tests/negative/warnings`, Rust-embedded fixtures)
+  was rewritten to the same syntax and the new `sem.*` diagnostics;
+* no V1/V2 switch, `--legacy` path or dual active spec was introduced.
+
+What did **not** change in this migration:
+
+* the Rust frontend (`units.rs`, `payload.rs`, `map.rs`, `signature.rs`), the
+  expression parser and the bundled `stdlib/**/*.mq.md` still implement the
+  pre-RFC mapping;
+* as a result, `cargo test --workspace --locked` is **expected to be red**: the
+  semantic/negative/CLI fixtures now feed the old frontend. The last green
+  workspace run (491 passed, 0 failed, 2 ignored at `8af7262`) is historical
+  evidence for the pre-migration tree, not for this worktree;
+* no platform, security or protocol result should be inferred from this
+  documentation migration.
+
+Remaining work, owners and status: [`migration/README.md`](migration/README.md)
+and [`migration/semantic-rewrite-inventory.tsv`](migration/semantic-rewrite-inventory.tsv).
+A release is blocked until the frontend, expression parser, stdlib, fixtures and
+all gates in RFC-LANG-0002 §12 are green on the same commit. Do not mark this
+section complete before that evidence exists.
+
 ## 1. Remote baseline and current evidence
 
 The local baseline for this snapshot is
@@ -213,7 +248,7 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   look-around/backreferences remain open; project mode has host-backed groups
   and captures (ADR-0050).
 - Bundled standard library (CM-A10, ADR-0028): `stdlib/` ships
-  `format`/`text`/`io`/`fs`/`data`/`path`/`regex`/`datetime`/`clock`/`env`/`process`/`random`/`compress`; explicit `std:` imports resolve only inside the bundle;
+  `format`/`text`/`io`/`fs`/`data`/`path`/`regex`/`datetime`/`clock`/`env`/`process`/`random`/`compress`/`net/http`; explicit `std:` imports resolve only inside the bundle;
   a SHA-256 digest over `*.mq.md` is verified before loading; Analysis records
   `project.stdlib`; a frozen-binary test asserts the CLI hash is unchanged after
   running a `std:io` project and that tampering is rejected. `打印/print` is

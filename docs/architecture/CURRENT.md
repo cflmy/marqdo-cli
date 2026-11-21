@@ -9,6 +9,13 @@ replace `spec/` or a recorded test log.
 - This is the **single current overview**. Do not add a second running "current state" file;
   update this file, `docs/STATUS.md` and an evidence file together.
 
+> **Language contract vs implementation.** The current language contract is
+> [RFC-LANG-0002](RFC-LANG-0002-unified-semantics.md) (adopted by ADR-0052) and
+> `spec/mapping.md`. The Rust frontend, expression parser and bundled `stdlib/`
+> still implement the pre-RFC mapping; source/test/doc migration is tracked in
+> [`../migration/README.md`](../migration/README.md). Do not read this overview
+> as proof that the new syntax is executable.
+
 ## 1. Four state dimensions
 
 A claim is stated in exactly one of these dimensions. "Exists in the tree" is not
@@ -103,6 +110,7 @@ review RFC, not a new crate per provider.
 | `std:random` | `random.字节/整数` -> `resource.request("random.bytes", [count])`; exact `--allow-random` grant | implemented (project mode; byte-list RNG) | `resource_streams`, `stdlib_product` |
 | `std:compress` | `compress.压缩/解压` -> gzip byte list <-> Text; 8 MiB caps | implemented (project mode; no grant) | `resource_streams`, `stdlib_product` |
 | network endpoints | `tcp`/`udp`/`tcp-listener`/`tls` open + `resource.accept`; exact host grant, DNS after grant, TLS certificate validation | implemented (project mode) | `resource_streams` |
+| `std:net/http` | byte-exact HTTP/1.1 parse/build; chunk sizes are byte counts; text wrapper compatible | implemented (pure `.mq.md`) | `stdlib_http` |
 | file metadata / directory / rename / remove / mkdir | not part of the current Resource contract | **not implemented**; needs a separate Resource Operation ADR | — |
 | TCP | `resource.open("tcp", ip:port, ["read","write"])`; exact IP grant, 5 s timeout | implemented; no DNS/TLS/server socket/UDP | `tcp_endpoint`, `http_over_tcp` |
 | HTTP/1.1 | `stdlib/net/http.mq.md`: status/header/chunked-byte parse, request build | implemented over an already-authorized TCP stream; not a DNS/TLS client | `stdlib_http`, `http_over_tcp`, `stdlib_product` |
@@ -126,13 +134,14 @@ that a phase is complete.
 
 | Priority | Gap | State |
 |---|---|---|
+| P0 | **Language syntax migration**: RFC-LANG-0002 is the single contract, but the frontend/expression/stdlib implementation and executable fixtures are still on the pre-RFC mapping | **in progress**; docs/examples/test text migrated, implementation pending; see `docs/migration/` |
 | P0 | Stdlib release is a bundle in this repo; extraction is deferred (ADR-0039) | accepted, keep in repo |
 | P0 | Documentation drift between `STATUS.md`, the architecture index and the evidence | being fixed by this migration and the docs gate |
 | P1 | `std:fs/file` read/write/copy, metadata/directory, append/read_at/walk are implemented; watch and binary offset reads remain open | open |
 | P1 | No file watch or binary `read_at` | open; future Resource Operation extension |
 | P1 | JSON/CSV product parsers are implemented with depth bound and multi-value/multi-row; no incremental streaming parser | open |
 | P1 | CLI split into `commands/{sandbox,run,check,inspect,init,package,tool}.rs`; host split into `host/{resource_ops,providers,effects,dispatch}.rs` plus `process.rs`; `commands.rs` keeps shared project/runtime helpers and `host.rs` keeps the `Host` trait methods and capability checks | split; shared helpers and trait methods remain by design |
-| P2 | HTTP parsing is Unicode-codepoint oriented; a general byte body is not the only path | open; convert before a general network release |
+| P2 | HTTP/1.1 framing is byte-exact; HTTP/2, trailers and transfer decoding remain open | open |
 | P2 | DNS, UDP, TCP listener and TLS client endpoints are implemented; no TLS server/mTLS or custom-CA CLI | open |
 | P2 | `std:path`, pure+host regex, `std:datetime`, `std:clock`, `std:env`, `std:process`, `std:random` and gzip compression are implemented; no streaming/zstd/brotli | open |
 | P2 | Memory limits: 16 MiB per region, 64 MiB per run | current budget, not a product limit |
@@ -174,5 +183,6 @@ that a phase is complete.
 - [ADR-0048: TLS client endpoint](../adr/0048-tls-resource-endpoint.md) — accepted validated rustls client; system + embedder DER roots.
 - [ADR-0049: gzip compression](../adr/0049-compression-resource-operations.md) — accepted bounded gzip byte-list codec.
 - [ADR-0050: host regex extension](../adr/0050-host-regex-extension.md) — accepted project-mode groups/alternation/captures.
+- [ADR-0052: byte-exact HTTP framing](../adr/0051-byte-exact-http-framing.md) — accepted byte-list HTTP/1.1 parser/builder.
 - [Compute-machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) and [core/stdlib RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) — design input.
 - [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) — review input for this migration.

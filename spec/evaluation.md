@@ -1,7 +1,10 @@
-# Marqdo Evaluation Semantics v1
+# Marqdo Evaluation Semantics
 
-Status: **frozen for M0.5; extended by ADR-0022 (`Memory`) and ADR-0024 (recoverable results)**.
-Changes to observable behaviour require an ADR.
+Status: **current contract; breaking syntax revision (RFC-LANG-0002)**.
+Values, numeric rules, `Memory`, recoverable results and resource streams are
+unchanged from the earlier evaluation semantics; only the source-language
+origin of `Return`/`Branch`/`Loop` changed. The implementation state caveat in
+`spec/mapping.md` applies. Changes to observable behaviour require an ADR.
 
 ## 1. Values
 
@@ -56,8 +59,11 @@ implicit string↔number conversions; conversion builtins must be called.
 
 ## 3. Evaluation order and scopes
 
-* Blocks execute in Markdown AST document order; executable inline nodes
-  execute in source order within a paragraph.
+* Executable statements execute in source order. Within one heading, payload
+  carriers are collected in Markdown AST document order, recursing through
+  paragraphs, list items and block quotes; an H2 Exec function then executes
+  its own segment followed by the Exec segments of its descendant headings.
+  Knowledge segments contribute no statements. See `spec/mapping.md` §7.
 * A function call evaluates its arguments in source order, exactly once each,
   then binds them to fresh parameter slots in an isolated frame. The callee
   cannot see the caller's locals (no dynamic scoping); imported bindings are
@@ -75,10 +81,15 @@ implicit string↔number conversions; conversion builtins must be called.
   offset to a non-negative `Int` inside the region and the value to an `Int`
   in `0..=255`; otherwise the statement fails without writing anything.
 * `and`/`or` short-circuit and require `Bool` operands.
-* `Return` (an `emph` node) unwinds through branch/loop bodies to the
-  enclosing function frame.
-* `Branch` checks conditions in AST order and executes the first `true` branch
-  once. `Loop` re-evaluates its condition before each iteration.
+* `Return` — written as the `return <expr>` statement in an executable payload
+  — unwinds through any number of branch/loop bodies to the enclosing H2
+  function frame. A function that falls off the end still returns `Unit`.
+* `Branch` comes from an `if`/`else`/`end` group: the condition is evaluated
+  once, must be `Bool`, and exactly one arm executes (the `else` arm when
+  present and the condition is false, otherwise the then arm). `Loop` comes
+  from a `while`/`end` group and re-evaluates its `Bool` condition before each
+  iteration. The control stack is compile-time only (`spec/mapping.md` §5);
+  neither `end` nor `else` is a runtime instruction.
 * Imported modules only register definitions for the importing document; they
   have no initialization side effects and their `main` is never started.
 * Function calls recurse; recursion depth is bounded by the stack budget.
@@ -265,7 +276,7 @@ resource.request("process.run", [program, args])-> {ok:true, value:{status, stdo
 ## 4. Errors
 
 All failures are structured. Compile-time problems produce diagnostics
-(`markdown.invalid_construct`, `expr.parse`, `symbol.unknown`, …). Runtime
+(`sem.*` for the Markdown→program mapping, `expr.parse`, `symbol.unknown`, …). Runtime
 problems produce `RuntimeError { category, span, message, frames, cause }`
 with a stable category code. Runtime errors stop the current function and
 propagate with a call stack. A host/foreign/plugin failure never panics the

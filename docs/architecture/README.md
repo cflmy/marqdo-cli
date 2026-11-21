@@ -5,7 +5,13 @@ Status: **index**. The single current architecture overview is
 input and evidence. It is not a second running-status page.
 
 - Current architecture and four state dimensions: [`CURRENT.md`](CURRENT.md).
+- **Current language contract:**
+  [`RFC-LANG-0002-unified-semantics.md`](RFC-LANG-0002-unified-semantics.md),
+  adopted by [ADR-0052](../adr/0052-unified-markdown-semantics.md) and
+  summarized normatively in [`../../spec/mapping.md`](../../spec/mapping.md).
+  It replaces all earlier Strong/Emph/List/Quote mapping descriptions.
 - Executed status and open blockers: [`../STATUS.md`](../STATUS.md).
+- Migration rules and pending work: [`../migration/README.md`](../migration/README.md).
 - Frozen behavior: [`../../spec/`](../../spec/); release gates: [`../security-gate.md`](../security-gate.md).
 - Historical planning snapshots: [`../history/README.md`](../history/README.md).
 
@@ -13,9 +19,10 @@ input and evidence. It is not a second running-status page.
 
 | Document | Status | What it is |
 |---|---|---|
-| [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) | **Review input** | Responsibility convergence, stdio/file/stream correctness, CLI/Host split and the current migration order. It is not evidence that a phase is done. |
-| [Compute machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) | **Proposed** | Opaque `Memory`, addressable regions, wire/host rejection. |
-| [Core and stdlib migration RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) | **Proposed** | Minimum core, `.mq.md` stdlib and system-capability migration. |
+| [Unified semantics RFC-LANG-0002](RFC-LANG-0002-unified-semantics.md) | **Adopted target contract; implementation pending** | Single syntax: heading modes, unified payloads, keyword control flow, breaking migration and acceptance gates. |
+| [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) | **Review input (historical)** | Responsibility convergence, stdio/file/stream correctness, CLI/Host split and the migration order at the time. Its language examples predate RFC-LANG-0002. |
+| [Compute machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) | **Proposed** | Opaque `Memory`, addressable regions, wire/host rejection. Compute semantics are unchanged by the syntax rewrite; its `.mq.md` examples are historical spelling. |
+| [Core and stdlib migration RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) | **Proposed** | Minimum core, `.mq.md` stdlib and system-capability migration. Stdlib source migration is pending per this RFC. |
 
 The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 `../STATUS.md`; the RFC text itself never proves that code exists.
@@ -24,6 +31,8 @@ The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 
 | RFC item | ADR | State |
 |---|---|---|
+| Unified Markdown semantics, heading modes, payload carriers, keyword control | [0051](../adr/0052-unified-markdown-semantics.md) | Accepted (target; frontend pending) |
+| Execution scope (H2 functions only; carrier roles superseded) | [0002](../adr/0002-executables-only-in-function-bodies.md) | Accepted in part; mapping superseded by ADR-0052 |
 | CM-A01 Memory identity/lifetime | [0022](../adr/0022-addressable-memory-and-place-assignment.md) | Accepted |
 | CM-A02 page size, growth, budgets | [0022](../adr/0022-addressable-memory-and-place-assignment.md) | Accepted |
 | CM-A03 place assignment and evaluation order | [0022](../adr/0022-addressable-memory-and-place-assignment.md) | Accepted |
@@ -55,6 +64,7 @@ The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 | TLS client endpoint | [0048](../adr/0048-tls-resource-endpoint.md) | Accepted (rustls, validated, project only) |
 | gzip compression operations | [0049](../adr/0049-compression-resource-operations.md) | Accepted (bounded byte-list gzip) |
 | Host regex extension | [0050](../adr/0050-host-regex-extension.md) | Accepted (project-mode groups/alternation/captures) |
+| Byte-exact HTTP framing | [0051](../adr/0051-byte-exact-http-framing.md) | Accepted (byte-list HTTP/1.1) |
 | Table physical storage (T1/T2/T3), strict stdin/stderr/file/network resources | — | **Not decided**; do not implement by implication |
 
 ## Evidence and status

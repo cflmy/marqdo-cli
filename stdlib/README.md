@@ -4,6 +4,20 @@ This directory is the official, offline `marqdo-stdlib` bundle consumed by
 `std:<path>` imports. The CLI verifies `stdlib.json.digest` before loading any
 module; a mismatch is a hard error.
 
+> **Migration status (RFC-LANG-0002): the sources here are still pre-RFC and
+> do not yet use the current language syntax.** Every `.mq.md` module in this
+> directory is written in the superseded mapping (unmarked H2 as function,
+> `Strong` as execution, `Emph` as return, ordered-list branches, bullet-list
+> loops, block-quote calls, first code-span signatures). They are **not**
+> valid sources for the target language and are not syntax examples to copy.
+> The bundled stdlib will be migrated together with the Rust frontend and
+> expression parser; `stdlib.json` and this digest will then be regenerated in
+> the same change. Do not claim the stdlib already uses the new syntax.
+> Authority:
+> [`docs/architecture/RFC-LANG-0002-unified-semantics.md`](../docs/architecture/RFC-LANG-0002-unified-semantics.md),
+> normative summary [`spec/mapping.md`](../spec/mapping.md), status
+> [`docs/STATUS.md`](../docs/STATUS.md).
+
 - `format.mq.md` — value formatting (`显示`, list/map/table display, escaping)
 - `text.mq.md` — compatibility UTF-8 encoding into `Memory`
 - `text/utf8.mq.md` — `.mq.md` UTF-8 encoder and validating decoder
@@ -23,7 +37,7 @@ module; a mismatch is a hard error.
 - `clock.mq.md` — project-mode `clock.now` over `resource.request`
 - `path.mq.md` — lexical join/basename/dirname/extension/normalize (no I/O)
 - `regex.mq.md` — pure subset matcher + host-backed groups/alternation/captures
-- `net/http.mq.md` — HTTP/1.1 response parsing (headers/chunked) and request builder
+- `net/http.mq.md` — byte-exact HTTP/1.1 parsing (chunked) and request builder
 - `tests/` — product self-tests for every public module
   (`clock`, `compress`, `console`, `csv`, `datetime`, `demo`, `env`, `format`, `fs`, `http`,
   `io`, `json`, `path`, `process`, `random`, `regex`, `stream`, `table`, `text`, `utf8`)

@@ -37,4 +37,7 @@ fn stdlib_http_parses_chunked_responses_and_builds_requests() {
         items[4]["value"],
         "POST /echo HTTP/1.1\r\nHost: example.test\r\nContent-Length: 2\r\n\r\nok"
     );
+    assert_eq!(items[5]["decimal"], "200");
+    assert_eq!(items[6]["value"], "你好");
+    assert_eq!(items[7]["value"], "POST / HTTP/1.1\r\n\r\nAB");
 }
