@@ -27,6 +27,8 @@ use crate::resource::{ResourceProvider, ResourceRead, ResourceTable, SharedResou
 use crate::trace::{EffectTrace, SemanticEvent, TraceBudget, TraceEntry, TraceState};
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
 
+mod effects;
+mod providers;
 mod resource_ops;
 
 /// Host operations reachable from the language surface.
@@ -440,12 +442,6 @@ impl StdHost {
         &self.semantic_events
     }
 
-    fn next_seq(&mut self) -> u64 {
-        let seq = self.next_event_seq;
-        self.next_event_seq += 1;
-        seq
-    }
-
     /// Trace capacity state for the writer.
     pub fn trace_state(&self) -> &TraceState {
         &self.trace_state
@@ -610,152 +606,6 @@ impl StdHost {
         self.capabilities.check_write(&path, ctx.span)?;
         self.fs.write(&path, &contents, ctx.span)?;
         Ok(Value::Unit)
-    }
-
-    /// Register an explicitly trusted in-process provider (ADR-0033).
-    ///
-    /// In-process providers share the host address space and are not a
-    /// sandbox; only trusted adapters may be registered. Registration is not a
-    /// language operation and does not grant access by itself.
-    pub fn register_resource_provider(
-        &mut self,
-        provider: Box<dyn ResourceProvider>,
-    ) -> Result<(), RuntimeError> {
-        self.register_provider_checked(provider)
-    }
-
-    /// Register a trusted C ABI resource provider (ADR-0036).
-    ///
-    /// The shared library runs in the host address space and is **trusted**, not
-    /// sandboxed. Registration still requires the provider-name grant at
-    /// `resource.open` and is project-mode only.
-    pub fn register_c_resource_provider(
-        &mut self,
-        name: &str,
-        kinds: &[&str],
-        library: &std::path::Path,
-    ) -> Result<(), RuntimeError> {
-        let kinds = kinds
-            .iter()
-            .map(|kind| (*kind).to_string())
-            .collect::<Vec<_>>();
-        let provider = CResourceProvider::open(name, &kinds, library)?;
-        self.register_provider_checked(Box::new(provider))
-    }
-
-    /// Register a trusted C ABI provider from a `marqdo.provider` manifest
-    /// (ADR-0037). The manifest is host-side installation metadata; language
-    /// imports cannot install or authorize a provider.
-    pub fn register_provider_package(
-        &mut self,
-        manifest_path: &std::path::Path,
-    ) -> Result<(), RuntimeError> {
-        let provider = load_package(manifest_path)?;
-        self.register_provider_checked(Box::new(provider))
-    }
-
-    /// Register a trusted worker-process resource provider (ADR-0035).
-    ///
-    /// The helper speaks framed JSON over stdin/stdout and is **not** an OS
-    /// sandbox; only explicitly trusted helpers may be spawned.
-    pub fn register_worker_resource_provider(
-        &mut self,
-        name: &str,
-        kinds: &[&str],
-        program: &std::path::Path,
-        args: &[String],
-    ) -> Result<(), RuntimeError> {
-        let kinds = kinds
-            .iter()
-            .map(|kind| (*kind).to_string())
-            .collect::<Vec<_>>();
-        let provider = WorkerResourceProvider::spawn(name, &kinds, program, args)?;
-        self.register_provider_checked(Box::new(provider))
-    }
-
-    fn register_provider_checked(
-        &mut self,
-        provider: Box<dyn ResourceProvider>,
-    ) -> Result<(), RuntimeError> {
-        if provider.protocol_version() != 1 {
-            return Err(RuntimeError::new(
-                ErrorCategory::ResourceUnsupported,
-                None,
-                format!(
-                    "resource provider `{}` uses unsupported protocol version {}",
-                    provider.name(),
-                    provider.protocol_version()
-                ),
-            ));
-        }
-        let name = provider.name().to_string();
-        if name.is_empty() || name == "stdio" || name == "file" {
-            return Err(RuntimeError::new(
-                ErrorCategory::ResourceUnsupported,
-                None,
-                format!("resource provider name `{name}` is reserved or empty"),
-            ));
-        }
-        let kinds = provider.kind_strings();
-        if kinds.is_empty() {
-            return Err(RuntimeError::new(
-                ErrorCategory::ResourceUnsupported,
-                None,
-                format!("resource provider `{name}` declares no kinds"),
-            ));
-        }
-        for kind in &kinds {
-            if kind.is_empty() || kind == "stdio" || kind == "file" {
-                return Err(RuntimeError::new(
-                    ErrorCategory::ResourceUnsupported,
-                    None,
-                    format!("resource provider `{name}` declares reserved kind `{kind}`"),
-                ));
-            }
-            if let Some((existing, _)) = self.resource_providers.get(kind) {
-                return Err(RuntimeError::new(
-                    ErrorCategory::ResourceUnsupported,
-                    None,
-                    format!(
-                        "resource kind `{kind}` is already registered by provider `{existing}`"
-                    ),
-                ));
-            }
-        }
-        let provider: SharedResourceProvider = std::sync::Arc::new(std::sync::Mutex::new(provider));
-        for kind in kinds {
-            self.resource_providers
-                .insert(kind, (name.clone(), std::sync::Arc::clone(&provider)));
-        }
-        Ok(())
-    }
-
-    fn record_resource_effect(
-        &mut self,
-        op: &str,
-        ctx: &ExecutionContext,
-        started: Instant,
-        summary: &str,
-    ) {
-        let estimate = TraceState::estimate(
-            "effect",
-            None,
-            Some(&ctx.module_id),
-            Some(summary),
-            Some(op),
-        );
-        if !self.trace_state.accept(estimate) {
-            return;
-        }
-        let seq = self.next_seq();
-        self.trace.record(
-            seq,
-            op,
-            ctx.module_id.clone(),
-            ctx.span,
-            started.elapsed(),
-            summary.to_string(),
-        );
     }
 }
 
