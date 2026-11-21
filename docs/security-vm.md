@@ -34,6 +34,7 @@ URL. Download one dated release, verify it against Ubuntu's published
 `SHA256SUMS`, record the digest, and keep that file immutable:
 
 ```bash
+export SOURCE_SHA="$(git rev-parse HEAD)"   # reviewed commit, clean tree
 mkdir -p .tools/vm && cd .tools/vm
 # Replace with the reviewed dated release URL, never .../current/...
 curl -L -o ubuntu-base.img \

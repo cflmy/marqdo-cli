@@ -23,14 +23,18 @@ finish_lane() {
         if [ "$status" -eq 0 ]; then
             outcome="PASS"
         fi
-        python3 tools/ci/strict-evidence.py \
+        if ! python3 tools/ci/strict-evidence.py \
             --repo "$repo" \
             --out "$evidence" \
             --outcome "$outcome" \
             --started "$started_utc" \
             --finished "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --log "${MARQDO_STRICT_LANE_LOG:-}" \
-            || echo "warning: could not write strict evidence" >&2
+            --log "${MARQDO_STRICT_LANE_LOG:-}"; then
+            echo "error: strict evidence generation failed; a green lane without evidence is not a gate" >&2
+            if [ "$status" -eq 0 ]; then
+                status=1
+            fi
+        fi
     fi
     exit "$status"
 }

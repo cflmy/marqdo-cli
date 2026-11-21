@@ -20,6 +20,11 @@ on:
         description: "Exact reviewed commit SHA"
         required: true
         type: string
+      runner_image_sha256:
+        description: "Pinned VM base-image digest (evidence, not a secret)"
+        required: false
+        default: "unrecorded"
+        type: string
 
 permissions:
   contents: read
@@ -73,17 +78,37 @@ jobs:
           MARQDO_STRICT_EVIDENCE: ${{ runner.temp }}/strict-evidence.json
           MARQDO_STRICT_LANE_LOG: ${{ runner.temp }}/gc-lane.log
           MARQDO_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          MARQDO_SOURCE_ARCHIVE: ${{ runner.temp }}/marqdo-source-${{ env.TESTED_SHA }}.tar
           MARQDO_RUNNER_KIND: disposable-vm
+          MARQDO_RUNNER_IMAGE_SHA256: ${{ inputs.runner_image_sha256 || 'unrecorded' }}
         run: |
           set -euo pipefail
+          export MARQDO_SOURCE_ARCHIVE="$RUNNER_TEMP/marqdo-source-${TESTED_SHA}.tar"
           ./tests/security/run-lane.sh 2>&1 | tee "$MARQDO_STRICT_LANE_LOG"
+
+      - name: Verify strict evidence matches the tested SHA
+        if: success()
+        shell: bash
+        env:
+          MARQDO_STRICT_EVIDENCE: ${{ runner.temp }}/strict-evidence.json
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          path = os.environ["MARQDO_STRICT_EVIDENCE"]
+          with open(path, encoding="utf-8") as handle:
+              evidence = json.load(handle)
+          assert evidence["schema"] == "marqdo.strict-evidence.v1", evidence
+          assert evidence["run"]["outcome"] == "PASS", evidence
+          assert evidence["tested_sha"] == os.environ["TESTED_SHA"], evidence
+          assert evidence["environment"]["uid"] != 0, evidence
+          print("strict evidence verified for", evidence["tested_sha"])
+          PY
 
       - name: Upload strict evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: strict-evidence-${{ env.TESTED_SHA || github.sha }}
+          name: strict-evidence-${{ inputs.source_sha || github.sha }}
           path: |
             ${{ runner.temp }}/strict-evidence.json
             ${{ runner.temp }}/gc-lane.log
