@@ -167,6 +167,18 @@ mod tests {
     }
 
     #[test]
+    fn detects_removed_syntax_selector_keys() {
+        let literal = "---\nmarqdo_semantics: 2\nimport:\n  x: \"@x\"\n---\n";
+        let fm = parse_literal(literal, Span::new(0, literal.len()));
+        assert!(fm.has_key("marqdo_semantics"));
+        assert!(!fm.has_key("syntax"));
+        assert!(fm.has_key("import"));
+
+        let invalid = parse_literal("---\nimport: [unclosed\n---", Span::new(0, 24));
+        assert!(!invalid.has_key("import"), "invalid YAML reports no key");
+    }
+
+    #[test]
     fn import_shapes_are_validated() {
         let literal = "---\nimport: geometry\n---\n";
         let fm = parse_literal(literal, Span::new(0, literal.len()));
