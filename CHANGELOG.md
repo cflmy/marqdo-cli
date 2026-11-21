@@ -35,14 +35,29 @@ summarized normatively in [`spec/mapping.md`](spec/mapping.md) and
   fallback mapper; `marqdo_semantics`/syntax-selection front matter is rejected.
 
 **Implementation status: landed** in the `semantics-v2-refactor` history
-(`4983542` docs/spec, `e029853` frontend/runtime/stdlib/corpus, `ffd1cc9`
-expression-owned statement grammar and extra coverage). At `ffd1cc9`,
-`cargo test --workspace --locked` is green (501 passed, 0 failed, 2 ignored),
+(docs/spec `4983542`, frontend/runtime/stdlib/corpus `e029853`, expression-owned
+statement grammar `ffd1cc9`, then the follow-up fixes through `9c1723d`). At
+`9c1723d`,
+`cargo test --workspace --locked` is green (507 passed, 0 failed, 2 ignored),
 `cargo clippy --workspace --all-targets -- -D warnings` is clean and the
 stdlib digest is regenerated. See
 [`docs/STATUS.md`](docs/STATUS.md) and
 [`docs/evidence/2026-11-21-semantics-v2-green.md`](docs/evidence/2026-11-21-semantics-v2-green.md).
 Platform CI and the disposable-VM strict lane were not re-run at this SHA.
+
+**Follow-up correctness fixes in the same series:**
+
+- `params(...)` is enforced as the first function-wide direct Exec H2 payload, so
+  a later `### @exec` segment cannot add a signature after earlier statements;
+- a `params(...)` code span in a `@knowledge` section is inert documentation and
+  never becomes a signature (`inspect --signature` now reports `inferred`);
+- a stray `end` diagnostic points at the `end` payload instead of the previous
+  statement;
+- Setext headings inherit but never declare a mode, as `spec/mapping.md` states;
+- diagnostics are emitted in the documented stable order (source position, then
+  code);
+- the unreachable `Stmt::Call`/`CallSite`/`CallTarget` IR left over from the
+  removed link-form block-quote call was deleted.
 
 **Required migration actions for consumers and the repository:**
 
@@ -99,7 +114,7 @@ Platform CI and the disposable-VM strict lane were not re-run at this SHA.
   exponents, Strong+CodeSpan payloads, branch/loop conditions, inert prose and
   code fences, and source spans inside one/two-backtick code spans. (The
   fixtures were migrated to the unified payload/keyword syntax and are green at
-  `ffd1cc9`.)
+  `9c1723d`.)
 - Independent Tool Protocol v1 consumers `sample-view`, `sample-knowledge` and
   `sample-proof` (analysis/trace readers) with install, dispatch and remove
   tests; none is a hard-coded CLI command.

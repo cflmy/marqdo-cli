@@ -4,7 +4,7 @@ Status: **current architecture overview**. This file summarises the tree as it
 is today. It is not a release promise, does not reopen a frozen ADR, and does not
 replace `spec/` or a recorded test log.
 
-- Baseline: [`ffd1cc9862f7fe6002b42f1210010c1f78671a95`](https://github.com/cflmy/marqdo-cli/commit/ffd1cc9862f7fe6002b42f1210010c1f78671a95) (2026-11-21, RFC-LANG-0002 implementation).
+- Baseline: [`9c1723d44f403d6b742136f7881515083b413cc2`](https://github.com/cflmy/marqdo-cli/commit/9c1723d44f403d6b742136f7881515083b413cc2) (2026-11-21, RFC-LANG-0002 implementation and follow-up fixes; language code baseline).
 - Normative behavior: `spec/`; frozen decisions: `docs/adr/`; executed evidence: `docs/STATUS.md` and `docs/evidence/`.
 - This is the **single current overview**. Do not add a second running "current state" file;
   update this file, `docs/STATUS.md` and an evidence file together.
@@ -12,7 +12,7 @@ replace `spec/` or a recorded test log.
 > **Language contract and implementation.** The language contract is
 > [RFC-LANG-0002](RFC-LANG-0002-unified-semantics.md) (adopted by ADR-0052) and
 > `spec/mapping.md`. The frontend, `marqdo-expression`, IR lowering, runtime and
-> bundled `stdlib/` implement it. The workspace gate is green at `ffd1cc9`;
+> bundled `stdlib/` implement it. The workspace gate is green at `9c1723d`;
 > rollout evidence and historical banners are indexed in
 > [`../migration/README.md`](../migration/README.md).
 
@@ -25,7 +25,7 @@ platform".
 | Dimension | Current state | Source |
 |---|---|---|
 | Implemented | Rust workspace `0.1.0`: RFC-LANG-0002 Markdown/frontend/IR, v2 statement parser, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, migrated bundled stdlib, CLI composition root | `Cargo.toml`, `crates/`, `stdlib/` |
-| Tested locally | `cargo test --workspace --locked`: **501 passed, 0 failed, 2 ignored** on Linux x86_64 at the baseline; fmt and clippy clean | `docs/STATUS.md` §0, `docs/evidence/2026-11-21-semantics-v2-green.md` |
+| Tested locally | `cargo test --workspace --locked`: **507 passed, 0 failed, 2 ignored** on Linux x86_64 at the baseline; fmt and clippy clean | `docs/STATUS.md` §0, `docs/evidence/2026-11-21-semantics-v2-green.md` |
 | Bundled stdlib released | In-repo bundle `marqdo-stdlib@0.1.0`, SHA-256 digest verified before loading; it is **not** an external registry package | `stdlib/stdlib.json`, `stdlib/README.md` |
 | Multi-platform verified | Linux local gate is the only executed lane here; Windows/macOS native lanes are **UNVERIFIED**, and the GitHub security lane remains a **VM-only** gate | `docs/STATUS.md` §1, §4 |
 
@@ -134,7 +134,7 @@ that a phase is complete.
 
 | Priority | Gap | State |
 |---|---|---|
-| P0 | **Language syntax migration**: RFC-LANG-0002 single contract | **closed at `ffd1cc9`**; implementation, stdlib digest, examples and fixtures green; platform/strict evidence remains separate |
+| P0 | **Language syntax migration**: RFC-LANG-0002 single contract | **closed at `9c1723d`**; implementation, stdlib digest, examples and fixtures green; platform/strict evidence remains separate |
 | P0 | Stdlib release is a bundle in this repo; extraction is deferred (ADR-0039) | accepted, keep in repo |
 | P0 | Documentation drift between `STATUS.md`, the architecture index and the evidence | being fixed by this migration and the docs gate |
 | P1 | `std:fs/file` read/write/copy, metadata/directory, append/read_at/walk are implemented; watch and binary offset reads remain open | open |

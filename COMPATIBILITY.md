@@ -1,6 +1,6 @@
 # Compatibility and support matrix
 
-Snapshot: workspace version **0.1.0**, language SHA **`ffd1cc9`**, security SHA
+Snapshot: workspace version **0.1.0**, language SHA **`9c1723d`**, security SHA
 **`8af7262`**, no release tag cut. This file records what was actually verified and separates it
 from what is only implemented. Executed status is in
 [`docs/STATUS.md`](docs/STATUS.md).
@@ -35,8 +35,8 @@ Consequences for compatibility:
   mapping changed. Rendering of otherwise-ordinary Markdown is unaffected.
 - **Implementation state:** RFC-LANG-0002 is implemented by the frontend,
   expression parser, IR lowering, runtime and bundled stdlib. At
-  `ffd1cc9862f7fe6002b42f1210010c1f78671a95` the workspace gate is
-  `cargo test --workspace --locked`: 501 passed, 0 failed, 2 ignored, and the
+  `9c1723d` the workspace gate is
+  `cargo test --workspace --locked`: 507 passed, 0 failed, 2 ignored, and the
   stdlib digest is regenerated and verified. See
   [`docs/STATUS.md`](docs/STATUS.md) and
   [`docs/evidence/2026-11-21-semantics-v2-green.md`](docs/evidence/2026-11-21-semantics-v2-green.md).

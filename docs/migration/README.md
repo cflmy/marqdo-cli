@@ -15,14 +15,14 @@ use the single new syntax. Old syntax is not an active language.
 
 - **Complete.** Specs, active docs, examples, all test/fixture `.mq.md` files,
   the security-lane embedded fixtures, Rust-embedded literals and the bundled
-  `stdlib/**/*.mq.md` sources use the single syntax. 1015 present tracked+new
+  `stdlib/**/*.mq.md` sources use the single syntax. 1019 present tracked+new
   files are classified in the inventory: 0 `pending`, 0
   `pending-implementation`.
 - **Implementation:** frontend heading modes and segments, the unified payload
   mapper, the `marqdo-expression` statement grammar, control-stack lowering,
   `params(...)`/inference and the `sem.*` diagnostics are implemented.
-- **Verification at `ffd1cc9`:** `cargo fmt --check`, `cargo clippy -D warnings`
-  and `cargo test --workspace --locked` (501 passed, 0 failed, 2 ignored) all
+- **Verification at `9c1723d`:** `cargo fmt --check`, `cargo clippy -D warnings`
+  and `cargo test --workspace --locked` (507 passed, 0 failed, 2 ignored) all
   pass; `python3 tools/pack-stdlib.py` verifies the regenerated digest.
   Evidence: [`../evidence/2026-11-21-semantics-v2-green.md`](../evidence/2026-11-21-semantics-v2-green.md).
   The earlier intermediate record is kept at

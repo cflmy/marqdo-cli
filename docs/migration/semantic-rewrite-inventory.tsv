@@ -219,8 +219,8 @@ docs/architecture/CURRENT.md	architecture	yes	status/index	update to RFC-LANG-00
 docs/architecture/Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md	architecture	no	review input	historical banner	docs	review	historical
 docs/architecture/README.md	architecture	yes	status/index	update to RFC-LANG-0002	docs	docs_consistency	migrated
 docs/architecture/RFC-LANG-0002-unified-semantics.md	architecture	yes	old mapping	adopt as sole authority	docs	review	migrated
-docs/ci.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
-docs/contributor-guide.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
+docs/ci.md	tutorial	yes	none	reviewed	docs	review	reviewed
+docs/contributor-guide.md	tutorial	yes	none	reviewed	docs	review	reviewed
 docs/development-credentials.md	tutorial	yes	none	reviewed	docs	review	reviewed
 docs/evidence/2026-11-20-bundled-stdlib-cm-a10.md	historical	no	archived	banner only	docs	review	historical
 docs/evidence/2026-11-20-c-provider.md	historical	no	archived	banner only	docs	review	historical
@@ -282,9 +282,9 @@ docs/history/README.md	historical	no	archived	banner only	docs	review	historical
 docs/history/STATUS-M0.5-snapshot.md	historical	no	archived	banner only	docs	review	historical
 docs/migration/README.md	migration	yes	n/a	maintain inventory/guide	docs	review	migrated
 docs/migration/semantic-rewrite-inventory.tsv	migration	yes	n/a	maintain inventory/guide	docs	review	migrated
-docs/releasing.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
-docs/security-gate.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
-docs/security-vm.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
+docs/releasing.md	tutorial	yes	none	reviewed	docs	review	reviewed
+docs/security-gate.md	tutorial	yes	none	reviewed	docs	review	reviewed
+docs/security-vm.md	tutorial	yes	none	reviewed	docs	review	reviewed
 examples/factorial.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
 examples/hello.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
 examples/kernel-mock/README.md	example	yes	old syntax	review	examples	run	reviewed
@@ -394,7 +394,7 @@ stdlib/tests/text.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	std
 stdlib/tests/utf8.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	migrated
 stdlib/text.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	migrated
 stdlib/text/utf8.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	migrated
-tests/README.md	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/README.md	test	yes	harness	review	tests	review	reviewed
 tests/abi/capability_plugin.c	test	yes	harness	review	tests	review	reviewed
 tests/architecture/README.md	test	yes	harness	review	tests	review	reviewed
 tests/conformance/ast/001-atx-h1.ast.json	test	yes	harness	review	tests	review	reviewed
@@ -962,6 +962,10 @@ tests/negative/46-else-under-while.expected.json	test	yes	harness	review	tests	r
 tests/negative/46-else-under-while.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
 tests/negative/47-signature-position-in-quote.expected.json	test	yes	harness	review	tests	review	reviewed
 tests/negative/47-signature-position-in-quote.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/48-signature-after-earlier-segment.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/48-signature-after-earlier-segment.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/49-duplicate-signature-across-segments.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/49-duplicate-signature-across-segments.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
 tests/negative/runtime/01-division-by-zero.expected.json	test	yes	harness	review	tests	review	reviewed
 tests/negative/runtime/01-division-by-zero.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
 tests/negative/runtime/02-type-error.expected.json	test	yes	harness	review	tests	review	reviewed

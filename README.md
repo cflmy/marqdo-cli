@@ -18,8 +18,8 @@ plugin ABI v2 are not claimed to work here.
 > normative summaries in [`spec/mapping.md`](spec/mapping.md) and
 > [`spec/expression.ebnf`](spec/expression.ebnf). The frontend, expression
 > parser, stdlib, examples and test corpus all implement it:
-> `cargo test --workspace --locked` is green (501 passed, 0 failed, 2 ignored
-> at `ffd1cc9`). Old syntax (`**strong**` = execute, `*emph*` = return,
+> `cargo test --workspace --locked` is green (507 passed, 0 failed, 2 ignored
+> at `9c1723d`). Old syntax (`**strong**` = execute, `*emph*` = return,
 > `1.` = branch, `-` = loop, `>` = call) is **not** an active language and
 > `marqdo_semantics`/`--legacy` selectors do not exist. See
 > [`docs/STATUS.md`](docs/STATUS.md) and
@@ -129,7 +129,7 @@ rules are [`RFC-LANG-0002`](docs/architecture/RFC-LANG-0002-unified-semantics.md
 
 * **P0 contracts** — frozen `marqdo.md.v1` profile, RFC-LANG-0002 AST → program
   mapping, the v2 statement grammar and evaluation semantics; 160 AST goldens,
-  73 semantic fixtures, 47 compile-error fixtures, 2 warning fixtures and 21
+  73 semantic fixtures, 49 compile-error fixtures, 2 warning fixtures and 21
   runtime-error fixtures, all green (`tests/`).
 * **P1 interpreter** — native Rust tree-walk interpreter: values, scopes,
   functions, static parameter inference, assignments, branches, loops,

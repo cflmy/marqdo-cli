@@ -27,13 +27,23 @@ The repository now has **one** language contract, implemented end to end:
 normative summary in [`../spec/mapping.md`](../spec/mapping.md) and
 [`../spec/expression.ebnf`](../spec/expression.ebnf).
 
-Landed in three commits on `semantics-v2-refactor`:
+Landed on `master` as one linear series (the former `semantics-v2-refactor`
+branch was fast-forwarded and deleted; only `master` remains):
 
 | Step | Commit | Content |
 |---|---|---|
 | 1 | `4983542` | docs/spec/ADR/READMEs, historical banners, migration guide and inventory |
 | 2 | `e029853` | frontend/IR/runtime implementation, `sem.*` diagnostics, migrated stdlib + digest, examples, fixtures and Rust-embedded sources |
 | 3 | `ffd1cc9` | expression-owned payload statement grammar, extra negative/CLI coverage |
+| 4 | `bbeb1de` | status/compatibility/README/migration docs flipped to the implemented state + green evidence |
+| 5 | `b38b769` | function-wide `params(...)` position (across heading segments) + two negatives |
+| 6 | `361a6cc` | removed the dead `Stmt::Call`/`CallSite`/`CallTarget` IR |
+| 7 | `d5002ac` | stale pre-RFC role docs and review-aid fixes |
+| 8 | `9fb97bc` | signatures recognized only from Exec payloads (Knowledge sections inert) |
+| 9 | `a3f9770` | unmatched `end` diagnostics point at the `end` payload |
+| 10 | `0bbe0f6` | Setext headings never declare a mode; dead helper removed |
+| 11 | `b3429cb` | diagnostics sorted by source position then code |
+| 12 | `9c1723d` | coverage for the removed syntax-selector front-matter probe |
 
 The breaking behaviour is:
 
@@ -47,20 +57,21 @@ The breaking behaviour is:
   the existing `Branch`/`Loop`/`Return`/`Assign`/`Eval` IR; lists, block quotes
   and paragraphs are presentation containers;
 * control frames cannot cross a heading segment;
-* `params(...)` is legal only as the first direct Exec H2 payload; without it the
-  existing free-variable inference applies and inferred signatures keep the
-  named-arguments-only rule;
+* `params(...)` is legal only as the first direct Exec H2 payload across the
+  whole function (a later `### @exec` segment cannot add a signature after
+  earlier code ran); without it the existing free-variable inference applies and
+  inferred signatures keep the named-arguments-only rule;
 * old syntax (`Strong` execute / `Emph` return / list branch/loop / quote call)
   is **not** executable, and `marqdo_semantics`/`syntax` front-matter selectors
   are rejected with `sem.unsupported_version_directive`.
 
-### Verification at `ffd1cc9` (Linux x86_64, Rust 1.100.0)
+### Verification at `9c1723d` (Linux x86_64, Rust 1.100.0)
 
 ```text
 cargo fmt --all -- --check                            PASS
 cargo clippy --workspace --all-targets -- -D warnings PASS
 cargo test --workspace --locked --no-fail-fast         PASS
-  501 passed, 0 failed, 2 ignored (62 green test targets)
+  507 passed, 0 failed, 2 ignored (62 green test targets)
 python3 tools/pack-stdlib.py                           PASS (digest verified)
 ```
 
@@ -77,8 +88,8 @@ single remote SHA.
 
 ## 1. Remote baseline and current evidence
 
-The local language baseline for this snapshot is
-`ffd1cc9862f7fe6002b42f1210010c1f78671a95` (2026-11-21, semantics v2 implementation). The later
+The local language baseline for this snapshot is `9c1723d` (2026-11-21,
+semantics v2 implementation plus follow-up fixes). The later
 documentation and test migration is recorded by its own commits; re-run the gate
 before making a release claim.
 
@@ -147,7 +158,7 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 > **Historical table note.** Most rows in this section record work executed
 > before the RFC-LANG-0002 syntax migration. Language-source rows (fixtures,
 > control mapping, semantic goldens) were re-verified after the rewrite at
-> `ffd1cc9` (§0); platform/security rows keep their original evidence dates and
+> `9c1723d` (§0); platform/security rows keep their original evidence dates and
 > are not refreshed by the language migration.
 
 | # | Work package | State | Evidence |
@@ -157,7 +168,7 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 | 2 | Cross-platform strict `cfg` | **Fixed locally; native CI UNVERIFIED** | `#[cfg]` dispatch + non-Linux regression test |
 | 3 | Strict probe→launch race | **Fixed locally; GitHub Linux CI UNVERIFIED** | fail-closed CLI contract + probe-OK/launch-EAGAIN seam test |
 | 4 | Parallel security matrix isolation | **Fixed** | unique paths + helper `OnceLock`; 7/7 in parallel workspace run |
-| 5 | Markdown/power/control-flow corpus | **Green on semantics v2** | 160 AST + 73 semantic + 47 compile-negative + 2 warning + 21 runtime-negative fixtures; `conformance_ast`/`semantics`/`negative` pass |
+| 5 | Markdown/power/control-flow corpus | **Green on semantics v2** | 160 AST + 73 semantic + 49 compile-negative + 2 warning + 21 runtime-negative fixtures; `conformance_ast`/`semantics`/`negative` pass |
 | 6 | Payload/control source spans | **Green on semantics v2** | UTF-8 spans, control-expression offsets and heading boundaries covered by fixtures and CLI tests; old condition headers were removed |
 | 7 | Independent Tool consumers | **Done locally** | `sample-view`/`sample-knowledge`/`sample-proof` E2E test |
 | 8 | lock v3 reproducibility | **Implemented; tamper test added** | `package_env` PASS |
@@ -173,8 +184,8 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 - Frozen Markdown profile `marqdo.md.v1` with 160 AST goldens and explicit
   CRLF byte semantics (unchanged by the semantic rewrite).
 - Native Rust interpreter with the unified semantics: 73 semantic fixtures,
-  47 compile-error fixtures, 2 warning fixtures and 21 runtime-error fixtures
-  all green at `ffd1cc9`; AST profile unchanged (160 goldens).
+  49 compile-error fixtures, 2 warning fixtures and 21 runtime-error fixtures
+  all green at `9c1723d`; AST profile unchanged (160 goldens).
 - Native `**` power is pinned end-to-end: right associativity, unary-minus
   precedence, parentheses, float negative exponents, branch/loop conditions,
   Strong+CodeSpan payloads, and inert prose/code fences.
