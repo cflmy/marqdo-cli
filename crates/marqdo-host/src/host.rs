@@ -7,7 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use marqdo_plugin_abi::{
     ErrorKind as PluginErrorKind, LoadedPlugin, PluginError, PluginKind, PluginManifest,
@@ -1126,6 +1126,41 @@ impl Host for StdHost {
                 ctx.span,
                 "resource operations accept only Text path arguments",
             ));
+        }
+        if operation == "clock.now" {
+            if !args.is_empty() {
+                return Err(RuntimeError::new(
+                    ErrorCategory::Arity,
+                    ctx.span,
+                    format!(
+                        "resource operation `clock.now` expects 0 arguments, got {}",
+                        args.len()
+                    ),
+                ));
+            }
+            let millis = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_err(|error| {
+                    RuntimeError::new(
+                        ErrorCategory::HostError,
+                        ctx.span,
+                        format!("system clock is before the Unix epoch: {error}"),
+                    )
+                })?
+                .as_millis()
+                .min(i64::MAX as u128) as i64;
+            let mut map = BTreeMap::new();
+            map.insert("ok".to_string(), Value::Bool(true));
+            map.insert("value".to_string(), Value::int(millis));
+            self.record_semantic(
+                "resource.request",
+                None,
+                Some(&ctx.module_id),
+                ctx.span,
+                Some("op=clock.now"),
+            );
+            self.record_resource_effect("resource.request", ctx, started, "clock.now");
+            return Ok(Value::Map(map));
         }
         let Some(name) = operation.strip_prefix("fs.") else {
             return Err(RuntimeError::new(

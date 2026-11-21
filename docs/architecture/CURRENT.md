@@ -18,7 +18,7 @@ platform".
 | Dimension | Current state | Source |
 |---|---|---|
 | Implemented | Rust workspace `0.1.0`: Markdown/frontend/IR, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, bundled stdlib, CLI composition root | `Cargo.toml`, `crates/`, `stdlib/` |
-| Tested locally | `cargo test --workspace --locked`: **471 passed, 0 failed, 2 ignored** on Linux x86_64 at the baseline | `docs/STATUS.md` §3 |
+| Tested locally | `cargo test --workspace --locked`: **474 passed, 0 failed, 2 ignored** on Linux x86_64 at the baseline | `docs/STATUS.md` §3 |
 | Bundled stdlib released | In-repo bundle `marqdo-stdlib@0.1.0`, SHA-256 digest verified before loading; it is **not** an external registry package | `stdlib/stdlib.json`, `stdlib/README.md` |
 | Multi-platform verified | Linux local gate is the only executed lane here; Windows/macOS native lanes are **UNVERIFIED**, and the GitHub security lane remains a **VM-only** gate | `docs/STATUS.md` §1, §4 |
 
@@ -92,6 +92,8 @@ review RFC, not a new crate per provider.
 | `std:data/csv` | `csv.解析行(文本)` -> Result with List<Text>; `csv.格式化行(列表)` -> Text | implemented (single row, quoted) | `stdlib_product` |
 | `std:path` | `path.连接/文件名/目录名/扩展名/规范/是否绝对`; lexical only | implemented (no I/O) | `stdlib_product` |
 | `std:regex` | `regex.匹配/搜索` with `^ $ . * + ? [...]` escapes | implemented subset; no groups/alternation | `stdlib_product` |
+| `std:datetime` | `datetime.格式化(毫秒)` / `datetime.解析(文本)`; UTC ISO-8601, pre-1970 supported | implemented (pure) | `stdlib_product` |
+| `std:clock` | `clock.现在()` -> `resource.request("clock.now", [])` | implemented (project mode; pure/strict denied) | `resource_streams`, `stdlib_product` |
 | file metadata / directory / rename / remove / mkdir | not part of the current Resource contract | **not implemented**; needs a separate Resource Operation ADR | — |
 | TCP | `resource.open("tcp", ip:port, ["read","write"])`; exact IP grant, 5 s timeout | implemented; no DNS/TLS/server socket/UDP | `tcp_endpoint`, `http_over_tcp` |
 | HTTP/1.1 | `stdlib/net/http.mq.md`: status/header/chunked-byte parse, request build | implemented over an already-authorized TCP stream; not a DNS/TLS client | `stdlib_http`, `http_over_tcp`, `stdlib_product` |
@@ -123,7 +125,7 @@ that a phase is complete.
 | P1 | `crates/cli/src/commands.rs` and `crates/marqdo-host/src/host.rs` still mix multiple responsibilities | open refactor, behavior-preserving |
 | P2 | HTTP parsing is Unicode-codepoint oriented; a general byte body is not the only path | open; convert before a general network release |
 | P2 | No DNS, TLS, listener or UDP provider | open |
-| P2 | `std:path` and a regex subset are implemented; no `std:datetime`, `std:env`, `std:process`, secure random or compression | open |
+| P2 | `std:path`, a regex subset, `std:datetime` and `std:clock` are implemented; no `std:env`, `std:process`, secure random or compression | open |
 | P2 | Memory limits: 16 MiB per region, 64 MiB per run | current budget, not a product limit |
 | P3 | No concurrency tasks, atomics or cancellable long-running scheduling | open; separate ADR |
 | P3 | No native optimizer/JIT or columnar numeric backend | open; benchmark-first |
@@ -154,5 +156,6 @@ that a phase is complete.
 - [Language/frontmatter blueprint](../DEVELOPMENT_BLUEPRINT.md) — design baseline; not current status.
 - [Stable-release implementation plan](../STABLE_RELEASE_IMPLEMENTATION.md) — next-phase plan; not implemented behavior.
 - [ADR-0041: non-streaming resource operations](../adr/0041-resource-operation-fs.md) — accepted `resource.request` `fs.*` contract.
+- [ADR-0042: `clock.now` resource operation](../adr/0042-clock-resource-operation.md) — accepted project-mode Unix-millis clock.
 - [Compute-machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) and [core/stdlib RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) — design input.
 - [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) — review input for this migration.

@@ -614,3 +614,30 @@ fn fs_requests_reject_traversal_before_touching_the_filesystem() {
         .unwrap_err();
     assert_eq!(error.category, ErrorCategory::PermissionDenied);
 }
+
+#[test]
+fn clock_now_is_project_only_and_returns_unix_millis() {
+    let dir = tempfile::tempdir().unwrap();
+    let ctx = context();
+    let mut pure = StdHost::new(SandboxMode::Pure, Capabilities::pure(), dir.path());
+    let error = pure
+        .resource_request("clock.now", Vec::new(), &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+
+    let mut project = StdHost::new(SandboxMode::Project, Capabilities::project(), dir.path());
+    let value = project
+        .resource_request("clock.now", Vec::new(), &ctx)
+        .unwrap();
+    assert_eq!(field(&value, "ok"), &Value::Bool(true));
+    let Value::Int(millis) = field(&value, "value") else {
+        panic!("clock.now did not return an Int");
+    };
+    let millis = millis.to_string().parse::<i64>().expect("i64 millis");
+    assert!(millis > 1_600_000_000_000);
+
+    let error = project
+        .resource_request("clock.now", vec![Value::text("x")], &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::Arity);
+}

@@ -46,6 +46,7 @@ The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 | Stdlib extraction deferral | [0039](../adr/0039-stdlib-extraction-intent.md) | Accepted (in-repo for now) |
 | Stdio stdin/stderr plus stdlib stream/console APIs | [0040](../adr/0040-stdio-stdin-stderr-and-stdlib-streams.md) | Accepted (stdin read, separate stdout/stderr, product stdlib) |
 | Non-streaming `resource.request` `fs.*` operations | [0041](../adr/0041-resource-operation-fs.md) | Accepted (project mode, grant-checked, recoverable fs Result) |
+| `clock.now` resource operation | [0042](../adr/0042-clock-resource-operation.md) | Accepted (project mode, Unix millis) |
 | Table physical storage (T1/T2/T3), strict stdin/stderr/file/network resources | — | **Not decided**; do not implement by implication |
 
 ## Evidence and status

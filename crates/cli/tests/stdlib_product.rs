@@ -127,8 +127,10 @@ fn every_public_stdlib_module_has_a_product_test() {
     assert_eq!(
         names,
         vec![
+            "clock.mq.md",
             "console.mq.md",
             "csv.mq.md",
+            "datetime.mq.md",
             "demo.mq.md",
             "format.mq.md",
             "fs.mq.md",
@@ -274,6 +276,38 @@ fn regex_test_matches_anchors_classes_and_search() {
     assert_eq!(items[9]["value"], false);
     assert_eq!(items[10]["value"], "regex.invalid");
     assert_eq!(items[11]["value"], "regex.unsupported");
+}
+
+#[test]
+fn datetime_test_formats_and_parses_utc_instants() {
+    let report = run_product_test(
+        product_tests()
+            .iter()
+            .find(|file| file.name == "datetime.mq.md")
+            .expect("datetime test"),
+    );
+    let items = report["value"]["items"].as_array().expect("list");
+    assert_eq!(items[0]["value"], "1970-01-01T00:00:00Z");
+    assert_eq!(items[1]["value"], "2023-11-14T22:13:20.123Z");
+    assert_eq!(items[2]["decimal"], "0");
+    assert_eq!(items[3]["decimal"], "1795248000123");
+    assert_eq!(items[4]["value"], false);
+    assert_eq!(items[5]["value"], false);
+    assert_eq!(items[6]["value"], "1969-12-31T23:59:59.999Z");
+}
+
+#[test]
+fn clock_test_reports_project_mode_unix_millis() {
+    let report = run_product_test(
+        product_tests()
+            .iter()
+            .find(|file| file.name == "clock.mq.md")
+            .expect("clock test"),
+    );
+    let items = report["value"]["items"].as_array().expect("list");
+    assert_eq!(items[0]["value"], true);
+    assert_eq!(items[1]["value"], "Int");
+    assert_eq!(items[2]["value"], true);
 }
 
 #[test]
