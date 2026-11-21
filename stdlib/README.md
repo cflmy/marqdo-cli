@@ -64,3 +64,39 @@ PY
 The version/digest are part of each stdlib module's package instance id, so a
 different bundle cannot silently masquerade as the one a project was checked
 against.
+
+## Official public aliases (`public_aliases`)
+
+`stdlib.json` can declare language-surface aliases that are bound as ordinary
+`Marqdo` functions (ADR-0058). The current table contains:
+
+```json
+"public_aliases": [
+  {
+    "public_names": ["print", "打印"],
+    "target_module": "io.mq.md",
+    "target_function": "写值",
+    "expected_signature": "params(值)",
+    "effects": ["host"]
+  }
+],
+"aliases_digest": "sha256:<64 lowercase hex>"
+```
+
+Rules:
+
+* Only this verified bundle may declare a public alias. Third-party packages
+  cannot claim `打印`/`print`, `std.*` or `marqdo.*` names.
+* `aliases_digest` is the SHA-256 of the canonical alias encoding: for each
+  alias sorted by `(target_module, target_function)`, module bytes + NUL,
+  function bytes + NUL, then each public name sorted + NUL. The loader verifies
+  it together with the `.mq.md` tree digest before loading any module; a
+  tampered table is a load error.
+* The loader loads `target_module` only when the program references one of the
+  `public_names`, then binds the call to the ordinary target `FunctionId`; the
+  runtime has no print branch and `Program.print_override` does not exist.
+* `expected_signature` is checked against the target function's declared
+  parameters; a mismatch is a load error.
+* Output/error/Trace behavior must remain byte-identical for an official
+  install; `tools/pack-stdlib.py` refuses to package a bundle whose
+  `aliases_digest` does not match `public_aliases`.
