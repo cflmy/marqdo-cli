@@ -13,9 +13,9 @@
 > modes, `params`, `return`, `if/else/end`, `while/end`, and one-statement
 > payloads carried by `Strong`, `Emph` or inline `Code`. Any remaining old
 > spelling (for example "`##` function, `**` execute, `*` return") is
-> historical and is **not** an active language. The Rust frontend still
-> implements the pre-RFC mapping, so these examples are target syntax, not
-> currently runnable programs; see [`STATUS.md`](STATUS.md).
+> historical and is **not** an active language. The frontend now
+> implements this syntax; examples that use APIs this RFC only proposes remain
+> design targets, not implemented features. See [`STATUS.md`](STATUS.md).
 
 > **状态**：设计提案（Draft，未实施，未批准）
 > **日期**：2026-11-20

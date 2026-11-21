@@ -9,19 +9,17 @@ so they can be rendered, diffed and reviewed like Markdown documents.
 Everything here is data. Nothing in this directory modifies the repository, and
 no test commits, copies or rewrites files outside a throw-away temp directory.
 
-> **Migration state (RFC-LANG-0002).** The source text in this corpus uses the
-> current single syntax. The Rust frontend still implements the pre-RFC mapping,
-> so the semantic, negative, property and CLI suites that execute Marqdo source
-> are **expected to be red** until the frontend migration lands. `conformance_ast`
-> is unaffected by the semantic change (the Markdown profile is unchanged).
-> `tests/negative/warnings/01-inferred-signature` pins the optional
-> `sem.inferred_signature` lint as enabled; the current frontend does not emit
-> it. `sem.no_entry_function` is a `run` entry-selection diagnostic and cannot be
-> pinned by `crates/cli/tests/negative.rs`, which only calls `analyze_source` /
-> `marqdo_runtime::run`; that coverage needs a CLI integration test. Do not
-> regenerate goldens or restore the old mapper to turn these suites green. See
-> [`../docs/STATUS.md`](../docs/STATUS.md) and
-> [`../docs/migration/README.md`](../docs/migration/README.md).
+> **Language state (RFC-LANG-0002).** The corpus uses the single current syntax
+> and the executable suites are green at `ffd1cc9` (501 workspace tests).
+> `conformance_ast` is unaffected by the semantic change (the Markdown profile
+> is unchanged). `tests/negative/warnings/01-inferred-signature` pins the
+> optional `sem.inferred_signature` lint as enabled for a function that actually
+> has inferred parameters. `sem.no_entry_function` is a `run` entry-selection
+> diagnostic, so it is pinned by the CLI integration test
+> `run_reports_sem_no_entry_function_without_exec_main`, not by
+> `crates/cli/tests/negative.rs`. Do not regenerate goldens or restore the old
+> mapper to make a failing suite pass. See [`../docs/STATUS.md`](../docs/STATUS.md)
+> and [`../docs/migration/README.md`](../docs/migration/README.md).
 
 ## Layout
 

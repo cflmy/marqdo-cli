@@ -26,14 +26,13 @@ build (depends on test):
 Node.js 22 is required because the optional foreign-kernel tests use ES-module
 syntax; Debian bookworm's Node 18 fails those tests.
 
-> **Language-syntax migration note.** `cargo test --workspace` includes
-> conformance fixtures that execute `.mq.md` source. The target language is
-> [RFC-LANG-0002](architecture/RFC-LANG-0002-unified-semantics.md) while the
-> Rust frontend is still being migrated, so those executable-source tests are
-> **expected to be red** on a correct migration branch. Do not interpret that as
-> a CI-configuration regression or "fix" it by restoring the old mapper or
-> regenerating goldens; see [`STATUS.md`](STATUS.md) and
-> [`migration/README.md`](migration/README.md). The pipeline definition itself
+> **Language contract note.** `cargo test --workspace` includes conformance
+> fixtures that execute `.mq.md` source under
+> [RFC-LANG-0002](architecture/RFC-LANG-0002-unified-semantics.md). The
+> implementation, stdlib digest and corpus are green at `ffd1cc9`; a red
+> executable-source suite is a real regression, not an expected migration
+> state. Do not "fix" it by restoring the old mapper or regenerating goldens;
+> see [`STATUS.md`](STATUS.md). The pipeline definition itself
 > (fmt/clippy/test/build, security lane, platform gaps) is unchanged.
 
 ## What this pipeline does not cover

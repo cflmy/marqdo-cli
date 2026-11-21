@@ -1,6 +1,6 @@
 # ADR-0052: Unified Markdown semantics — heading modes, unified payloads and keyword control flow
 
-Status: **Accepted (target contract; frontend implementation pending)**
+Status: **Accepted and implemented**
 Date: 2026-11-21
 Supersedes: ADR-0002 in part (executable roles), the AST→program mapping in
 `spec/mapping.md` and the statement layer in `spec/expression.ebnf`
@@ -73,13 +73,11 @@ coexistence, no per-file syntax selector and no `--legacy` path.
 * Normal emphasis in an Exec section becomes a payload and may fail as an
   unknown symbol. Authors must use `@knowledge` sections for purely visual
   emphasis. This is accepted as the price of determinism.
-* Until the Rust frontend, expression parser, bundled stdlib and fixtures are
-  migrated, the implemented CLI does **not** accept this syntax. The tree must
-  not be released or described as complete during that window. See
-  `docs/STATUS.md`.
-* Test fixtures are migrated as text; execution goldens are expected to be red
-  until the implementation lands. No test may silently keep asserting the old
-  mapping as current.
+* The Rust frontend, expression parser, bundled stdlib, examples and fixtures
+  were migrated in the `semantics-v2-refactor` history and the workspace gate is
+  green at `ffd1cc9` (see `docs/STATUS.md` and
+  `docs/evidence/2026-11-21-semantics-v2-green.md`). Platform/strict evidence is
+  tracked separately and is not implied by the language gate.
 * Migration is AST-role based, not a global regex rewrite; ambiguous cases stop
   for manual rewrite.
 

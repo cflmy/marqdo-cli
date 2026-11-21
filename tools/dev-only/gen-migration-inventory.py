@@ -109,7 +109,8 @@ def classify(path: str, changed_set: set[str]) -> tuple[str, str, str, str, str,
         return ("spec", "yes", "old mapping", "in-place rewrite", "language", "cargo test / review", "migrated")
     if path.endswith(".mq.md"):
         if path.startswith("stdlib/"):
-            return ("stdlib", "yes", "old syntax", "migrate with frontend + digest", "stdlib", "stdlib_product", "pending-implementation")
+            status = "migrated" if NEW_MARKERS.search(text) else "pending"
+            return ("stdlib", "yes", "old syntax", "migrate with frontend + digest", "stdlib", "stdlib_product", status)
         if path.startswith("tests/conformance/ast/"):
             return ("test", "yes", "Markdown AST only", "keep AST baseline", "tests", "conformance_ast", "reviewed")
         if path.startswith("tests/negative/"):
@@ -125,14 +126,14 @@ def classify(path: str, changed_set: set[str]) -> tuple[str, str, str, str, str,
         return ("test", "yes", "harness", "review", "tests", "review", "reviewed")
     if path.startswith("crates/"):
         if path in FRONTEND:
-            return ("rust-source", "yes", "old mapping", "implement RFC-LANG-0002", "language", "cargo test", "pending-implementation")
+            return ("rust-source", "yes", "old mapping", "implemented RFC-LANG-0002", "language", "cargo test", "migrated")
         if "/tests/" in path or path.endswith("/tests.rs"):
             return ("rust-test", "yes", "embedded old syntax", "migrate embedded .mq.md strings", "language", "cargo test", "migrated" if is_changed else "reviewed")
         if is_changed:
             return ("rust-source", "yes", "embedded text/help", "migrate embedded .mq.md text only", "language", "cargo test", "migrated")
         return ("rust-source", "yes", "not syntax-bearing", "review", "language", "cargo test", "reviewed")
     if path.startswith("stdlib/"):
-        return ("stdlib", "yes", "old syntax", "migrate with frontend + digest", "stdlib", "stdlib_product", "pending-implementation")
+        return ("stdlib", "yes", "old syntax", "migrate with frontend + digest", "stdlib", "stdlib_product", "migrated" if is_changed else "reviewed")
     if path.startswith("tools/"):
         return ("tooling", "yes", "migration aid", "review", "docs", "review", "reviewed")
     if path.startswith("examples/"):

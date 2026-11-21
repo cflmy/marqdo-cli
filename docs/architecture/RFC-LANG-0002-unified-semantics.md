@@ -3,13 +3,15 @@
 > **仓库采纳记录（2026-11-21）**：本文件是当前**唯一**的语言语义权威规范，由
 > [ADR-0052](../adr/0052-unified-markdown-semantics.md) 采纳并取代此前所有
 > Strong/Emph/List/Quote 映射描述。`spec/mapping.md` 与 `spec/expression.ebnf`
-> 已原位改写为本规范的可执行摘要。**Rust 前端与标准库尚未落地本规范**；当前
-> 状态、测试红区和迁移台账见 [`../STATUS.md`](../STATUS.md) 与
-> [`../migration/semantic-rewrite-inventory.tsv`](../migration/semantic-rewrite-inventory.tsv)。
-> 下文保留原始 RFC 的状态行（“待批准”）作为历史表述，不改变其技术内容。
+> 已原位改写为本规范的可执行摘要。本规范已由前端、`marqdo-expression` 语句
+> 解析器、IR 降级、运行时与同仓库标准库**完整落地**；`ffd1cc9` 上 workspace
+> 测试全绿（详见 [`../STATUS.md`](../STATUS.md)、
+> [`../evidence/2026-11-21-semantics-v2-green.md`](../evidence/2026-11-21-semantics-v2-green.md)
+> 与 [`../migration/semantic-rewrite-inventory.tsv`](../migration/semantic-rewrite-inventory.tsv)）。
+> 下文保留原始 RFC 的状态行作为设计历史，不改变其技术内容。
 
 > **文档定位**：本文件是**无需任何聊天背景即可独立实施的、单一现行语法开发规范**：先讲完整语言使用方法，再说明相较旧语法的破坏性变化，然后规定实现架构、全仓库迁移和阻断性验收。不能只阅读 RFC 标题就开始编码。  
-> **状态**：待批准的目标规范与实施计划；不代表当前 CLI 已支持。**开发目标是一次性替换原有语义**，不提供 V1/V2 双编译、不按文件选择语法、不保留旧 Mapper 和运行时兼容分支。  
+> **状态**：已采纳并实现（2026-11-21，见顶部采纳记录与 ADR-0052）。**本规范一次性替换原有语义**，不提供 V1/V2 双编译、不按文件选择语法、不保留旧 Mapper 和运行时兼容分支。  
 > **仓库**：[`cflmy/marqdo-cli`](https://github.com/cflmy/marqdo-cli)，源码审查 SHA `7fbe069196e61d06a00d64fe8d65049c327373eb`。  
 > **语法名称**：下文称“新语法”或“新语义”，此名称用于规范和发布说明，**不是可切换的运行模式或 Front matter 选项**。  
 > **Markdown 层**：继续使用当前 Comrak/CommonMark/GFM AST；若扩展设置不变，Markdown 解析器 Profile 可保持原身份。变更的是唯一的 Markdown→Program 语义映射。  

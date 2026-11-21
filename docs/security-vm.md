@@ -6,11 +6,11 @@ records how that VM was built so the result can be reproduced and so the VM can
 be registered as a dedicated self-hosted security runner.
 
 > **Language-syntax migration note.** The lane fixtures are `.mq.md` sources and
-> are being migrated to RFC-LANG-0002
+> are migrated to RFC-LANG-0002
 > ([`architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md)).
-> Re-run `tests/security/run-lane.sh` on the migrated tree before using this VM
-> as evidence for the new syntax; the VM/OS-isolation procedure itself is
-> unchanged. See [`STATUS.md`](STATUS.md).
+> The lane has not been re-run at `ffd1cc9`; run `tests/security/run-lane.sh` on
+> the migrated tree before using this VM as evidence for the current syntax. The
+> VM/OS-isolation procedure itself is unchanged. See [`STATUS.md`](STATUS.md).
 
 **Do not run this on a daily host with valuable data.** The VM is disposable;
 the commands below do not disable AppArmor or any global host protection.

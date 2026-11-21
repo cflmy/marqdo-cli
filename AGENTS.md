@@ -1,6 +1,6 @@
 # Marqdo CLI — Agent / Contributor Operating Rules
 
-**Start here:** read `docs/architecture/RFC-LANG-0002-unified-semantics.md` — it is the single current language authority — and its normative summary `spec/mapping.md` + `spec/expression.ebnf`. Then read `docs/DEVELOPMENT_BLUEPRINT.md` (architecture baseline; its language-mapping sections are historical), `docs/STATUS.md` (what is actually implemented, including the in-progress syntax migration), the relevant `spec/` files, `docs/adr/` for decisions at their date, `docs/contributor-guide.md`, and `tests/README.md` plus the conformance fixtures. Do not assume any current implementation or legacy Marqdo syntax is authoritative.
+**Start here:** read `docs/architecture/RFC-LANG-0002-unified-semantics.md` — it is the single current language authority — and its normative summary `spec/mapping.md` + `spec/expression.ebnf`. Then read `docs/DEVELOPMENT_BLUEPRINT.md` (architecture baseline; its language-mapping sections are historical), `docs/STATUS.md` (what is actually implemented, including the landed RFC-LANG-0002 migration), the relevant `spec/` files, `docs/adr/` for decisions at their date, `docs/contributor-guide.md`, and `tests/README.md` plus the conformance fixtures. Do not assume any current implementation or legacy Marqdo syntax is authoritative.
 
 For next-phase work, the single authoritative plan is
 `docs/STABLE_RELEASE_IMPLEMENTATION.md` (stable-release gates G-A/G-B/G-C,
@@ -29,7 +29,7 @@ correctness and release evidence before expanding the surface.
 8. Third-party plugins require a versioned **C ABI and SDK**. A C ABI is not a sandbox. Default third-party execution must be isolated; in-process native loading requires explicit trust.
 9. Side effects go through `CapabilityHost`; do not invent host bypasses for tests, plugins, math or foreign kernels. `check` and `inspect` cannot execute untrusted project code.
 10. Language semantics, package format, ABI, authorization defaults or public CLI behavior changes require an ADR + tests + spec updates.
-11. The current tree is **spec-first**: RFC-LANG-0002 and `spec/` describe the target language, while the Rust frontend, expression parser and bundled stdlib still implement the pre-RFC mapping. Do not claim the new syntax is implemented or make a release claim until the migration is complete and its gates are green; keep `docs/STATUS.md` honest.
+11. RFC-LANG-0002 is implemented by the frontend, `marqdo-expression`, IR lowering, runtime and the bundled stdlib. Keep `spec/`, implementation, fixtures, stdlib digest and docs in lockstep; there is no legacy mapper or per-file syntax switch to fall back to. Do not make a release claim beyond the evidence recorded in `docs/STATUS.md`.
 
 ## Development workflow
 
@@ -46,6 +46,6 @@ RFC-LANG-0002 resolves the old emphasis/control-role conflict: `Strong`, `Emph` 
 
 ## Priorities
 
-P0 language migration to RFC-LANG-0002 (frontend, expression parser, stdlib, fixtures) → P1 independent interpreter → P2 references/CLI → P3 package/env → P4 sandbox → P5 math/foreign → P6 plugin ABI/SDK → P7 performance/release. Design the Host security boundary and ABI early, even if full implementation arrives later.
+P0 language contract maintenance (RFC-LANG-0002, single grammar, corpus and stdlib) → P1 independent interpreter → P2 references/CLI → P3 package/env → P4 sandbox → P5 math/foreign → P6 plugin ABI/SDK → P7 performance/release. Design the Host security boundary and ABI early, even if full implementation arrives later.
 
 **Never** translate Marqdo into Python as the official execution method; **never** silently downgrade an invalid payload to prose, a requested strict sandbox to an unrestricted process, or the current syntax to a legacy mapper.

@@ -4,12 +4,9 @@ Status: **current language contract, breaking rewrite (RFC-LANG-0002)**. This
 file replaces the earlier Strong/Emph/List/Quote mapping in place; there is no
 second active mapping and no per-file syntax selector.
 
-> **Implementation state:** this document is normative for the target language,
-> but the Rust frontend in this checkout still implements the pre-RFC mapping.
-> Tests that exercise executable Marqdo source are therefore expected to be red
-> until the frontend migration lands. See `docs/STATUS.md` and
-> `docs/migration/semantic-rewrite-inventory.tsv`. Do not read this document as
-> evidence that the CLI already supports the syntax.
+> **Implementation state:** implemented by `marqdo-frontend` and
+> `marqdo-expression`; the workspace gate is green at `ffd1cc9` (see
+> `docs/STATUS.md` and `docs/evidence/2026-11-21-semantics-v2-green.md`).
 
 Authority: `docs/architecture/RFC-LANG-0002-unified-semantics.md`.
 Markdown parsing remains `marqdo.md.v1` (`spec/markdown-profile.md`); only the
@@ -283,9 +280,11 @@ Rules:
   block quote. It is compile-time metadata and may be preceded by prose or a
   Knowledge subsection but not by an executing statement. Violations are
   `sem.signature_position`; a duplicate declaration is also rejected.
-* A function without `params` keeps the existing free-variable inference for
-  the first version. Public functions should declare `params`; the optional
-  `sem.inferred_signature` lint may be enabled.
+* A function without `params` keeps the existing free-variable inference.
+  As before, an inferred signature accepts **named arguments only**; declare
+  `params(...)` to accept positional arguments. Public functions should declare
+  `params`; the optional `sem.inferred_signature` lint is emitted for an
+  inferred signature that actually has parameters.
 * Calls are ordinary expressions. `print(1)`, `f(n=5)` and `> **print(1)**`
   all call because the payload contains a call; the block quote itself does
   not create a call. A plain `> print(1)` is inert prose.

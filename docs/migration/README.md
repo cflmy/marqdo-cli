@@ -1,10 +1,11 @@
 # Semantic rewrite: migration guide and inventory
 
-Status: **migration in progress**. The target language contract is
+Status: **complete**. The language contract is
 [RFC-LANG-0002](../architecture/RFC-LANG-0002-unified-semantics.md) and
-[`spec/mapping.md`](../../spec/mapping.md). The Rust frontend and bundled
-stdlib are **not yet migrated**, so executable tests are expected to be red
-until the implementation lands. See [`../STATUS.md`](../STATUS.md).
+[`spec/mapping.md`](../../spec/mapping.md); the frontend, statement parser,
+runtime and bundled stdlib implement it. See [`../STATUS.md`](../STATUS.md)
+and the green gate in
+[`../evidence/2026-11-21-semantics-v2-green.md`](../evidence/2026-11-21-semantics-v2-green.md).
 
 This directory records the repository-wide migration required by the RFC:
 every active `.mq.md` source, example, fixture and documentation snippet must
@@ -12,21 +13,25 @@ use the single new syntax. Old syntax is not an active language.
 
 ## Current state (2026-11-21)
 
-- **Text migration: complete.** Specs, active docs, examples, all non-stdlib
-  test/fixture `.mq.md` files, the security-lane embedded fixtures and
-  Rust-embedded `.mq.md` literals were rewritten. 1009 present tracked+new files are
-  classified in the inventory; there are no `pending` text items.
-- **Implementation: pending.** 51 inventory rows remain
-  `pending-implementation`: the 9 frontend/expression/IR files that implement
-  the mapping and the 42 stdlib fileset entries (sources + manifest).
-- **Verification:** `cargo fmt --check`, `cargo check --workspace --tests`,
-  `conformance_ast` (4/4) and `docs_consistency` (4/4) pass. The semantic,
-  negative, property and CLI suites that execute Marqdo source are expected red
-  against the pre-RFC frontend. Evidence:
+- **Complete.** Specs, active docs, examples, all test/fixture `.mq.md` files,
+  the security-lane embedded fixtures, Rust-embedded literals and the bundled
+  `stdlib/**/*.mq.md` sources use the single syntax. 1015 present tracked+new
+  files are classified in the inventory: 0 `pending`, 0
+  `pending-implementation`.
+- **Implementation:** frontend heading modes and segments, the unified payload
+  mapper, the `marqdo-expression` statement grammar, control-stack lowering,
+  `params(...)`/inference and the `sem.*` diagnostics are implemented.
+- **Verification at `ffd1cc9`:** `cargo fmt --check`, `cargo clippy -D warnings`
+  and `cargo test --workspace --locked` (501 passed, 0 failed, 2 ignored) all
+  pass; `python3 tools/pack-stdlib.py` verifies the regenerated digest.
+  Evidence: [`../evidence/2026-11-21-semantics-v2-green.md`](../evidence/2026-11-21-semantics-v2-green.md).
+  The earlier intermediate record is kept at
   [`../evidence/2026-11-21-semantic-docs-migration.md`](../evidence/2026-11-21-semantic-docs-migration.md).
 - Old v1 compile-negative fixtures were deleted and replaced by new-semantic
   negatives; they are intentionally absent from the inventory rather than
   counted as reviewed.
+- Platform CI and the disposable-VM strict lane were not re-run by the language
+  migration; they remain separate release gates.
 
 ## Migration rules for this repository
 

@@ -13,9 +13,9 @@
 > modes, `params`, `return`, `if/else/end`, `while/end`, and one-statement
 > payloads carried by `Strong`, `Emph` or inline `Code`. Any remaining old
 > spelling (for example "`##/**/*` roles") is historical and is **not** an
-> active language. The Rust frontend still implements the pre-RFC mapping, so
-> these examples are target syntax, not currently runnable programs; see
-> [`STATUS.md`](STATUS.md).
+> active language. The frontend now implements this syntax; examples that use
+> APIs this RFC only proposes remain design targets, not implemented features.
+> See [`STATUS.md`](STATUS.md).
 
 
 > **状态**：Draft / 架构与迁移提案，未批准、未实施。所有代码均为目标语义草案，不能当作已运行示例。  

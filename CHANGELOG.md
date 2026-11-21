@@ -34,13 +34,15 @@ summarized normatively in [`spec/mapping.md`](spec/mapping.md) and
 - There is no syntax version switch, per-file selector, `--legacy` path or
   fallback mapper; `marqdo_semantics`/syntax-selection front matter is rejected.
 
-**This entry records the accepted target contract, not a finished
-implementation.** The Rust frontend, expression parser and bundled stdlib in
-this checkout still implement the pre-RFC mapping, so executable-source tests
-are expected to be red until the migration lands; see
+**Implementation status: landed** in the `semantics-v2-refactor` history
+(`4983542` docs/spec, `e029853` frontend/runtime/stdlib/corpus, `ffd1cc9`
+expression-owned statement grammar and extra coverage). At `ffd1cc9`,
+`cargo test --workspace --locked` is green (501 passed, 0 failed, 2 ignored),
+`cargo clippy --workspace --all-targets -- -D warnings` is clean and the
+stdlib digest is regenerated. See
 [`docs/STATUS.md`](docs/STATUS.md) and
-[`docs/migration/README.md`](docs/migration/README.md). Do not describe this
-candidate as accepting the new syntax.
+[`docs/evidence/2026-11-21-semantics-v2-green.md`](docs/evidence/2026-11-21-semantics-v2-green.md).
+Platform CI and the disposable-VM strict lane were not re-run at this SHA.
 
 **Required migration actions for consumers and the repository:**
 
@@ -95,9 +97,9 @@ candidate as accepting the new syntax.
   compile-negative fixtures and 2 runtime-negative fixtures covering
   right-associative `**`, unary-minus precedence, parentheses, float negative
   exponents, Strong+CodeSpan payloads, branch/loop conditions, inert prose and
-  code fences, and source spans inside one/two-backtick code spans. (Recorded
-  under the pre-RFC mapping, now superseded by RFC-LANG-0002; the fixtures are
-  being migrated to the unified payload/keyword syntax.)
+  code fences, and source spans inside one/two-backtick code spans. (The
+  fixtures were migrated to the unified payload/keyword syntax and are green at
+  `ffd1cc9`.)
 - Independent Tool Protocol v1 consumers `sample-view`, `sample-knowledge` and
   `sample-proof` (analysis/trace readers) with install, dispatch and remove
   tests; none is a hard-coded CLI command.

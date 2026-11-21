@@ -8,11 +8,10 @@ with its normative summaries `spec/mapping.md` + `spec/expression.ebnf`, and
 there are historical and defer to the RFC). Decisions live in `docs/adr/` at
 their date.
 
-> **Implementation state:** RFC-LANG-0002 and `spec/` are ahead of the Rust
-> implementation. The frontend, expression parser and bundled stdlib still
-> implement the pre-RFC mapping, so tests that execute Marqdo source are expected
-> to be red until the migration lands. Status and evidence are in
-> [`STATUS.md`](STATUS.md); the migration rules and inventory are in
+> **Implementation state:** RFC-LANG-0002 is implemented by the frontend,
+> `marqdo-expression`, IR lowering, runtime and bundled stdlib. The workspace
+> gate is green at `ffd1cc9`; status and evidence are in
+> [`STATUS.md`](STATUS.md); migration history and the inventory are in
 > [`migration/README.md`](migration/README.md).
 
 ## 1. Repository map
@@ -168,10 +167,9 @@ Do not reintroduce the superseded mapping (`Strong`=execute, `Emph`=return,
 ordered list=branch, bullet list=loop, block quote=call) in new fixtures. Old
 shape negatives that are now valid inert Markdown must be replaced with
 negatives for the `sem.*` codes in `spec/mapping.md` §8; genuine runtime
-negatives keep their behavior and only change source spelling. Because the
-frontend is not migrated yet, executable-source tests are expected to be red:
-do not weaken assertions, delete failing tests or refresh goldens to make them
-green. Record each migrated active file in
+negatives keep their behavior and only change source spelling. Executable-source
+tests must stay green; do not weaken assertions, delete failing tests or refresh
+goldens just to make a change pass. Record each migrated active file in
 [`migration/README.md`](migration/README.md) / the migration inventory.
 
 If a fixture reveals an implementation bug, fix the code, not the expected
@@ -299,9 +297,8 @@ $B run examples/plugin-demo/plugin-call.mq.md \
 Notes: `run` defaults to `index.mq.md` and executes `main`; `call` requires a
 file and function; root-only examples (for example `math.mq.md`) define no
 `main`. `--mode strict` is expected to refuse to run (ADR-0004). The examples
-are being migrated to RFC-LANG-0002 syntax; until the frontend migration lands
-the current CLI may not accept them, so a failing example run is not evidence
-that the target syntax is already implemented. See [`STATUS.md`](STATUS.md).
+implement RFC-LANG-0002 syntax and run on the current CLI (subject to the
+capability flags shown above). See [`STATUS.md`](STATUS.md).
 
 ## 8. Docs, ADRs and commit policy
 
@@ -350,10 +347,9 @@ that the target syntax is already implemented. See [`STATUS.md`](STATUS.md).
   `fs.read`), but they are **not** an OS sandbox. The strict sandbox and a
   package registry remain unimplemented; strict fails closed. See
   `docs/security-gate.md` and `spec/security.md`.
-* The syntax migration is in progress in this tree: `spec/` and the docs
-  describe RFC-LANG-0002, while the Rust frontend and stdlib still implement
-  the pre-RFC mapping. Executable-source tests are expected to be red; do not
-  "fix" them by restoring the old mapping or by regenerating goldens.
+* RFC-LANG-0002 is implemented end to end. Keep `spec/`, the frontend,
+  `marqdo-expression`, stdlib and fixtures in lockstep; do not reintroduce the
+  old mapping, a per-file syntax selector or stale goldens.
 * Runtime errors resolve against their owning module (ADR-0017); do not
   reintroduce entry-file fallback.
 * The semantic corpus may pin current quirks (for example the external-link

@@ -1,7 +1,7 @@
 # Compatibility and support matrix
 
-Snapshot: workspace version **0.1.0**, code/security SHA **`8af7262`**, no
-release tag cut. This file records what was actually verified and separates it
+Snapshot: workspace version **0.1.0**, language SHA **`ffd1cc9`**, security SHA
+**`8af7262`**, no release tag cut. This file records what was actually verified and separates it
 from what is only implemented. Executed status is in
 [`docs/STATUS.md`](docs/STATUS.md).
 
@@ -33,14 +33,13 @@ Consequences for compatibility:
   diagnostic, never a fallback to prose.
 - The Markdown parser profile stays `marqdo.md.v1`; only the Markdown→program
   mapping changed. Rendering of otherwise-ordinary Markdown is unaffected.
-- **Implementation state:** `spec/` is ahead of the Rust implementation. The
-  frontend migration is only partially present in this worktree: heading-mode
-  and Knowledge-unit plumbing has started, but the executable mapping, statement
-  parser and bundled stdlib still follow pre-RFC behaviour. Tests that exercise
-  executable Marqdo source are therefore expected to be red, and this candidate
-  must not be described as supporting the new syntax until the full migration
-  lands. See [`docs/STATUS.md`](docs/STATUS.md) and
-  [`docs/migration/README.md`](docs/migration/README.md).
+- **Implementation state:** RFC-LANG-0002 is implemented by the frontend,
+  expression parser, IR lowering, runtime and bundled stdlib. At
+  `ffd1cc9862f7fe6002b42f1210010c1f78671a95` the workspace gate is
+  `cargo test --workspace --locked`: 501 passed, 0 failed, 2 ignored, and the
+  stdlib digest is regenerated and verified. See
+  [`docs/STATUS.md`](docs/STATUS.md) and
+  [`docs/evidence/2026-11-21-semantics-v2-green.md`](docs/evidence/2026-11-21-semantics-v2-green.md).
 
 ## Public protocol versions
 
@@ -64,7 +63,7 @@ portable/tested locally but the native platform lane has not run here;
 | Feature | Ubuntu Linux x86_64 | macOS arm64 | Windows x86_64 |
 |---|---|---|---|
 | Markdown profile / AST goldens (160) | PASS | UNVERIFIED (cfg fix + CRLF fix) | UNVERIFIED (cfg fix + CRLF fix) |
-| Rust interpreter / semantics (70) | PASS | UNVERIFIED | UNVERIFIED |
+| Rust interpreter / unified semantics (73) | PASS | UNVERIFIED | UNVERIFIED |
 | Addressable `Memory` P1 (ADR-0022) | PASS | UNVERIFIED | UNVERIFIED |
 | Resource streams CM-A06 (ADR-0025/0026: stdout + project file read/write) | PASS | UNVERIFIED | **FAIL-CLOSED** (`strict` refuses resource opens) |
 | `run` / `call` / `check` / `inspect` / `fmt` | PASS | UNVERIFIED | UNVERIFIED |

@@ -10,14 +10,15 @@ Snapshot: workspace `0.1.0`, 2026-11-20. See ADR-0021.
 
 > **Language-syntax migration note.** This evidence predates RFC-LANG-0002
 > ([`architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md)):
-> the `.mq.md` fixtures and the example paths used by the lane are being
-> migrated to the unified syntax, and the lane must be re-run on the migrated
-> tree before it is cited as evidencing the new syntax. The **security facts
+> the `.mq.md` fixtures and the example paths used by the lane are migrated to
+> the unified syntax, but the lane has **not** been re-run at the language SHA
+> `ffd1cc9`; re-run it before citing this evidence for the current syntax. The **security facts
 > here do not change** — `@exec` is a compile-time projection, not a capability
 > grant; `@knowledge` produces no IR and therefore no host effect; resource,
 > file, network, stdin/stdout, memory and budget checks remain at the
 > `CapabilityHost` boundary, and the strict sandbox is unaffected. See
-> [`STATUS.md`](STATUS.md) for the current red/green state.
+> [`STATUS.md`](STATUS.md) for the language gate and
+> [`evidence/2026-11-21-semantics-v2-green.md`](evidence/2026-11-21-semantics-v2-green.md).
 
 This report separates three things that are often conflated:
 

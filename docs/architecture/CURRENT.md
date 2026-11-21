@@ -4,17 +4,17 @@ Status: **current architecture overview**. This file summarises the tree as it
 is today. It is not a release promise, does not reopen a frozen ADR, and does not
 replace `spec/` or a recorded test log.
 
-- Baseline: [`24c88bcc78b1c705eb2319e7aaa8822a415eb01f`](https://github.com/cflmy/marqdo-cli/commit/24c88bcc78b1c705eb2319e7aaa8822a415eb01f) (2026-11-21, before the documentation migration commit).
+- Baseline: [`ffd1cc9862f7fe6002b42f1210010c1f78671a95`](https://github.com/cflmy/marqdo-cli/commit/ffd1cc9862f7fe6002b42f1210010c1f78671a95) (2026-11-21, RFC-LANG-0002 implementation).
 - Normative behavior: `spec/`; frozen decisions: `docs/adr/`; executed evidence: `docs/STATUS.md` and `docs/evidence/`.
 - This is the **single current overview**. Do not add a second running "current state" file;
   update this file, `docs/STATUS.md` and an evidence file together.
 
-> **Language contract vs implementation.** The current language contract is
+> **Language contract and implementation.** The language contract is
 > [RFC-LANG-0002](RFC-LANG-0002-unified-semantics.md) (adopted by ADR-0052) and
-> `spec/mapping.md`. The Rust frontend, expression parser and bundled `stdlib/`
-> still implement the pre-RFC mapping; source/test/doc migration is tracked in
-> [`../migration/README.md`](../migration/README.md). Do not read this overview
-> as proof that the new syntax is executable.
+> `spec/mapping.md`. The frontend, `marqdo-expression`, IR lowering, runtime and
+> bundled `stdlib/` implement it. The workspace gate is green at `ffd1cc9`;
+> rollout evidence and historical banners are indexed in
+> [`../migration/README.md`](../migration/README.md).
 
 ## 1. Four state dimensions
 
@@ -24,8 +24,8 @@ platform".
 
 | Dimension | Current state | Source |
 |---|---|---|
-| Implemented | Rust workspace `0.1.0`: Markdown/frontend/IR, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, bundled stdlib, CLI composition root | `Cargo.toml`, `crates/`, `stdlib/` |
-| Tested locally | `cargo test --workspace --locked`: **491 passed, 0 failed, 2 ignored** on Linux x86_64 at the baseline | `docs/STATUS.md` §3 |
+| Implemented | Rust workspace `0.1.0`: RFC-LANG-0002 Markdown/frontend/IR, v2 statement parser, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, migrated bundled stdlib, CLI composition root | `Cargo.toml`, `crates/`, `stdlib/` |
+| Tested locally | `cargo test --workspace --locked`: **501 passed, 0 failed, 2 ignored** on Linux x86_64 at the baseline; fmt and clippy clean | `docs/STATUS.md` §0, `docs/evidence/2026-11-21-semantics-v2-green.md` |
 | Bundled stdlib released | In-repo bundle `marqdo-stdlib@0.1.0`, SHA-256 digest verified before loading; it is **not** an external registry package | `stdlib/stdlib.json`, `stdlib/README.md` |
 | Multi-platform verified | Linux local gate is the only executed lane here; Windows/macOS native lanes are **UNVERIFIED**, and the GitHub security lane remains a **VM-only** gate | `docs/STATUS.md` §1, §4 |
 
@@ -134,7 +134,7 @@ that a phase is complete.
 
 | Priority | Gap | State |
 |---|---|---|
-| P0 | **Language syntax migration**: RFC-LANG-0002 is the single contract, but the frontend/expression/stdlib implementation and executable fixtures are still on the pre-RFC mapping | **in progress**; docs/examples/test text migrated, implementation pending; see `docs/migration/` |
+| P0 | **Language syntax migration**: RFC-LANG-0002 single contract | **closed at `ffd1cc9`**; implementation, stdlib digest, examples and fixtures green; platform/strict evidence remains separate |
 | P0 | Stdlib release is a bundle in this repo; extraction is deferred (ADR-0039) | accepted, keep in repo |
 | P0 | Documentation drift between `STATUS.md`, the architecture index and the evidence | being fixed by this migration and the docs gate |
 | P1 | `std:fs/file` read/write/copy, metadata/directory, append/read_at/walk are implemented; watch and binary offset reads remain open | open |

@@ -13,23 +13,21 @@ This repository is the new, independent Marqdo toolchain (M0.5). It is **not**
 a compatibility rewrite of `cflmy/marqdo`; the old syntax, package format and
 plugin ABI v2 are not claimed to work here.
 
-> **Breaking language revision in progress.** The current semantic contract is
-> [RFC-LANG-0002](docs/architecture/RFC-LANG-0002-unified-semantics.md)
-> (see also [`spec/mapping.md`](spec/mapping.md) and
-> [`spec/expression.ebnf`](spec/expression.ebnf)). The repository documentation,
-> examples and test sources have been migrated to this single syntax, but the
-> Rust frontend, expression parser and bundled `stdlib/` have **not** landed it
-> yet. Until they do, executable tests that contain migrated source are expected
-> to be red; this checkout must not be described as supporting the new syntax.
-> Old syntax (`**strong**` = execute, `*emph*` = return, `1.` = branch,
-> `-` = loop, `>` = call) is **not** an active language. Migration status:
-> [`docs/migration/README.md`](docs/migration/README.md) and
-> [`docs/STATUS.md`](docs/STATUS.md).
+> **Breaking language revision landed.** The single semantic contract is
+> [RFC-LANG-0002](docs/architecture/RFC-LANG-0002-unified-semantics.md), with
+> normative summaries in [`spec/mapping.md`](spec/mapping.md) and
+> [`spec/expression.ebnf`](spec/expression.ebnf). The frontend, expression
+> parser, stdlib, examples and test corpus all implement it:
+> `cargo test --workspace --locked` is green (501 passed, 0 failed, 2 ignored
+> at `ffd1cc9`). Old syntax (`**strong**` = execute, `*emph*` = return,
+> `1.` = branch, `-` = loop, `>` = call) is **not** an active language and
+> `marqdo_semantics`/`--legacy` selectors do not exist. See
+> [`docs/STATUS.md`](docs/STATUS.md) and
+> [`docs/migration/README.md`](docs/migration/README.md).
 
-> **Status: stabilization candidate, not released.** The language, lock v3,
-> Analysis v2, Trace v2, Tool v1, Plugin ABI v1 (native + worker) and pinned
-> Foreign providers are implemented and covered by tests on Linux for the
-> pre-RFC syntax. The macOS/Windows `E0433` platform-cfg failure and the Linux
+> **Status: stabilization candidate, not released.** The language (RFC-LANG-0002),
+> lock v3, Analysis v2, Trace v2, Tool v1, Plugin ABI v1 (native + worker) and
+> pinned Foreign providers are implemented and covered by tests on Linux. The macOS/Windows `E0433` platform-cfg failure and the Linux
 > strict probe→launch race are fixed in source at `8af7262`, but the native
 > Windows/macOS and GitHub Linux lanes have not been re-run from this checkout.
 > **`strict` OS isolation is available on Linux only when the runtime
@@ -60,16 +58,11 @@ cargo build -p marqdo-cli
 
 ## Quickstart
 
-> **Not yet executable in this checkout.** The source below is the only current
-> syntax. The published binary still contains the pre-RFC frontend and will
-> report these sources as Knowledge (no callable `main`) or a payload error
-> until the migration lands. See [`docs/STATUS.md`](docs/STATUS.md).
-
 ```bash
 marqdo init demo
 cd demo
 marqdo check index.mq.md
-marqdo run index.mq.md            # executes ## @exec main once implemented
+marqdo run index.mq.md            # executes ## @exec main
 marqdo inspect index.mq.md --ast
 marqdo inspect index.mq.md --signature
 marqdo call index.mq.md main
@@ -98,7 +91,7 @@ Example project from scratch (`index.mq.md`):
 
 ```bash
 marqdo check examples/factorial.mq.md
-marqdo call examples/factorial.mq.md 数学.阶乘 --arg n=5   # target: 120
+marqdo call examples/factorial.mq.md 数学.阶乘 --arg n=5   # 120
 ```
 
 The parser is frozen: `marqdo.md.v1` = CommonMark 0.31.2 + GFM tables,
@@ -134,12 +127,10 @@ rules are [`RFC-LANG-0002`](docs/architecture/RFC-LANG-0002-unified-semantics.md
 
 ## What works (implemented and tested)
 
-* **P0 contracts** — frozen Markdown profile, evaluation semantics and the
-  pre-RFC AST → program mapping; 160 AST goldens, 73 semantic goldens, 52
-  compile-error fixtures and 21 runtime-error fixtures (`tests/`). The test
-  corpus has been rewritten to the current syntax but the frontend has not, so
-  these suites are **expected red** until the migration in
-  [`docs/migration/`](docs/migration/README.md) lands.
+* **P0 contracts** — frozen `marqdo.md.v1` profile, RFC-LANG-0002 AST → program
+  mapping, the v2 statement grammar and evaluation semantics; 160 AST goldens,
+  73 semantic fixtures, 47 compile-error fixtures, 2 warning fixtures and 21
+  runtime-error fixtures, all green (`tests/`).
 * **P1 interpreter** — native Rust tree-walk interpreter: values, scopes,
   functions, static parameter inference, assignments, branches, loops,
   returns, recursion, structured errors, fuel/stack/output budgets.
@@ -341,8 +332,6 @@ tests/                        conformance/negative corpus (see tests/README.md)
 
 ## Examples
 
-> Examples are migrated to the current syntax but cannot execute until the
-> frontend migration lands; the commands below are the intended contract.
 
 ```bash
 marqdo run examples/hello.mq.md

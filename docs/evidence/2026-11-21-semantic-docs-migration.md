@@ -1,8 +1,10 @@
 # 2026-11-21 — RFC-LANG-0002 documentation and test-text migration
 
-Status: **partial evidence**. This records the repository-wide *text* migration
-to the single syntax, not an implementation of the frontend. Semantic and
-negative suites are expected red; see the tail of this file.
+Status: **intermediate / superseded by**
+[`2026-11-21-semantics-v2-green.md`](2026-11-21-semantics-v2-green.md).
+This records the documentation/test-text step before the frontend was
+implemented; the red results in the tail are historical for that intermediate
+commit, not the current state.
 
 - Repository: `cflmy/marqdo-cli`
 - Worktree base: `0d8ed44` (`feat(http): parse and build HTTP/1.1 framing by bytes`),

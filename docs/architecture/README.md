@@ -19,7 +19,7 @@ input and evidence. It is not a second running-status page.
 
 | Document | Status | What it is |
 |---|---|---|
-| [Unified semantics RFC-LANG-0002](RFC-LANG-0002-unified-semantics.md) | **Adopted target contract; implementation pending** | Single syntax: heading modes, unified payloads, keyword control flow, breaking migration and acceptance gates. |
+| [Unified semantics RFC-LANG-0002](RFC-LANG-0002-unified-semantics.md) | **Adopted and implemented** | Single syntax: heading modes, unified payloads, keyword control flow, breaking migration and acceptance gates. |
 | [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) | **Review input (historical)** | Responsibility convergence, stdio/file/stream correctness, CLI/Host split and the migration order at the time. Its language examples predate RFC-LANG-0002. |
 | [Compute machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) | **Proposed** | Opaque `Memory`, addressable regions, wire/host rejection. Compute semantics are unchanged by the syntax rewrite; its `.mq.md` examples are historical spelling. |
 | [Core and stdlib migration RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) | **Proposed** | Minimum core, `.mq.md` stdlib and system-capability migration. Stdlib source migration is pending per this RFC. |
@@ -31,7 +31,7 @@ The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 
 | RFC item | ADR | State |
 |---|---|---|
-| Unified Markdown semantics, heading modes, payload carriers, keyword control | [0051](../adr/0052-unified-markdown-semantics.md) | Accepted (target; frontend pending) |
+| Unified Markdown semantics, heading modes, payload carriers, keyword control | [0052](../adr/0052-unified-markdown-semantics.md) | Accepted and implemented (`ffd1cc9`) |
 | Execution scope (H2 functions only; carrier roles superseded) | [0002](../adr/0002-executables-only-in-function-bodies.md) | Accepted in part; mapping superseded by ADR-0052 |
 | CM-A01 Memory identity/lifetime | [0022](../adr/0022-addressable-memory-and-place-assignment.md) | Accepted |
 | CM-A02 page size, growth, budgets | [0022](../adr/0022-addressable-memory-and-place-assignment.md) | Accepted |

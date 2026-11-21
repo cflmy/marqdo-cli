@@ -19,8 +19,8 @@ architecture; read them as decision history.
   [`spec/expression.ebnf`](../../spec/expression.ebnf): `@exec`/`@knowledge`
   heading modes, `Strong`/`Emph`/inline `Code` as interchangeable
   one-statement payload carriers, and `if`/`else`/`while`/`end`/`return`/
-  `params` keywords. The Rust frontend in this checkout still implements the
-  pre-RFC mapping; see [`docs/STATUS.md`](../STATUS.md).
+  `params` keywords. The implementation is green at `ffd1cc9`; see
+  [`docs/STATUS.md`](../STATUS.md).
 - **Infrastructure ADRs** (crates, ABI, capabilities, CLI/JSON contract,
   packaging, security isolation) remain current unless a later ADR supersedes
   them. ADRs with a historical banner keep the banner scoped to the superseded
