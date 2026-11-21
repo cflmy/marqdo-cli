@@ -221,3 +221,54 @@ fn tree_digest(root: &Path) -> Result<String, String> {
     }
     Ok(hex::encode(hasher.finalize()))
 }
+
+/// The CLI must consume the platform-neutral strict-child API. Direct use of
+/// the Linux-only `marker_present`/`verify_active` symbols reintroduces the
+/// macOS/Windows `E0425` build break (RFC-CI-0001 B01).
+#[test]
+fn cli_uses_only_the_platform_neutral_strict_child_api() {
+    let root = repo_root();
+    let run = read(&root.join("crates/cli/src/commands/run.rs"));
+    assert!(
+        run.contains("inspect_strict_child"),
+        "run.rs must use marqdo_sandbox::inspect_strict_child"
+    );
+    for source in walk_rs(&root.join("crates/cli/src")) {
+        let text = read(&source);
+        for forbidden in ["marker_present", "verify_active"] {
+            assert!(
+                !text.contains(forbidden),
+                "{} references Linux-only `{forbidden}`; use StrictChildState instead",
+                source.display()
+            );
+        }
+    }
+    let sandbox = read(&root.join("crates/marqdo-sandbox/src/lib.rs"));
+    assert!(
+        sandbox.contains("pub fn inspect_strict_child"),
+        "the sandbox crate must expose inspect_strict_child"
+    );
+    assert!(
+        !sandbox.contains("pub use linux::{marker_present"),
+        "the Linux-only marker functions must not be re-exported from the crate root"
+    );
+}
+
+fn walk_rs(root: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(directory) = stack.pop() {
+        let entries = std::fs::read_dir(&directory)
+            .unwrap_or_else(|error| panic!("read_dir {}: {error}", directory.display()));
+        for entry in entries {
+            let entry = entry.expect("directory entry");
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if path.extension().and_then(|value| value.to_str()) == Some("rs") {
+                files.push(path);
+            }
+        }
+    }
+    files
+}
