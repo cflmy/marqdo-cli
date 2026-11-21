@@ -1122,3 +1122,19 @@ fn condition_parse_diagnostic_points_inside_the_code_span() {
     let column = diagnostic["column"].as_u64().expect("column");
     assert!((11..=14).contains(&column), "unexpected column {column}");
 }
+
+#[test]
+fn run_reports_sem_no_entry_function_without_exec_main() {
+    let dir = TempDir::new("no-entry");
+    dir.write(
+        "index.mq.md",
+        "# @knowledge 文档\n\n这里没有可调用的函数。\n",
+    );
+    let output = cli(dir.path(), &["run", "index.mq.md"]);
+    assert_exit(&output, 1, "missing Exec H2 main is an error");
+    let stderr = stderr_text(&output);
+    assert!(
+        stderr.contains("sem.no_entry_function"),
+        "stderr must carry the stable code: {stderr}"
+    );
+}

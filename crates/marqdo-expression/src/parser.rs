@@ -707,6 +707,12 @@ fn is_keyword(kind: &TokenKind) -> bool {
             | TokenKind::And
             | TokenKind::Or
             | TokenKind::Not
+            | TokenKind::If
+            | TokenKind::Else
+            | TokenKind::While
+            | TokenKind::End
+            | TokenKind::Return
+            | TokenKind::Params
     )
 }
 
@@ -740,6 +746,12 @@ fn describe_token(kind: &TokenKind) -> String {
         TokenKind::And => "`and`".to_owned(),
         TokenKind::Or => "`or`".to_owned(),
         TokenKind::Not => "`not`".to_owned(),
+        TokenKind::If => "`if`".to_owned(),
+        TokenKind::Else => "`else`".to_owned(),
+        TokenKind::While => "`while`".to_owned(),
+        TokenKind::End => "`end`".to_owned(),
+        TokenKind::Return => "`return`".to_owned(),
+        TokenKind::Params => "`params`".to_owned(),
         TokenKind::LParen => "`(`".to_owned(),
         TokenKind::RParen => "`)`".to_owned(),
         TokenKind::LBracket => "`[`".to_owned(),

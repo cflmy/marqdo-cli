@@ -54,10 +54,12 @@ params_stmt    = "params" , "(" , [ parameter_list ] , ")" ;
    list or block quote. The declaration is compile-time metadata, not a
    runtime call. *)
 parameter_list = parameter , { "," , parameter } , [ "," ] ;
-parameter      = identifier , ":" , type_name , [ "=" , expression ] ;
+parameter      = identifier , [ ":" , type_name ] , [ "=" , expression ] ;
 type_name      = identifier ;
 (* Parameter names are unique; positional parameters precede defaulted ones.
-   Types and default expressions reuse the existing signature rules. *)
+   The type annotation is optional to preserve the existing untyped signature
+   form (`params(n)`); types and default expressions reuse the existing
+   signature rules. *)
 
 (* Assignment and place writes are unchanged from the previous revision. *)
 assignment     = assign_target , "=" , expression ;

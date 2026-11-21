@@ -41,6 +41,18 @@ pub enum TokenKind {
     Or,
     /// `not`
     Not,
+    /// `if` (statement keyword, not an identifier)
+    If,
+    /// `else` (statement keyword)
+    Else,
+    /// `while` (statement keyword)
+    While,
+    /// `end` (statement keyword)
+    End,
+    /// `return` (statement keyword)
+    Return,
+    /// `params` (signature keyword)
+    Params,
     /// `(`
     LParen,
     /// `)`
@@ -307,6 +319,12 @@ impl<'a> Lexer<'a> {
             "and" => TokenKind::And,
             "or" => TokenKind::Or,
             "not" => TokenKind::Not,
+            "if" => TokenKind::If,
+            "else" => TokenKind::Else,
+            "while" => TokenKind::While,
+            "end" => TokenKind::End,
+            "return" => TokenKind::Return,
+            "params" => TokenKind::Params,
             _ => TokenKind::Ident(text.to_owned()),
         }
     }

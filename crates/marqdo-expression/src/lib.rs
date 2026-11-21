@@ -79,6 +79,7 @@
 pub mod ast;
 pub mod lexer;
 mod parser;
+pub mod statement;
 
 use std::fmt;
 
@@ -89,6 +90,7 @@ pub use ast::{
 };
 pub use marqdo_span::Span;
 pub use parser::MAX_NESTING_DEPTH;
+pub use statement::{parse_payload_statement, PayloadStatement};
 
 /// Stable diagnostic code for every expression parse failure.
 pub const EXPR_PARSE: &str = "expr.parse";

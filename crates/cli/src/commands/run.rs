@@ -189,10 +189,18 @@ pub fn execute(
     let function_name = function.unwrap_or("main").to_string();
     let entry_module = &project.program.modules[&project.entry];
     if entry_module.function(&function_name).is_none() {
-        eprintln!(
-            "error: no function named `{function_name}` in {}",
-            project.entry_file().path.display()
-        );
+        if function.is_none() {
+            eprintln!(
+                "error[sem.no_entry_function]: {} has no callable `main`; declare an Exec H2 \
+                 (`## @exec main`) or pass an explicit function name",
+                project.entry_file().path.display()
+            );
+        } else {
+            eprintln!(
+                "error: no function named `{function_name}` in {}",
+                project.entry_file().path.display()
+            );
+        }
         return 1;
     }
     let runtime_args: Vec<EvaluatedArg> = named_args

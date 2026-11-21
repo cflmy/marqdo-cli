@@ -5,7 +5,9 @@
 //! parsed only after the role is known. Invalid executable shapes produce hard
 //! diagnostics and never fall back to prose.
 
-use marqdo_expression::{parse_expression, parse_statement, AssignTarget, Expr, StatementKind};
+use marqdo_expression::{
+    parse_payload_statement, AssignTarget, Expr, PayloadStatement as Payload, StatementKind,
+};
 use marqdo_ir::{PlaceTarget, Stmt};
 use marqdo_markdown::{normalize_name, MarkdownDocument, MdKind, MdNode};
 use marqdo_span::Span;
@@ -73,16 +75,6 @@ enum Stop {
     End,
     Else,
     Eof,
-}
-
-enum Payload {
-    If(Expr),
-    Else,
-    While(Expr),
-    End,
-    Return(Expr),
-    Params,
-    Statement(marqdo_expression::Statement),
 }
 
 struct RawPayload {
@@ -189,7 +181,7 @@ impl Mapper {
             );
             return;
         }
-        if let Some(mut payload) = self.parse_payload(&text, span, &segments) {
+        if let Some(mut payload) = self.parse_payload(&text, &segments) {
             if let Payload::If(expr) | Payload::While(expr) | Payload::Return(expr) = &mut payload {
                 segments.rewrite_expr(expr);
             }
@@ -202,133 +194,15 @@ impl Mapper {
         }
     }
 
-    fn parse_payload(
-        &mut self,
-        text: &str,
-        span: Span,
-        segments: &PayloadSegments,
-    ) -> Option<Payload> {
-        let map = |span: Span| segments.map_span(span);
-        let text = text.trim();
-        if text.starts_with("params(") {
-            // Signature syntax and diagnostics are owned by `signature::parse`;
-            // the mapper only recognizes the declaration payload.
-            return Some(Payload::Params);
-        }
-        if text == "params" || text.starts_with("params ") {
-            self.error(
-                codes::SEM_SYNTAX,
-                Some(span),
-                "malformed params declaration; write `params(name: Type, ...)`",
-            );
-            return None;
-        }
-        let (word, rest) = match text.split_once(char::is_whitespace) {
-            Some((word, rest)) => (word, rest.trim()),
-            None => (text, ""),
-        };
-        // Parse control expressions with the keyword replaced by spaces so the
-        // expression AST keeps payload-relative (not rest-relative) spans.
-        let expression_at = |rest: &str| {
-            let offset = text.len().saturating_sub(rest.len());
-            parse_expression(&format!("{}{}", " ".repeat(offset), rest))
-        };
-        match word {
-            "if" => {
-                if rest.is_empty() {
-                    self.error(codes::SEM_SYNTAX, Some(span), "`if` requires a condition");
-                    return None;
-                }
-                match expression_at(rest) {
-                    Ok(expr) => Some(Payload::If(expr)),
-                    Err(error) => {
-                        self.error(
-                            codes::SEM_SYNTAX,
-                            Some(map(error.span)),
-                            format!("invalid if condition: {}", error.message),
-                        );
-                        None
-                    }
-                }
-            }
-            "else" if rest.is_empty() => Some(Payload::Else),
-            "else" => {
-                self.error(codes::SEM_SYNTAX, Some(span), "`else` takes no expression");
-                None
-            }
-            "while" => {
-                if rest.is_empty() {
-                    self.error(
-                        codes::SEM_SYNTAX,
-                        Some(span),
-                        "`while` requires a condition",
-                    );
-                    return None;
-                }
-                match expression_at(rest) {
-                    Ok(expr) => Some(Payload::While(expr)),
-                    Err(error) => {
-                        self.error(
-                            codes::SEM_SYNTAX,
-                            Some(map(error.span)),
-                            format!("invalid while condition: {}", error.message),
-                        );
-                        None
-                    }
-                }
-            }
-            "end" if rest.is_empty() => Some(Payload::End),
-            "end" => {
-                self.error(codes::SEM_SYNTAX, Some(span), "`end` takes no expression");
-                None
-            }
-            "return" => {
-                if rest.is_empty() {
-                    self.error(
-                        codes::SEM_SYNTAX,
-                        Some(span),
-                        "`return` requires an expression",
-                    );
-                    return None;
-                }
-                match expression_at(rest) {
-                    Ok(expr) => Some(Payload::Return(expr)),
-                    Err(error) => {
-                        self.error(
-                            codes::SEM_SYNTAX,
-                            Some(map(error.span)),
-                            format!("invalid return expression: {}", error.message),
-                        );
-                        None
-                    }
-                }
-            }
-            "params" => {
-                if text.starts_with("params(") && text.ends_with(')') {
-                    Some(Payload::Params)
-                } else {
-                    self.error(
-                        codes::SEM_SYNTAX,
-                        Some(span),
-                        "malformed params declaration",
-                    );
-                    None
-                }
-            }
-            "ifdef" | "returning" | "paramsx" => self.statement_payload(text, span),
-            _ => self.statement_payload(text, span),
-        }
-    }
-
-    fn statement_payload(&mut self, text: &str, span: Span) -> Option<Payload> {
-        match parse_statement(text) {
-            Ok(statement) => Some(Payload::Statement(statement)),
+    fn parse_payload(&mut self, text: &str, segments: &PayloadSegments) -> Option<Payload> {
+        match parse_payload_statement(text) {
+            Ok(payload) => Some(payload),
             Err(error) => {
                 self.error_with_hint(
                     codes::SEM_SYNTAX,
-                    Some(span),
+                    Some(segments.map_span(error.span)),
                     format!("invalid execution payload: {}", error.message),
-                    "one payload is exactly one statement; put control keywords in their own carriers",
+                    "one carrier is exactly one statement; control keywords need their own carrier",
                 );
                 None
             }
@@ -461,7 +335,7 @@ impl Mapper {
                     }
                     *position += 1;
                 }
-                Payload::Statement(statement) => {
+                Payload::Ordinary(statement) => {
                     let mut statement = statement.clone();
                     raw.segments.rewrite_statement(&mut statement);
                     let span = raw.span;
