@@ -36,12 +36,14 @@ Rules enforced by the tool:
 * Development-container smoke run (2026-11-21, `--warmups 1 --samples 3
   --allow-smoke`): all nine workloads `VERIFIED`/`SMOKE`, no correctness
   failures. Stored as a smoke artifact, **not** a release baseline.
-* Remote Woodpecker G4: the repository now has a manual
-  [`.woodpecker/performance.yml`](../.woodpecker/performance.yml) workflow on
-  the designated fixed agent (`platform_id: woodpecker-agent-1`). It runs
-  5 warmups / 20 samples, pins the first CPU in the container's
-  `Cpus_allowed_list`, and records the hardware/toolchain manifest. Trigger it
-  with the Woodpecker API using `"workflow": "performance"`; do not run it on
-  PR code. Its report is the G4 baseline for this node.
+* Remote Woodpecker G4: **MEASURED provisional baseline** at `1199c88`.
+  The manual [`.woodpecker/performance.yml`](../.woodpecker/performance.yml)
+  workflow ran on the designated fixed agent (`platform_id:
+  woodpecker-agent-1`): 5 warmups / 20 samples, 9/9 correctness verified,
+  pinned CPU 0 from the container cpuset. Two same-day runs differed by
+  -10.9%..+7.1% p50. The agent is a shared Docker container with the
+  `powersave` governor and loadavg ~5.7–6.1, so the gate is **WARN**, not
+  PASS, and comparisons are valid only on this `platform_id`. Evidence:
+  [`evidence/2026-11-21-perf-woodpecker-agent-1.md`](evidence/2026-11-21-perf-woodpecker-agent-1.md).
 * GitHub G4: `.github/workflows/performance-linux.yml` remains available for a
   physically separate node.

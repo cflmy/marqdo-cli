@@ -80,9 +80,9 @@ The intermediate "text migrated, implementation pending" record is kept as
 [`evidence/2026-11-21-semantic-docs-migration.md`](evidence/2026-11-21-semantic-docs-migration.md)
 and is superseded by the green gate.
 
-**Not claimed:** the **remote** G3 security artifact and a **MEASURED** G4
-performance report are still missing. The Linux/Windows/macOS native matrix is
-green at `5fcc111`, and the G3 mechanism is PASS in a local disposable VM, but
+**Not claimed:** the **remote** G3 security artifact is still missing. The
+Linux/Windows/macOS native matrix is green, G4 is measured on the designated
+Woodpecker agent, and the G3 mechanism is PASS in a local disposable VM, but
 the RFC does not promote a local VM run to a remote gate. See §0.1, §4 and
 [`../COMPATIBILITY.md`](../COMPATIBILITY.md). The release decision remains
 **DO NOT RELEASE**.
@@ -115,15 +115,15 @@ Executed evidence:
 | Linux fmt/clippy/test/build (Woodpecker) | **PASS** | pipelines `#9`–`#12`, `#14`, `#16`, `#17`, `#21`–`#25` on the series; `#13`/`#15`/`#19` were superseded/cancelled by the next push, not failures |
 | Linux + Windows + macOS native matrix (GitHub) | **PASS** | [run 30](https://github.com/cflmy/marqdo-cli/actions/runs/44896671929) on `5fcc111`: `fmt + clippy + test (Linux x86_64)`, `runtime contract (windows-latest)`, `runtime contract (macos-latest)`, and schema consumers all PASS |
 | G3 strict isolation | **PASS (local disposable VM) / remote UNVERIFIED** | `5fcc111`, `dev` uid 1000, QEMU/TCG, 7/7 + strict JSON/inert-`@knowledge`; [`evidence/2026-11-21-strict-gc-5fcc111.md`](evidence/2026-11-21-strict-gc-5fcc111.md) |
-| G4 performance | **SMOKE / UNVERIFIED** | nine workloads `VERIFIED` on the dev container, 1 warmup + 3 samples; [`evidence/2026-11-21-perf-smoke-0d7e11b.md`](evidence/2026-11-21-perf-smoke-0d7e11b.md) |
+| G4 performance | **MEASURED / WARN (provisional)** | Woodpecker agent 1, `1199c88`: 5 warmups + 20 samples, 9/9 `VERIFIED`, CPU 0 pinned; two runs -10.9%..+7.1% p50; shared powersave host caveat; [`evidence/2026-11-21-perf-woodpecker-agent-1.md`](evidence/2026-11-21-perf-woodpecker-agent-1.md) |
 
 Release decision: **DO NOT RELEASE.** Linux, Windows and macOS native jobs are
-green on the same SHA, and the strict isolation mechanism PASSes locally as a
-normal user. The remaining release gates are the **remote** G3 artifact whose
-`tested_sha` matches and a **MEASURED** G4 report on the fixed node; neither
-remote claim is made here. The RFC explicitly requires the remote G3 artifact
-for a release, so the local VM PASS is recorded but not promoted to a release
-gate.
+green on the same SHA, the strict isolation mechanism PASSes locally as a
+normal user, and G4 is `MEASURED`/`WARN` on the designated Woodpecker agent.
+The remaining release gate is the **remote** G3 artifact whose `tested_sha`
+matches; the RFC explicitly requires it (and the local VM PASS is not promoted
+to a remote claim). The perf gate is provisional because the agent is a shared
+powersave host; see [`performance.md`](performance.md).
 
 The manifest contract is in
 [`evidence/ci/README.md`](evidence/ci/README.md); `tools/ci/release_evidence.py`
@@ -488,9 +488,12 @@ user-written allocator is explicitly **not** claimed.
 - [`evidence/2026-11-21-strict-gc-5fcc111.md`](evidence/2026-11-21-strict-gc-5fcc111.md)
   — RFC-CI-0001 series G-C: local disposable VM, `dev` uid 1000, 7/7 plus the
   strict JSON and inert-`@knowledge` contracts at `5fcc111`; the earlier `512b9f5`/`0d7e11b` runs are historical.
+- [`evidence/2026-11-21-perf-woodpecker-agent-1.md`](evidence/2026-11-21-perf-woodpecker-agent-1.md)
+  — G4 `MEASURED` provisional baseline on the designated Woodpecker agent
+  (`1199c88`): 9/9 correctness-verified, 5 warmups + 20 samples, repeatability
+  deltas, and the shared-host/powersave caveat.
 - [`evidence/2026-11-21-perf-smoke-0d7e11b.md`](evidence/2026-11-21-perf-smoke-0d7e11b.md)
-  — `marqdo.perf.v2` smoke: nine workloads correctness-verified, explicitly
-  not a G4 release baseline.
+  — earlier `marqdo.perf.v2` smoke; historical, not the release baseline.
 - [`security-gate.md`](security-gate.md) — mechanism, attack matrix and strict
   L1/L2 limits.
 

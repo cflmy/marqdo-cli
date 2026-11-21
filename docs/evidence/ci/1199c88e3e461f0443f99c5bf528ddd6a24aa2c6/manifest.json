@@ -1,0 +1,41 @@
+{
+  "schema": "marqdo.release-gates.v1",
+  "target_sha": "1199c88e3e461f0443f99c5bf528ddd6a24aa2c6",
+  "recorded_utc": "2026-11-21T12:06:06Z",
+  "gates": {
+    "linux": {
+      "state": "PASS",
+      "tested_sha": "1199c88e3e461f0443f99c5bf528ddd6a24aa2c6",
+      "run_url": "https://ci.cflmy.cn/repos/1/pipeline/30",
+      "recorded_utc": "2026-11-21T12:06:06Z"
+    },
+    "windows": {
+      "state": "PASS",
+      "tested_sha": "1199c88e3e461f0443f99c5bf528ddd6a24aa2c6",
+      "run_url": "https://github.com/cflmy/marqdo-cli/actions/runs/44901625043",
+      "recorded_utc": "2026-11-21T12:06:06Z"
+    },
+    "macos": {
+      "state": "PASS",
+      "tested_sha": "1199c88e3e461f0443f99c5bf528ddd6a24aa2c6",
+      "run_url": "https://github.com/cflmy/marqdo-cli/actions/runs/44901625043",
+      "recorded_utc": "2026-11-21T12:06:06Z"
+    },
+    "strict_vm": {
+      "state": "UNVERIFIED",
+      "tested_sha": "1199c88e3e461f0443f99c5bf528ddd6a24aa2c6",
+      "run_url": "https://github.com/cflmy/marqdo-cli/actions/workflows/security-linux.yml",
+      "recorded_utc": "2026-11-21T12:06:06Z"
+    },
+    "performance": {
+      "state": "WARN",
+      "tested_sha": "1199c88e3e461f0443f99c5bf528ddd6a24aa2c6",
+      "run_url": "https://ci.cflmy.cn/repos/1/pipeline/31",
+      "recorded_utc": "2026-11-21T12:06:06Z"
+    }
+  },
+  "release_decision": "DO_NOT_RELEASE",
+  "reasons": [
+    "strict_vm: UNVERIFIED"
+  ]
+}
