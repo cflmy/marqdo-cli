@@ -1,0 +1,58 @@
+{
+  "schema": "marqdo.release-gates.v1",
+  "profile": "beta",
+  "target_sha": "2c7c4f31e7a388d3fcfa717a77067e696ed13854",
+  "recorded_utc": "2026-11-21T18:52:29Z",
+  "gates": {
+    "linux": {
+      "state": "PASS",
+      "tested_sha": "2c7c4f31e7a388d3fcfa717a77067e696ed13854",
+      "run_url": "https://ci.cflmy.cn/repos/1/pipeline/37",
+      "recorded_utc": "2026-11-21T18:52:29Z"
+    },
+    "strict_vm": {
+      "state": "PASS",
+      "tested_sha": "2c7c4f31e7a388d3fcfa717a77067e696ed13854",
+      "run_url": "docs/evidence/2026-11-22-strict-gc-2c7c4f31.md",
+      "recorded_utc": "2026-11-21T18:52:29Z"
+    },
+    "extension": {
+      "state": "PASS",
+      "tested_sha": "2c7c4f31e7a388d3fcfa717a77067e696ed13854",
+      "run_url": "docs/evidence/extension/2c7c4f31e7a388d3fcfa717a77067e696ed13854/manifest.json",
+      "recorded_utc": "2026-11-21T18:52:29Z"
+    },
+    "clean_install": {
+      "state": "PASS",
+      "tested_sha": "2c7c4f31e7a388d3fcfa717a77067e696ed13854",
+      "run_url": "docs/evidence/2026-11-22-beta-release-gates.md",
+      "recorded_utc": "2026-11-21T18:52:29Z"
+    },
+    "version_compat": {
+      "state": "PASS",
+      "tested_sha": "2c7c4f31e7a388d3fcfa717a77067e696ed13854",
+      "run_url": "https://ci.cflmy.cn/repos/1/pipeline/37",
+      "recorded_utc": "2026-11-21T18:52:29Z"
+    },
+    "windows": {
+      "state": "UNSUPPORTED",
+      "tested_sha": "2c7c4f31e7a388d3fcfa717a77067e696ed13854",
+      "run_url": "linux-only-beta-support-matrix",
+      "recorded_utc": "2026-11-21T18:52:29Z"
+    },
+    "macos": {
+      "state": "UNSUPPORTED",
+      "tested_sha": "2c7c4f31e7a388d3fcfa717a77067e696ed13854",
+      "run_url": "linux-only-beta-support-matrix",
+      "recorded_utc": "2026-11-21T18:52:29Z"
+    },
+    "performance": {
+      "state": "WARN",
+      "tested_sha": "2c7c4f31e7a388d3fcfa717a77067e696ed13854",
+      "run_url": "docs/evidence/2026-11-22-perf-woodpecker-agent-1-run38.md",
+      "recorded_utc": "2026-11-21T18:52:29Z"
+    }
+  },
+  "release_decision": "BETA_RELEASE_CANDIDATE",
+  "reasons": []
+}

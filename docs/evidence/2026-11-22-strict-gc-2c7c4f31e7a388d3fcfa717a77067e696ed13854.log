@@ -1,0 +1,32 @@
+== adversarial helper matrix ==
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.35s
+     Running tests/security_linux.rs (target/debug/build/marqdo-sandbox/b77b1d79feca4316/out/security_linux-b77b1d79feca4316)
+
+running 7 tests
+test strict_child_cannot_escape_via_proc_or_privileges ... ok
+test strict_child_cannot_reach_the_network ... ok
+test strict_child_cannot_read_host_files_but_reads_the_project ... ok
+test strict_child_cannot_write_outside_or_into_the_project ... ok
+test strict_child_identity_is_unprivileged_and_namespaced ... ok
+test strict_supervisor_enforces_fd_and_process_limits ... ok
+test strict_supervisor_enforces_memory_cpu_and_output_limits ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.65s
+
+== build CLI ==
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.54s
+strict mechanism: bubblewrap 0.11.1 (user/mount/PID/net/UTS/IPC namespaces + no-new-privs + rlimits)
+== positive CLI contract ==
+warning[sem.inferred_signature]: /home/dev/marqdo-2c7c4f31e7a388d3fcfa717a77067e696ed13854/examples/factorial.mq.md:3:1: function signature was inferred; declare it with `params(...)`
+  ## @exec 阶乘
+  ^
+warning[sem.inferred_signature]: /project/factorial.mq.md:3:1: function signature was inferred; declare it with `params(...)`
+  ## @exec 阶乘
+  ^
+== strict language resources are console-only ==
+== external-execution surfaces are refused ==
+== @knowledge payloads stay inert under strict ==
+== forged active marker is rejected ==
+G-C security lane: PASS
+strict evidence: /home/dev/evidence-2c7c4f31e7a388d3fcfa717a77067e696ed13854-b/strict-evidence.json
+strict evidence: /home/dev/evidence-2c7c4f31e7a388d3fcfa717a77067e696ed13854-b/strict-evidence.json

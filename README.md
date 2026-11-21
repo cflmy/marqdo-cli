@@ -27,8 +27,9 @@ release policy.
 > [`docs/STATUS.md`](docs/STATUS.md) and
 > [`docs/migration/README.md`](docs/migration/README.md).
 
-> **Status: `3.0.0-beta.1` prerelease.** The public beta target is **Linux
-> x86_64 (glibc)**; macOS and Windows are experimental and not claimed, and the
+> **Status: `3.0.0-beta.1` prerelease** —
+> [release](https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-beta.1),
+> source `2c7c4f31e7a388d3fcfa717a77067e696ed13854`. The public beta target is **Linux x86_64 (glibc)**; macOS and Windows are experimental and not claimed, and the
 > C ABI plugin/provider paths are Linux-only in this beta. The language
 > (RFC-LANG-0002), lock v4, Analysis v2, Trace v2, Tool v1, Plugin ABI v1
 > (native + worker), pinned Foreign providers and Resource Provider v2 are

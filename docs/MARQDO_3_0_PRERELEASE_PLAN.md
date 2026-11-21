@@ -1,6 +1,6 @@
 # RFC-REL-0001 — Marqdo 3.0 预发布路线、发布门禁与 LTS 策略（建议草案）
 
-> 状态：**Adopted as the release policy for `3.0.0-beta.1`**（2026-11-22）。REL-01～REL-05 已按本文实施；实际门禁结果记录在 `docs/STATUS.md`、`docs/evidence/` 和 `docs/evidence/ci/<release-sha>/manifest.json`。
+> 状态：**Adopted as the release policy for `3.0.0-beta.1`**（2026-11-22，源码 `2c7c4f31e7a388d3fcfa717a77067e696ed13854`，[release](https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-beta.1)）。REL-01～REL-05 已按本文实施；实际门禁结果记录在 `docs/STATUS.md`、`docs/evidence/` 和 `docs/evidence/ci/<release-sha>/manifest.json`。
 > 代码核对基线（提议时）：`cflmy/marqdo-cli@56189b176c612bf399ff965c3b642077f6b04617`，2026-11-22；§2 的“剩余门禁”表是迁移前快照，当前事实以 `docs/STATUS.md` 为准。
 > 现有发布依据：`docs/releasing.md`、`docs/STATUS.md`、`COMPATIBILITY.md`、`spec/extension-selection.md`、`spec/callable-resolution.md`。
 > 本文是策略与门禁定义；**tag 只能在该 SHA 的全部门禁通过后创建**，本文本身不构成任意 SHA 的发布批准。

@@ -1,7 +1,10 @@
 # Changelog
 
 All notable changes to the Marqdo CLI workspace. Product version
-`3.0.0-beta.1` was tagged on 2026-11-22; the next section collects post-beta
+`3.0.0-beta.1` was tagged on 2026-11-22 at source
+`2c7c4f31e7a388d3fcfa717a77067e696ed13854`
+([release](https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-beta.1));
+the next section collects post-beta
 changes. Protocol versions (Analysis v2, Trace v2, Tool v1, Plugin ABI v1,
 Foreign wire v1, Provider manifest v2, lock v4) and independent package
 versions (including the bundled stdlib `0.1.0`) are versioned separately and

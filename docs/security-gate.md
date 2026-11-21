@@ -9,7 +9,11 @@ ordinary user `dev` (uid 1000), QEMU/TCG guest, 7/7 adversarial tests plus the
 strict `--json` and inert-`@knowledge` contracts — see
 [`evidence/2026-11-21-strict-gc-5fcc111.md`](evidence/2026-11-21-strict-gc-5fcc111.md).
 The older `8af7262` and `b6fc182` runs are retained below as history.
-Snapshot: product `3.0.0-beta.1`, 2026-11-22. See ADR-0021 and ADR-0053.
+Snapshot: product `3.0.0-beta.1`, source `2c7c4f31e7a388d3fcfa717a77067e696ed13854`, 2026-11-22. See ADR-0021
+and ADR-0053. The same-SHA beta G3 run is
+[`evidence/2026-11-22-strict-gc-2c7c4f31.md`](evidence/2026-11-22-strict-gc-2c7c4f31.md)
+(local disposable VM, `outcome: PASS`, uid 1000, container none); it is not a
+remote self-hosted security-lane URL.
 
 > **Language-syntax status.** The lane was re-run on the RFC-LANG-0002 tree
 > ([`architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md))

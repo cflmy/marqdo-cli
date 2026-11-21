@@ -1,7 +1,7 @@
 # Compatibility and support matrix
 
 Snapshot: product version **`3.0.0-beta.1`** (prerelease), branch `master`,
-tagged `v3.0.0-beta.1`. This file records what was actually verified and
+tagged `v3.0.0-beta.1` at source SHA `2c7c4f31e7a388d3fcfa717a77067e696ed13854`. This file records what was actually verified and
 separates it from what is only implemented. The supported release platform is
 **Linux x86_64 (glibc)**; everything else is experimental and not claimed for
 this beta. Executed status and same-SHA evidence are in
@@ -163,5 +163,8 @@ was used, not the stable profile: Linux is the only supported platform,
 macOS/Windows are declared unsupported/experimental, G4 is a Beta-only `WARN`
 on the fixed Woodpecker agent, and strict policy and frozen-binary conformance
 are recorded with same-SHA evidence in [`docs/STATUS.md`](docs/STATUS.md) and
-[`docs/evidence/ci/`](docs/evidence/ci/README.md). Beta status does not imply
-stable `3.0.0` or LTS; the stable gate remains stricter and separate.
+[`docs/evidence/ci/2c7c4f31e7a388d3fcfa717a77067e696ed13854/manifest.json`](docs/evidence/ci/2c7c4f31e7a388d3fcfa717a77067e696ed13854/manifest.json)
+(`BETA_RELEASE_CANDIDATE`). Release:
+https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-beta.1. Beta status
+does not imply stable `3.0.0` or LTS; the stable gate remains stricter and
+separate.

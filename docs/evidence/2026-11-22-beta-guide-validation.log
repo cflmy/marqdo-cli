@@ -1,0 +1,98 @@
+### /tmp/guide-release/marqdo-3.0.0-beta.1-x86_64-unknown-linux-gnu/marqdo --version
+marqdo 3.0.0-beta.1
+exit=0
+### /tmp/guide-release/marqdo-3.0.0-beta.1-x86_64-unknown-linux-gnu/marqdo --help
+Marqdo executes .mq.md documents: headings declare @exec/@knowledge modes, Strong/Emph/inline Code carry one statement each, and if/else/while/end/return/params decide control flow. `check` and `inspect` never execute project code; `run` and `call` execute through the capability host.
+
+Usage: marqdo <COMMAND>
+
+Commands:
+  init     Initialise a new Marqdo project
+  run      Run the entry function (`main` by default) of a document
+  call     Call a named function with typed arguments
+  check    Statically check a document without executing it
+  inspect  Inspect AST, units, signatures, IR, references or platform support
+  fmt      Conservative formatting: normalises line endings and trailing newlines
+  plugin   Plugin artifact inspection (never loads plugin code)
+  add      Add a dependency to marqdo.yaml
+  remove   Remove a dependency from marqdo.yaml
+  lock     Generate a deterministic marqdo.lock for the current project
+  sync     Verify that path dependencies match the lockfile
+  tool     Manage and dispatch generic external CLI tools
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
+exit=0
+### pure library flow
+### /tmp/guide-release/marqdo-3.0.0-beta.1-x86_64-unknown-linux-gnu/marqdo lock
+locked 1 package(s) in /tmp/guide-lib-v2/consumer/marqdo.lock
+exit=0
+### /tmp/guide-release/marqdo-3.0.0-beta.1-x86_64-unknown-linux-gnu/marqdo sync --locked
+synchronized 1 package(s) (locked) into /tmp/guide-lib-v2/consumer/.marqdo/env
+exit=0
+### /tmp/guide-release/marqdo-3.0.0-beta.1-x86_64-unknown-linux-gnu/marqdo check index.mq.md --refs
+checked 2 module(s): ok
+exit=0
+### /tmp/guide-release/marqdo-3.0.0-beta.1-x86_64-unknown-linux-gnu/marqdo call index.mq.md main
+42
+exit=0
+### project.marqdo mismatch
+error[project.load]: package.marqdo_incompatible: project requires marqdo `>=0.1,<1`, this core is 3.0.0-beta.1
+### project.marqdo mismatch
+error[project.load]: package.marqdo_incompatible: project requires marqdo `>=0.1,<1`, this core is 3.0.0-beta.1
+exit=2
+### tool install/dispatch
+installed tool `view` version 0.1.0 (marqdo-view)
+install exit=0
+view 0.1.0 (marqdo-view)
+list exit=0
+bin=/tmp/guide-release/marqdo-3.0.0-beta.1-x86_64-unknown-linux-gnu/marqdo
+tool=1 analysis=2 trace=2
+arg=index.mq.md
+arg=--json
+view exit=7
+removed tool `view`
+remove exit=0
+### plugin flows
+inspect exit=0
+checked 1 module(s): ok
+check-static exit=0
+42
+native-trust run exit=0
+error: loading `demo.solver` in-process requires --trust-native-plugin; use `kind: worker` for crash isolation
+native-no-trust exit=1
+### provider flows
+provider run exit=0
+provider success= True read= ['kind=demo.sensor count=5']
+error[permission.denied]: resource provider `demo.sensor` was selected with --provider but is not granted; add --allow-provider demo.sensor
+provider-no-grant exit=1
+### kernel flows
+42
+kernel exit=0
+error: cannot open kernel provider: No such file or directory (os error 2)
+kernel-bad-digest exit=2
+### analysis/trace
+checked 2 module(s): ok
+12.566370614359172
+analysis+trace exit=0
+analysis sha256 1a2b894f4592861e063b40947da1c6f5fc5ee5d2cfdf623beb0bbc0434db5af7
+trace digest match True
+trace schema marqdo.trace 2 events 182
+### extension selection lock v4
+locked 0 package(s) in /tmp/guide-ext/marqdo.lock
+42
+extension run exit=0
+extension identity plugin demo.solver locked x86_64-unknown-linux-gnu
+### strict policy
+platform exit=0
+strict state {'mechanism': 'bubblewrap 0.11.1 (user/mount/PID/net/UTS/IPC namespaces + no-new-privs + rlimits)', 'state': 'available'}
+你好，Marqdo
+strict run exit=0
+error: strict mode currently supports pure Marqdo and native Math only; --allow-read/--allow-write/--allow-env/--allow-process/--allow-random/--allow-foreign/--allow-plugin/--plugin/--provider/--allow-provider/--trust-native-plugin/--kernel/--trace-file are rejected. Use --mode project for those capabilities.
+strict trace refusal exit=2
+guide validation done

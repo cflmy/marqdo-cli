@@ -1,10 +1,13 @@
 # Marqdo Implementation Status
 
 Snapshot: **2026-11-22**, product version **`3.0.0-beta.1`** (prerelease, tag
-`v3.0.0-beta.1`). Released platform: **Linux x86_64 (glibc)**. The exact tagged
-source SHA, CI pipeline URL and binary hashes are recorded in
-[`evidence/ci/`](evidence/ci/README.md) and in the archive's
-`RELEASE_INFO.json`; do not copy a SHA from a plan.
+`v3.0.0-beta.1`). Released platform: **Linux x86_64 (glibc)**. Tagged source
+SHA: **`2c7c4f31e7a388d3fcfa717a77067e696ed13854`**; release:
+https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-beta.1. The
+same-SHA evidence aggregate is
+[`evidence/ci/2c7c4f31e7a388d3fcfa717a77067e696ed13854/manifest.json`](evidence/ci/2c7c4f31e7a388d3fcfa717a77067e696ed13854/manifest.json)
+(decision `BETA_RELEASE_CANDIDATE`); binary hashes are in the archive's
+`RELEASE_INFO.json`. Do not copy a SHA from a plan.
 
 Current architecture overview:
 [`architecture/CURRENT.md`](architecture/CURRENT.md).
@@ -47,21 +50,26 @@ SHA-mismatched gate is `DO_NOT_RELEASE`.
 | Gate | Beta requirement | Evidence |
 |---|---|---|
 | Source hygiene | clean tree, committed `Cargo.lock`, `--locked` builds | release commit; `RELEASE_INFO.json` |
-| Static/tests | `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace --locked` PASS | release evidence document + Woodpecker pipeline |
-| Release build | `cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker` PASS | archive contains both binaries, same target |
-| Linux CI | same-SHA Woodpecker pipeline PASS | pipeline URL in `evidence/ci/<sha>/manifest.json` |
-| Frozen-binary conformance | external `marqdo-extension-conformance` suite PASS with unchanged CLI hash | `evidence/extension/<sha>/manifest.json` |
-| Clean-install smoke | archive-only smoke PASS (incl. provider worker positive/negative, tools, plugins, kernel, Analysis/Trace) | release evidence document |
-| Version compatibility | prerelease Tool/project SemVer tests PASS; `project.marqdo` fail-closed tests PASS | `cargo test` logs/pipeline |
-| Strict policy | same-SHA disposable-VM G3 PASS for Linux strict L1 (or a tested fail-closed `strict: unsupported` policy) | `evidence/*strict*` document |
-| Performance | correctness-verified `MEASURED` on fixed Woodpecker agent; Beta-only `WARN` approved with environment/limits | G4 evidence document |
+| Static/tests | `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace --locked` PASS | [pipeline #37](https://ci.cflmy.cn/repos/1/pipeline/37); [gate record](evidence/2026-11-22-beta-release-gates.md) |
+| Release build | `cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker` PASS | archive contains both binaries, same target (`RELEASE_INFO.json`) |
+| Linux CI | same-SHA Woodpecker pipeline PASS | [pipeline #37](https://ci.cflmy.cn/repos/1/pipeline/37), commit `2c7c4f31e7a388d3fcfa717a77067e696ed13854` |
+| Frozen-binary conformance | external `marqdo-extension-conformance` suite PASS with unchanged CLI hash | [`evidence/extension/2c7c4f31e7a388d3fcfa717a77067e696ed13854/manifest.json`](evidence/extension/2c7c4f31e7a388d3fcfa717a77067e696ed13854/manifest.json) (7/7; fixture `e22ec95…`) |
+| Clean-install smoke | archive-only smoke PASS (incl. provider worker positive/negative, tools, plugins, kernel, Analysis/Trace) | [gate record](evidence/2026-11-22-beta-release-gates.md) |
+| Version compatibility | prerelease Tool/project SemVer tests PASS; `project.marqdo` fail-closed tests PASS | pipeline #37 test step; local `cargo test` |
+| Strict policy | same-SHA disposable-VM G3 PASS for Linux strict L1 (or a tested fail-closed `strict: unsupported` policy) | [strict G3 evidence](evidence/2026-11-22-strict-gc-2c7c4f31.md) (`outcome: PASS`, uid 1000, container none) |
+| Performance | correctness-verified `MEASURED` on fixed Woodpecker agent; Beta-only `WARN` approved with environment/limits | [G4 evidence](evidence/2026-11-22-perf-woodpecker-agent-1-run38.md), [pipeline #38](https://ci.cflmy.cn/repos/1/pipeline/38) |
 | Support matrix | Linux x86_64 supported; macOS/Windows explicitly unsupported/experimental | [`../COMPATIBILITY.md`](../COMPATIBILITY.md) |
+| Third-party guide | every handbook command executed against the released archive | [guide validation](evidence/2026-11-22-beta-guide-validation.md) |
 
-Release decision: **BETA_RELEASE_CANDIDATE**. The `v3.0.0-beta.1` tag is cut
-only from a SHA with all gates green; the SHA-bound manifests are committed in
-the post-release evidence commit. This is a prerelease: it does **not** imply
-stable `3.0.0`, does not promise LTS, and does not claim macOS/Windows
-artifacts, strict L2, Wasm, or a package registry.
+Release decision: **BETA_RELEASE_CANDIDATE** on
+[`evidence/ci/2c7c4f31e7a388d3fcfa717a77067e696ed13854/manifest.json`](evidence/ci/2c7c4f31e7a388d3fcfa717a77067e696ed13854/manifest.json). Tag
+`v3.0.0-beta.1` was created only from `2c7c4f31e7a388d3fcfa717a77067e696ed13854` after every row above was green;
+the archive is
+`marqdo-3.0.0-beta.1-x86_64-unknown-linux-gnu.tar.gz` with sha256
+`507e4cd358f75f517433935ce90d5fc2eb5cecda4f19121a68b136c83b15f317`, published
+as a Gitea prerelease. This is a prerelease: it does **not** imply stable
+`3.0.0`, does not promise LTS, and does not claim macOS/Windows artifacts,
+strict L2, Wasm, or a package registry.
 
 ### 0.3 Strict and performance policy for this beta
 
