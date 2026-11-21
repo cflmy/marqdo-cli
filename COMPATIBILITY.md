@@ -121,8 +121,9 @@ reproduce the Windows checkout byte behavior.
 - Registry/package publishing, JIT, Knowledge/Proof/View built-ins,
   sessions, and general-purpose CAS. The three `sample-*` tools are test
   fixtures for the generic Tool protocol, not product features.
-- Windows/macOS release archives from this host; the GitHub release job may
-  build macOS but has not run for the convergence SHA.
+- Tagged Windows/macOS release archives: the native **build/test** matrix is
+  green at `5fcc111`, but the tag/dispatch release-candidate job has not
+  produced those archives.
 
 ## Release decision
 

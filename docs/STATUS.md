@@ -80,12 +80,12 @@ The intermediate "text migrated, implementation pending" record is kept as
 [`evidence/2026-11-21-semantic-docs-migration.md`](evidence/2026-11-21-semantic-docs-migration.md)
 and is superseded by the green gate.
 
-**Not claimed:** Windows/macOS **native** lanes remain `UNVERIFIED` at this
-SHA. The CI/security series below fixes the platform compile defect and the
-strict JSON protocol, but a native remote matrix and a remote G3 job are still
-required. See §0.1, §1, §4 and [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
-The release decision is still **DO NOT RELEASE** until the platform/security
-evidence is attached to a single remote SHA.
+**Not claimed:** the **remote** G3 security artifact and a **MEASURED** G4
+performance report are still missing. The Linux/Windows/macOS native matrix is
+green at `5fcc111`, and the G3 mechanism is PASS in a local disposable VM, but
+the RFC does not promote a local VM run to a remote gate. See §0.1, §4 and
+[`../COMPATIBILITY.md`](../COMPATIBILITY.md). The release decision remains
+**DO NOT RELEASE**.
 
 ## 0.1 CI/security convergence (2026-11-21)
 
@@ -154,9 +154,10 @@ as the current tree.
 This checkout's private remote is `https://git.cflmy.cn/cflmy/marqdo-cli` with
 Woodpecker CI at `https://ci.cflmy.cn` (`.woodpecker.yml`). The Linux Docker
 pipeline runs fmt/clippy/test/release-build; the docs-consistency gate runs in
-`cargo test --workspace`. GitHub native lanes, Windows/macOS runners and a
-CI-attached strict VM runner are still unavailable; the G-C evidence below remains
-local VM evidence.
+`cargo test --workspace`. The GitHub-hosted native matrix is now green at
+`5fcc111` ([run 30](https://github.com/cflmy/marqdo-cli/actions/runs/44896671929)).
+A CI-attached strict VM runner is still unavailable; the G-C evidence below
+remains local VM evidence.
 
 Convergence code/security SHA: **`8af72620f12e2494a59830a23abb393768b610e9`**
 (the following docs commit only adds this report and release material; code is
@@ -206,17 +207,17 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 
 | # | Work package | State | Evidence |
 |---|---|---|---|
-| 0 | Windows AST line endings | Fixed locally; **Windows CI UNVERIFIED** | `.gitattributes`, CRLF fixture |
-| 1 | macOS native plugin fixtures | Fixed locally; **macOS CI UNVERIFIED** | host-target manifest + dylib flags |
-| 2 | Cross-platform strict `cfg` | **Fixed locally; native CI UNVERIFIED** | `#[cfg]` dispatch + non-Linux regression test |
-| 3 | Strict probe→launch race | **Fixed locally; GitHub Linux CI UNVERIFIED** | fail-closed CLI contract + probe-OK/launch-EAGAIN seam test |
+| 0 | Windows AST line endings | **Windows CI PASS** (`5fcc111`) | `.gitattributes`, CRLF fixture |
+| 1 | macOS native plugin fixtures | **macOS CI PASS** (`5fcc111`) | host-target manifest + dylib flags |
+| 2 | Cross-platform strict `cfg` | **Native CI PASS** (`5fcc111`) | `#[cfg]` dispatch + non-Linux regression test |
+| 3 | Strict probe→launch race | **Linux CI PASS** (`5fcc111`) + deterministic seam | fail-closed CLI contract + probe-OK/launch-EAGAIN seam test |
 | 4 | Parallel security matrix isolation | **Fixed** | unique paths + helper `OnceLock`; 7/7 in parallel workspace run |
 | 5 | Markdown/power/control-flow corpus | **Green on semantics v2** | 160 AST + 73 semantic + 49 compile-negative + 2 warning + 21 runtime-negative fixtures; `conformance_ast`/`semantics`/`negative` pass |
 | 6 | Payload/control source spans | **Green on semantics v2** | UTF-8 spans, control-expression offsets and heading boundaries covered by fixtures and CLI tests; old condition headers were removed |
 | 7 | Independent Tool consumers | **Done locally** | `sample-view`/`sample-knowledge`/`sample-proof` E2E test |
 | 8 | lock v3 reproducibility | **Implemented; tamper test added** | `package_env` PASS |
 | 9 | Analysis/Trace/Tool/ABI/Foreign | **Implemented; supported-matrix bounded** | protocol tests, plugin/worker/foreign tests |
-| 10 | Linux strict L1 | **VM PASS at 70d916d; strict needs a dedicated CI runner** | 7/7 + positive CLI + strict resource refusal; general Linux Docker CI is green |
+| 10 | Linux strict L1 | **Local VM PASS at 5fcc111; remote G3 runner still missing** | 7/7 + positive CLI + strict JSON/inert-`@knowledge`; [`strict-gc-5fcc111`](evidence/2026-11-21-strict-gc-5fcc111.md) |
 | 11 | Linux strict L2 | **NOT IMPLEMENTED / UNSUPPORTED** | strict rejects Worker/Foreign/native ABI |
 | 12 | Windows Native/Worker ABI | **UNSUPPORTED** | no Windows ABI artifact/claim |
 | 13 | RC artifact | **Linux candidate only; no release** | clean-install + checksums; macOS not built here |
@@ -374,12 +375,13 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 
 ## 4. Open blockers and limits
 
-1. **No native GitHub/Windows/macOS CI evidence.** The private Woodpecker
-   Linux Docker pipeline (fmt/clippy/test/release-build) is green, but Windows
-   and macOS native lanes are still unavailable. G1/G2/G3 remain FAIL until a
-   real native run exists.
+1. **Native matrix is green; remote G3/G4 are not.** GitHub run 30 on
+   `5fcc111` PASSes Linux, Windows and macOS, and Woodpecker #25 is green. The
+   remaining release blockers are a remote G3 security artifact and a
+   `MEASURED` G4 report on the fixed node.
 2. **G-C is VM-verified but not CI-signed.** The Woodpecker Docker pipeline is
-   not an OS-isolation lane; no self-hosted security runner exists yet.
+   not an OS-isolation lane; no ephemeral self-hosted security runner has run
+   `security-linux.yml` for this SHA.
 3. Windows Native/Worker ABI is explicitly UNSUPPORTED (no Windows `cc`
    fixture lane, Unix-gated worker tests).
 4. `fs.write`, `net.request`, `process`, `clock`, `random` are not executed
@@ -393,10 +395,11 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
    PASS).
 6. uv/npm/venv provisioning is not implemented. Only a pre-provisioned,
    digest-pinned directory with a regular-file executable is supported.
-7. No Windows/macOS RC archive exists from this host. The release-candidate
-   workflow can build macOS on GitHub, but it has not run for this SHA.
+7. No tagged Windows/macOS RC archive exists. The native **build/test** lanes
+   PASS at `5fcc111`; the release-candidate job is tag/dispatch gated and has
+   not produced those archives.
 8. No release tag/binary publication. The release decision is **DO NOT
-   RELEASE** until the native CI matrix and a security-lane CI URL exist.
+   RELEASE** until the remote G3 artifact and the MEASURED G4 report exist.
 
 ## 5. RFC-CM compute-machine status
 
@@ -407,7 +410,7 @@ behavior. This table records only what is in this tree now.
 |---|---|---|
 | P0 freeze (ADRs, spec deltas, baseline) | **P1 + partial P2 slice done** | ADR-0022 freezes CM-A01/CM-A02/CM-A03; ADR-0023 freezes CM-A04 (minimal List/Map/Text/Table observation and construction); ADR-0024 freezes CM-A05 (recoverable `Result` map convention); `spec/expression.ebnf`, `spec/evaluation.md`, `spec/value-wire.md`, `spec/analysis-v2.md`, `spec/security.md` updated; existing AST/value goldens unchanged |
 | P1 Memory + place assignment | **Implemented locally** | `Value::Memory`, run-scoped `MemoryStore` (64 KiB pages, 64 MiB total / 16 MiB region), `memory.new/size/grow`, `m[i]` read, `m[i] = byte`; semantic fixtures 45–47, runtime negatives 13–18, `examples/memory-buffer.mq.md`; evidence [`evidence/2026-11-20-memory-p1.md`](evidence/2026-11-20-memory-p1.md) |
-| P2 Marqdo-written allocator/data structures + minimal structure observation | **PASS (local pure lane); stdlib remains in-repo by design** | `.mq.md`-only evidence: bump allocator with u32 codec, linked list, failed-allocation atomicity (48–50); CM-A04 structure primitives and a table filter (51–54, ADR-0023); a first-fit free-list allocator with block reuse, splitting, address-adjacent coalescing and `Result` maps (55, ADR-0024), a `Memory`-backed binary tree with recursive insert/in-order traversal (56), a `.mq.md` CSV row splitter (57), an open-addressing hash table with linear probing, update and `hash.full` (58), a `.mq.md` UTF-8 encoder over `Memory` (59), a validating UTF-8 decoder rejecting truncated, bad-continuation and surrogate/overlong input (60), a `Memory`-backed graph adjacency list (61), a recursive JSON parser for nested arrays/objects, strings with escapes, integers, booleans, null and error Results (62), a `Memory`-backed stack bytecode VM with PUSH/ADD/MUL/JMP/JZ/HALT (63), big-endian 16/32/64-bit plus LEB128 integer codecs (64), a `.mq.md` table sort rebuilding a new table from `table.row/columns/cell` (65), a table join (67), a quoted/escaped CSV row parser (68), table group (69), an Int matrix multiply (70), and a sparse-matrix multiply (73); the first-fit allocator also detects double free (`alloc.double_free`). Evidence: [`memory-p2-closure`](evidence/2026-11-20-memory-p2-closure.md), [`structure-api-p2`](evidence/2026-11-20-structure-api-p2.md), [`result-and-free-list-p2`](evidence/2026-11-20-result-and-free-list-p2.md). Local gate PASS: `crates/cli/tests/p2_closure.rs` runs 21 C01–C06/C11/C12 fixtures plus the stdlib table self-test in `--mode pure` (no foreign/plugin/import grants), scans sources for foreign/plugin/import shortcuts and compares value/stdout to goldens; evidence [`p2-closure-gate`](evidence/2026-11-20-p2-closure-gate.md). The bundled `stdlib/` tree, `std:` imports, digest verification, Analysis identity and frozen-CLI closure test are implemented (ADR-0028). The stdlib intentionally remains in-repo (ADR-0039); a separate repository is a future extraction option, not a gate. Linux Docker CI is green; a strict security runner and Windows/macOS lanes are still pending. |
+| P2 Marqdo-written allocator/data structures + minimal structure observation | **PASS (local pure lane); stdlib remains in-repo by design** | `.mq.md`-only evidence: bump allocator with u32 codec, linked list, failed-allocation atomicity (48–50); CM-A04 structure primitives and a table filter (51–54, ADR-0023); a first-fit free-list allocator with block reuse, splitting, address-adjacent coalescing and `Result` maps (55, ADR-0024), a `Memory`-backed binary tree with recursive insert/in-order traversal (56), a `.mq.md` CSV row splitter (57), an open-addressing hash table with linear probing, update and `hash.full` (58), a `.mq.md` UTF-8 encoder over `Memory` (59), a validating UTF-8 decoder rejecting truncated, bad-continuation and surrogate/overlong input (60), a `Memory`-backed graph adjacency list (61), a recursive JSON parser for nested arrays/objects, strings with escapes, integers, booleans, null and error Results (62), a `Memory`-backed stack bytecode VM with PUSH/ADD/MUL/JMP/JZ/HALT (63), big-endian 16/32/64-bit plus LEB128 integer codecs (64), a `.mq.md` table sort rebuilding a new table from `table.row/columns/cell` (65), a table join (67), a quoted/escaped CSV row parser (68), table group (69), an Int matrix multiply (70), and a sparse-matrix multiply (73); the first-fit allocator also detects double free (`alloc.double_free`). Evidence: [`memory-p2-closure`](evidence/2026-11-20-memory-p2-closure.md), [`structure-api-p2`](evidence/2026-11-20-structure-api-p2.md), [`result-and-free-list-p2`](evidence/2026-11-20-result-and-free-list-p2.md). Local gate PASS: `crates/cli/tests/p2_closure.rs` runs 21 C01–C06/C11/C12 fixtures plus the stdlib table self-test in `--mode pure` (no foreign/plugin/import grants), scans sources for foreign/plugin/import shortcuts and compares value/stdout to goldens; evidence [`p2-closure-gate`](evidence/2026-11-20-p2-closure-gate.md). The bundled `stdlib/` tree, `std:` imports, digest verification, Analysis identity and frozen-CLI closure test are implemented (ADR-0028). The stdlib intentionally remains in-repo (ADR-0039); a separate repository is a future extraction option, not a gate. Linux/Windows/macOS native CI is green at `5fcc111`; a remote G3 security runner and a fixed G4 performance node are still pending. |
 | P3 Resource/Stream ABI | **PARTIAL** | ADR-0025/0026/0040 CM-A06 slices: opaque `Resource`, `resource.open/read/write/close`, stdin read, separate stdout/stderr write, granted project-file read and buffered project-file write in project, EOF/closed/handle errors, wire/host rejection; strict permits only stdio/stdout and refuses stdin/stderr/file/network resources. `stdlib/io/stream.mq.md`, `stdlib/io/console.mq.md` and `stdlib/text/utf8.mq.md` are product-level `.mq.md` APIs; fixture 66 + CLI/host tests. CM-A07 **Compat-C** is implemented: when a program calls `打印/print`, the loader injects the bundled `stdlib/io.mq.md` and the runtime routes to `io.写值` (all 15 value types, UTF-8 via `Memory`, `resource.write(stdout)`); `HostOp::Print` and the legacy `Value::display()` print path are removed, and a missing bundle fails with `kernel.unavailable`. Strict permits only the existing stdio console channel. Providers are registered through ADR-0033 (in-process) and ADR-0035 (worker helper). Still missing: directories, C ABI provider binding, provider packages, strict provider support. |
 | P4 Table logical/physical migration | **PASS (local gate); T1/T2/T3 future** | ADR-0032/CM-A08: `Value::Table` semantics and GFM AST laziness unchanged; `stdlib/data/table.mq.md` provides select/filter/sort/append/set/join/group/`转GFM` as value-returning `.mq.md` functions with input immutability; zero Rust table algorithms were added. Cross-storage equivalence is pinned by fixture 72 (row Table vs `.mq.md` columnar store, identical headers/rows/cells). The optional T1/T2/T3 physical-storage/column-store migration was not required by the gate and is not implemented. |
 | P5 third-party Provider / TCP / HTTP | **PASS (local gate); external network/CI and plugin-Worker resource binding open** | C10: `stdlib/net/http.mq.md` + fixture 71 parse HTTP/1.1 status/headers/chunked bodies and build requests; `http_over_tcp.rs` runs a loopback HTTP exchange wholly in `.mq.md` over `resource.open("tcp",...)`. ADR-0034 IP-literal blocking TCP endpoint (exact IP grant, project-only, 5s timeouts) and ADR-0033 in-process `ResourceProvider` v1 (registration, protocol/kind checks, name grant, mock read/write provider) ADR-0035 host-managed worker provider transport (framed JSON helper, ping/open/read/write/close, trusted-only) and ADR-0036 trusted C ABI provider (shared-library symbols, version/load checks) ADR-0037 local provider-package manifest installation and ADR-0038 C ABI provider worker binding (separate trusted helper process) are tested. External DNS/TLS/UDP, host HTTP, provider packages/signatures and the plugin-Worker resource binding remain out of scope. |
