@@ -21,7 +21,6 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use marqdo_host::{Capabilities, Host, StdHost};
 use marqdo_ir::{ModuleId, Program, ResolvedImport};
@@ -68,11 +67,10 @@ fn expected_path(fixture: &Path) -> PathBuf {
 }
 
 fn python_available() -> bool {
-    Command::new("python3")
-        .arg("--version")
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
+    // Ask the same platform-aware resolver the runtime uses. On Windows a
+    // PATH entry is `python3.exe`, not the extension-less `python3` token, so a
+    // raw `Command::new("python3")` probe can disagree with execution.
+    marqdo_foreign::detect("python").is_some()
 }
 
 /// Unique scratch directory for the host project root. Program fixtures are

@@ -864,6 +864,27 @@ fn execute(request: &RunRequest, registry: &KernelRegistry) -> Result<RawRun, Fo
     })
 }
 
+/// Expand a PATH lookup name to the platform's executable file names.
+///
+/// Unix uses the name verbatim. Windows applies `PATHEXT` (with a conservative
+/// default) because a PATH directory contains `python3.exe`, never `python3`.
+fn executable_candidates(name: &str) -> Vec<std::ffi::OsString> {
+    // Only the Windows branch appends suffixes, so `mut` is unused on Unix.
+    #[allow(unused_mut)]
+    let mut names = vec![std::ffi::OsString::from(name)];
+    #[cfg(windows)]
+    {
+        if Path::new(name).extension().is_none() {
+            let extensions =
+                std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".to_string());
+            for extension in extensions.split(';').filter(|value| !value.is_empty()) {
+                names.push(std::ffi::OsString::from(format!("{name}{extension}")));
+            }
+        }
+    }
+    names
+}
+
 fn program_candidates(language: &str) -> &'static [&'static str] {
     match language {
         "python" => &["python3", "python"],
@@ -973,9 +994,14 @@ fn resolve_program(descriptor: &KernelDescriptor) -> Result<PathBuf, ForeignErro
     let candidates = program_candidates(&descriptor.provider_id);
     for name in candidates {
         for directory in std::env::split_paths(&path_var) {
-            let candidate = directory.join(name);
-            if is_executable_file(&candidate) {
-                return Ok(candidate);
+            // Windows PATH entries contain `python.exe`, not the extension-less
+            // `python3` token `Command::new` accepts. Scanning PATH manually
+            // must apply PATHEXT or a valid interpreter is reported missing.
+            for executable in executable_candidates(name) {
+                let candidate = directory.join(executable);
+                if is_executable_file(&candidate) {
+                    return Ok(candidate);
+                }
             }
         }
     }
@@ -1392,6 +1418,23 @@ mod tests {
         assert_eq!(normalize_language("node"), Some("javascript"));
         assert_eq!(normalize_language("cobol"), None);
         assert_eq!(normalize_language(""), None);
+    }
+
+    #[test]
+    fn path_lookup_expands_windows_executable_suffixes() {
+        let names = executable_candidates("python3");
+        #[cfg(windows)]
+        {
+            assert!(names.iter().any(|name| {
+                name.to_string_lossy()
+                    .to_ascii_lowercase()
+                    .ends_with(".exe")
+            }));
+        }
+        #[cfg(not(windows))]
+        {
+            assert_eq!(names.len(), 1);
+        }
     }
 
     #[test]

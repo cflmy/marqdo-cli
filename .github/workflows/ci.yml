@@ -24,7 +24,17 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests
-        run: cargo test --workspace
+        shell: bash
+        run: |
+          set +e
+          CARGO_TERM_COLOR=never cargo test --workspace 2>&1 | tee workspace-tests.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ]; then
+            python3 tools/ci/annotate_workspace_tests.py \
+              workspace-tests.log "Linux workspace tests"
+          fi
+          exit "$status"
       - name: Documentation consistency
         run: cargo test -p marqdo-cli --test docs_consistency
       - name: Architecture boundaries
@@ -127,19 +137,12 @@ jobs:
         shell: bash
         run: |
           set +e
-          cargo test --workspace 2>&1 | tee workspace-tests.log
+          CARGO_TERM_COLOR=never cargo test --workspace 2>&1 | tee workspace-tests.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -ne 0 ]; then
-            # Surface the failing test/build context as check annotations so a
-            # native-matrix failure is diagnosable without admin log access.
-            {
-              grep -n -A 18 -B 2 "panicked at" workspace-tests.log || true
-              grep -n -A 6 -B 2 "^error" workspace-tests.log || true
-              grep -n "test .* FAILED" workspace-tests.log || true
-            } | head -80 | while IFS= read -r line; do
-              echo "::error title=Workspace tests on ${{ matrix.os }}::$line"
-            done
+            python3 tools/ci/annotate_workspace_tests.py \
+              workspace-tests.log "Workspace tests on ${{ matrix.os }}"
           fi
           exit "$status"
       - name: Portable CLI, analysis and trace smoke
