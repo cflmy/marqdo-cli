@@ -48,6 +48,7 @@ The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 | Non-streaming `resource.request` `fs.*` operations | [0041](../adr/0041-resource-operation-fs.md) | Accepted (project mode, grant-checked, recoverable fs Result) |
 | `clock.now` resource operation | [0042](../adr/0042-clock-resource-operation.md) | Accepted (project mode, Unix millis) |
 | `env.get` resource operation | [0043](../adr/0043-env-resource-operation.md) | Accepted (exact-name project grant) |
+| `process.run` resource operation | [0044](../adr/0044-process-resource-operation.md) | Accepted (exact program grant, project only, not a sandbox) |
 | Table physical storage (T1/T2/T3), strict stdin/stderr/file/network resources | — | **Not decided**; do not implement by implication |
 
 ## Evidence and status

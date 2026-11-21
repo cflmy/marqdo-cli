@@ -26,6 +26,8 @@ pub struct SandboxSettings {
     pub allow_net: Vec<String>,
     /// Environment variable grants (ADR-0043).
     pub allow_env: Vec<String>,
+    /// Process program grants (ADR-0044).
+    pub allow_process: Vec<String>,
     /// Foreign execution grant.
     pub allow_foreign: bool,
     /// Plugin grants.
@@ -77,6 +79,7 @@ impl SandboxSettings {
             || !self.allow_net.is_empty()
             || !self.allow_write.is_empty()
             || !self.allow_env.is_empty()
+            || !self.allow_process.is_empty()
             || !self.allow_plugin.is_empty()
             || !self.plugins.is_empty()
             || self.trust_native_plugin
@@ -85,9 +88,9 @@ impl SandboxSettings {
         if requested {
             return Err(
                 "strict mode currently supports pure Marqdo and native Math only; \
-                 --allow-read/--allow-write/--allow-env/--allow-foreign/--allow-plugin/\
-                 --plugin/--trust-native-plugin/--kernel/--trace-file are rejected. Use \
-                 --mode project for those capabilities."
+                 --allow-read/--allow-write/--allow-env/--allow-process/--allow-foreign/\
+                 --allow-plugin/--plugin/--trust-native-plugin/--kernel/--trace-file are
+                 rejected. Use --mode project for those capabilities."
                     .to_string(),
             );
         }
@@ -103,6 +106,7 @@ impl SandboxSettings {
                     || !self.allow_net.is_empty()
                     || !self.allow_write.is_empty()
                     || !self.allow_env.is_empty()
+                    || !self.allow_process.is_empty()
                     || self.allow_foreign
                     || !self.allow_plugin.is_empty()
                 {
@@ -125,6 +129,9 @@ impl SandboxSettings {
                 }
                 for name in &self.allow_env {
                     capabilities = capabilities.allow_env(name.clone());
+                }
+                for program in &self.allow_process {
+                    capabilities = capabilities.allow_process(program.clone());
                 }
                 if self.allow_foreign {
                     capabilities = capabilities.allow_foreign();

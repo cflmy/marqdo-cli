@@ -95,6 +95,9 @@ struct SandboxArgs {
     /// Grant read access to an environment variable (repeatable, ADR-0043).
     #[arg(long = "allow-env", value_name = "NAME")]
     allow_env: Vec<String>,
+    /// Grant execution of an exact program path (repeatable, ADR-0044).
+    #[arg(long = "allow-process", value_name = "PROGRAM")]
+    allow_process: Vec<String>,
     /// Grant explicit foreign kernel execution.
     #[arg(long = "allow-foreign")]
     allow_foreign: bool,
@@ -147,6 +150,7 @@ impl SandboxArgs {
             allow_net: self.allow_net.clone(),
             allow_write: self.allow_write.clone(),
             allow_env: self.allow_env.clone(),
+            allow_process: self.allow_process.clone(),
             allow_foreign: self.allow_foreign,
             allow_plugin: self.allow_plugin.clone(),
             fuel: self.fuel,

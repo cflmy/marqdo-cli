@@ -6,6 +6,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::net::{SocketAddr, TcpStream};
+use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -943,6 +944,121 @@ impl StdHost {
     }
 }
 
+fn process_error(code: &str, message: &str) -> Value {
+    let mut map = BTreeMap::new();
+    map.insert("ok".to_string(), Value::Bool(false));
+    map.insert("code".to_string(), Value::text(code));
+    map.insert("message".to_string(), Value::text(message));
+    Value::Map(map)
+}
+
+fn run_process(
+    root: &std::path::Path,
+    program: &str,
+    args: &[String],
+    ctx: &ExecutionContext,
+) -> Result<Value, RuntimeError> {
+    const LIMIT: usize = 1024 * 1024;
+    let child = Command::new(program)
+        .args(args)
+        .current_dir(root)
+        .env_clear()
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn();
+    let child = match child {
+        Ok(child) => child,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(process_error(
+                "process.not_found",
+                &format!("program `{program}` was not found"),
+            ))
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+            return Err(RuntimeError::new(
+                ErrorCategory::PermissionDenied,
+                ctx.span,
+                format!("cannot execute `{program}`: {error}"),
+            ))
+        }
+        Err(error) => {
+            return Err(RuntimeError::new(
+                ErrorCategory::HostError,
+                ctx.span,
+                format!("cannot start `{program}`: {error}"),
+            ))
+        }
+    };
+    let mut child = child;
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut timed_out = false;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            Ok(None) => {
+                timed_out = true;
+                let _ = child.kill();
+                break;
+            }
+            Err(error) => {
+                return Err(RuntimeError::new(
+                    ErrorCategory::HostError,
+                    ctx.span,
+                    format!("cannot wait for `{program}`: {error}"),
+                ))
+            }
+        }
+    }
+    let output = child.wait_with_output().map_err(|error| {
+        RuntimeError::new(
+            ErrorCategory::HostError,
+            ctx.span,
+            format!("cannot collect `{program}` output: {error}"),
+        )
+    })?;
+    if timed_out {
+        return Ok(process_error(
+            "process.timeout",
+            &format!("program `{program}` exceeded the 5 second limit"),
+        ));
+    }
+    if output.stdout.len() > LIMIT || output.stderr.len() > LIMIT {
+        return Ok(process_error(
+            "process.output_too_large",
+            &format!("program `{program}` exceeded the {LIMIT} byte output limit"),
+        ));
+    }
+    let stdout = String::from_utf8(output.stdout).map_err(|_| {
+        RuntimeError::new(
+            ErrorCategory::Type,
+            ctx.span,
+            format!("program `{program}` stdout is not valid UTF-8"),
+        )
+    })?;
+    let stderr = String::from_utf8(output.stderr).map_err(|_| {
+        RuntimeError::new(
+            ErrorCategory::Type,
+            ctx.span,
+            format!("program `{program}` stderr is not valid UTF-8"),
+        )
+    })?;
+    let mut value = BTreeMap::new();
+    value.insert(
+        "status".to_string(),
+        Value::int(output.status.code().unwrap_or(-1) as i64),
+    );
+    value.insert("stdout".to_string(), Value::text(stdout));
+    value.insert("stderr".to_string(), Value::text(stderr));
+    let mut map = BTreeMap::new();
+    map.insert("ok".to_string(), Value::Bool(true));
+    map.insert("value".to_string(), Value::Map(value));
+    Ok(Value::Map(map))
+}
+
 impl Host for StdHost {
     fn invoke(
         &mut self,
@@ -1126,6 +1242,58 @@ impl Host for StdHost {
                 ctx.span,
                 "resource operations accept only Text path arguments",
             ));
+        }
+        if operation == "process.run" {
+            if args.len() != 2 {
+                return Err(RuntimeError::new(
+                    ErrorCategory::Arity,
+                    ctx.span,
+                    format!(
+                        "resource operation `process.run` expects 2 arguments, got {}",
+                        args.len()
+                    ),
+                ));
+            }
+            let program_type = args[0].type_name();
+            let Value::Text(program) = args[0].clone() else {
+                return Err(RuntimeError::type_error(
+                    ctx.span,
+                    format!(
+                        "resource operation `process.run` expects a Text program, got {program_type}"
+                    ),
+                ));
+            };
+            let args_type = args[1].type_name();
+            let Value::List(values) = args[1].clone() else {
+                return Err(RuntimeError::type_error(
+                    ctx.span,
+                    format!(
+                        "resource operation `process.run` expects a List of Text arguments, got {args_type}"
+                    ),
+                ));
+            };
+            let mut program_args = Vec::with_capacity(values.len());
+            for value in values {
+                let value_type = value.type_name();
+                let Value::Text(value) = value else {
+                    return Err(RuntimeError::type_error(
+                        ctx.span,
+                        format!("process arguments must be Text, got {value_type}"),
+                    ));
+                };
+                program_args.push(value);
+            }
+            self.capabilities.check_process(&program, ctx.span)?;
+            let result = run_process(self.fs.root(), &program, &program_args, ctx)?;
+            self.record_semantic(
+                "resource.request",
+                None,
+                Some(&ctx.module_id),
+                ctx.span,
+                Some("op=process.run"),
+            );
+            self.record_resource_effect("resource.request", ctx, started, "process.run");
+            return Ok(result);
         }
         if operation == "env.get" {
             if args.len() != 1 {

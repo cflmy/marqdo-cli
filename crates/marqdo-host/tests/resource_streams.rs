@@ -682,3 +682,65 @@ fn env_get_requires_an_exact_grant_and_reports_missing_names() {
         .unwrap_err();
     assert_eq!(error.category, ErrorCategory::Arity);
 }
+
+#[cfg(unix)]
+#[test]
+fn process_run_requires_an_exact_program_grant() {
+    let dir = tempfile::tempdir().unwrap();
+    let ctx = context();
+    let mut denied = StdHost::new(SandboxMode::Project, Capabilities::project(), dir.path());
+    let error = denied
+        .resource_request(
+            "process.run",
+            vec![
+                Value::text("/bin/echo"),
+                Value::List(vec![Value::text("x")]),
+            ],
+            &ctx,
+        )
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+
+    let mut pure = StdHost::new(SandboxMode::Pure, Capabilities::pure(), dir.path());
+    let error = pure
+        .resource_request(
+            "process.run",
+            vec![
+                Value::text("/bin/echo"),
+                Value::List(vec![Value::text("x")]),
+            ],
+            &ctx,
+        )
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+
+    let capabilities = Capabilities::project().allow_process("/bin/echo");
+    let mut host = StdHost::new(SandboxMode::Project, capabilities, dir.path());
+    let result = host
+        .resource_request(
+            "process.run",
+            vec![
+                Value::text("/bin/echo"),
+                Value::List(vec![Value::text("hello")]),
+            ],
+            &ctx,
+        )
+        .unwrap();
+    assert_eq!(field(&result, "ok"), &Value::Bool(true));
+    let value = field(&result, "value");
+    assert_eq!(field(value, "status"), &Value::int(0));
+    assert_eq!(field(value, "stdout"), &Value::text("hello\n"));
+    assert_eq!(field(value, "stderr"), &Value::text(""));
+
+    let missing = host
+        .resource_request(
+            "process.run",
+            vec![
+                Value::text("/bin/definitely-not-a-program"),
+                Value::List(Vec::new()),
+            ],
+            &ctx,
+        )
+        .unwrap_err();
+    assert_eq!(missing.category, ErrorCategory::PermissionDenied);
+}

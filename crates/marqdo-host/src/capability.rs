@@ -319,6 +319,8 @@ pub struct Capabilities {
     pub net_hosts: Vec<String>,
     /// Allowed environment variable names (empty = no environment).
     pub env: Vec<String>,
+    /// Allowed process program paths (empty = no process execution).
+    pub process_programs: Vec<String>,
     /// May spawn processes (foreign kernels).
     pub process: bool,
     /// May run foreign kernels (Python/Node).
@@ -339,6 +341,7 @@ impl Capabilities {
             fs_write: Vec::new(),
             net_hosts: Vec::new(),
             env: Vec::new(),
+            process_programs: Vec::new(),
             process: false,
             foreign: false,
             plugins: Vec::new(),
@@ -379,6 +382,29 @@ impl Capabilities {
                 span,
                 format!("environment variable `{name}` was not granted"),
                 format!("grant it with --allow-env {name}"),
+            ))
+        }
+    }
+
+    /// Grant execution of one exact program path (ADR-0044).
+    pub fn allow_process(mut self, program: impl Into<String>) -> Self {
+        self.process_programs.push(program.into());
+        self
+    }
+
+    /// Check an exact process-program grant.
+    pub fn check_process(&self, program: &str, span: Option<Span>) -> Result<(), RuntimeError> {
+        if self
+            .process_programs
+            .iter()
+            .any(|allowed| allowed == program)
+        {
+            Ok(())
+        } else {
+            Err(denied(
+                span,
+                format!("process `{program}` was not granted"),
+                format!("grant it with --allow-process {program}"),
             ))
         }
     }

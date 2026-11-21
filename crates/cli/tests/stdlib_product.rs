@@ -81,6 +81,8 @@ fn product_tests() -> Vec<TestFile> {
                     "--allow-env",
                     "MARQDO_MISSING_ENV",
                 ][..]
+            } else if name == "process.mq.md" {
+                &["--allow-process", "/bin/echo"][..]
             } else {
                 &[][..]
             };
@@ -155,6 +157,7 @@ fn every_public_stdlib_module_has_a_product_test() {
             "io.mq.md",
             "json.mq.md",
             "path.mq.md",
+            "process.mq.md",
             "regex.mq.md",
             "stream.mq.md",
             "table.mq.md",
@@ -342,6 +345,21 @@ fn env_test_reads_only_granted_names() {
     assert_eq!(items[3]["value"], "env-value");
     assert_eq!(items[4]["value"], false);
     assert_eq!(items[5]["value"], "env.not_found");
+}
+
+#[test]
+fn process_test_runs_an_explicitly_granted_program() {
+    let report = run_product_test(
+        product_tests()
+            .iter()
+            .find(|file| file.name == "process.mq.md")
+            .expect("process test"),
+    );
+    let items = report["value"]["items"].as_array().expect("list");
+    assert_eq!(items[0]["value"], true);
+    assert_eq!(items[1]["decimal"], "0");
+    assert_eq!(items[2]["value"], "hello\n");
+    assert_eq!(items[3]["value"], "");
 }
 
 #[test]
