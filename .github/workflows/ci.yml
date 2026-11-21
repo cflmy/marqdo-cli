@@ -150,7 +150,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set +e
           json=$(cargo run -q -p marqdo-cli -- run examples/hello.mq.md --mode strict --json)
+          code=$?
+          set -e
+          test "$code" -eq 1
           JSON_DOC="$json" python3 - <<'PY'
           import json, os
           document = json.loads(os.environ["JSON_DOC"])

@@ -105,10 +105,10 @@ Executed evidence:
 
 | Lane | Result | Evidence |
 |---|---|---|
-| Linux fmt/clippy/test/build (Woodpecker) | **PASS** | pipelines `#9`–`#12` and `#14` on `0d7e11b`; `#13` was superseded/cancelled by the next push, not a failure |
+| Linux fmt/clippy/test/build (Woodpecker) | **PASS** | pipelines `#9`–`#12`, `#14` and `#16` on `512b9f5`; `#13`/`#15` were superseded/cancelled by the next push, not failures |
 | Windows portability | **PASS (cross-target check)** | `cargo check --workspace --all-targets --locked --target x86_64-pc-windows-gnu` on this Linux host with MinGW; native `windows-latest` GitHub run still required for release |
 | macOS portability | **UNVERIFIED** | native `macos-latest` run required; cross-check from this Linux host is blocked by `ring`'s Darwin C/asm toolchain, not by Marqdo code |
-| G3 strict isolation | **PASS (local disposable VM) / remote UNVERIFIED** | `0d7e11b`, `dev` uid 1000, QEMU/TCG, 7/7 + strict JSON/inert-`@knowledge`; [`evidence/2026-11-21-strict-gc-0d7e11b.md`](evidence/2026-11-21-strict-gc-0d7e11b.md) |
+| G3 strict isolation | **PASS (local disposable VM) / remote UNVERIFIED** | `512b9f5`, `dev` uid 1000, QEMU/TCG, 7/7 + strict JSON/inert-`@knowledge`; [`evidence/2026-11-21-strict-gc-512b9f5.md`](evidence/2026-11-21-strict-gc-512b9f5.md) |
 | G4 performance | **SMOKE / UNVERIFIED** | nine workloads `VERIFIED` on the dev container, 1 warmup + 3 samples; [`evidence/2026-11-21-perf-smoke-0d7e11b.md`](evidence/2026-11-21-perf-smoke-0d7e11b.md) |
 
 Release decision: **DO NOT RELEASE.** Linux is green on Woodpecker, the strict
@@ -474,9 +474,9 @@ user-written allocator is explicitly **not** claimed.
   print, strict file-resource refusal, forged-marker rejection and raw log.
 - [`evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md`](evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md)
   — G0..G12 matrix and RC decision.
-- [`evidence/2026-11-21-strict-gc-0d7e11b.md`](evidence/2026-11-21-strict-gc-0d7e11b.md)
+- [`evidence/2026-11-21-strict-gc-512b9f5.md`](evidence/2026-11-21-strict-gc-512b9f5.md)
   — RFC-CI-0001 series G-C: local disposable VM, `dev` uid 1000, 7/7 plus the
-  strict JSON and inert-`@knowledge` contracts at `0d7e11b`.
+  strict JSON and inert-`@knowledge` contracts at `512b9f5`.
 - [`evidence/2026-11-21-perf-smoke-0d7e11b.md`](evidence/2026-11-21-perf-smoke-0d7e11b.md)
   — `marqdo.perf.v2` smoke: nine workloads correctness-verified, explicitly
   not a G4 release baseline.

@@ -4,24 +4,24 @@ Status: **PASSED on the current CI-fix series in a local disposable Ubuntu
 VM; Linux strict is enabled only when the runtime probe succeeds. REMOTE G3
 UNVERIFIED: no self-hosted security-lane CI URL exists yet.**
 
-Current evidence: source SHA `0d7e11b6f1553fb5fc24214dddac11d5db65cf91`,
+Current evidence: source SHA `512b9f5f1da6c56959ebb801d31a1887b1c341c3`,
 ordinary user `dev` (uid 1000), QEMU/TCG guest, 7/7 adversarial tests plus the
 strict `--json` and inert-`@knowledge` contracts — see
-[`evidence/2026-11-21-strict-gc-0d7e11b.md`](evidence/2026-11-21-strict-gc-0d7e11b.md).
+[`evidence/2026-11-21-strict-gc-512b9f5.md`](evidence/2026-11-21-strict-gc-512b9f5.md).
 The older `8af7262` and `b6fc182` runs are retained below as history.
 Snapshot: workspace `0.1.0`, 2026-11-21. See ADR-0021 and ADR-0053.
 
 > **Language-syntax status.** The lane was re-run on the RFC-LANG-0002 tree
 > ([`architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md))
-> at `0d7e11b`, including the strict `@knowledge`-inert check. The security
+> at `512b9f5`, including the strict `@knowledge`-inert check. The security
 > facts are unchanged: `@exec` is a compile-time projection, not a capability
 > grant; `@knowledge` produces no IR and therefore no host effect; resource,
 > file, network, stdin/stdout, memory and budget checks remain at the
 > `CapabilityHost` boundary, and the strict sandbox is unaffected. See
 > [`STATUS.md`](STATUS.md) for the language gate and
 > [`evidence/2026-11-21-semantics-v2-green.md`](evidence/2026-11-21-semantics-v2-green.md).
-> The `990e984` run is the earlier code-equivalent evidence; `0d7e11b` adds
-> only the CI/docs evidence commit on top.
+> The earlier `0d7e11b`/`990e984` runs are code-equivalent evidence;
+> `512b9f5` adds only the evidence-failure hardening in the lane script.
 
 This report separates three things that are often conflated:
 
@@ -144,13 +144,13 @@ MARQDO_STRICT_ACTIVE=1 run --mode strict --json   -> one JSON doc,
 
 ### 4.1 Current evidence document
 
-`0d7e11b` was archived with `git archive` and transferred as an ordinary user:
+`512b9f5` was archived with `git archive` and transferred as an ordinary user:
 
 ```text
-tested_sha:            0d7e11b6f1553fb5fc24214dddac11d5db65cf91
-source archive:        sha256:8a5af9712f994ac88ed43ec1cf9708b38bc92d76a8ad761b7e07e8e23b7e3503
-strict-evidence.json:  sha256:c9de85c60b13b9b4a71b9ccba6d1812fc0d4af6e64187c67ae7bd0e602f083e8
-lane log:              sha256:6e9f0e6e96f505c413e008c4b0ac3bee3d65cf4a2182136dfd27678ae8e75dea
+tested_sha:            512b9f5f1da6c56959ebb801d31a1887b1c341c3
+source archive:        sha256:f7c975b884fae6c79fb091324a85f8bcddf5b50ffa9082d7f97eb51823254104
+strict-evidence.json:  sha256:d8973396db8882ed7abeec89aa4be695acbdfebef3a3bdfd99d0ad5621486cfa
+lane log:              sha256:e9418f3b209a08524e2e5601dc14c28d46b4337cb42724c8e4f470c92d2dfa82
 base image:            sha256:7b90593f5532b49b7e3fe3d2743f0d1f0d822e5b07cebcd8e00c0df8069ecab9
 guest:                 Ubuntu 26.04.1, kernel 7.0.0-43-generic, bwrap 0.11.1
 user:                  dev uid 1000 (root=false), container=none
