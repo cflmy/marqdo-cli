@@ -163,6 +163,19 @@ pub fn analyze_source(module_id: &str, source: &str) -> AnalysisResult {
     };
     diagnostics.extend(calls::validate_module(&module));
 
+    // One stable order for every consumer: source position first, then the
+    // stable code, as required by `spec/mapping.md` §8. Diagnostics without a
+    // precise span sort last.
+    diagnostics.sort_by(|left, right| {
+        let left_key = (left.span.map(|span| span.start), left.code.as_str());
+        let right_key = (right.span.map(|span| span.start), right.code.as_str());
+        left_key
+            .0
+            .unwrap_or(usize::MAX)
+            .cmp(&right_key.0.unwrap_or(usize::MAX))
+            .then_with(|| left_key.1.cmp(right_key.1))
+    });
+
     AnalysisResult {
         module,
         document,
@@ -235,6 +248,26 @@ mod tests {
         let function = result.module.function("倒计时").expect("countdown");
         assert!(function.params.is_empty());
         assert!(matches!(function.body[1], marqdo_ir::Stmt::Loop { .. }));
+    }
+
+    #[test]
+    fn diagnostics_are_sorted_by_position_then_code() {
+        // The duplicate-heading error is found while indexing (later in the
+        // file); the payload syntax error is found while mapping (earlier).
+        // The public order must be by source position, not pipeline stage.
+        let source = "## @exec f\n\n`x =`\n\n## @exec f\n";
+        let result = analyze(source);
+        let codes: Vec<&str> = result
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.code.as_str())
+            .collect();
+        assert_eq!(
+            codes,
+            vec!["sem.syntax", "sem.duplicate_unit_name"],
+            "{:#?}",
+            result.diagnostics
+        );
     }
 
     #[test]
