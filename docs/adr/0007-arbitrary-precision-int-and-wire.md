@@ -1,5 +1,13 @@
 # ADR-0007: Arbitrary-precision `Int` and the typed wire encoding (S-08)
 
+> **Historical syntax note.** The numeric model and typed wire-encoding
+> decisions remain current. The phrase "code spans/plain text of
+> `strong`/`emph`/conditions" below describes the pre-RFC-LANG-0002
+> payload/condition mapping; under
+> [RFC-LANG-0002](../architecture/RFC-LANG-0002-unified-semantics.md) /
+> [ADR-0052](0052-unified-markdown-semantics.md), payloads are carried by
+> `Strong`, `Emph` or inline `Code` and control flow is keyword based.
+
 Status: **Accepted**
 Date: 2026-11-20
 

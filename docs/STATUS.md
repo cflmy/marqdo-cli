@@ -38,15 +38,23 @@ What changed in this migration:
 
 What did **not** change in this migration:
 
-* the Rust frontend (`units.rs`, `payload.rs`, `map.rs`, `signature.rs`), the
-  expression parser and the bundled `stdlib/**/*.mq.md` still implement the
-  pre-RFC mapping;
+* the Rust frontend migration is only partially present in this worktree:
+  heading-mode/Knowledge-unit plumbing has begun, but the executable mapping
+  (`map.rs`), statement parser and the bundled `stdlib/**/*.mq.md` still follow
+  pre-RFC behaviour;
 * as a result, `cargo test --workspace --locked` is **expected to be red**: the
   semantic/negative/CLI fixtures now feed the old frontend. The last green
   workspace run (491 passed, 0 failed, 2 ignored at `8af7262`) is historical
   evidence for the pre-migration tree, not for this worktree;
 * no platform, security or protocol result should be inferred from this
   documentation migration.
+
+Observed in this worktree
+([evidence](evidence/2026-11-21-semantic-docs-migration.md)):
+`cargo fmt --all -- --check` PASS; `cargo check --workspace --tests --locked`
+PASS; `conformance_ast` 4/4 PASS; `docs_consistency` 4/4 PASS;
+`conformance_semantics` and `negative` FAIL as expected against the pre-RFC
+frontend. The migrated example lock digest was regenerated with the real CLI.
 
 Remaining work, owners and status: [`migration/README.md`](migration/README.md)
 and [`migration/semantic-rewrite-inventory.tsv`](migration/semantic-rewrite-inventory.tsv).
@@ -123,6 +131,12 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 
 ## 2. Work package status
 
+> **Pre-RFC baseline warning.** Rows and numbers in this section describe work
+> executed before the RFC-LANG-0002 syntax migration. The Markdown/AST and
+> platform/security rows remain valid; language-source rows (fixtures, control
+> mapping, semantic goldens) are historical and are expected red until the
+> frontend migration lands. See §0.
+
 | # | Work package | State | Evidence |
 |---|---|---|---|
 | 0 | Windows AST line endings | Fixed locally; **Windows CI UNVERIFIED** | `.gitattributes`, CRLF fixture |
@@ -130,8 +144,8 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 | 2 | Cross-platform strict `cfg` | **Fixed locally; native CI UNVERIFIED** | `#[cfg]` dispatch + non-Linux regression test |
 | 3 | Strict probe→launch race | **Fixed locally; GitHub Linux CI UNVERIFIED** | fail-closed CLI contract + probe-OK/launch-EAGAIN seam test |
 | 4 | Parallel security matrix isolation | **Fixed** | unique paths + helper `OnceLock`; 7/7 in parallel workspace run |
-| 5 | Markdown/power/control-flow corpus | **Done locally** | 160 AST, 73 semantic, 52 compile-negative, 21 runtime-negative fixtures |
-| 6 | Condition header + source spans | **Fixed** | executable tails rejected; literal-inside-backtick mapping tests |
+| 5 | Markdown/power/control-flow corpus | **Pre-RFC evidence; test text migrated, execution pending** | 160 AST + 73 semantic + 45 compile-negative + 2 warning + 21 runtime-negative fixtures after migration; suites expected red |
+| 6 | Condition header + source spans | **Historical (old syntax)** | condition headers were removed by RFC-LANG-0002; payload/source-span rules live in `spec/mapping.md` §3 |
 | 7 | Independent Tool consumers | **Done locally** | `sample-view`/`sample-knowledge`/`sample-proof` E2E test |
 | 8 | lock v3 reproducibility | **Implemented; tamper test added** | `package_env` PASS |
 | 9 | Analysis/Trace/Tool/ABI/Foreign | **Implemented; supported-matrix bounded** | protocol tests, plugin/worker/foreign tests |
@@ -144,9 +158,11 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 ## 3. Verified capabilities
 
 - Frozen Markdown profile `marqdo.md.v1` with 160 AST goldens and explicit
-  CRLF byte semantics.
-- Native Rust interpreter with 73 semantic goldens, 52 compile-error fixtures,
-  and runtime error source attribution.
+  CRLF byte semantics (unchanged by the semantic rewrite).
+- Native Rust interpreter (pre-RFC mapping) with 73 migrated semantic fixtures,
+  45 migrated compile-error fixtures, 2 warning fixtures and 21 runtime-error
+  fixtures; the executable suites are **expected red** until the frontend
+  migration lands, so these are not current PASS evidence.
 - Native `**` power is pinned end-to-end: right associativity, unary-minus
   precedence, parentheses, float negative exponents, branch/loop conditions,
   Strong+CodeSpan payloads, and inert prose/code fences.

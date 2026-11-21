@@ -160,7 +160,7 @@ Diagnostics no longer embed absolute physical paths:
   "line": 2,
   "column": 3,
   "severity": "warning",
-  "code": "markdown.inert_executable",
+  "code": "sem.inferred_signature",
   "message": "...",
   "hints": []
 }
@@ -169,6 +169,11 @@ Diagnostics no longer embed absolute physical paths:
 `span` is the primary coordinate; `line`/`column` are presentation-derived from
 the owning module. `span`, `line` or `column` may be `null` when no precise
 location exists.
+
+The `code` value is an open, stable string: the current language revision adds
+the `sem.*` family (`spec/mapping.md` §8) and removes the old
+`markdown.inert_executable` warning. This is a diagnostic-value change, not an
+Analysis schema change; `schema_version` stays 2.
 
 ## 6. Compatibility
 

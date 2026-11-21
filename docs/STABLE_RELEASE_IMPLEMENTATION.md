@@ -1,5 +1,15 @@
 # Marqdo CLI 稳定版本开发与发布实施总规范
 
+> **Historical roadmap note / superseded language syntax.** 本文件是稳定版本
+> 规划快照（编写基线 `e966b766`，2026-11-20），不是执行状态记录。其语言前提
+> 早于
+> [`docs/architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md)
+> （[ADR-0052](adr/0052-unified-markdown-semantics.md)）：旧 `Strong`=执行、
+> `Emph`=返回、列表=分支/循环、引用块=调用的映射已被废止；语言语义只以该 RFC
+> 与 `spec/mapping.md` / `spec/expression.ebnf` 为准。发布计划/门槛内容仍可作为
+> 下一阶段规划的参考输入，但必须按当前 HEAD、`docs/STATUS.md` 与迁移台账刷新后
+> 才能当作现行门禁；不得据此声称新语法或任一平台已完成。
+
 > **定位：** 可直接提交到 `cflmy/marqdo-cli` 的 `docs/STABLE_RELEASE_IMPLEMENTATION.md`，并完整交由 DeepSeek Harness 执行。  
 > **状态：** Proposed / 下一阶段唯一总体实施计划（必须以实际代码、规范和测试验证结果修正状态）。  
 > **编写基线：** `cflmy/marqdo-cli`，默认分支 `master`，远程 HEAD `e966b7661f03ee7462df959917f5630353e66b10`（2026-11-20）。  

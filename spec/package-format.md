@@ -257,16 +257,17 @@ after its file-set digest and cache marker verify.
   ```
 
   (empty dependencies/plugins/capabilities are omitted);
-* writes `index.mq.md`:
+* writes `index.mq.md` (the target syntax; the template in a pre-RFC binary
+  still emits the old spelling and is part of the pending migration):
 
   ```markdown
-  ## main
+  ## @exec main
 
-  **问候 = "你好，Marqdo"**
+  `问候 = "你好，Marqdo"`
 
-  > 打印(问候)
+  `打印(问候)`
 
-  *问候*
+  `return 问候`
   ```
 
 * writes `.gitignore` containing `.marqdo/`;

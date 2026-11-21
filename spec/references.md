@@ -1,7 +1,9 @@
-# Marqdo References, Imports and Calls v1
+# Marqdo References, Imports and Calls
 
-Status: **frozen for M0.5 except where marked "current limitation".** Language
-changes require an ADR plus updated tests.
+Status: **current contract; breaking syntax revision (RFC-LANG-0002)**.
+Import/reference/call identity, lock and resolution rules are unchanged; the
+source spelling of a function heading and a call statement changed. See
+`spec/mapping.md` for the current AST→program mapping.
 
 Normative implementation:
 
@@ -10,9 +12,9 @@ Normative implementation:
 | Front matter parsing | `crates/marqdo-markdown/src/frontmatter.rs` |
 | Module loading, project root, cycles | `crates/cli/src/loader.rs` |
 | Module/Unit/Function identities | `crates/marqdo-ir/src/lib.rs` |
-| Heading scopes, anchors | `crates/marqdo-frontend/src/units.rs` |
+| Heading scopes, modes, anchors | `crates/marqdo-frontend/src/units.rs` |
 | Resource collection and attribution | `crates/marqdo-frontend/src/resources.rs` |
-| Link-call mapping | `crates/marqdo-frontend/src/map.rs` |
+| Executable payload → statement mapping | `crates/marqdo-frontend/src/map.rs` |
 | `ref(...)` runtime resolution | `crates/marqdo-runtime/src/builtins_impl.rs` |
 | Static link graph (`inspect --refs`) | `crates/cli/src/commands.rs` |
 | Cross-module call validation | `crates/marqdo-frontend/src/calls.rs` |
@@ -29,12 +31,14 @@ separate and **only the call edge can execute code**.
 |---|---|---|---|
 | **Import** | YAML front matter `import:` mapping | module load / static analysis | No. Imported modules only register definitions; their `main` never runs. |
 | **Reference** | Markdown `[label](url)` | `inspect --refs` (static graph) | No. Rendered/read as documentation only. |
-| **Call** | `> f(...)` block quote, link-form block quote `> [f](#f)(...)`, or a `CallExpr` in an executable payload | static validation, then execution | Yes, at runtime, through the interpreter. |
+| **Call** | a `CallExpr` in an executable payload, e.g. `` `f(...)` ``, `**f(...)**`, `*f(...)*` or `> **f(...)**` | static validation, then execution | Yes, at runtime, through the interpreter. |
 
 Consequences:
 
 * A Markdown link never calls, imports or loads anything. `[计算作用力](#计算作用力)`
-  is a reference; `> [计算作用力](#计算作用力)()` is a call.
+  is a reference; `` `计算作用力()` `` in an Exec section is a call.
+* The block quote itself never creates a call. `> print(1)` is inert prose;
+  `> **print(1)**` contains a call payload.
 * `ref("#anchor")` is a **runtime builtin**, not an import; it only resolves an
   inert resource or function reference in the running module.
 * The reference graph is static metadata and creates no proof obligation.
@@ -81,10 +85,14 @@ pub struct UnitId { pub module: ModuleId, pub path: Vec<String> }
   outermost heading to this unit (root unit has an empty path).
 * Canonical heading names are NFC-normalized, trimmed, with internal
   whitespace collapsed to one space (`marqdo_markdown::normalize_name`).
+* A heading mode declaration (`@exec`/`@knowledge`) is stripped before
+  normalization. `## @exec main` has the semantic name `main`; the declaration
+  is never part of a `UnitId`, `FunctionId` or anchor.
 * `Display` renders `<module>#<path joined by '/'>`; the root unit renders as
   `<module>#`.
-* `UnitKind` is `root`, `namespace` (`#`), `function` (`##`) or `section`
-  (`###`+). Sections are addressable but not callable.
+* `UnitKind` is `root`, `namespace` (`#`), `function` (`##` Exec) or `section`
+  (`###`+). A Knowledge H2 is an addressable knowledge unit, not a `function`.
+  Sections are addressable but not callable.
 
 ### 2.3 `FunctionId`
 
@@ -101,8 +109,8 @@ pub struct FunctionId { pub module: ModuleId, pub name: String }
   `local_name`; if several namespaces define the same local name the lookup
   returns `None` rather than guessing.
 * No overloads: duplicate canonical names in one scope are hard errors
-  (`markdown.invalid_construct`, "duplicate heading name ... in the same
-  scope") and are never auto-suffixed.
+  (`sem.duplicate_unit_name`, "duplicate heading name ... in the same scope") and
+  are never auto-suffixed.
 
 ### 2.4 Anchors are a separate namespace, not identity
 
@@ -129,7 +137,7 @@ import:
   util: "./lib/util.mq.md"
 ---
 
-# main
+# @exec main
 ```
 
 Parsing rules (`crates/marqdo-markdown/src/frontmatter.rs::imports`):
@@ -139,6 +147,9 @@ Parsing rules (`crates/marqdo-markdown/src/frontmatter.rs::imports`):
 * any other front matter key is metadata for tools and is ignored by the
   interpreter; invalid YAML is a `frontmatter.invalid` diagnostic, never
   silently dropped;
+* the removed `marqdo_semantics`/`syntax` keys are **not** metadata that may be
+  ignored: seeing them is `sem.unsupported_version_directive` because they
+  would otherwise look like a syntax selector;
 * imports are never inferred: a link, a file name or a directory scan does not
   create an import;
 * the diagnostic span recorded for all imports of a file is the whole front
@@ -271,17 +282,20 @@ Algorithm:
 Example (from `examples/math.mq.md`):
 
 ```markdown
-## 圆面积公式
+# @knowledge 数学
+
+## @knowledge 圆面积公式
 
 $$
 A = \pi r^2
 $$
 
-## 计算圆面积
+## @exec 计算圆面积
 
-**面积 = math.eval(ref("#圆面积公式"), {"r": 4}, target="A")**
+`params(r: Number)`
 
-*面积*
+`面积 = math.eval(ref("#圆面积公式"), {"r": r}, target="A")`
+`return 面积`
 ```
 
 `ref("#圆面积公式")` resolves the single formula under that heading; the
@@ -298,7 +312,9 @@ formula is still inert until `math.eval` consumes it.
 | module not present in the program | `symbol.unknown` |
 
 `ref.unresolved` (`crates/marqdo-value/src/diagnostic.rs`) is a **compile-time**
-code used by link-form call mapping, not by the `ref` builtin.
+code used by `check --refs` link validation (and by stale pre-RFC link-call
+fixtures), not by the `ref` builtin. There is no link-form call in the current
+language.
 
 ## 6. Call edges
 
@@ -316,25 +332,26 @@ Static validation (`crates/marqdo-frontend/src/calls.rs`) checks arity,
 argument names and the named-only rule for inferred signatures. Type errors are
 runtime concerns in v1.
 
-### 6.2 Block-quote calls
+### 6.2 Calls written in payloads
 
-`> f(...)` is a call statement; the payload must parse as a complete
-`CallExpr` (see `mapping.md` §4.5). Its result is discarded.
+A call is a statement or expression inside an executable payload, for example
+`` `f(...)` ``, `**f(...)**`, `*f(...)*` or `> **f(...)**`. Its result is
+discarded unless it is used by an assignment or another expression.
 
-Link form `> [label](#anchor)(args)` resolves the link target **within the
-current module** using the anchor map, then the canonical unit-name fallback,
-and requires the target to be a function unit. Notes:
+The old link-form block-quote call (`> [label](#anchor)(args)`) is **removed**
+with the previous syntax; a block quote is now an ordinary container and its
+plain content is inert. Migrate such a call to an ordinary payload call. If the
+target can only be expressed as a link in the old form and no stable function
+reference exists, stop and require a manual rewrite; do not generate a call the
+new grammar cannot express.
 
-* a zero-argument link call must still write `()`; proxy `> [f](#f)` is a hard
-  error;
-* `http(s)` link targets used as calls are a hard `ref.unresolved` error;
-  external links are never downloaded or called;
-* a relative-path link target such as `> [f](./other.mq.md#f)(x=1)` is
-  **not supported** in this build: mapping reports `module.unresolved` with
-  the hint to import the module in front matter and call through its alias.
-  Cross-module calls therefore go through an alias expression
-  (`geometry.f(...)`), not through a Markdown link. Blueprint §2.4's
-  `> [计算面积](./math.mq.md#计算面积)(r=3)` example is a **known divergence**.
+Notes:
+
+* a call expression with no arguments still writes `()`; a bare function value
+  is not a call;
+* `http(s)` link targets are never downloaded or called;
+* cross-module calls go through an import alias expression
+  (`geometry.f(...)`), never through a Markdown link.
 
 ### 6.3 Imported alias calls
 
@@ -347,13 +364,22 @@ program is loaded, and emits `symbol.unknown` for an unknown function.
 
 | Code | Severity | Where produced |
 |---|---|---|
-| `module.unresolved` | error | loader (bad import target), call mapping (relative-path link call) |
+| `module.unresolved` | error | loader (bad import target) |
 | `module.cycle` | error | loader |
-| `ref.unresolved` | error | link-form call target mapping, external links used as calls, `check --refs` link validation |
+| `ref.unresolved` | error | `check --refs` link validation, stale link-form call fixtures |
 | `ref.ambiguous` | runtime error | `ref` builtin (≥ 2 resources) |
 | `symbol.unknown` | error / runtime error | static call validation; `ref` anchor miss at runtime |
 | `frontmatter.invalid` | error | analyser (bad YAML/import shape) |
-| `markdown.invalid_construct` | error | empty/duplicate heading names, invalid link-call shape |
+| `sem.invalid_mode_marker` | error | heading mode declaration (see `mapping.md` §8) |
+| `sem.empty_unit_name` | error | heading mode declaration with no name |
+| `sem.duplicate_unit_name` | error | duplicate canonical heading/unit name in one scope |
+| `sem.exec_without_function` | error | Exec payload with no owning Exec H2 |
+| `sem.unsupported_version_directive` | error | legacy `marqdo_semantics`/syntax-selection front matter |
+
+The previous `markdown.invalid_construct` role errors (Strong/Emph/List/Quote
+shape, empty or duplicate heading names) are replaced by the `sem.*` codes and
+the heading-name validation in `mapping.md`; runtime shape errors keep their
+existing `runtime.*` codes.
 
 ## 8. Current limitations (open ADR candidates)
 
@@ -361,10 +387,13 @@ program is loaded, and emits `symbol.unknown` for an unknown function.
    documented syntax for referencing a resource in an imported module.
 2. Ordinary Markdown link resolution is inspection-only; `check` does not
    validate links and there is no `--refs` flag on `check`.
-3. Link-form calls cannot cross modules (see §6.2).
+3. Markdown links never call; the removed link-form block-quote call has no
+   replacement link syntax (use a payload call).
 4. Headings inside container blocks or fenced code never create units, and a
-   heading whose name is empty is a hard error rather than an ignored heading.
+   heading whose semantic name is empty is a hard error rather than an ignored
+   heading.
 5. Anchor lookup in `ref` does not fall back to canonical unit names, while
-   link-form calls and `inspect --refs` do. This asymmetry is intentional for
-   the frozen build but should be unified by a future ADR (it is easy to get
-   surprising results with headings containing punctuation).
+   `inspect --refs` does. This asymmetry is intentional for the frozen build
+   but should be unified by a future ADR.
+6. A legacy front matter key such as `marqdo_semantics` is rejected
+   (`sem.unsupported_version_directive`); it is not a syntax selector.

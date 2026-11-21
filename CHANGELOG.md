@@ -5,6 +5,66 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
 
 ## Unreleased (stabilization candidate)
 
+### Breaking changes — language source syntax (RFC-LANG-0002)
+
+**The `.mq.md` source language changed incompatibly. Old source files are not
+executable.** The current contract is
+[`docs/architecture/RFC-LANG-0002-unified-semantics.md`](docs/architecture/RFC-LANG-0002-unified-semantics.md)
+(accepted by [`docs/adr/0052-unified-markdown-semantics.md`](docs/adr/0052-unified-markdown-semantics.md)),
+summarized normatively in [`spec/mapping.md`](spec/mapping.md) and
+[`spec/expression.ebnf`](spec/expression.ebnf).
+
+- Removed the old mapping in which `Strong` executes, `Emph` returns, an
+  ordered list is a branch, a bullet list is a loop, a block quote is a call and
+  the first standalone code span is a signature.
+- Headings now declare `@exec` / `@knowledge`; unmarked headings inherit the
+  nearest ancestor's mode, and the document root is Knowledge.
+- Only an Exec H2 is a callable function; H2 Knowledge is inert and H3–H6 are
+  non-callable sections. A payload with no owning Exec H2 is
+  `sem.exec_without_function`.
+- `Strong`, `Emph` and inline `Code` are interchangeable carriers of exactly one
+  statement; the AST kind no longer selects the operation.
+- Control flow comes from keywords in the payload: `if`/`else`/`while`/`end`
+  (explicitly closed) plus `return <expr>` and `params(...)`. Ordered lists,
+  bullet lists, block quotes and paragraphs are presentation containers with no
+  instruction type; a plain list or quote produces zero statements.
+- `params(...)` is the only function-signature declaration, legal only as the
+  first direct payload of an Exec H2. An Emph/Strong payload in a signature
+  position is no longer special.
+- There is no syntax version switch, per-file selector, `--legacy` path or
+  fallback mapper; `marqdo_semantics`/syntax-selection front matter is rejected.
+
+**This entry records the accepted target contract, not a finished
+implementation.** The Rust frontend, expression parser and bundled stdlib in
+this checkout still implement the pre-RFC mapping, so executable-source tests
+are expected to be red until the migration lands; see
+[`docs/STATUS.md`](docs/STATUS.md) and
+[`docs/migration/README.md`](docs/migration/README.md). Do not describe this
+candidate as accepting the new syntax.
+
+**Required migration actions for consumers and the repository:**
+
+1. Rewrite every active `.mq.md` source by AST role (not by a global regex):
+   stdlib modules, examples, fixtures, project templates, Rust-embedded samples
+   and documentation snippets.
+2. Give callable functions an explicit `## @exec 名称` heading, or place them
+   under an `# @exec` namespace. Knowledge documents and visual emphasis belong
+   in `@knowledge` sections; a `Strong`/`Emph` payload in an Exec section is a
+   statement and may fail as an unknown symbol.
+3. Replace italic returns with `return <expr>` in any carrier.
+4. Convert an ordered-list branch to a first-true nested `if`/`else`/`end`
+   chain; convert each bullet-list item to its own `while`/`end` loop, preserving
+   item order and early-return behavior.
+5. Convert block-quote calls to payload calls (`**print(x)**`,
+   `` `print(x)` `` or `> **print(x)**`) and standalone code-span signatures to
+   `params(...)` as the first direct Exec H2 payload.
+6. Replace old shape expectations with the `sem.*` diagnostics in
+   `spec/mapping.md` §8; ordinary lists/quotes are now valid inert Markdown.
+7. Regenerate `stdlib/stdlib.json` only in the same change that migrates the
+   stdlib sources, and never use `UPDATE_*_GOLDENS=1` to mask a semantic change.
+8. A dependency or lock built from old source syntax is not compatible; relock
+   and re-verify the package instance identity after migration.
+
 ### Added
 
 - `.gitattributes` byte-identity policy: canonical LF for text files and one
@@ -35,7 +95,9 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
   compile-negative fixtures and 2 runtime-negative fixtures covering
   right-associative `**`, unary-minus precedence, parentheses, float negative
   exponents, Strong+CodeSpan payloads, branch/loop conditions, inert prose and
-  code fences, and source spans inside one/two-backtick code spans.
+  code fences, and source spans inside one/two-backtick code spans. (Recorded
+  under the pre-RFC mapping, now superseded by RFC-LANG-0002; the fixtures are
+  being migrated to the unified payload/keyword syntax.)
 - Independent Tool Protocol v1 consumers `sample-view`, `sample-knowledge` and
   `sample-proof` (analysis/trace readers) with install, dispatch and remove
   tests; none is a hard-coded CLI command.
@@ -181,6 +243,11 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
 
 ### Changed
 
+- `spec/mapping.md` and `spec/expression.ebnf` were replaced in place by the
+  RFC-LANG-0002 contract (heading modes, unified payload carriers, keyword
+  control flow). `spec/markdown-profile.md` remains `marqdo.md.v1`; only the
+  Markdown→program mapping changed. These specs describe the target language and
+  are ahead of the Rust implementation; see "Breaking changes" above.
 - Assignment targets are no longer restricted to bare identifiers: a single
   index place is accepted at statement level. Member assignment stays a parse
   error; chained assignment stays a parse error. `spec/expression.ebnf`,
@@ -196,7 +263,9 @@ currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
 - List-item condition paragraphs now accept only inert description; an
   executable `Strong`/`Emph` there is a hard `markdown.invalid_construct`
   error instead of being silently swallowed. Condition expression spans are
-  mapped from the literal bytes inside the code-span backticks.
+  mapped from the literal bytes inside the code-span backticks. (Pre-RFC
+  mapping; superseded by RFC-LANG-0002, where lists have no condition head at
+  all.)
 - Linux strict `inspect --platform` remains a snapshot, not a promise. A run
   that loses namespace/resources between probe and launch must fail closed.
 

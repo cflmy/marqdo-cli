@@ -4,6 +4,19 @@
 > implemented behavior. The implemented first slice is described in
 > [`architecture/CURRENT.md`](architecture/CURRENT.md).
 
+> **Syntax note — RFC-LANG-0002 is the current language contract.** The
+> compute-kernel / stdlib-ownership / resource model in this RFC is still the
+> current design input. Its `.mq.md` examples and Markdown-role wording were
+> migrated to the single current syntax
+> ([RFC-LANG-0002](architecture/RFC-LANG-0002-unified-semantics.md),
+> [ADR-0052](adr/0052-unified-markdown-semantics.md)): `## @exec` heading
+> modes, `params`, `return`, `if/else/end`, `while/end`, and one-statement
+> payloads carried by `Strong`, `Emph` or inline `Code`. Any remaining old
+> spelling (for example "`##/**/*` roles") is historical and is **not** an
+> active language. The Rust frontend still implements the pre-RFC mapping, so
+> these examples are target syntax, not currently runnable programs; see
+> [`STATUS.md`](STATUS.md).
+
 
 > **状态**：Draft / 架构与迁移提案，未批准、未实施。所有代码均为目标语义草案，不能当作已运行示例。  
 > **日期**：2026-11-20  
@@ -57,7 +70,7 @@ Marqdo 语义核心                                                   资源调�
 - **G2 系统构造性**：只要基础 OS 资源端点已存在并获授权，Marqdo 应自行实现 `print/read_line/copy_file/HTTP parser/CLI commands` 等高层 API。
 - **G3 内核稳定**：未来 100 个独立标准库函数，不意味着增加 100 个内置函数或触及 Rust 编译器/解释器。
 - **G4 语义统一**：高级函数运行在与普通程序**同一个**值、内存、调用、错误、来源映射和权限体系下，没有“标准库专用魔法规则”。
-- **G5 兼容现有 Markdown 语义**：`##/**/*`、链接/表格惰性、函数与模块寻址、执行顺序不被重写。
+- **G5 兼容当前 Markdown 到程序的映射**：按 RFC-LANG-0002，执行由 `@exec` 模式与载荷关键字决定；链接/表格保持惰性；函数与模块寻址、执行顺序不被重写。
 - **G6 工程品质**：至少能构造可扩展容器、网络字节协议、异构表格、持续交互工具，同时明确性能瓶颈和安全保证。
 - **G7 明确安全边界**：内部虚拟内存权限与资源访问权限分别验证；不能把“运行在 Rust 内”误写为“自动内存安全”，也不能把普通 Worker 等同于 OS 隔离。
 
@@ -377,18 +390,18 @@ std.io.print(value)
 - 标准输出内容与编译器日志、trace、`--json` 通道保持隔离。
 - 首版可支持保持 `print` 完全一致，同时引入 `write_text` / `write_bytes` 作为标准库独立能力；用户未授权写标准输出时，仍必须拒绝。
 
-示例（**目标 `.mq.md`，非已实现语法，`std` 对应正常模块导入**）：
+示例（**目标 `.mq.md`，按 RFC-LANG-0002 书写、非已实现语法，`std` 对应正常模块导入**）：
 
 ````markdown
-## 打印
+## @exec 打印
 
 先将任何可打印值格式化为文本，再编码为 UTF-8 字节。
 
-**显示文字 = format.display(值)**
+`显示文字 = format.display(值)`
 
-**数据 = text.utf8_encode(显示文字 + "\n")**
+`数据 = text.utf8_encode(显示文字 + "\n")`
 
-> io.write_all(io.stdout(), 数据)
+`io.write_all(io.stdout(), 数据)`
 ````
 
 这些 `format.display`、`text.utf8_encode` 和 `io.write_all` 必须有真实的 `.mq.md` 定义；其最终字节写入依赖已有授权 `Stream.write` 而不是新的 `HostOp::PrintJson` 等。
@@ -534,40 +547,46 @@ F ∈ L(K,E)
 
 **工程性能评估**：记录 `wall_time / peak_RSS / CPU / fuel / bytes_moved / allocations / copy_count`，与 Rust 原生和其他参考语言比较。初期不设无依据的“必须达到 80% 原生速度”的硬指标；若性能瓶颈来自逐字节 Rust↔Marqdo 调用/隐藏复制，先优化执行路径、批量传输、字节码/JIT，再讨论原生加速。任何 O(1) 原语若退化为 O(n) 隐式全表复制，必须单独报告。
 
-### 7.6 三种验收样例（目标伪代码，非现有可运行程序）
+### 7.6 三种验收样例（按 RFC-LANG-0002 书写的目标伪代码，非现有可运行程序）
 
 **A. 用 Marqdo 实现堆分配器而不调用 Rust `malloc` 算法**：
 
 ````markdown
-## 分配
+## @exec 分配
 
 内存管理器保存 region、next、free-list 等元数据。
 
-1. `存在足够的空闲块`
-   > 复用空闲块并更新元数据
-2. `没有足够的空闲块`
-   > 需要时增长(region)
-   > 更新区域中的尾指针
+`if 存在足够的空闲块`
 
-*分配得到的偏移量*
+`复用空闲块并更新元数据`
+
+`else`
+
+`需要时增长(region)`
+
+`更新区域中的尾指针`
+
+`end`
+
+`return 分配得到的偏移量`
 ````
 
 **B. 打印与读取由标准库完成**：
 
 ````markdown
-## main
+## @exec main
 
-**输入 = io.read_line()**
+`输入 = io.read_line()`
 
-**输出 = "收到：" + 输入**
+`输出 = "收到：" + 输入`
 
-> io.print(输出)
+`io.print(输出)`
 ````
 
 **C. 同一个 GFM 表格运行不同的 `.mq.md` 算法**：
 
 ````markdown
-## 分析数据
+## @exec 分析数据
 
 | 名称 | 分数 |
 | --- | ---: |
@@ -576,12 +595,12 @@ F ∈ L(K,E)
 
 表格是数据，不在渲染时执行；函数通过显式数据引用取得逻辑 Table。
 
-**结果 = table.filter(输入表, 过滤函数)**
+`结果 = table.filter(输入表, 过滤函数)`
 
-*结果*
+`return 结果`
 ````
 
-B/C 中的函数名、输入参数和文档表格访问均仅为目标接口示意，须在真正实现时遵守冻结的 `##` 函数声明、参数推断/导入和文档资源寻址规则。**不能为了示例好看就把尚不存在的语法当成现实。**
+B/C 中的函数名、输入参数和文档表格访问均仅为目标接口示意，须在真正实现时遵守冻结的 `## @exec` 函数声明、参数推断/导入和文档资源寻址规则。**不能为了示例好看就把尚不存在的语法当成现实。**
 
 ---
 ## 8. 重构目标架构、仓库组织与实际代码改动

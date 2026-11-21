@@ -1,5 +1,14 @@
 # ADR-0022: Addressable `Memory` and Memory-index place assignment (RFC-CM P1)
 
+> **Historical syntax note.** The `Memory` index place-assignment decision
+> remains current. The sentence below that "the surface syntax remains a
+> `strong` node … no Markdown role, heading or list meaning changes" is the
+> historical pre-RFC-LANG-0002 spelling: under
+> [RFC-LANG-0002](../architecture/RFC-LANG-0002-unified-semantics.md) /
+> [ADR-0052](0052-unified-markdown-semantics.md), `m[i] = b` is carried by any
+> `Strong`/`Emph`/inline `Code` payload inside an `@exec` scope, and lists,
+> quotes and headings carry no instruction role.
+
 Status: **Accepted**
 Date: 2026-11-20
 Relates to: `docs/MARQDO_COMPUTE_MACHINE_RFC_0001.md` (CM-A01/CM-A02/CM-A03),

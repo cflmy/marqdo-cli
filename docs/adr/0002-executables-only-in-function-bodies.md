@@ -1,6 +1,14 @@
 # ADR-0002: Executable nodes execute only inside level-2 function bodies
 
-Status: **Accepted**
+> **Historical / superseded in part.** The execution-scope decision (payloads
+> only inside an owning H2 function, never at module top level) remains, but
+> the carrier/role rules in this ADR (`Strong` executes, `Emph` returns, lists
+> and quotes are instructions) were replaced by
+> [ADR-0052](0052-unified-markdown-semantics.md) and
+> [`spec/mapping.md`](../../spec/mapping.md). The syntax examples below are the
+> syntax at the time of the decision, not current syntax.
+
+Status: **Accepted (historical mapping superseded by ADR-0052)**
 Date: 2026-11-20
 
 ## Context

@@ -19,17 +19,20 @@ with two or more formulas the runtime raises `ref.ambiguous` and refuses to
 pick one (`spec/references.md` §5, ADR-0003).
 
 ```markdown
-## 圆面积公式
+# @knowledge 数学
+
+## @knowledge 圆面积公式
 
 $$
 A = \pi r^2
 $$
 
-## 计算圆面积
+## @exec 计算圆面积
 
-**面积 = math.eval(ref("#圆面积公式"), {"r": 4}, target="A")**
+`params(r: Number)`
 
-*面积*
+`面积 = math.eval(ref("#圆面积公式"), {"r": r}, target="A")`
+`return 面积`
 ```
 
 Nothing is evaluated by reading or rendering the document. `math.*` must be

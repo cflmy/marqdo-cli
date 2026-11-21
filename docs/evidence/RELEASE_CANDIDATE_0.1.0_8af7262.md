@@ -1,5 +1,17 @@
 # Marqdo CLI release candidate — 0.1.0 / `8af7262`
 
+> **Historical evidence note (syntax).** This SHA-pinned report records the
+> language mapping in effect at `8af7262`. References below to executable
+> `Strong`/`Emph` payloads and to condition-header errors such as
+> `markdown.invalid_construct` describe that historical mapping. Under the
+> current contract
+> [RFC-LANG-0002](../architecture/RFC-LANG-0002-unified-semantics.md) /
+> [ADR-0052](../adr/0052-unified-markdown-semantics.md),
+> `Strong`, `Emph` and inline `Code` are interchangeable one-statement payload
+> carriers and control flow comes from `if`/`else`/`while`/`end`/`return`
+> keywords, with `sem.*` diagnostics. Logs, counts, SHAs and results below are
+> unchanged and remain pinned to this SHA.
+
 ```text
 Source SHA:              8af72620f12e2494a59830a23abb393768b610e9
 Workspace version:       0.1.0

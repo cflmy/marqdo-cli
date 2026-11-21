@@ -1,5 +1,16 @@
 # ADR-0005: AST normalization (Setext headings, task items, code-span ticks, strikethrough)
 
+> **Historical mapping note.** The profile/AST normalization rules in this ADR
+> remain current. Its role claims — that ordered/bullet list structure
+> "determines branch/loop roles" and that `strong`/`emph` carry execute/return
+> roles — were superseded by
+> [RFC-LANG-0002](../architecture/RFC-LANG-0002-unified-semantics.md) /
+> [ADR-0052](0052-unified-markdown-semantics.md) and
+> [`spec/mapping.md`](../../spec/mapping.md): lists and block quotes are
+> presentation containers, and `Strong`, `Emph` and inline `Code` are
+> interchangeable one-statement payload carriers. Strikethrough and the other
+> inert regions stay inert.
+
 Status: **Accepted**
 Date: 2026-11-20
 

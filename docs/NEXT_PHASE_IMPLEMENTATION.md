@@ -5,6 +5,13 @@
 > for next-phase work and is not current status. See
 > [`architecture/CURRENT.md`](architecture/CURRENT.md) for the tree as it is today.
 > Keep this file as design history; do not use it as an implementation claim.
+>
+> **语言语义已被取代：** 本文件出现的 `Strong`/`Emph`/有序列表/无序列表/引用块
+> 程序角色是旧映射，已被
+> [`docs/architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md)
+> （[ADR-0052](adr/0052-unified-markdown-semantics.md)）废止。现行唯一语言规范
+> 是该 RFC 与 `spec/mapping.md` / `spec/expression.ebnf`；下列 M0.6 路线、
+> 审计与验收均为历史输入。§3 的旧语法示例已替换为目标语法并标注历史。
 
 
 > **文档性质**：面向没有参与任何历史讨论的开发者的独立架构决策、实施计划及验收契约。  
@@ -20,7 +27,7 @@
 
 本文件用于告诉陌生开发者“下一步为什么做、具体做什么、哪些不要做、怎样验收”，**不是**另起一套取代现有实现的语言规范。建议依次阅读：
 
-1. `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`：后续稳定化、协议冻结与独立生态准入的当前阶段规范（Proposed）；先用它刷新基线与发布门槛。
+1. `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`：历史稳定化/协议冻结规范（Proposed，审查基线 `0adebe4`）；语言与路线已被 RFC-LANG-0002 和 `STABLE_RELEASE_IMPLEMENTATION.md` 取代，仅作历史输入。
 2. 本文件：产品边界、M0.6 实施次序与发布条件。
 3. `docs/STATUS.md`：M0.5 当前实现的阶段性记录；该文件可能因后续修复提交而局部滞后，存在冲突时以当前源码和回归测试为准，并同步修正状态表。
 4. `spec/markdown-profile.md`、`spec/mapping.md`、`spec/expression.ebnf`、`spec/evaluation.md`、`spec/references.md`：**现有语言行为的规范来源**。
@@ -42,7 +49,7 @@
 - 对外输出**稳定、最小、版本化**的数据契约，不公开整个私有 IR 并让三个外部仓库依赖 Rust 内部结构。
 - **用户入口统一，工程仓库独立**：通过同一 `Tool Protocol` 安装任意合规清单后自动得到 `marqdo <command>`。`view`、`knowledge`、`prove` 只是示例，不在 CLI 中注册硬编码的特殊名字、发布地址或适配器。
 - 拒绝为了“以后可能有用”增加顶层命令；先用真实消费者需求、测试和 ADR 证明必要性。
-- **开放扩展点，但不开放语言语法的任意重定义**：允许注册外部函数、工具、内核、依赖来源；禁止插件重新解释 `Strong`、`Emph`、列表或引用的核心语义。
+- **开放扩展点，但不开放语言语法的任意重定义**：允许注册外部函数、工具、内核、依赖来源；禁止插件重新解释标题模式、载荷载体、关键字控制流或容器语义（RFC-LANG-0002；旧 `Strong`/`Emph`/列表/引用映射已废止）。
 - **允许破坏性修正错误架构**：现处 `0.1.0` 早期阶段，凡未对外冻结或存在显著扩展阻塞的内部 API 可重构；涉及公开 ABI、wire、清单或语言行为时必须显式升级版本、加负例和迁移说明。
 
 ## 1. 本次真实仓库审查（不是假定的空仓）
@@ -184,7 +191,7 @@ Python/Node 可以继续作为内置 provider；新增 Julia/R/自定义内核�
 当前项目版本 `0.1.0`，**不对错误设计承担无限兼容义务**。开发者应优先保证未来长期正确性，而不是维护早期内部 enum 的表面稳定。推荐机制：
 
 - **内部接口（可以直接破坏）**：`HostOp` 分发、`Builtin` 内部查找、`PluginSlot` 单 namespace、模块 loader、非公开 IR、CLI 命令内部结构；每次变更要有迁移 PR、替换后的测试和明确的 PR 说明。
-- **用户可见语义（默认保护）**：`Strong/Emph/List/Quote` 语义、显式 YAML import、无括号调用的拒绝规则、链接不执行、函数参数推断等。若发现客观错误，也必须有 ADR、版本升级和一致性金样，而不能把“扩展性”当作随意改语法的理由。
+- **用户可见语义（默认保护，现行见 RFC-LANG-0002）**：`@exec`/`@knowledge` 模式与继承、Exec H2 可调用性、`Strong`/`Emph`/行内 `Code` 载荷等价、`if/else/while/end/return/params`、显式 YAML import、链接不执行、函数参数推断等。若发现客观错误，也必须有 ADR、版本升级和一致性金样，而不能把“扩展性”当作随意改语法的理由。（原文的 `Strong/Emph/List/Quote` 是旧映射，已废止。）
 - **版本化公共协议（只能显式破坏）**：Tool Protocol、Analysis/Trace、插件 ABI、Value Wire、Lock 格式。新旧同时可用或明确不兼容均可，但不能把 schema 名不变、字段意义变了当作修复。
 - **冗余命令（可以有序削减）**：`init`、`inspect`、`fmt`、`plugin inspect`、`remove`、`lock` 等仅作为现有 0.x 行为，保留要以维护收益证明；公开主线禁止因此增加更多命令。删除时提供对应的文档内替代方式，避免把重要能力一起删除。
 
@@ -275,38 +282,55 @@ docs/
 - Analysis/Trace 导出器读取核心已产生的数据，禁止维护另一套符号解析器。
 - 外部工具不能反向要求核心增加 `knowledge`, `proof`, `view` 专用类型或运行逻辑。
 
-## 3. 语言行为在本次迭代中保持冻结
+## 3. 语言行为在本次迭代中保持冻结（历史章节）
 
-### 3.1 Markdown 结构的唯一语义
+> **历史说明：** 本节写于 RFC-LANG-0002 之前，原文描述的 `Strong`/`Emph`/列表/
+> 引用块映射已被废止。原文的“本次迭代冻结旧映射、函数体外惰性告警”不再是
+> 现行设计；现行规则是标题模式 + 统一载荷 + 关键字控制流，非法载荷为硬错误
+> 且旧 `.mq.md` 源不可执行。下面保留改写后的示例仅用于说明目标语法；它不是
+> 本 M0.6 计划的实现承诺。
 
-在 **level-2 函数体内部**（当前 ADR-0002）：`Strong` = 计算/赋值；`Emph` = 退出函数并返回；`OrderedList` = 有序首匹配分支；`BulletList` = 条件循环；`BlockQuote` = 显式调用；`Text` = 惰性叙述；`CodeSpan` 在分支/循环头的特定结构位置表示条件；`Link` = 静态引用；数学节点与代码围栏 = 原生惰性资源。一级标题给命名空间，二级标题给函数，三级及以上标题给文档分节。
+### 3.1 Markdown 结构的唯一语义（RFC-LANG-0002）
 
-函数体外不执行程序；现有 ADR-0002 规定可疑“执行节点”惰性并告警，而不是直接在模块根运行。除非另提 ADR，不要偷偷改为硬错误。源码同义 Markdown 结构（例如 `**x**` / `__x__`）按同一 AST 语义执行；也不因为正文中文有“如果/返回/执行”就推断控制流。
+在 Exec 范围（显式 `@exec` 或从祖先继承）内：标题声明/继承 `@exec` 与
+`@knowledge` 模式；只有 Exec H2 是可调用函数；`Strong`、`Emph`、行内 `Code`
+是等价的单语句载荷载体；`if`/`else`/`while`/`end`/`return`/`params(...)`
+决定控制与签名；`Text` = 惰性叙述；`Link` = 静态引用；数学节点与代码围栏 =
+原生惰性资源；有序列表、无序列表与引用块只是容器，不产生指令。一级标题给
+命名空间/默认模式，二级标题给函数（Exec）或知识单元（Knowledge），三级及
+以上标题只给文档分节并继承所属函数。
+
+函数体外不产生执行投影；Exec 载荷若没有所属 H2 函数是
+`sem.exec_without_function` 硬错误，绝不提升为模块级执行。源码同义 Markdown
+结构（例如 `**x**` / `__x__`）在载荷提取上等价；不因为正文中文有“如果/返回/
+执行”就推断控制流。
 
 ```markdown
-# 数学
+# @exec 数学
 
-## 阶乘
+## @exec 阶乘
 
 输入 `n`，计算非负整数的阶乘。
 
-1. `n <= 1`，递归基。
+`params(n: Int)`
 
-   *1*
+`if n <= 1`
 
-2. `n > 1`，继续递归。
+`return 1`
 
-   **结果 = n * 阶乘(n=n-1)**
+`else`
 
-   *结果*
+`return n * 阶乘(n=n-1)`
+
+`end`
 ```
 
-期望：`marqdo call factorial.mq.md 数学.阶乘 --arg n=5` 返回 `120`。实际放置测试时以现有 `examples/factorial.mq.md` 为准并追加金样，**不要为了执行把示例转换成 Python**。
+期望（目标语法，前端尚未迁移）：`marqdo call factorial.mq.md 数学.阶乘 --arg n=5` 返回 `120`。实际放置测试时以迁移后的示例与金样为准，**不要为了执行把示例转换成 Python**。
 
 ### 3.2 函数与参数推断必须严格而可检查
 
 - 标题保持自然名称，如 `## 计算圆面积`，**不要把参数名强制放进标题**；标题变更可能影响 Markdown 锚点，参数变更不应顺便破坏链接。
-- 显式签名放在约定的标题后独立 `CodeSpan` 段落，例如 `` `(r, precision=2)` ``；无签名允许静态形参推断。
+- 显式签名写成 Exec H2 的第一条直接载荷 `params(r, precision=2)`（或带类型 `params(r: Number, precision: Int = 2)`）；无签名允许静态形参推断。旧“标题后独立 CodeSpan `(r, precision=2)`”签名已被 RFC-LANG-0002 废止。
 - 参数推断源于执行表达式及控制流的自由变量/确定赋值分析，不从叙述文本或 LLM 中猜测；可见未初始化局部变量应报错。
 - 推断签名默认只接受具名调用，显式签名可接受位置调用；无参数调用仍用括号 `()`；调用的解析器只有一套。
 - 重复形参、错误实参、未解析别名、变量读写歧义产生稳定诊断码。
@@ -317,9 +341,9 @@ docs/
 
 - 表达式解析来自 `marqdo-expression`，不是“普通 Markdown 括号里藏 Python”。
 - 既有 ADR-0007 采用任意精度整数及类型化 wire v1；浮点、布尔和 `Unit` 语义以 `spec/evaluation.md` 为准。变更必须同步 ABI/Foreign/wire 的兼容性测试。
-- `OrderedList` 的首个条件头为符合结构规定的 `CodeSpan`；同一段落里条件后的叙述和后续缩进段落不参与条件求值。无 `CodeSpan` 的清单在函数内是非法分支，不回退成普通清单。
-- `BulletList` 的每个 item 是一个 `while` 条件与循环体；不默认把 `- [ ]` 任务清单当普通 UI 清单。
-- 引用块一次只表达一个显式调用；链接形式调用是否跨文件支持由 `spec/references.md` 目前的限制决定，不能为了满足文档示例绕过模块 loader。
+- 条件不再由列表首段 CodeSpan 表达：写 `if <expr>` … `end`，列表只是容器。旧“`OrderedList` 首段 CodeSpan 条件头”规则已被 RFC-LANG-0002 废止；普通列表在 Exec 范围内按源序提取合法载荷，零语句投影是合法惰性结构。
+- 循环写 `while <expr>` … `end`；不再把每个 bullet item 当作独立 while。`- [ ]` 任务清单与普通列表一样没有隐含指令。
+- 引用块不是调用；调用必须来自 Exec 载荷中的表达式。跨文件调用是否支持由 `spec/references.md` 的显式导入限制决定，不能为了满足文档示例绕过模块 loader。
 - 公式和代码块必须先构建惰性值，只有 `math.*`、`foreign.*` 或明确 Host API 才能执行；不自动运行任意外部语言。
 
 ### 3.4 引用的最小承诺
@@ -632,7 +656,7 @@ Core 不包含 Lean、Proof IR、证明驱动器或证书存储。新的证明�
 
 ### 12.3 `marqdo-view`
 
-默认按原 Markdown 阅读，不执行；使用 Analysis v1 对源码 Strong/Emph/分支/循环和函数做精确标注。存在真实 Trace v1 时，可选择播放调用帧与历史结果；若用户选择运行，View 须明确发起 `marqdo run/call` 并尊重沙箱与权限。它不实现第二个解释器、第二个静态语义分析器，不将未运行的语义节点当成已执行结果。
+默认按原 Markdown 阅读，不执行；使用 Analysis v1 对源码标题模式、载荷、`if`/`while`/`return` 控制流和函数做精确标注。存在真实 Trace v1 时，可选择播放调用帧与历史结果；若用户选择运行，View 须明确发起 `marqdo run/call` 并尊重沙箱与权限。它不实现第二个解释器、第二个静态语义分析器，不将未运行的语义节点当成已执行结果。
 
 ### 12.4 对外工具的独立性条件
 
@@ -708,13 +732,13 @@ Core 不包含 Lean、Proof IR、证明驱动器或证书存储。新的证明�
 | EXT-PACKAGE | 相同包多版本、项目跨目录、全局缓存移动、Git pin、离线同步、锁漂移 | `ModuleId` 依赖物理路径，知识/证明制品不可复用 |
 | EXT-KERNEL | 注册从未内置的语言标签、缺 provider、超时、非授权进程、wire 版本冲突 | Foreign 不可真正扩展或会绕开 Host |
 | EXT-ABI | 多 namespace、重复 export、跨语言 C/Rust 示例、ABI 主版本拒绝、Worker crash、capability broker、伪造句柄与重放拒绝 | C ABI 宣称可扩展但只支持固定单一路径 |
-| EXT-SEMANTIC | 修改普通叙述后的执行 IR 稳定；外部组件不能改变 `Strong/List` 等 AST 意义 | 将“扩展”错误扩大到语言执行规则 |
+| EXT-SEMANTIC | 修改普通叙述后的执行 IR 稳定；外部组件不能改变标题模式/载荷/容器等 AST 意义 | 将“扩展”错误扩大到语言执行规则 |
 | EXT-CONSUMER | Core 公开 JSON 在 Rust 私有 IR 改动之后仍与独立客户端兼容；Reference 非执行 | 外部仓库将被迫跟随 Core 频繁升级 |
 
 
 | 测试域 | 正例 | 必须负例/反例 | 测试位置 |
 |---|---|---|---|
-| Markdown AST | Strong/Emph/list/quote/heading、CJK、多行、GFM table、Math | 强调嵌套、缺失条件、task-list 错位、parser 版本漂移 | `tests/conformance/ast` + profile tests |
+| Markdown AST | heading modes、payload carriers（Strong/Emph/Code）、lists/quotes、CJK、多行、GFM table、Math | 嵌套载荷、模式拼写、缺失 `end`、task-list 错位、parser 版本漂移 | `tests/conformance/ast` + profile tests |
 | 语言求值 | 阶乘、递归、嵌套分支、函数调用、命名实参、返回 | 未初始化、重复参数、非法返回、fuel/stack 超限 | `tests/conformance/semantics` + negative |
 | 叙述不变性 | 只修改普通正文，IR/值不变 | 文本中插 `if/return` 不改变结果 | `crates/cli/tests/properties.rs` |
 | 函数接口 | 推断形参、显式签名、跨模块别名 | 名称冲突/模糊/缺少参数/错误签名 | frontend + CLI tests |
@@ -785,7 +809,7 @@ cargo build -p marqdo-cli
 
 维护者可以用以下清单判断是否允许另一名未参与设计讨论的开发者独立推进项目：
 
-- [ ] 能解释为什么 Marqdo 的 Strong/Emph/List/Quote 具有固定控制流，而 Text 不执行。
+- [ ] 能解释为什么 Marqdo 的模式/载荷/关键字控制流是确定的，而 Text 与容器不执行。
 - [ ] 知道唯一 Markdown parser 在哪里；不会编写第二套行正则解析器。
 - [ ] 能在 `spec/mapping.md` 定位函数、分支、循环和返回的约束。
 - [ ] 能在 `crates/marqdo-runtime` 找到原生求值，在 `marqdo-host` 找到所有副作用检查。

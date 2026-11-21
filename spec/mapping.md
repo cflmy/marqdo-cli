@@ -1,255 +1,402 @@
-# Marqdo AST → Program Mapping v1
+# Marqdo AST → Program Mapping
 
-Status: **frozen for M0.5**. This file is the normative mapping from Markdown
-AST structure to program meaning. It is derived directly from
-`docs/DEVELOPMENT_BLUEPRINT.md` sections 1.2–1.4 and 3.2.
+Status: **current language contract, breaking rewrite (RFC-LANG-0002)**. This
+file replaces the earlier Strong/Emph/List/Quote mapping in place; there is no
+second active mapping and no per-file syntax selector.
 
-## 1. The two rules that override everything
+> **Implementation state:** this document is normative for the target language,
+> but the Rust frontend in this checkout still implements the pre-RFC mapping.
+> Tests that exercise executable Marqdo source are therefore expected to be red
+> until the frontend migration lands. See `docs/STATUS.md` and
+> `docs/migration/semantic-rewrite-inventory.tsv`. Do not read this document as
+> evidence that the CLI already supports the syntax.
 
-1. **Node type and structural position decide the role.** A `strong` node in an
-   executable position is an execution statement and its payload must parse as
-   a `Statement`. It is never "prose that happens to look like code".
-2. **Invalid executable shapes are hard errors.** If a node occupies an
-   executable role but its shape is invalid, compilation fails with a
-   `markdown.invalid_construct` diagnostic. There is no fallback to prose.
+Authority: `docs/architecture/RFC-LANG-0002-unified-semantics.md`.
+Markdown parsing remains `marqdo.md.v1` (`spec/markdown-profile.md`); only the
+Markdown→program mapping changes.
 
-Prose never causes an action. Natural-language words (“if”, “return”, “若”,
-“执行”) are never interpreted as keywords.
+## 0. The mapping in one page
 
-## 2. Document regions and heading scopes
+1. **Headings declare the semantic mode.** `@exec` and `@knowledge` may prefix
+   any H1–H6 heading. Unmarked headings inherit the nearest ancestor heading's
+   mode. The document root is Knowledge.
+2. **Only an Exec H2 is a callable function.** H1 is a namespace/top-level
+   unit, H2 Exec is a function, H2 Knowledge is an inert knowledge unit, and
+   H3–H6 are sections that never create callable functions.
+3. **Closed carriers carry one statement each.** In an Exec scope, `Strong`,
+   `Emph` and inline `Code` are interchangeable carriers of one payload. They
+   no longer mean execute/return/lazy respectively.
+4. **Keywords inside the payload decide the operation.** `if`, `else`, `while`,
+   `end`, `return`, `params(...)`, assignment and expression statements. Lists,
+   block quotes and paragraphs are document containers only.
+5. **Errors never fall back to prose.** Once a payload is extracted from an
+   Exec scope it must parse fully; a failure is a diagnostic.
+6. **Control blocks never cross a heading segment.** Every `if`/`while` must be
+   closed by `end` inside the same heading's direct body. A `return` unwinds
+   the whole H2 function.
 
-A document root is a module. Heading nodes create addressable scopes:
+Two rules override everything else:
 
-| AST | Role | Requirements |
+* **Node type and structural position decide whether a node is a payload
+  candidate**, never the success or failure of parsing and never natural
+  language.
+* **Invalid payloads are hard errors**, never "ordinary Markdown".
+
+## 1. Document regions and heading modes
+
+### 1.1 Declaring a mode
+
+A heading mode declaration is recognized only when it is the exact prefix of
+the heading's **first plain Text child**, followed by whitespace and a non-empty
+heading name:
+
+```ebnf
+heading_mode_prefix = "@exec" | "@knowledge" ;
+heading_decl        = heading_mode_prefix , whitespace , nonempty_title ;
+```
+
+The two legal words are case-sensitive and complete. The rules:
+
+| Source | Result |
+|---|---|
+| `## @exec main` | Exec heading, semantic name `main` |
+| `## @knowledge 原理` | Knowledge heading, semantic name `原理` |
+| `## main` | no declaration; inherit |
+| `## 关于 @exec 的讨论` | no declaration; the `@exec` is ordinary title text |
+| `## @Exec main` / `## @knowledg main` | `sem.invalid_mode_marker` (no case/spelling repair) |
+| `## @exec` | `sem.empty_unit_name` |
+| `## @exec @knowledge main` | conflicting declarations; hard error |
+| `## **@exec** main` | not a declaration; `@exec` is not the first plain Text child |
+| prose containing `@exec` | ordinary text; never changes mode |
+
+The heading's **display text** is unchanged for Markdown rendering. Its
+**semantic name** has the declaration (and the whitespace after it) removed,
+then applies the existing NFC/trim/whitespace-collapse normalization. All
+identity, duplicate checks, function registration and `ref` lookup use the
+semantic name; `@exec`/`@knowledge` are never part of a callable name.
+
+ATX headings are the only accepted declaration form. A Setext heading has no
+prefix declaration in the first version and simply inherits its mode; do not
+invent an implicit declaration for it.
+
+### 1.2 Inheritance
+
+Using the Markdown heading stack (nearest lower-level ancestor heading, by
+source order):
+
+```text
+Mode(document root) = Knowledge
+Mode(H) = Explicit(H)             if H has a valid declaration
+Mode(H) = Mode(nearest ancestor)  if H has no declaration and has an ancestor
+Mode(H) = Knowledge               if H has no declaration and no ancestor
+```
+
+Inheritance is a structural calculation over heading levels, not inference from
+prose. A heading's scope ends at the next heading of the same or higher level
+(same or smaller number); deeper headings are inside it. Siblings never share a
+mode: an unmarked heading after a sibling that explicitly switched to Knowledge
+still inherits from the nearest **ancestor**, not from the sibling.
+
+Skipped levels (H1 directly followed by H3) still use the nearest valid
+ancestor heading.
+
+### 1.3 Heading roles
+
+| Heading | Mode | Language object | Callable? | Effect |
+|---|---|---|---|---|
+| H1 | Knowledge/Exec | Namespace or top-level unit | No | Sets the default mode for descendants |
+| H2 | Exec | Function + Unit | **Yes** | Opens the function body |
+| H2 | Knowledge | Knowledge unit | No | Document section; no function |
+| H3–H6 | Exec | Section of the owning H2 Exec function | No | Appends an execution segment to that function |
+| H3–H6 | Knowledge | Section (knowledge or under a function) | No | Retained as document; no statements |
+
+H3–H6 never create functions, never export callables and never create a new
+call frame. An Exec payload under an H1 without an H2 Exec function, or under a
+Knowledge H2, is `sem.exec_without_function`; it is never promoted to a function
+and never executed as module-level code.
+
+### 1.4 Version selection
+
+There is no syntax-version switch. Every `.mq.md` file, imported module,
+dependency, fixture and stdlib module uses this mapping. Introducing
+`marqdo_semantics`, `syntax: v1`, `--legacy`, `--syntax` or any per-file mode
+selection is an error (`sem.unsupported_version_directive` where the old
+directive is seen); no implicit downgrade to an earlier mapper is permitted.
+
+## 2. Inert regions
+
+The following are never searched for payloads, even inside an Exec scope:
+
+| Region | Treatment |
+|---|---|
+| every `@knowledge` subtree | zero executable statements |
+| heading text (including a mode declaration) | unit identity only |
+| link labels and URLs, image alt text | document/link data |
+| GFM table cells | table data |
+| math / math blocks | inert `Formula` resources |
+| HTML blocks/inline HTML | document data |
+| fenced and indented code blocks | inert `Code` resources |
+| front matter | module configuration |
+| strikethrough and other non-MVP extensions | inert document data |
+
+Inline `Code` (a code span) is a payload carrier in Exec scope. A fenced code
+block is a different AST node and stays inert; the two must not be conflated.
+
+## 3. Executable payload carriers
+
+### 3.1 Accepted carriers
+
+Only these Comrak AST nodes are payload carriers in the first version:
+
+| AST kind | Payload |
+|---|---|
+| `Strong` | concatenation of its **direct** Text and inline Code children, in source order |
+| `Emph` | same as `Strong` |
+| inline `Code` | the code span literal |
+
+They are **interchangeable carriers of one statement**. For the same Exec
+scope, owner function and payload text:
+
+```text
+Parse(Strong("return n")) == Parse(Emph("return n")) == Parse(Code("return n"))
+```
+
+The original AST kind is still recorded for rendering and source spans. Format
+does not select the operation.
+
+### 3.2 Extraction rules
+
+1. Traverse an Exec heading's direct body in Markdown AST document order, and
+   recurse only through the allowed containers `Paragraph`, `List`, `ListItem`
+   and `BlockQuote`.
+2. Extract only complete outer carrier nodes. A nested `Code` inside a
+   `Strong`/`Emph` is consumed by the outer carrier and must not execute again.
+3. For `Strong`/`Emph`, only direct Text and inline Code children are allowed.
+   Any nested `Strong`, `Emph`, `Link`, `Image`, math, line break or other
+   complex child is `sem.payload_nested`. Never extract a partial statement or
+   silently concatenate multiple fragments.
+4. A payload must be fully consumed by exactly one statement. `x = 1; return x`
+   in one carrier is `sem.syntax`; write two carriers instead.
+5. Empty carriers in Exec scope are `sem.empty_payload`; they are never ignored.
+6. Every payload keeps its original UTF-8 file span. For `Strong(Code(...))`
+   record the segment mapping so diagnostics point into the inner text, not at
+   the emphasis delimiters.
+7. Two adjacent carriers produce two statements in source order. One carrier is
+   never split into multiple statements by newlines or semicolons.
+
+### 3.3 Containers
+
+Containers provide order and layout, not operation type:
+
+| Container | Compiler behavior | Not allowed |
 |---|---|---|
-| `document` | module | exactly one root |
-| `heading(level=1)` | namespace / object domain | non-empty canonical name |
-| `heading(level=2)` | function | non-empty canonical name, unique in its scope |
-| `heading(level>=3)` | section (source location) | does not create a function |
+| `Paragraph` | extract permitted carriers in source order | prose does not execute |
+| ordered `List` | recurse through items in source order | no implicit `Branch` |
+| bullet `List` | recurse through items in source order | no implicit `Loop` |
+| `BlockQuote` | recurse through nested blocks in source order | no implicit `Call` |
+| `Heading` | switches/extends mode and segments | not a statement |
 
-Scope rules:
+A list's `ordered`/`start`/`tight` attributes, an item's checkbox, and quote
+nesting depth never affect control flow. A plain ordered or bullet list with no
+carriers has an empty execution projection (zero statements), which is not the
+same as producing a `List([])` value.
 
-* The range of a heading extends until the next heading of the same or a
-  lower level (i.e. same or smaller number), or the end of the document.
-* A level-2 heading without a preceding level-1 heading belongs to the module
-  root. Nested headings inside a section remain part of the enclosing function.
-* Headings inside container blocks (block quotes, list items) or inside fenced
-  code blocks never create functions.
-* A function's canonical name is the normalised text of its heading children:
-  NFC, trimmed, internal whitespace collapsed to one space. Empty names are
-  errors. Duplicate canonical names in the same scope are errors. GitHub-style
-  anchor slugs are derived for navigation but are **not** the identity.
-* `main` at module root is the default entry point for `marqdo run`; an
-  imported module's `main` is not run automatically.
+### 3.4 The deliberate emphasis cost
 
-## 3. Lazy (inert) regions
+In an Exec scope, `**重要**` is a payload and is parsed as the expression
+`重要`. If no such symbol exists, that is `symbol.unknown`. The language does
+not guess that the author wanted emphasis. Put purely visual emphasis in a
+`@knowledge` section (or another inert region). This is a deliberate
+determinism trade-off, not an implementation gap.
 
-The following nodes are inert regardless of where they appear. Their inline
-content is never executed:
+## 4. Statements
 
-* heading text (headings scope, they do not run)
-* `link` labels and `image` alt text
-* `table` cells (tables are document values)
-* `strikethrough` wrappers: their content is inert prose and is not traversed
-  for execution; do not rely on formatting to hide executable nodes
-* `code_block` and inline `code` outside designated payload positions
-* `math` / `math_block`
-* `html_block` / `html_inline`
-* front matter
-* text and other inline nodes inside prose paragraphs
+Each extracted payload is exactly one statement, defined by
+`spec/expression.ebnf`:
 
-Inline formatting inside those regions (e.g. `strong` inside a heading) does
-not execute. The implementation must use a context-aware visitor, not a blind
-whole-tree walk.
+```text
+if <expr>       else       while <expr>       end
+return <expr>   params(...) assignment       expression
+```
 
-## 4. Executable roles in function bodies
+Lexical details:
 
-Inside a function (`heading(level=2)` range) the following roles apply,
-including inside branch and loop bodies:
+* Keywords are recognized only as complete first tokens: `ifdef(...)` and
+  `returning` are ordinary identifiers; a bare `if`/`else` used as an
+  identifier is a reserved-keyword error.
+* `if`, `while` and `return` require a non-empty expression that consumes the
+  whole payload (to EOF). Trailing characters are errors.
+* `else` and `end` accept no additional tokens; `else x` and `end if` are
+  `sem.syntax`.
+* No trailing colon: `if x > 0:` is `sem.syntax`. No `elif`, `for`, `break`,
+  `continue`, `try`, `end if` or semicolon-separated statements in this
+  version.
+* `return` always requires an expression; falling off the end of a function
+  still returns `Unit`. Explicit `return None` is available when `None` is the
+  intended value.
+* `params(...)` is a compile-time signature declaration, not a runtime
+  callable; see §6.
+* Existing expression precedence, literals, calls, indexing, assignment and
+  `Memory` place writes are unchanged. Conditions must evaluate to `Bool` and
+  keep the existing purity rule.
 
-| AST node | Role | Shape requirement | On invalid shape |
-|---|---|---|---|
-| `strong` | execution statement | strict payload parses as `Statement` | hard error |
-| `emph` | return statement | strict payload parses as `Expression` | hard error |
-| `list(ordered=true)` | branch | each item starts with a condition header | hard error |
-| `list(ordered=false)` | loop | each item starts with a loop condition header | hard error |
-| `block_quote` | call | one paragraph forming a complete call | hard error |
-| `paragraph` | prose + inline execution | inline executable nodes run in order | n/a |
-| everything else | inert document value | — | type/constraint errors only if used |
+## 5. Control-stack lowering
 
-Outside functions (module top-level prose) the same executable nodes are inert
-document content (S-03 in the blueprint: executable lists/strong/emph only run
-inside a function body). The single exception is `main` itself, which is a
-function. To make this explicit rather than silent, the frontend emits a
-`markdown.inert_executable` **warning** for every would-be execution node found
-outside a function body; the document still compiles and the node does nothing.
+Within one execution segment, payloads form a token stream. Lower it with one
+explicit stack:
 
-Headings inside container blocks (block quotes, list items) or fenced code never
-create functions and never execute inline markup.
+```text
+open_if(cond)   -> push IfFrame(cond, then=[], else=None)
+statement       -> append to the innermost active body
+else            -> require top is IfFrame with else=None; switch to else body
+open_while(cond)-> push WhileFrame(cond, body=[])
+end             -> require a non-empty stack; pop the top frame and lower it
+at_segment_end  -> require the stack to be empty
+```
 
-### 4.1 Strict payload extraction
+Rules:
 
-For `strong`/`emph`, the payload is the concatenation of the direct `text` and
-`code` child literals, exactly as written. Nested `strong`, `emph`, `link`,
-`strikethrough`, line breaks, math, HTML or any other inline node is an error:
-one AST node must never be executed twice or hide control content.
+* `else` pairs with the top-of-stack `IfFrame` only. It may not skip an open
+  `while` or an inner `if`.
+* At most one `else` per `if`; `else` with no open `if` is
+  `sem.unmatched_else`; a second `else` is `sem.duplicate_else`.
+* `end` closes exactly the most recent open `if`/`while`; no match is
+  `sem.unmatched_end`.
+* Reaching a segment boundary with an open frame is `sem.unclosed_control`,
+  with a related span on the opener. The compiler must not synthesize an `end`.
+* `if` lower to the existing `Branch` IR; the optional `else` may lower to a
+  final unconditional arm while preserving left-to-right short-circuit
+  evaluation and executing at most one arm. `while` lowers to `Loop`; `return`
+  lowers to `Return` and unwinds the whole H2 function. `else`/`end` generate no
+  runtime instruction of their own.
 
-`**x = 1**` and `**`x = 1`**` have the same payload `x = 1`. `**a * b**`
-parses as text in most cases; when Markdown emphasis and the multiplication
-operator conflict, the author should use a code span for the payload:
-`` **`a * b`** ``. There is no text-based second parse.
+## 6. Functions, signatures and calls
 
-### 4.2 Paragraph and document order
+* Only an Exec H2 creates a callable function. Its body is the concatenation,
+  in source order, of its direct Exec body segment and the Exec segments of its
+  H3–H6 descendants that are part of the same function. Knowledge segments
+  contribute nothing.
+* H3–H6 Exec sections share the H2 function's frame; locals assigned in one
+  segment are visible in later segments. They do not create new functions.
+* `params(name: Type, ...)` is legal only as the **first direct execution
+  payload of an Exec H2 function**, at most once, and not inside a list or
+  block quote. It is compile-time metadata and may be preceded by prose or a
+  Knowledge subsection but not by an executing statement. Violations are
+  `sem.signature_position`; a duplicate declaration is also rejected.
+* A function without `params` keeps the existing free-variable inference for
+  the first version. Public functions should declare `params`; the optional
+  `sem.inferred_signature` lint may be enabled.
+* Calls are ordinary expressions. `print(1)`, `f(n=5)` and `> **print(1)**`
+  all call because the payload contains a call; the block quote itself does
+  not create a call. A plain `> print(1)` is inert prose.
+* `@knowledge` content is never scanned for identifiers, free variables or
+  calls.
+* `main` must be an Exec H2 to be the default `run` entry; if none exists, `run`
+  reports `sem.no_entry_function`.
 
-Executable inline nodes in a paragraph run in source order. Blocks run in AST
-document order. A `return` short-circuits the remaining nodes of the enclosing
-function, including nodes inside branches and loops.
+## 7. Segments and the heading boundary
 
-### 4.3 Branch (`ordered list`)
+An **execution segment** is one heading's direct body, excluding descendant
+headings. Segments are ordered by source position. For each Exec H2 function,
+process its own segment followed by the Exec segments of its descendant
+headings, in document order.
 
-Each item must:
+The control stack is reset and required to be empty at every heading boundary.
+A control block opened in one heading's direct body must be closed in that same
+body; `end` in a later H3/H4 or on the other side of a Knowledge heading is
+`sem.unmatched_end` there, while the opener's segment reports
+`sem.unclosed_control`. The two errors are reported independently and are never
+"repaired" across the boundary.
 
-1. contain at least one block;
-2. have a `paragraph` as its **first** block;
-3. have an inline `code` node as the **first inline node** of that paragraph;
-   its literal is the condition expression;
-4. any remaining inline content in that first paragraph is **inert prose**
-   (`text`, inline `code`, links, images, math, HTML, strikethrough and line
-   breaks). An executable `Strong`/`Emph` there is a hard
-   `markdown.invalid_construct` error, not silently ignored description.
+Complete segments are appended to the enclosing function body in source order;
+earlier segments' assignments remain visible to later ones.
 
-The condition literal is mapped from the bytes **inside** the code-span
-backticks. Delimiters are part of the Code node's source span, but condition
-expression spans and parse diagnostics point at the literal.
+## 8. Diagnostics
 
-The item's remaining blocks form the branch body. Items are tested in AST
-order; the first condition evaluating to `true` is executed once. No match
-means `Unit` and execution continues after the list. Conditions must be
-`Bool`; they must be pure (side effects in conditions are a static error when
-detectable and a runtime capability concern otherwise).
+Stable machine-readable codes (the human `message`/`hint` text may change):
 
-### 4.4 Loop (`bullet list`)
+| Code | Trigger |
+|---|---|
+| `sem.invalid_mode_marker` | unknown/case-variant/conflicting `@...` declaration at heading start |
+| `sem.empty_unit_name` | a declaration with no non-empty heading name |
+| `sem.duplicate_unit_name` | duplicate canonical heading/unit name in one scope |
+| `sem.exec_without_function` | an executable payload with no owning H2 Exec function |
+| `sem.payload_nested` | a `Strong`/`Emph` with a disallowed nested node |
+| `sem.empty_payload` | an empty carrier in an Exec scope |
+| `sem.syntax` | malformed statement, missing condition/value, trailing tokens, colon, unsupported keyword |
+| `sem.unmatched_else` | `else` with no open `if` at the top of the stack |
+| `sem.duplicate_else` | a second `else` for the same `if` |
+| `sem.unmatched_end` | `end` with no open control frame |
+| `sem.unclosed_control` | an open `if`/`while` at a heading/function/file boundary |
+| `sem.signature_position` | `params` not at the first direct payload, duplicated, or in a container |
+| `sem.unsupported_version_directive` | legacy `marqdo_semantics`/syntax-selection front matter |
+| `sem.no_entry_function` | `run` with no Exec H2 `main` |
+| `sem.inferred_signature` | lint: public function without explicit `params` |
 
-Each item is an independent `while` loop. Item structure matches the branch
-header rule: the first paragraph's first inline node must be a `code` span
-(condition), and the remaining blocks are the loop body. The condition is
-re-evaluated before every iteration and must be `Bool`. Items execute in
-order, so a bullet list is a sequence of loops, one per item.
+Existing `expr.*`, `symbol.unknown`, `runtime.*`, `resource.*` and capability
+diagnostics keep their meaning. Diagnostics are ordered by
+`(source_file, start_byte, code)`, and each carries an exact UTF-8 span plus a
+related span when an opener or conflicting declaration is involved. A file with
+any hard error is never executed.
 
-Iteration over collections is expressed with stdlib `map`/`filter`/`fold`;
-a dedicated `forEach` header is intentionally not part of v1.
+## 9. Security and the runtime boundary
 
-### 4.5 Call (`block quote`)
+`@exec` is a compile-time projection, not a capability grant. Resource, file,
+network, stdin/stdout, memory and budget checks are unchanged. A payload in
+`@knowledge` produces zero IR, so it can never cause a host effect, even if its
+text looks like `resource.open(...)`. Permission flags never change the
+AST→IR result; they are checked at runtime by the existing host boundary.
 
-A block quote is exactly one `paragraph` and nothing else. The paragraph is
-parsed with the call grammar:
+The mapping introduces no `HostOp` for `if`/`else`/`while`/`end`/`return`, no
+second interpreter and no runtime knowledge of Markdown emphasis. It lowers to
+the existing `Assign`/`Eval`/`Branch`/`Loop`/`Return` IR.
 
-* plain payload: `打印("你好")`, `math.eval(ref("#公式"), {"r": r}, target="A")`
-  — the strict payload must parse as a complete `CallExpr`;
-* link form: `[计算面积](./math.mq.md#计算面积)(r=3)` — the first inline node
-  must be a `link`, its destination identifies the target function, and the
-  remaining `text`/`code` payload must be a parenthesised argument list.
+## 10. Migration table (old mapping → current mapping)
 
-Anything else (a second paragraph, plain prose, a nested quote, an expression
-that is not a call) is a hard error. Two calls require two block quote nodes.
-`> [说明](#目标)` without an argument list is not accepted in v1.
+| Requirement | Old source | Current source |
+|---|---|---|
+| Namespace | `# 算法` | `# @knowledge 算法`, or `# @exec 算法` for an Exec default |
+| Function | `## main` | `## @exec main` (or an unmarked H2 under an Exec H1) |
+| Assignment | `**x = 1**` | `**x = 1**`, `*x = 1*` or `` `x = 1` `` |
+| Return | `*x*` | `**return x**`, `*return x*` or `` `return x` `` |
+| Branch | ordered list with a first code-span condition | `if cond ... else ... end`; containers are presentation only |
+| Loop | bullet list with a first code-span condition | `while cond ... end` |
+| Call | block quote containing a call, or a Strong expression | any carrier whose expression is a call |
+| Signature | first standalone code span `(n: Int)` after the H2 | `params(n: Int)` as the first direct payload |
+| Ordinary list | error inside a function | ordinary document structure, zero statements |
+| Ordinary quote | error inside a function | ordinary document structure, zero statements |
+| Knowledge | implied by position/inertness only | explicit `@knowledge` scope |
 
-The call result is discarded by the statement form; use `strong` to bind it
-(`**面积 = 计算面积(r=3)**`).
+Old files are not compatible. Migration must be done by AST role, not by a
+global regular expression, and a migrated program must preserve function names,
+argument meaning, evaluation order, early-return behavior and side effects.
 
-## 5. Calls, returns and values
-
-* A call is `函数(...)`; zero-argument calls still write `()`.
-* Positional arguments are only allowed for functions with an explicit
-  signature. Named arguments can be given in any order for any function.
-* Arguments are evaluated in source order exactly once before binding.
-* `emph` returns the value of its expression from the enclosing function
-  (propagating through branch/loop bodies), never from a block.
-* `*表达式*` used in a branch is a return from the whole function.
-* A function that ends without a return evaluates to `Unit`. `None` is an
-  explicit empty value and is distinct from `Unit`.
-* An `emph` node outside any function body is inert document content and emits
-  a `markdown.inert_executable` warning (ADR-0002); it is not executed and is
-  not a hard error. Inside a function body, every `emph` is a return.
-
-## 6. Function signatures and parameter inference
-
-* Optional explicit signature: the first `paragraph` immediately after the
-  function heading, if and only if it consists solely of one inline `code`
-  span, and that span parses as `(name: Type = default, ...)`.
-  The declaration is inert Markdown otherwise.
-* Without a signature, parameters are inferred from **free reads of executable
-  expressions** using data-flow analysis over the function's control-flow
-  graph (see `evaluation.md` §5). Natural language, heading words, code spans
-  outside executable positions and prose never introduce parameters.
-* Inferred parameters are identified by name. Functions with inferred
-  signatures accept **named arguments only**. Explicit signatures allow
-  positional arguments in declaration order.
-* A read that is neither a parameter, a local assignment, a module constant,
-  an imported binding nor a builtin is a `symbol.unknown` error with a hint;
-  the CLI can list inferred signatures with `inspect --signature`.
-
-## 7. Example: ordered list branch
-
-Source:
+## 11. Canonical example
 
 ```markdown
-## 分类
+# @knowledge 数学演示
 
-1. `n < 0`
-   **结果 = -1**
-2. `n == 0`
-   **结果 = 0**
-3. `n > 0`
-   **结果 = 1**
+这是普通文档；**加粗**只显示为加粗。
 
-*结果*
+## @exec main
+
+`x = 5`
+`y = x * x`
+`return y`
 ```
 
-AST (abridged):
+Normalized IR: `Assign(x, 5)`, `Assign(y, Mul(x, x))`, `Return(y)`. The H1 is
+Knowledge; the H2 overrides to Exec and is the callable `main`.
 
-```text
-heading(2) 分类
-  list(ordered) start=1
-    item
-      paragraph -> code("n < 0"), text("")
-      strong -> text("结果 = -1")
-    item
-      paragraph -> code("n == 0")
-      strong -> text("结果 = 0")
-    ...
-  paragraph
-    emph -> text("结果")
-```
+## 12. Non-negotiable implementation constraints
 
-IR:
+Do not:
 
-```text
-Function 分类(params=[n])
-  Branch [
-    (Eval(n < 0), [Assign(结果, -1)]),
-    (Eval(n == 0), [Assign(结果, 0)]),
-    (Eval(n > 0), [Assign(结果, 1)]),
-  ]
-  Return(Ident(结果))
-```
-
-## 8. Hard-error checklist
-
-The following are compile errors with source spans, never prose fallbacks:
-
-* `strong`/`emph` in a function body whose payload does not parse;
-* nested `strong`/`emph`/link inside an executable payload;
-* ordered list item whose first inline node is not a code span condition;
-* bullet list item without a condition header;
-* executable `Strong`/`Emph` in the description remainder of a condition
-  paragraph (it would otherwise be swallowed);
-* non-`Bool` condition (detected statically when the type is known, else at
-  runtime as `runtime.type`);
-* block quote that is not exactly one complete call;
-* duplicate function names in a scope;
-* empty heading names;
-* `emph`/`strong`/control structures outside any function body are inert and
-  produce a `markdown.inert_executable` warning (see §4); they never return
-  from or execute anything at module level;
-* executable node inside a lazy region being interpreted (must not happen).
+* try to parse a carrier and fall back to prose on failure;
+* infer a list is a branch because an item looks like a condition;
+* use emphasis type to choose execute vs return;
+* use block-quote/list type to choose call/branch/loop;
+* scan raw Markdown text for `@exec`/`if`/`return` instead of using the AST;
+* recover a misspelled `@knowledge` by inheriting the ancestor mode;
+* expose a per-file syntax switch, legacy mapper, `--legacy` flag or dual
+  active specification.

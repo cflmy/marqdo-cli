@@ -1,5 +1,14 @@
 # ADR-0003: `ref` resolution order and `ref.ambiguous` (S-07)
 
+> **Historical syntax note.** The AST shape below uses the pre-RFC-LANG-0002
+> spelling, where a `strong` node carried an executable statement. Under the
+> current contract
+> ([RFC-LANG-0002](../architecture/RFC-LANG-0002-unified-semantics.md),
+> [ADR-0052](0052-unified-markdown-semantics.md),
+> [`spec/mapping.md`](../../spec/mapping.md)), `Strong`, `Emph` and inline
+> `Code` are interchangeable one-statement payload carriers inside an `@exec`
+> scope. The `ref` resolution decision itself remains current.
+
 Status: **Accepted**
 Date: 2026-11-20
 

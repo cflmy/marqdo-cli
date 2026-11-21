@@ -9,6 +9,14 @@ required CI matrix on the exact commit.
 - All applicable gates in
   [`NEXT_RELEASE_CI_CONVERGENCE.md`](NEXT_RELEASE_CI_CONVERGENCE.md) §7 are
   PASS with a CI URL for the same SHA.
+- **Language migration is closed for the release SHA.** The source language is
+  [RFC-LANG-0002](architecture/RFC-LANG-0002-unified-semantics.md); the
+  release notes must state that this is a **breaking** change and that
+  pre-RFC `.mq.md` sources are not executable (no `--legacy` path). The
+  migration inventory must be 100% classified, `stdlib/**/*.mq.md` and examples
+  migrated, and executable-source tests green on the migrated tree. Until then
+  this document describes a candidate only, never a releasable state; see
+  [`STATUS.md`](STATUS.md) and [`migration/README.md`](migration/README.md).
 - G-C is either PASS with a security-lane URL, or the release explicitly says
   strict isolation is unavailable. Never claim G-C from local root/sudo runs.
 - `git status --porcelain` is clean apart from intended release files.
@@ -52,7 +60,10 @@ skip the license requirement: add them before shipping.
 
 ## 4. Clean-install smoke
 
-Run in a fresh directory (not the source tree):
+Run in a fresh directory (not the source tree). The example commands below
+assume the examples have been migrated to RFC-LANG-0002 and are accepted by the
+frozen binary; a failing example run on an un-migrated tree is not a release
+signal:
 
 ```bash
 tmp="$(mktemp -d)"

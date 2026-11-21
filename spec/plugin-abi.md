@@ -323,11 +323,11 @@ namespace (`solver`).
 Document syntax (`examples/plugin-demo/plugin-call.mq.md`):
 
 ```markdown
-## main
+## @exec main
 
-**结果 = solver.add(a=20, b=22)**
-
-> 打印(结果)
+`结果 = solver.add(a=20, b=22)`
+`print(结果)`
+`return 结果`
 ```
 
 Semantics:

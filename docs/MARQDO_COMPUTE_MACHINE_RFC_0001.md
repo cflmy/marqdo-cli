@@ -4,18 +4,30 @@
 > implemented behavior. The implemented first slice is described in
 > [`architecture/CURRENT.md`](architecture/CURRENT.md).
 
+> **Syntax note — RFC-LANG-0002 is the current language contract.** The
+> compute / memory / resource / ABI model in this RFC is still the current
+> design input. Its `.mq.md` examples and Markdown-role wording were migrated
+> to the single current syntax
+> ([RFC-LANG-0002](architecture/RFC-LANG-0002-unified-semantics.md),
+> [ADR-0052](adr/0052-unified-markdown-semantics.md)): `## @exec` heading
+> modes, `params`, `return`, `if/else/end`, `while/end`, and one-statement
+> payloads carried by `Strong`, `Emph` or inline `Code`. Any remaining old
+> spelling (for example "`##` function, `**` execute, `*` return") is
+> historical and is **not** an active language. The Rust frontend still
+> implements the pre-RFC mapping, so these examples are target syntax, not
+> currently runnable programs; see [`STATUS.md`](STATUS.md).
 
-> **状态**：设计提案（Draft，未实施，未批准）  
-> **日期**：2026-11-20  
-> **建议归档路径**：`docs/architecture/RFC-CM-0001-compute-machine.md`  
-> **验证基线**：`cflmy/marqdo-cli`，Git 提交 `a113d894962d8c00eb02efb42e0e73f8b084a1fa`（检索于 2026-11-20）  
+> **状态**：设计提案（Draft，未实施，未批准）
+> **日期**：2026-11-20
+> **建议归档路径**：`docs/architecture/RFC-CM-0001-compute-machine.md`
+> **验证基线**：`cflmy/marqdo-cli`，Git 提交 `a113d894962d8c00eb02efb42e0e73f8b084a1fa`（检索于 2026-11-20）
 > **兼容性**：涉及 `Value`、表达式赋值、运行时、主机能力和线协议的变更，必须通过 ADR、规范版本与相应测试；本 RFC 不声明任何新接口目前可用。
 
 ---
 
 ## 摘要
 
-Marqdo 的优势不应只是用 Markdown 排版代码，而应是：在不更换 Markdown 语法角色的前提下，以**自身定义的计算语义**构造算法、数据结构、运行时工具和知识制品。现有解释器已提供整数、浮点、文本、列表、映射、控制流和函数调用，但尚未提供**由 Marqdo 程序控制的可寻址字节存储**；其赋值左侧仅支持标识符，系统交互集中在一组固定 `HostOp` 与外部插件能力中。这妨碍了用 `.mq.md` 自己编写内存分配器、二进制协议、共享节点结构、虚拟机器等低层算法。
+Marqdo 的优势不应只是用 Markdown 排版代码，而应是：在不更换自身计算模型的前提下，以**自身定义的计算语义**构造算法、数据结构、运行时工具和知识制品。现有解释器已提供整数、浮点、文本、列表、映射、控制流和函数调用，但尚未提供**由 Marqdo 程序控制的可寻址字节存储**；其赋值左侧仅支持标识符，系统交互集中在一组固定 `HostOp` 与外部插件能力中。这妨碍了用 `.mq.md` 自己编写内存分配器、二进制协议、共享节点结构、虚拟机器等低层算法。
 
 **提议：以“托管值 + 多个可增长的线性内存区域 + 不透明系统资源”为计算机器的三个基础领域。**
 
@@ -45,12 +57,12 @@ Marqdo 必须能在不借助 Python、JavaScript 或宿主语言提供专门算�
 
 ### 1.3 设计原则
 
-**P1 语义最小而充分**：首先增加无法由现有表达式自然实现的基础机制，不先增加高级 API 或新关键词。  
-**P2 高级能力在语言中生长**：新增算法/数据结构不修改解释器、不修改 `HostOp`、不需要重新编译 CLI。  
-**P3 读写位置统一**：索引读取和索引赋值遵循同一类“位置”语义；`Memory` 的读取/写入是基础例子，普通列表的值语义不得无声改变。  
-**P4 内外边界诚实**：内存操作是语言计算；操作系统 I/O 依赖权限、平台接口和底层实现。  
-**P5 可读性**：普通 Markdown 文档仍然可读；`##`/`**`/`*`/列表/blockquote 的现有角色不因本 RFC 改变。  
-**P6 安全与可验证性**：将可验证的保证限定在区域边界和权限边界；不对自定义分配器的块级错误作虚假保证。  
+**P1 语义最小而充分**：首先增加无法由现有表达式自然实现的基础机制，不先增加高级 API 或新关键词。
+**P2 高级能力在语言中生长**：新增算法/数据结构不修改解释器、不修改 `HostOp`、不需要重新编译 CLI。
+**P3 读写位置统一**：索引读取和索引赋值遵循同一类“位置”语义；`Memory` 的读取/写入是基础例子，普通列表的值语义不得无声改变。
+**P4 内外边界诚实**：内存操作是语言计算；操作系统 I/O 依赖权限、平台接口和底层实现。
+**P5 可读性**：普通 Markdown 文档仍然可读；按 RFC-LANG-0002，执行语义只由 `@exec` 模式与载荷中的 `if`/`else`/`while`/`end`/`return` 关键字决定，普通 `##`/`**`/`*`/列表/blockquote 不内建指令角色。
+**P6 安全与可验证性**：将可验证的保证限定在区域边界和权限边界；不对自定义分配器的块级错误作虚假保证。
 **P7 零隐式权限**：能够导入模块、持有字符串或解析文档，不代表拥有文件、网络或设备访问权。
 
 ## 2. 现有仓库事实及需要保留的设计
@@ -344,28 +356,28 @@ Memory 支持字节缓冲区与数据布局，但 GPU 计算仍需要执行后�
 
 这一方案故意**只修改最少的表达式语义**。
 
-- `##` 函数、`**` 执行、`*` 返回、Markdown 列表与引用规则继续维持规范。
+- 函数由 `## @exec 名称` 声明；执行/返回/条件/循环由载荷中的 `if`、`else`、`while`、`end`、`return` 关键字决定（RFC-LANG-0002）；Markdown 列表与引用只是文档容器。
 - `[]()` 是**文档/知识的静态寻址**；动态 Memory 的字节偏移属于执行期位置，两者不强行共享 URI 语法。
 - 普通 GFM 表格是文档值；可用于初始化/展示内存快照，但不会自动变成内存分配器。
 - `memory.new(...)` 与 `resource.open(...)` 都可按普通函数调用表达；不新增 `memory`、`pointer`、`asm`、`register` 这样的语法关键字。
 - 内存状态变化可选输出可读 GFM Table 供 View/Proof 使用；证明必须以抽象执行语义为依据，而不是假设表格文本本身就是执行存储。
 
-示例（**候选语法，当前尚不可运行**）：
+示例（**目标语法，按 RFC-LANG-0002 书写；当前尚不可运行**）：
 
 ````markdown
-## 研究一个字节缓冲区
+## @exec 研究一个字节缓冲区
 
 此函数演示“可引用的存储区域”与普通 Markdown 叙述并存。
 
-**区域 = memory.new(1, 4)**
+`区域 = memory.new(1, 4)`
 
-**`区域[8] = 42`**
+`区域[8] = 42`
 
-**另一个名字 = 区域**
+`另一个名字 = 区域`
 
-**`另一个名字[9] = 99`**
+`另一个名字[9] = 99`
 
-*区域[8] + 区域[9]*
+`return 区域[8] + 区域[9]`
 ````
 
 预期结果 141。注意这里 `另一个名字 = 区域` 分享 Memory 身份；一般列表/表格并不因此被改造成共享字节缓冲区。
@@ -388,7 +400,7 @@ Memory 支持字节缓冲区与数据布局，但 GPU 计算仍需要执行后�
 
 - `marqdo-value`：新增不可伪造的 Memory 值表示；必要时添加 ResourceHandle，注意现有 PluginHandle 不能随意直接复用为 OS 资源句柄。
 - `marqdo-expression`：`AssignTarget` 的 Local / Index 变体；保留原有表达式读取。
-- `marqdo-frontend`：更新表达式 AST 对应 IR 和定位信息；不改变 Markdown 语义映射。
+- `marqdo-frontend`：更新表达式 AST 对应 IR 和定位信息；不改变 RFC-LANG-0002 定义的模式/载荷映射（语法迁移是独立的全仓库工作）。
 - `marqdo-runtime`：Memory 实例生命周期/增长/边界检查/预算；执行位置写入；参考解释器。
 - `marqdo-host`：逐步提供可注册资源操作的能力边界；必须保持旧 `HostOp` 兼容窗口，不能一次砍断所有旧调用。
 - `marqdo-package` / CLI：发布标准库兼容信息，继续利用已存在的 path/Git pinned lock；资源授权仍由真实操作者提供。
@@ -425,7 +437,7 @@ marqdo-stdlib/
 ### R1：最小可寻址存储（核心里程碑）
 
 - `Memory` 区域：创建、大小、增长、读取一字节、写入一字节；实现总/单区域预算、错误恢复与 trace。
-- 支持 `**\`m[8] = 42\`**` 这类现有 Markdown 负载中的索引赋值。
+- 支持 `` `m[8] = 42` `` 这类现有 Markdown 载荷中的索引赋值。
 - 不开放裸指针、不引入新寄存器、不改旧 List/Map/Table 的赋值与复制行为。
 - 运行跨区域隔离与别名测试；报错不能导致原有区域被污染。
 

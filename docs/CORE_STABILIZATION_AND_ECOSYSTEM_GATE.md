@@ -1,9 +1,16 @@
 # Marqdo CLI 核心稳定化、协议冻结与独立生态准入实施规范
 
-> **Historical review baseline (`0adebe4`, 2026-11-20).** The source review
-> and CI facts here are a snapshot, not current state. The current overview is
-> [`architecture/CURRENT.md`](architecture/CURRENT.md); executed status is in
-> [`STATUS.md`](STATUS.md).
+> **Historical / Superseded review baseline (`0adebe4`, 2026-11-20).** The
+> source review and CI facts here are a snapshot, not current state. The current
+> overview is [`architecture/CURRENT.md`](architecture/CURRENT.md); executed
+> status is in [`STATUS.md`](STATUS.md).
+>
+> **语言语义已被取代：** 本文件的语言描述早于
+> [`docs/architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md)
+> （[ADR-0052](adr/0052-unified-markdown-semantics.md)）。现行唯一语言规范是
+> 该 RFC 与 `spec/mapping.md` / `spec/expression.ebnf`；本文的旧分阶段路线、
+> 问题清单和门槛均为历史输入，不表示已实现，也不得覆盖 RFC。下一阶段计划以
+> [`STABLE_RELEASE_IMPLEMENTATION.md`](STABLE_RELEASE_IMPLEMENTATION.md) 为准。
 
 
 > **文档状态：Proposed / 可直接用作下一阶段工程实施基线**  
@@ -43,7 +50,7 @@
 
 Marqdo 是以 Markdown 语法树为正式结构、具有确定执行语义的编程语言。其基础原则为“代码即文档，文档即知识库，知识即可执行”。它不是将 Markdown 翻译成 Python 后执行的工具。普通文档内容保持 Markdown 可读性，具有执行语义的结构由固定 Markdown profile 和 language mapping 解释，再由独立 Rust 解释器运行。
 
-语言规范权威入口：`spec/markdown-profile.md`、`spec/mapping.md`、`spec/expression.ebnf`、`spec/evaluation.md`、`spec/references.md`。修改这些文件规定的语义属于**语言版本变更**，必须单独提出 ADR 和金样测试；本文件不会擅自改变它们。
+语言规范权威入口（现行）：`docs/architecture/RFC-LANG-0002-unified-semantics.md` 及其摘要 `spec/mapping.md`、`spec/expression.ebnf`、`spec/evaluation.md`、`spec/references.md`；`spec/markdown-profile.md` 仍固定 Markdown profile。（本句在写作时指向旧映射，已按 RFC 更新；下文其余叙述为历史。）修改这些文件规定的语义属于**语言版本变更**，必须单独提出 ADR 和金样测试；本文件不会擅自改变它们。
 
 语言核心应独立完成 Markdown AST 解析、函数和参数推断、表达式与控制流、模块/显式导入、静态检查、确定的值及错误语义、Rust 原生执行、能力检查、依赖环境。编译/运行 **不需要** Knowledge、Proof 或 View。
 

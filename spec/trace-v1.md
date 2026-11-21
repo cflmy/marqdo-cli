@@ -43,9 +43,9 @@ use UTF-8 byte offsets into the source identified by `source.root_id` and
 |---|---|---|
 | `call.enter` | null | function entry; `function_id` is canonical |
 | `call.exit` | `ok` / `return` / error code | function exit |
-| `return` | value type name | explicit `Emph` return; no value content |
-| `branch.eval` | `true` / `false` | ordered-list branch condition |
-| `loop.iteration` | `continue` / `exit` | bullet-list loop condition |
+| `return` | value type name | explicit `return` statement; no value content |
+| `branch.eval` | `true` / `false` | `if` condition for an `if/else/end` group |
+| `loop.iteration` | `continue` / `exit` | `while` condition for a `while/end` group |
 | `effect` | result summary | a `HostOp` effect; `operation` names it |
 
 Future event kinds are additive. Consumers must ignore unknown kinds rather

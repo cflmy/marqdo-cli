@@ -1,9 +1,18 @@
 # Marqdo CLI：CI 收敛、语言边界回归与稳定发行实施规范
 
-> **Historical baseline (`c9f01aa8`, 2026-11-20).** The CI SHA and run
-> below are a snapshot. Refresh the remote SHA and CI evidence before use.
-> The current overview is [`architecture/CURRENT.md`](architecture/CURRENT.md);
-> executed status is in [`STATUS.md`](STATUS.md).
+> **Historical / Superseded baseline (`c9f01aa8`, 2026-11-20).** The CI SHA
+> and run below are a snapshot. Refresh the remote SHA and CI evidence before
+> use. The current overview is
+> [`architecture/CURRENT.md`](architecture/CURRENT.md); executed status is in
+> [`STATUS.md`](STATUS.md). Next-phase work is governed by
+> [`STABLE_RELEASE_IMPLEMENTATION.md`](STABLE_RELEASE_IMPLEMENTATION.md).
+>
+> **语言语义已被取代：** 本文件的 Markdown/`**` 语义讨论写于 RFC-LANG-0002 之前；
+> `Strong`=语句、`Emph`=返回、有序列表=分支、无序列表=循环、CodeSpan 条件头、
+> BlockQuote=调用的旧映射已被
+> [`docs/architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md)
+> （[ADR-0052](adr/0052-unified-markdown-semantics.md)）废止。§3 的旧语法示例已替换
+> 为目标语法并标注历史；现行规范见 `spec/mapping.md` / `spec/expression.ebnf`。
 
 
 > **文档性质：** 可直接入库的执行规范 / Release Convergence Plan。供未阅读任何历史聊天的维护者、贡献者与 DeepSeek Harness 使用。
@@ -55,7 +64,7 @@ marqdo-markdown：固定 Comrak/CommonMark/GFM/Math profile（唯一 Markdown �
     │ Canonical MdNode + byte Span
     ▼
 marqdo-frontend：Heading 作用域/导入/参数推断/Markdown AST→IR
-    │                条件头、分支、循环、调用、引用、源码位置
+    │                标题模式、载荷、控制关键字、引用、源码位置
     ▼
 marqdo-ir + marqdo-expression：可执行 AST/强类型表达式语法
     │
@@ -184,23 +193,28 @@ bwrap: Creating new namespace failed: Resource temporarily unavailable
 
 ## 3. Markdown 与乘方：从疑虑收缩为正式回归测试
 
-### 3.1 已确定的语义，不得擅自改变
+### 3.1 已确定的语义，不得擅自改变（已按 RFC-LANG-0002 更新）
 
-Markdown 源码经过冻结 Comrak profile。`##` 定义函数；普通函数段落中的 `Strong` 是可执行语句；`Emph` 是返回表达式；有序列表是分支，无序列表是循环；列表项第一段的**首个 CodeSpan** 是条件表达式；后续普通文字可解释目的；BlockQuote 是显式调用。完整计算表达式由独立 Marqdo 表达式解析器解释。
+> **历史说明：** 本节原文写于旧映射时期（`##` 无条件函数、`Strong`=语句、
+> `Emph`=返回、有序列表=分支、无序列表=循环、首段 CodeSpan=条件、
+> BlockQuote=调用）。该映射已被 RFC-LANG-0002 废止，原文中的“不要以修复乘方
+> 为由改语法”等表述是当时语境；现行规则如下。
 
-**用户本地实测**已经说明：适当空格使 Markdown 按预期生成 AST，乘方可以正确运行。故这一轮**不应以“修复乘方”为由重新设计强/斜体语法**。Markdown 标记本身具有分隔符词法规则：紧凑写法造成不同 AST 属于需要准确文档化的语言边界，而不是一律归咎解释器。
+Markdown 源码经过冻结 Comrak profile（Markdown profile 不变）。现行映射：标题以 `@exec`/`@knowledge` 声明模式并从祖先继承；只有 Exec H2 是可调用函数；`Strong`、`Emph`、行内 `Code` 是等价的单语句载荷载体；`if`/`else`/`while`/`end`/`return`/`params(...)` 决定控制与签名；列表、引用块、段落只是容器。完整计算表达式由独立 Marqdo 表达式解析器解释。
+
+Markdown 标记仍具有分隔符词法规则：紧凑写法造成不同 AST 属于需要准确文档化的语言边界，而不是一律归咎解释器。因此目标语法推荐把表达式放进独立的行内 CodeSpan 载荷；`**` 只有在载荷提取后才作为乘方运算符。
 
 ```markdown
-## main
+## @exec main
 
-**n = 2**
+`n = 2`
 
-**`n = n ** 2`**
+`n = n ** 2`
 
-> print(n)
+`print(n)`
 ```
 
-以上是建议的、对 `**` 乘方运算最稳妥的可读写法：外围 Strong 定义执行语句，内部 CodeSpan 避免 Markdown 把计算运算符看作强调分隔符。对于本机已经验证能形成正确 AST 的空格写法，也应以 AST 金样记录，不应禁止。
+以上为目标语法示例（前端尚未迁移，不能原样运行）：独立行内 CodeSpan 作为载荷，避免 Markdown 把计算运算符看作强调分隔符。对于能形成正确 AST 的写法，也应以 AST 金样记录。
 
 **正式判断标准：** `marqdo inspect --ast` 的 Comrak AST 是否对应规范结构；其后 `check`/`run` 是否按该结构执行。不得为“猜测用户想写什么”而增加原始 Markdown 正则修复器，也不得因源码像表达式就跳过 Markdown AST。
 
@@ -218,38 +232,40 @@ Markdown 源码经过冻结 Comrak profile。`##` 定义函数；普通函数段
 
 | 编号建议 | 源码表达 | 预期 | 证明什么 |
 |---|---|---|---|
-| 37 |  `*` + CodeSpan(`2 ** 3 ** 2`) + `*` | `Int 512` | Markdown→右结合解析→求值 |
-| 38 | `*` + CodeSpan(`-2 ** 2`) + `*` | `Int -4` | 一元负号优先级 |
-| 39 | `*` + CodeSpan(`(-2) ** 2`) + `*` | `Int 4` | 括号与优先级 |
-| 40 | `*` + CodeSpan(`2.0 ** -1`) + `*` | `Float 0.5` | 浮点负指数 |
-| 41 | `**` + CodeSpan(`n = 2 ** 3`) + `**`，然后返回 `n` | `Int 8` | Strong + CodeSpan 嵌套路径 |
-| 42 | 有序列表条件 `` `n ** 2 == 4` `` + 叙述 + 引用调用 | 只调用真分支 | 条件 Markdown / 段落 / 控制流 |
-| 43 | 无序列表条件 `` `n ** 2 < limit` `` + 叙述 + 递增 | 预期迭代和返回 | 循环、条件重新求值、乘方 |
+| 37 | 独立 CodeSpan 载荷 `` `2 ** 3 ** 2` `` | `Int 512` | Markdown→右结合解析→求值 |
+| 38 | 独立 CodeSpan 载荷 `` `-2 ** 2` `` | `Int -4` | 一元负号优先级 |
+| 39 | 独立 CodeSpan 载荷 `` `(-2) ** 2` `` | `Int 4` | 括号与优先级 |
+| 40 | 独立 CodeSpan 载荷 `` `2.0 ** -1` `` | `Float 0.5` | 浮点负指数 |
+| 41 | 载荷 `` `n = 2 ** 3` `` 后 `` `return n` `` | `Int 8` | 赋值 + return 关键字 |
+| 42 | `` `if n ** 2 == 4` `` + 打印 + `` `else` `` + 打印 + `` `end` `` | 只执行真分支 | 关键字分支 / 载荷 / 控制流 |
+| 43 | `` `while n ** 2 < limit` `` + 递增 + `` `end` `` + `` `return n` `` | 预期迭代和返回 | 循环、条件重新求值、乘方 |
 
-例如，给 42 建立下述源文件；相应 expected 的 `stdout` 应为 `乘方正确\n`，返回值应为 `Unit`，实际 JSON 具体类型按已存在 wire-v1 金样约定构造：
+例如，给 42 建立下述（目标语法）源文件；相应 expected 的 `stdout` 应为 `乘方正确\n`，返回值应为 `Unit`，实际 JSON 具体类型按已存在 wire-v1 金样约定构造：
 
 ```markdown
-## main
+## @exec main
 
-**n = 2**
+`n = 2`
 
-1. `n ** 2 == 4`，正确分支的自然语言说明。
+`if n ** 2 == 4`
 
-   > print("乘方正确")
+`print("乘方正确")`
 
-2. `n ** 2 != 4`，另一分支的说明。
+`else`
 
-   > print("乘方错误")
+`print("乘方错误")`
+
+`end`
 ```
 
 对 41：
 
 ```markdown
-## main
+## @exec main
 
-**`n = 2 ** 3`**
+`n = 2 ** 3`
 
-*n*
+`return n`
 ```
 
 ### 3.4 必须新增的负向/边界测试
@@ -259,18 +275,23 @@ Markdown 源码经过冻结 Comrak profile。`##` 定义函数；普通函数段
 | `2 ** -1`，纯 Int | 类型错误；不是神奇地得到 `0.5` | Runtime error fixture |
 | `2 ** 100001` | `resource.exhausted`（当前指数限额） | Runtime error fixture |
 | `2 **` | 解析器诊断非法表达式，正确源码 span | 负向 fixture |
-| 列表头 `` `n ** 2 ==` `` | 条件表达式语法错误，定位到原 Markdown 源码中缺失操作数的位置 | Frontend / CLI error |
+| `if` 条件 `` `n ** 2 ==` `` | 载荷语法错误，定位到原 Markdown 源码中缺失操作数的位置 | Frontend / CLI error |
 | 多反引号 CodeSpan 包含 `**` | 仍能正确映射完整表达式与字节 Span | AST + frontend |
 | `**n=n**2**` 等缺少空格的 Markdown 边界 | 固定 Comrak 真实 AST，不推断用户意图，不自动更正 | AST golden + 文档例子 |
 | `**n = n ** 2**`（有空格） | 在实际 profile 中确认 AST，再据此固定接受/拒绝结果 | AST + CLI |
-| 普通叙述段落出现 `` `n ** 2` `` | 不执行计算、不被作为分支条件 | 结构/副作用性质测试 |
+| `@knowledge` 段落出现 `` `n ** 2` `` | 不执行计算、不产生 IR | 结构/副作用性质测试 |
 | 代码围栏中出现 `**` | 保持惰性，不会触发运算 | AST + inert fixture |
 | 纯说明段落的修改 | 可执行 IR/实际结果不变 | property test |
 | 强行嵌套 Markdown 强调导致非法 payload | 给出诊断，不静默换另一计算规则 | negative test |
 
-**条件头被吞掉的可执行节点：** 当前 `map.rs::condition_of()` 使用 `&item.children[1..]` 形成分支体，首段里第一个 CodeSpan 后若出现 `Strong` / `Emph`，这些可执行标记可能被整体忽略。建议在原有“首个 CodeSpan + 说明文本”语法上增加一个严格检查：首段剩余结构仅允许惰性叙述（按已冻结 profile 判定），保留其原始 AST 与 SourceSpan；若出现其他可执行角色，报 `markdown.invalid_construct`，不能无声丢弃。先补复现 fixture，再制定必要的精确规则；**无需更换 CodeSpan 条件头的正式语法**。
+> **历史说明：** 以下两段描述的是 RFC-LANG-0002 之前的条件头/CodeSpan
+> 实现细节（`map.rs::condition_of()`、`markdown.invalid_construct`）。在现行
+> 映射中列表不再有条件头，载荷统一用 `sem.*` 诊断；这两段只作为旧实现考古，
+> 不得据此恢复旧语法。
 
-**CodeSpan 源码位置：** `condition_of()` 当前使用 `PayloadSegments::single(&literal, condition_node.span)`，须回归验证反引号是否计入字节跨度；若诊断偏移，修正 span 映射而不是改 Markdown AST。要求单/双反引号、中文前缀、换行和多字节 UTF-8 的准确来源测试。
+**条件头被吞掉的可执行节点（旧实现，历史）：** 旧 `map.rs::condition_of()` 使用 `&item.children[1..]` 形成分支体，首段里第一个 CodeSpan 后若出现 `Strong` / `Emph`，这些可执行标记可能被整体忽略。旧建议是在“首个 CodeSpan + 说明文本”语法上增加严格检查；该语法已被废止，目标语法改由关键字控制流表达分支。
+
+**CodeSpan 源码位置（历史）：** 旧 `condition_of()` 使用 `PayloadSegments::single(&literal, condition_node.span)`，须回归验证反引号是否计入字节跨度。该回归要求作为 span 映射经验保留；新 frontend 需为所有载荷载体（Strong/Emph/Code）提供准确字节跨度。
 
 ### 3.5 正确的测试组织与执行命令
 
@@ -389,7 +410,7 @@ ADR-0021 已实现 Bubblewrap supervisor，Linux strict L1 在专用 Ubuntu 26.0
 ### 7.1 关闭条件：最短可衡量路径
 
 - **第一个工作包完成：** G1～G3 全绿（解决旧 CI 三处失败）；不再存在 E0433 / 环境依赖的错误断言。
-- **第二个工作包完成：** G5/G6 全绿（乘方、Strong/CodeSpan、列表叙述、负向边界、源 Span）；语言语义不需重新设计。
+- **第二个工作包完成（历史验收，旧映射）：** G5/G6 全绿（乘方、Strong/CodeSpan、列表叙述、负向边界、源 Span）；该结论对应旧映射，语言语义已由 RFC-LANG-0002 重写。
 - **第三个工作包完成：** G7/G8 全绿或清楚地标为非承诺子能力；独立 Tool 消费无硬编码。
 - **第四个工作包完成：** G9 由专用 VM 自托管 CI 在同 SHA PASS，或经负责人明确决定仅发行 G-B 并真正关闭 G-C 声明。
 - **第五个工作包完成：** G10/G11 PASS、Release Candidate 清洁安装，再经批准完成 G12。
@@ -492,7 +513,7 @@ Approved by / time:
 (2) Ubuntu 普通 CI 下 strict probe 与实际启动竞态/资源不足的 fail-closed
     契约，并在独立安全 VM 保证严格隔离正向执行与 7/7 攻击矩阵；
 (3) 增加完整 Markdown AST、乘方、分支/循环条件、源 Span、惰性与
-    错误边界的黄金测试和端到端语义测试，不擅自改 CodeSpan 条件语法；
+    错误边界的黄金测试和端到端语义测试；条件头/CodeSpan 旧语法已废止，目标语法见 RFC-LANG-0002；
 (4) 验证 lock v3、Analysis/Trace、完全通用的 Tool、ABI/Worker/Foreign
     的支持矩阵和独立消费者；
 (5) 完成全平台 CI、同 SHA 的 G-C 证据、Release Candidate 干净安装、

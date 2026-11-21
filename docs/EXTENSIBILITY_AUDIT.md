@@ -1,6 +1,16 @@
 # M0.6 扩展性审计：源码问题、改造路径与测试契约
 
-> 源文档 `docs/NEXT_PHASE_IMPLEMENTATION.md` §1A 的审计摘录，供开发者按问题创建 PR；具体开发次序和发布门槛请看主文档。该审计之后的稳定化基线与 G-A/G-B/G-C 门槛见 `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`。
+> **Historical / Superseded planning input.** 本审计是 M0.6 时期（审查基线
+> `0116160`）的源码扩展性证据，不是当前语言语义或发布路线。语言的唯一现行
+> 权威是
+> [`docs/architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md)
+> （[ADR-0052](adr/0052-unified-markdown-semantics.md)）；下一阶段计划以
+> [`docs/STABLE_RELEASE_IMPLEMENTATION.md`](STABLE_RELEASE_IMPLEMENTATION.md)
+> 为准；执行状态见 [`docs/STATUS.md`](STATUS.md)。下文关于
+> `Strong/Emph/List/Quote` 的“用户可见语义”表述描述的是已被 RFC-LANG-0002
+> 废止的旧映射，仅作为当时审计记录保留。
+
+> 源文档 `docs/NEXT_PHASE_IMPLEMENTATION.md` §1A 的审计摘录，供开发者按问题创建 PR；具体开发次序和发布门槛请看主文档。该审计之后的稳定化基线（历史）见 `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`；当前路线与发布门槛以 `docs/STABLE_RELEASE_IMPLEMENTATION.md` 为准。
 
 ## 1A. **扩展性审计（v3 增补，优先级高于后续阶段）**
 
@@ -98,7 +108,7 @@ Python/Node 可以继续作为内置 provider；新增 Julia/R/自定义内核�
 当前项目版本 `0.1.0`，**不对错误设计承担无限兼容义务**。开发者应优先保证未来长期正确性，而不是维护早期内部 enum 的表面稳定。推荐机制：
 
 - **内部接口（可以直接破坏）**：`HostOp` 分发、`Builtin` 内部查找、`PluginSlot` 单 namespace、模块 loader、非公开 IR、CLI 命令内部结构；每次变更要有迁移 PR、替换后的测试和明确的 PR 说明。
-- **用户可见语义（默认保护）**：`Strong/Emph/List/Quote` 语义、显式 YAML import、无括号调用的拒绝规则、链接不执行、函数参数推断等。若发现客观错误，也必须有 ADR、版本升级和一致性金样，而不能把“扩展性”当作随意改语法的理由。
+- **用户可见语义（默认保护，现行映射见 RFC-LANG-0002）**：`@exec`/`@knowledge` 标题模式与继承、Exec H2 可调用性、`Strong`/`Emph`/行内 `Code` 单语句载荷等价、`if/else/while/end/return/params` 关键字、显式 YAML import、链接不执行、函数参数推断等。若发现客观错误，也必须有 ADR、版本升级和一致性金样，而不能把“扩展性”当作随意改语法的理由。（本审计原文写作时仍是旧 `Strong/Emph/List/Quote` 映射，已被 RFC-LANG-0002 废止。）
 - **版本化公共协议（只能显式破坏）**：Tool Protocol、Analysis/Trace、插件 ABI、Value Wire、Lock 格式。新旧同时可用或明确不兼容均可，但不能把 schema 名不变、字段意义变了当作修复。
 - **冗余命令（可以有序削减）**：`init`、`inspect`、`fmt`、`plugin inspect`、`remove`、`lock` 等仅作为现有 0.x 行为，保留要以维护收益证明；公开主线禁止因此增加更多命令。删除时提供对应的文档内替代方式，避免把重要能力一起删除。
 

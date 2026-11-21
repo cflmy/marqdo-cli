@@ -1,9 +1,19 @@
 # Marqdo Contributor Guide
 
 This guide is for people changing the Marqdo CLI workspace. It assumes you have
-read `AGENTS.md` (the non-negotiable architectural rules) and
-`docs/DEVELOPMENT_BLUEPRINT.md` §0/§1/§11/§13/§14. Formal contracts live in
-`spec/`; decisions live in `docs/adr/`.
+read `AGENTS.md` (the non-negotiable architectural rules), the current language
+authority [`docs/architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md)
+with its normative summaries `spec/mapping.md` + `spec/expression.ebnf`, and
+`docs/DEVELOPMENT_BLUEPRINT.md` §0/§1/§11/§13/§14 (the language-mapping sections
+there are historical and defer to the RFC). Decisions live in `docs/adr/` at
+their date.
+
+> **Implementation state:** RFC-LANG-0002 and `spec/` are ahead of the Rust
+> implementation. The frontend, expression parser and bundled stdlib still
+> implement the pre-RFC mapping, so tests that execute Marqdo source are expected
+> to be red until the migration lands. Status and evidence are in
+> [`STATUS.md`](STATUS.md); the migration rules and inventory are in
+> [`migration/README.md`](migration/README.md).
 
 ## 1. Repository map
 
@@ -13,9 +23,11 @@ marqdo-cli/
 ├── AGENTS.md                   operator rules for contributors/agents
 ├── README.md                   user-facing quickstart and limits
 ├── docs/
-│   ├── DEVELOPMENT_BLUEPRINT.md   architecture baseline
+│   ├── DEVELOPMENT_BLUEPRINT.md   architecture baseline (language-mapping sections historical)
+│   ├── architecture/RFC-LANG-0002-unified-semantics.md  current language authority
 │   ├── STABLE_RELEASE_IMPLEMENTATION.md  authoritative next-phase/release plan
 │   ├── STATUS.md                  current evidence, work packages, blockers
+│   ├── migration/                 syntax-migration rules + file inventory
 │   ├── security-gate.md           G-C probe evidence (strict stays closed)
 │   ├── releasing.md               artifact/checksum/smoke/tag procedure
 │   ├── CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md  historical stabilization spec
@@ -23,11 +35,11 @@ marqdo-cli/
 │   ├── EXTENSIBILITY_AUDIT.md     source-backed E01–E16 audit
 │   ├── history/                   archived status snapshots
 │   ├── contributor-guide.md       this file
-│   └── adr/0001..0020-*.md        accepted decisions
+│   └── adr/0001..0052-*.md        decisions at their date (ADR-0052 = current language mapping)
 ├── spec/
 │   ├── markdown-profile.md        frozen parser profile `marqdo.md.v1`
-│   ├── mapping.md                 AST → program roles
-│   ├── expression.ebnf            executable payload grammar
+│   ├── mapping.md                 current heading-mode/payload/control-flow mapping
+│   ├── expression.ebnf            statement/payload grammar (keywords)
 │   ├── evaluation.md              values, numbers, control flow, builtins
 │   ├── references.md              imports/references/calls/ref()
 │   ├── value-wire.md              typed wire_version 1 values
@@ -46,7 +58,7 @@ marqdo-cli/
 │   ├── marqdo-expression/         lexer/parser/AST for executable payloads
 │   ├── marqdo-markdown/           comrak profile, canonical AST, front matter
 │   ├── marqdo-ir/                 Module/Unit/Function/Stmt IR, builtin table
-│   ├── marqdo-frontend/           units, map, signature, infer, calls, resources
+│   ├── marqdo-frontend/           units/modes, map, payloads, signature, infer, calls
 │   ├── marqdo-math/               Formula parser/evaluator (exact rationals)
 │   ├── marqdo-foreign/            Python/Node one-shot kernel supervisor
 │   ├── marqdo-sandbox/            modes + platform capability detection
@@ -104,13 +116,16 @@ Rules (from blueprint §11.1, adjusted by ADR-0001):
 
 ## 3. Adding a feature or fixture (workflow)
 
-The project uses a fixture-first workflow (blueprint §13/§14, AGENTS §
-"Development workflow"). The expected sequence is:
+The project uses a fixture-first workflow (RFC-LANG-0002, blueprint §13/§14,
+AGENTS § "Development workflow"). The expected sequence is:
 
-1. **Find the rule.** Identify the affected spec section and blueprint section.
+1. **Find the rule.** Identify the affected section of RFC-LANG-0002 /
+   `spec/` (or, for architecture-only changes, the relevant blueprint section).
    If the change alters observable language semantics, package/lock format,
    ABI, authorization defaults or public CLI behavior, write/supersede an ADR
-   first (`docs/adr/`, template in blueprint §16.2).
+   first (`docs/adr/`, template in blueprint §16.2). There is one active
+   language mapping: do not add a second mapper, a per-file syntax selector,
+   `--legacy` or a parallel syntax spec.
 2. **Write a failing fixture.** Add a small `.mq.md` positive and/or negative
    case under the right directory:
    * AST shape: `tests/conformance/ast/NNN-name.mq.md` + golden
@@ -135,6 +150,30 @@ The project uses a fixture-first workflow (blueprint §13/§14, AGENTS §
 6. **Write the tradeoff/limitations** in `docs/STATUS.md` when a P-level claim
    changes, and in the PR description (paths, commands run, skipped tests).
 
+### 3.1 Syntax rules for fixtures and examples (RFC-LANG-0002)
+
+Every `.mq.md` fixture, example, stdlib module and documentation fence must use
+the single current syntax:
+
+* heading modes `@exec` / `@knowledge` with ancestor inheritance; only an Exec
+  H2 is callable;
+* `Strong`, `Emph` and inline `Code` as interchangeable one-statement payload
+  carriers;
+* `if`/`else`/`while`/`end`/`return`/`params(...)` keywords inside the payload;
+* lists, block quotes and paragraphs as inert containers (no implicit
+  branch/loop/call);
+* no version directive, `marqdo_semantics` field or old-signature code span.
+
+Do not reintroduce the superseded mapping (`Strong`=execute, `Emph`=return,
+ordered list=branch, bullet list=loop, block quote=call) in new fixtures. Old
+shape negatives that are now valid inert Markdown must be replaced with
+negatives for the `sem.*` codes in `spec/mapping.md` §8; genuine runtime
+negatives keep their behavior and only change source spelling. Because the
+frontend is not migrated yet, executable-source tests are expected to be red:
+do not weaken assertions, delete failing tests or refresh goldens to make them
+green. Record each migrated active file in
+[`migration/README.md`](migration/README.md) / the migration inventory.
+
 If a fixture reveals an implementation bug, fix the code, not the expected
 behavior. Negative fixtures must assert hard errors — never weaken them to
 warnings or prose fallbacks.
@@ -157,7 +196,10 @@ fixture are both errors.
 Semantic goldens (`*.expected.json`): `UPDATE_SEMANTICS_GOLDENS=1` exists for
 authoring convenience, but never use it blindly — verify every value against the
 fixture source first. Invalid, inconsistent or unverified expected values defeat
-the corpus.
+the corpus. During the RFC-LANG-0002 migration do not regenerate goldens to make
+red executable-source tests pass: the target spec is ahead of the frontend, and
+a golden may only change with a stated semantic reason. See
+[`STATUS.md`](STATUS.md).
 
 Negative goldens are hand-written expected code lists (exact sorted multiset for
 compile-time errors; warning suites; runtime suites). Do not auto-generate them.
@@ -256,24 +298,26 @@ $B run examples/plugin-demo/plugin-call.mq.md \
 
 Notes: `run` defaults to `index.mq.md` and executes `main`; `call` requires a
 file and function; root-only examples (for example `math.mq.md`) define no
-`main`. `--mode strict` is expected to refuse to run (ADR-0004).
+`main`. `--mode strict` is expected to refuse to run (ADR-0004). The examples
+are being migrated to RFC-LANG-0002 syntax; until the frontend migration lands
+the current CLI may not accept them, so a failing example run is not evidence
+that the target syntax is already implemented. See [`STATUS.md`](STATUS.md).
 
 ## 8. Docs, ADRs and commit policy
 
 * `spec/` = normative contracts; `docs/` = architecture/decisions/status;
   `README.md` = user quickstart; `AGENTS.md` = contributor rules.
-* `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md` is the current-stage
-  stabilization spec (baseline `0adebe4`). It supersedes the M0.6 planning pair
-  on the current baseline, gap list (B-01–B-18) and the G-A/G-B/G-C release
-  gates. `docs/NEXT_PHASE_IMPLEMENTATION.md` and
-  `docs/EXTENSIBILITY_AUDIT.md` remain the M0.6 planning/evidence pair. All are
-  **Proposed**: the M0.6 plan supersedes the blueprint only on command-surface
-  scope, extension registration, plugin addressing, package identity, repository
-  decoupling and release gates.
-  Language semantics remain normative in `spec/` + Accepted ADRs + tests, and
-  `spec/tool-v1.md` is a candidate protocol until an ADR and implementation
-  tests land. Never cite these proposed documents as evidence that a feature
-  exists.
+* Language semantics are normative only in RFC-LANG-0002 (`docs/architecture/`)
+  and its in-place summaries in `spec/`; the language-mapping sections of the
+  blueprint are historical. Do not add a second active syntax spec.
+  `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`,
+  `docs/NEXT_PHASE_IMPLEMENTATION.md` and
+  `docs/NEXT_RELEASE_CI_CONVERGENCE.md` are **Historical/Superseded** planning
+  input (their banners link the RFC); `docs/STABLE_RELEASE_IMPLEMENTATION.md` is
+  the authoritative next-phase/release plan. None describes implemented
+  behavior. `spec/tool-v1.md` is a candidate protocol until an ADR and
+  implementation tests land. Never cite a proposed or historical document as
+  evidence that a feature exists.
 * Changes to language semantics, AST mapping, wire format, plugin ABI,
   package/lock format, authorization defaults or public CLI behavior require an
   **Accepted ADR** (or superseding one) plus spec updates and tests. Use the
@@ -282,9 +326,11 @@ file and function; root-only examples (for example `math.mq.md`) define no
 * ADRs are immutable once Accepted: add a new ADR with
   `Status: Superseded by ADR-NNNN` rather than rewriting history (typo fixes
   aside).
-* Docs must describe what the code does. When implementation and blueprint
+* Docs must describe what the code does. When implementation and spec
   disagree, document the implementation and flag the divergence explicitly as
-  a limitation/open item; never invent behavior.
+  a limitation/open item; never invent behavior. Right now `spec/` is ahead of
+  the frontend, so say that explicitly rather than claiming the new syntax
+  works.
 * Do not edit generated/vendored state, and never modify tests to hide a
   regression.
 * Commit in reviewable units with a message stating the affected spec/ADR and
@@ -304,6 +350,10 @@ file and function; root-only examples (for example `math.mq.md`) define no
   `fs.read`), but they are **not** an OS sandbox. The strict sandbox and a
   package registry remain unimplemented; strict fails closed. See
   `docs/security-gate.md` and `spec/security.md`.
+* The syntax migration is in progress in this tree: `spec/` and the docs
+  describe RFC-LANG-0002, while the Rust frontend and stdlib still implement
+  the pre-RFC mapping. Executable-source tests are expected to be red; do not
+  "fix" them by restoring the old mapping or by regenerating goldens.
 * Runtime errors resolve against their owning module (ADR-0017); do not
   reintroduce entry-file fallback.
 * The semantic corpus may pin current quirks (for example the external-link

@@ -1,0 +1,1010 @@
+path	category	active	old_semantics	action	owner	verification	status
+.gitattributes	non-semantic	no	none	none	-	n/a	reviewed
+.github/workflows/ci.yml	non-semantic	no	none	none	-	n/a	reviewed
+.github/workflows/security-linux.yml	non-semantic	no	none	none	-	n/a	reviewed
+.gitignore	non-semantic	no	none	none	-	n/a	reviewed
+.woodpecker.yml	non-semantic	no	none	none	-	n/a	reviewed
+AGENTS.md	tutorial	yes	old mapping	rewrite	docs	review	migrated
+CHANGELOG.md	tutorial	yes	old mapping	rewrite	docs	review	migrated
+COMPATIBILITY.md	tutorial	yes	old mapping	rewrite	docs	review	migrated
+Cargo.lock	non-semantic	no	none	none	-	n/a	reviewed
+Cargo.toml	non-semantic	no	none	none	-	n/a	reviewed
+LICENSE-APACHE	non-semantic	no	none	none	-	n/a	reviewed
+LICENSE-MIT	non-semantic	no	none	none	-	n/a	reviewed
+README.md	tutorial	yes	old mapping	rewrite	docs	review	migrated
+crates/cli/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/cli/src/analysis.rs	rust-source	yes	embedded text/help	migrate embedded .mq.md text only	language	cargo test	migrated
+crates/cli/src/args.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/cli/src/commands.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/cli/src/commands/check.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/cli/src/commands/init.rs	rust-source	yes	embedded text/help	migrate embedded .mq.md text only	language	cargo test	migrated
+crates/cli/src/commands/inspect.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/cli/src/commands/package.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/cli/src/commands/run.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/cli/src/commands/sandbox.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/cli/src/commands/tool.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/cli/src/loader.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/cli/src/main.rs	rust-source	yes	embedded text/help	migrate embedded .mq.md text only	language	cargo test	migrated
+crates/cli/src/output.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/cli/src/stdlib.rs	rust-source	yes	embedded text/help	migrate embedded .mq.md text only	language	cargo test	migrated
+crates/cli/src/tool.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/cli/src/trace.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/cli/tests/analysis_trace.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	migrated
+crates/cli/tests/architecture_boundaries.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/cli/tests/conformance_ast.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/cli/tests/conformance_semantics.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/cli/tests/docs_consistency.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/cli/tests/examples_r6.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/cli/tests/http_over_tcp.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	migrated
+crates/cli/tests/integration_cli.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	migrated
+crates/cli/tests/negative.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/cli/tests/p2_closure.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	migrated
+crates/cli/tests/package_env.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	migrated
+crates/cli/tests/plugin_worker.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	migrated
+crates/cli/tests/print_routing.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	migrated
+crates/cli/tests/properties.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	migrated
+crates/cli/tests/resource_streams.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	migrated
+crates/cli/tests/stdlib_bundle.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	migrated
+crates/cli/tests/stdlib_http.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/cli/tests/stdlib_product.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/cli/tests/stdlib_table.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/cli/tests/tool_protocol.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/marqdo-expression/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-expression/src/ast.rs	rust-source	yes	old mapping	implement RFC-LANG-0002	language	cargo test	pending-implementation
+crates/marqdo-expression/src/lexer.rs	rust-source	yes	old mapping	implement RFC-LANG-0002	language	cargo test	pending-implementation
+crates/marqdo-expression/src/lib.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-expression/src/parser.rs	rust-source	yes	old mapping	implement RFC-LANG-0002	language	cargo test	pending-implementation
+crates/marqdo-foreign/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-foreign/src/lib.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-foreign/tests/kernels.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/marqdo-foreign/tests/provider.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/marqdo-frontend/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-frontend/src/analyze.rs	rust-source	yes	old mapping	implement RFC-LANG-0002	language	cargo test	pending-implementation
+crates/marqdo-frontend/src/calls.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-frontend/src/infer.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-frontend/src/lib.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-frontend/src/map.rs	rust-source	yes	old mapping	implement RFC-LANG-0002	language	cargo test	pending-implementation
+crates/marqdo-frontend/src/payload.rs	rust-source	yes	old mapping	implement RFC-LANG-0002	language	cargo test	pending-implementation
+crates/marqdo-frontend/src/resources.rs	rust-source	yes	embedded text/help	migrate embedded .mq.md text only	language	cargo test	migrated
+crates/marqdo-frontend/src/signature.rs	rust-source	yes	old mapping	implement RFC-LANG-0002	language	cargo test	pending-implementation
+crates/marqdo-frontend/src/units.rs	rust-source	yes	old mapping	implement RFC-LANG-0002	language	cargo test	pending-implementation
+crates/marqdo-host/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/include/marqdo_resource_provider.h	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/budget.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/capability.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/context.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/fs.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/handles.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/host.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/host/dispatch.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/host/effects.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/host/providers.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/host/resource_ops.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/kernels.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/lib.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/plugin_worker.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/process.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/provider_c.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/provider_worker.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/resource.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/src/trace.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-host/tests/c_provider.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/marqdo-host/tests/capability_broker.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/marqdo-host/tests/plugin_exports.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/marqdo-host/tests/resource_streams.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/marqdo-host/tests/worker_provider.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/marqdo-ir/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-ir/src/builtins.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-ir/src/callable.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-ir/src/lib.rs	rust-source	yes	old mapping	implement RFC-LANG-0002	language	cargo test	pending-implementation
+crates/marqdo-markdown/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-markdown/src/ast.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-markdown/src/frontmatter.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-markdown/src/lib.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-markdown/src/profile.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-markdown/src/text.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-math/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-math/src/ast.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-math/src/error.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-math/src/eval.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-math/src/lib.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-math/src/parse.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-math/tests/kernel.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/marqdo-package/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-package/src/fileset.rs	rust-source	yes	embedded text/help	migrate embedded .mq.md text only	language	cargo test	migrated
+crates/marqdo-package/src/lib.rs	rust-source	yes	embedded text/help	migrate embedded .mq.md text only	language	cargo test	migrated
+crates/marqdo-plugin-abi/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-plugin-abi/src/abi.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-plugin-abi/src/artifact.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-plugin-abi/src/error.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-plugin-abi/src/lib.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-plugin-abi/src/loader.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-plugin-abi/src/manifest.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-plugin-abi/src/wire.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-plugin-abi/src/worker.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-plugin-abi/tests/loader_unix.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/marqdo-plugin-sdk/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-plugin-sdk/src/bytes.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-plugin-sdk/src/call.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-plugin-sdk/src/entry.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-plugin-sdk/src/lib.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-plugin-sdk/src/tests.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/marqdo-plugin-sdk/src/wire.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-provider-worker/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-provider-worker/src/main.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-provider-worker/tests/worker_binding.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/marqdo-runtime/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-runtime/src/builtins_impl.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-runtime/src/interpreter.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-runtime/src/lib.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-runtime/src/memory.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-runtime/src/value_ops.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-runtime/tests/interpreter.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	migrated
+crates/marqdo-sandbox/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-sandbox/src/lib.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-sandbox/src/linux.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-sandbox/tests/security_linux.rs	rust-test	yes	embedded old syntax	migrate embedded .mq.md strings	language	cargo test	reviewed
+crates/marqdo-span/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-span/src/lib.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-value/Cargo.toml	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-value/src/diagnostic.rs	rust-source	yes	embedded text/help	migrate embedded .mq.md text only	language	cargo test	migrated
+crates/marqdo-value/src/error.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-value/src/lib.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-value/src/value.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+crates/marqdo-value/src/wire.rs	rust-source	yes	not syntax-bearing	review	language	cargo test	reviewed
+docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
+docs/DEVELOPMENT_BLUEPRINT.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
+docs/EXTENSIBILITY_AUDIT.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
+docs/MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md	architecture	yes	compute RFC	migrate examples / mark historical spelling	docs	review	migrated
+docs/MARQDO_COMPUTE_MACHINE_RFC_0001.md	architecture	yes	compute RFC	migrate examples / mark historical spelling	docs	review	migrated
+docs/NEXT_PHASE_IMPLEMENTATION.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
+docs/NEXT_RELEASE_CI_CONVERGENCE.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
+docs/STABLE_RELEASE_IMPLEMENTATION.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
+docs/STATUS.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
+docs/adr/0001-crate-graph-and-span-foundation.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0002-executables-only-in-function-bodies.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0003-ref-resolution-and-ambiguity.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0004-strict-mode-refuses-without-isolation.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0005-ast-normalization.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0006-cli-contract.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0007-arbitrary-precision-int-and-wire.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0008-package-instance-identity-and-source-resolution.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0009-unified-callable-resolution.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0010-plugin-export-registration.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0011-capability-broker.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0012-external-kernel-provider.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0013-generic-cli-tool-protocol.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0014-host-plugin-handle-authority.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0015-public-analysis-trace-v1.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0016-lock-v3-graph-and-package-file-set.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0017-runtime-error-source-locations.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0018-worker-capability-bridge.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0019-strict-mode-availability-gate.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0020-foreign-environment-binding.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0021-linux-strict-isolation.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0022-addressable-memory-and-place-assignment.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0023-minimal-structure-observation-and-construction.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0024-recoverable-result-convention.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0025-minimal-resource-stream-abi.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0026-buffered-project-file-write-streams.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0027-print-migration-compat-a.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0028-bundled-stdlib-and-std-imports.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0029-full-value-formatting-and-handle-observation.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0030-print-compat-b-routing.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0031-print-compat-c-remove-host-formatting.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0032-table-logical-value-and-stdlib-algorithms.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0033-in-process-resource-provider-v1.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0034-tcp-resource-endpoint.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0035-worker-resource-provider-transport.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0036-c-abi-resource-provider.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0037-provider-package-manifest.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0038-c-abi-provider-worker-binding.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0039-stdlib-extraction-intent.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0040-stdio-stdin-stderr-and-stdlib-streams.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0041-resource-operation-fs.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0042-clock-resource-operation.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0043-env-resource-operation.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0044-process-resource-operation.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0045-fs-append-read-at-walk.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0046-random-resource-operation.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0047-net-dns-udp-listener.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0048-tls-resource-endpoint.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0049-compression-resource-operations.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0050-host-regex-extension.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0051-byte-exact-http-framing.md	historical	no	decision at its date	banner if syntax-role	docs	review	historical
+docs/adr/0052-unified-markdown-semantics.md	decision	yes	old mapping	adopt current language decision	docs	review	migrated
+docs/adr/README.md	decision	yes	n/a	index current decisions/history	docs	review	migrated
+docs/architecture/CURRENT.md	architecture	yes	status/index	update to RFC-LANG-0002	docs	docs_consistency	migrated
+docs/architecture/Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md	architecture	no	review input	historical banner	docs	review	historical
+docs/architecture/README.md	architecture	yes	status/index	update to RFC-LANG-0002	docs	docs_consistency	migrated
+docs/architecture/RFC-LANG-0002-unified-semantics.md	architecture	yes	old mapping	adopt as sole authority	docs	review	migrated
+docs/ci.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
+docs/contributor-guide.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
+docs/development-credentials.md	tutorial	yes	none	reviewed	docs	review	reviewed
+docs/evidence/2026-11-20-bundled-stdlib-cm-a10.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-c-provider.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-c-worker-binding.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-full-value-formatting.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-http-over-tcp.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-http-parser.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-local-gate.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-memory-p1.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-memory-p2-closure.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-p2-closure-gate.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-p6-profile.json	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-p6-profile.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-print-compat-b.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-print-compat-c.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-provider-abi-cm-a09.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-provider-package.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-resource-file-write-p3.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-resource-stream-p3.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-result-and-free-list-p2.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-rfc-cm-completion-audit.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-stdlib-package.json	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-stdlib-package.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-stdlib-print-compat-a.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-strict-gc-8af7262.log	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-strict-gc-8af7262.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-strict-gc.log	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-strict-gc.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-strict-resource-cm-a11.log	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-strict-resource-cm-a11.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-structure-api-p2.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-table-cm-a08.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-table-cross-storage.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-tcp-endpoint.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-worker-provider.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-20-workspace-tests-8af7262.log	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-compress-product.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-datetime-clock-product.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-docs-and-test-migration.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-env-product.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-fs-extended.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-fs-file-product.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-http-bytes.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-json-csv-multi.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-json-csv-product.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-module-split.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-net-endpoints.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-path-regex-product.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-process-product.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-random-product.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-regex-extension.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-resource-operation.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-semantic-docs-migration.md	evidence	yes	old syntax	record migration evidence	docs	docs_consistency	migrated
+docs/evidence/2026-11-21-stdio-streams.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/2026-11-21-tls-endpoint.md	historical	no	archived	banner only	docs	review	historical
+docs/evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md	historical	no	archived	banner only	docs	review	historical
+docs/history/README.md	historical	no	archived	banner only	docs	review	historical
+docs/history/STATUS-M0.5-snapshot.md	historical	no	archived	banner only	docs	review	historical
+docs/migration/README.md	migration	yes	n/a	maintain inventory/guide	docs	review	migrated
+docs/migration/semantic-rewrite-inventory.tsv	migration	yes	n/a	maintain inventory/guide	docs	review	migrated
+docs/releasing.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
+docs/security-gate.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
+docs/security-vm.md	tutorial	yes	old mapping	rewrite + historical banner where needed	docs	docs_consistency	migrated
+examples/factorial.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/hello.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/kernel-mock/README.md	example	yes	old syntax	review	examples	run	reviewed
+examples/kernel-mock/demo.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/kernel-mock/kernel.json	example	yes	old syntax	review	examples	run	reviewed
+examples/kernel-mock/mocklang	example	yes	old syntax	review	examples	run	reviewed
+examples/math.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/memory-buffer.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/multi-module/geometry.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/multi-module/index.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/multi-module/marqdo.lock	example	yes	old syntax	review	examples	run	reviewed
+examples/multi-module/marqdo.yaml	example	yes	old syntax	review	examples	run	reviewed
+examples/packages-multi-version/README.md	example	yes	old syntax	review	examples	run	reviewed
+examples/packages-multi-version/index.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/packages-multi-version/marqdo.lock	example	yes	old syntax	review	examples	run	reviewed
+examples/packages-multi-version/marqdo.yaml	example	yes	old syntax	review	examples	run	reviewed
+examples/packages-multi-version/packages/geometry-v1/index.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/packages-multi-version/packages/geometry-v1/marqdo.yaml	example	yes	old syntax	review	examples	run	reviewed
+examples/packages-multi-version/packages/geometry-v2/index.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/packages-multi-version/packages/geometry-v2/marqdo.yaml	example	yes	old syntax	review	examples	run	reviewed
+examples/plugin-demo/README.md	example	yes	old syntax	review	examples	run	reviewed
+examples/plugin-demo/build.sh	example	yes	old syntax	review	examples	run	reviewed
+examples/plugin-demo/plugin-call.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/plugin-demo/plugin.yaml	example	yes	old syntax	review	examples	run	reviewed
+examples/plugin-demo/solver.c	example	yes	old syntax	review	examples	run	reviewed
+examples/plugin-multi-export/README.md	example	yes	old syntax	review	examples	run	reviewed
+examples/plugin-multi-export/build.sh	example	yes	old syntax	review	examples	run	reviewed
+examples/plugin-multi-export/plugin-call.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/plugin-multi-export/plugin.yaml	example	yes	old syntax	review	examples	run	reviewed
+examples/python-foreign.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/references.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/stdlib-bundle.mq.md	example	yes	old syntax	migrate source	examples	examples_r6 / run	migrated
+examples/tool-samples/sample-knowledge/README.md	example	yes	old syntax	review	examples	run	reviewed
+examples/tool-samples/sample-knowledge/src/main.rs	example	yes	old syntax	review	examples	run	reviewed
+examples/tool-samples/sample-knowledge/tool.json	example	yes	old syntax	review	examples	run	reviewed
+examples/tool-samples/sample-proof/README.md	example	yes	old syntax	review	examples	run	reviewed
+examples/tool-samples/sample-proof/src/main.rs	example	yes	old syntax	review	examples	run	reviewed
+examples/tool-samples/sample-proof/tool.json	example	yes	old syntax	review	examples	run	reviewed
+examples/tool-samples/sample-view/README.md	example	yes	old syntax	review	examples	run	reviewed
+examples/tool-samples/sample-view/src/main.rs	example	yes	old syntax	review	examples	run	reviewed
+examples/tool-samples/sample-view/tool.json	example	yes	old syntax	review	examples	run	reviewed
+examples/tool-unknown-name/README.md	example	yes	old syntax	review	examples	run	reviewed
+examples/tool-unknown-name/bin/marqdo-benchmark	example	yes	old syntax	review	examples	run	reviewed
+examples/tool-unknown-name/tool.json	example	yes	old syntax	review	examples	run	reviewed
+include/marqdo_plugin_abi_v1.h	non-semantic	no	none	none	-	n/a	reviewed
+rustfmt.toml	non-semantic	no	none	none	-	n/a	reviewed
+spec/analysis-v1.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/analysis-v2.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/evaluation.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/expression.ebnf	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/foreign.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/mapping.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/markdown-profile.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/math.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/package-format.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/plugin-abi.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/references.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/schemas/analysis-v1.schema.json	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/schemas/analysis-v2.schema.json	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/schemas/tool-v1.schema.json	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/schemas/trace-v1.schema.json	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/schemas/trace-v2.schema.json	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/security.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/tool-v1.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/trace-v1.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/trace-v2.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+spec/value-wire.md	spec	yes	old mapping	in-place rewrite	language	cargo test / review	migrated
+stdlib/README.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/clock.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/compress.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/data/csv.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/data/json.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/data/table.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/datetime.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/demo.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/env.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/format.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/fs/file.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/io.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/io/console.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/io/stream.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/net/http.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/path.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/process.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/random.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/regex.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/stdlib.json	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/clock.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/compress.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/console.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/csv.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/datetime.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/demo.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/env.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/format.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/fs.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/http.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/io.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/json.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/path.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/process.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/random.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/regex.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/stream.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/table.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/text.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/tests/utf8.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/text.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+stdlib/text/utf8.mq.md	stdlib	yes	old syntax	migrate with frontend + digest	stdlib	stdlib_product	pending-implementation
+tests/README.md	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/abi/capability_plugin.c	test	yes	harness	review	tests	review	reviewed
+tests/architecture/README.md	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/001-atx-h1.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/001-atx-h1.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/002-atx-h2.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/002-atx-h2.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/003-atx-h3.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/003-atx-h3.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/004-atx-h4.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/004-atx-h4.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/005-atx-h5.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/005-atx-h5.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/006-atx-h6.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/006-atx-h6.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/007-atx-closing-hashes.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/007-atx-closing-hashes.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/008-setext-level1.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/008-setext-level1.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/009-setext-level2.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/009-setext-level2.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/010-unicode-chinese-heading.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/010-unicode-chinese-heading.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/011-heading-cjk-emoji.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/011-heading-cjk-emoji.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/012-heading-empty.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/012-heading-empty.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/013-heading-inline-markup.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/013-heading-inline-markup.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/014-heading-in-blockquote.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/014-heading-in-blockquote.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/015-heading-in-list-item.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/015-heading-in-list-item.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/016-heading-in-fenced-code.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/016-heading-in-fenced-code.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/017-heading-whitespace-normalised.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/017-heading-whitespace-normalised.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/018-heading-level-jump.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/018-heading-level-jump.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/019-paragraph-single.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/019-paragraph-single.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/020-paragraph-multiline-softbreak.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/020-paragraph-multiline-softbreak.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/021-hard-break-two-spaces.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/021-hard-break-two-spaces.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/022-hard-break-backslash.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/022-hard-break-backslash.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/023-empty-document.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/023-empty-document.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/024-whitespace-only-document.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/024-whitespace-only-document.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/025-bom-document.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/025-bom-document.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/026-mixed-paragraph-blocks.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/026-mixed-paragraph-blocks.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/027-strong-asterisk.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/027-strong-asterisk.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/028-strong-underscore.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/028-strong-underscore.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/029-emph-asterisk.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/029-emph-asterisk.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/030-emph-underscore.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/030-emph-underscore.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/031-strong-emph-nested.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/031-strong-emph-nested.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/032-emph-in-strong.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/032-emph-in-strong.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/033-strong-in-emph.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/033-strong-in-emph.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/034-intraword-underscore.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/034-intraword-underscore.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/035-multiline-emphasis.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/035-multiline-emphasis.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/036-emphasis-with-punctuation.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/036-emphasis-with-punctuation.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/037-strong-with-code-span.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/037-strong-with-code-span.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/038-emph-with-code-span.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/038-emph-with-code-span.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/039-code-single-tick.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/039-code-single-tick.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/040-code-double-tick.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/040-code-double-tick.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/041-code-triple-tick.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/041-code-triple-tick.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/042-code-with-spaces.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/042-code-with-spaces.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/043-code-empty.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/043-code-empty.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/044-code-with-special-chars.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/044-code-with-special-chars.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/045-code-multiline-payload.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/045-code-multiline-payload.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/046-fenced-no-language.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/046-fenced-no-language.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/047-fenced-with-language.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/047-fenced-with-language.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/048-fenced-info-multiword.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/048-fenced-info-multiword.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/049-fenced-tilde.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/049-fenced-tilde.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/050-indented-code.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/050-indented-code.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/051-fenced-unclosed.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/051-fenced-unclosed.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/052-fenced-with-tabs.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/052-fenced-with-tabs.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/053-indented-code-after-paragraph.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/053-indented-code-after-paragraph.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/054-fenced-in-list.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/054-fenced-in-list.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/055-inline-math.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/055-inline-math.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/056-inline-display-math.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/056-inline-display-math.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/057-block-math.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/057-block-math.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/058-block-math-fraction.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/058-block-math-fraction.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/059-math-unclosed.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/059-math-unclosed.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/060-math-escaped-dollar.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/060-math-escaped-dollar.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/061-math-in-paragraph-mixed.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/061-math-in-paragraph-mixed.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/062-table-basic.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/062-table-basic.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/063-table-alignments.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/063-table-alignments.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/064-table-escaped-pipe.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/064-table-escaped-pipe.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/065-table-missing-cells.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/065-table-missing-cells.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/066-table-inline-markup.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/066-table-inline-markup.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/067-table-no-leading-pipes.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/067-table-no-leading-pipes.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/068-table-empty-cells.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/068-table-empty-cells.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/069-bullet-dash.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/069-bullet-dash.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/070-bullet-markers-mixed.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/070-bullet-markers-mixed.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/071-bullet-nested.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/071-bullet-nested.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/072-ordered-start-3.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/072-ordered-start-3.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/073-ordered-paren-delimiter.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/073-ordered-paren-delimiter.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/074-ordered-nested.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/074-ordered-nested.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/075-list-tight.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/075-list-tight.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/076-list-loose.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/076-list-loose.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/077-task-list.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/077-task-list.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/078-list-item-multiple-paragraphs.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/078-list-item-multiple-paragraphs.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/079-list-item-with-blockquote.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/079-list-item-with-blockquote.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/080-list-item-with-fence.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/080-list-item-with-fence.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/081-list-item-multiline.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/081-list-item-multiline.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/082-ordered-item-branch-shape.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/082-ordered-item-branch-shape.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/083-bullet-item-loop-shape.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/083-bullet-item-loop-shape.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/084-quote-single-paragraph.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/084-quote-single-paragraph.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/085-quote-nested.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/085-quote-nested.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/086-quote-multiple-paragraphs.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/086-quote-multiple-paragraphs.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/087-quote-with-code.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/087-quote-with-code.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/088-quote-with-list.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/088-quote-with-list.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/089-quote-call-shape.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/089-quote-call-shape.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/090-quote-lazy-continuation.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/090-quote-lazy-continuation.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/091-link-inline.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/091-link-inline.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/092-link-with-title.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/092-link-with-title.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/093-reference-link.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/093-reference-link.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/094-reference-link-collapsed.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/094-reference-link-collapsed.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/095-reference-link-shortcut.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/095-reference-link-shortcut.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/096-image-basic.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/096-image-basic.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/097-image-with-title.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/097-image-with-title.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/098-link-with-emphasis.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/098-link-with-emphasis.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/099-link-in-strong.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/099-link-in-strong.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/100-autolinks-disabled-behaviour.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/100-autolinks-disabled-behaviour.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/101-link-with-fragment.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/101-link-with-fragment.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/102-inline-html.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/102-inline-html.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/103-block-html.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/103-block-html.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/104-html-comment.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/104-html-comment.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/105-html-script-block.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/105-html-script-block.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/106-html-inline-break.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/106-html-inline-break.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/107-thematic-break-dashes.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/107-thematic-break-dashes.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/108-thematic-break-stars.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/108-thematic-break-stars.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/109-thematic-break-underscores.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/109-thematic-break-underscores.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/110-thematic-break-between-paragraphs.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/110-thematic-break-between-paragraphs.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/111-frontmatter-valid.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/111-frontmatter-valid.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/112-frontmatter-empty.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/112-frontmatter-empty.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/113-frontmatter-imports.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/113-frontmatter-imports.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/114-frontmatter-later-is-thematic-break.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/114-frontmatter-later-is-thematic-break.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/115-frontmatter-invalid-yaml.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/115-frontmatter-invalid-yaml.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/116-frontmatter-with-bom.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/116-frontmatter-with-bom.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/117-entities-named.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/117-entities-named.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/118-entities-numeric.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/118-entities-numeric.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/119-backslash-escapes.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/119-backslash-escapes.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/120-escaped-pipe-in-table.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/120-escaped-pipe-in-table.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/121-cjk-paragraph.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/121-cjk-paragraph.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/122-emoji-text.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/122-emoji-text.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/123-cjk-emphasis.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/123-cjk-emphasis.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/124-mixed-scripts.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/124-mixed-scripts.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/125-prose-with-executable.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/125-prose-with-executable.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/126-prose-and-control-flow.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/126-prose-and-control-flow.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/127-invalid-strong-nested-markup.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/127-invalid-strong-nested-markup.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/128-invalid-emph-nested-markup.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/128-invalid-emph-nested-markup.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/129-invalid-list-no-condition.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/129-invalid-list-no-condition.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/130-invalid-quote-not-call.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/130-invalid-quote-not-call.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/131-invalid-empty-payloads.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/131-invalid-empty-payloads.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/132-inert-executable-outside-function.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/132-inert-executable-outside-function.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/133-strikethrough.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/133-strikethrough.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/134-strikethrough-with-strong.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/134-strikethrough-with-strong.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/135-tight-vs-loose-equivalence.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/135-tight-vs-loose-equivalence.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/136-nested-container-blocks.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/136-nested-container-blocks.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/137-multiple-levels-document.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/137-multiple-levels-document.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/138-footnotes-disabled.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/138-footnotes-disabled.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/139-code-fence-info-attributes.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/139-code-fence-info-attributes.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/140-table-and-list-mixed.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/140-table-and-list-mixed.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/141-html-block-in-list.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/141-html-block-in-list.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/142-math-and-code-mixed.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/142-math-and-code-mixed.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/143-heading-setext-with-emphasis.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/143-heading-setext-with-emphasis.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/144-multi-byte-span-check.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/144-multi-byte-span-check.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/145-frontmatter-then-heading.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/145-frontmatter-then-heading.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/146-crlf-line-endings.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/146-crlf-line-endings.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/147-tab-indented-list.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/147-tab-indented-list.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/148-blockquote-heading-mixed.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/148-blockquote-heading-mixed.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/149-table-with-header-only.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/149-table-with-header-only.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/150-document-only-frontmatter.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/150-document-only-frontmatter.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/151-power-strong-codespan.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/151-power-strong-codespan.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/152-power-strong-tight.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/152-power-strong-tight.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/153-power-strong-spaced.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/153-power-strong-spaced.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/154-power-multitick-codespan.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/154-power-multitick-codespan.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/155-power-code-fence-inert.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/155-power-code-fence-inert.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/156-power-prose-codespan-inert.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/156-power-prose-codespan-inert.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/157-branch-condition-description.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/157-branch-condition-description.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/158-loop-condition-power.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/158-loop-condition-power.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/159-condition-tail-structure.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/159-condition-tail-structure.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/ast/160-power-math-block.ast.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/ast/160-power-math-block.mq.md	test	yes	Markdown AST only	keep AST baseline	tests	conformance_ast	reviewed
+tests/conformance/semantics/01-constant-return.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/01-constant-return.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/02-text-return.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/02-text-return.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/03-float-arithmetic.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/03-float-arithmetic.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/04-big-int-arithmetic.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/04-big-int-arithmetic.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/05-factorio-recursion.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/05-factorio-recursion.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/06-fibonacci-recursion.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/06-fibonacci-recursion.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/07-euclid-iterative.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/07-euclid-iterative.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/08-loop-sum.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/08-loop-sum.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/09-nested-control-flow.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/09-nested-control-flow.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/10-explicit-positional-signature.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/10-explicit-positional-signature.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/11-default-parameters.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/11-default-parameters.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/12-named-arguments.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/12-named-arguments.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/13-function-ref-call.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/13-function-ref-call.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/14-function-ref-value.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/14-function-ref-value.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/15-string-builtins.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/15-string-builtins.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/16-int-builtins.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/16-int-builtins.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/17-float-builtins.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/17-float-builtins.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/18-table-builtin.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/18-table-builtin.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/19-type-builtin.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/19-type-builtin.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/20-math-eval-ref.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/20-math-eval-ref.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/21-math-eval-positional.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/21-math-eval-positional.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/22-print-stdout.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/22-print-stdout.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/23-unit-fallthrough.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/23-unit-fallthrough.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/24-none-value.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/24-none-value.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/25-bool-operators.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/25-bool-operators.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/26-mixed-comparison.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/26-mixed-comparison.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/27-floor-division-modulo.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/27-floor-division-modulo.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/28-index-and-member.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/28-index-and-member.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/29-map-record-literal.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/29-map-record-literal.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/30-print-list-and-map.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/30-print-list-and-map.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/31-string-concat.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/31-string-concat.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/32-recursive-sum.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/32-recursive-sum.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/33-conditional-return-in-loop.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/33-conditional-return-in-loop.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/34-elif-chain.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/34-elif-chain.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/35-default-and-named-mixed.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/35-default-and-named-mixed.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/36-foreign-call-python.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/36-foreign-call-python.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/37-power-right-associative.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/37-power-right-associative.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/38-power-unary-minus.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/38-power-unary-minus.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/39-power-parenthesized.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/39-power-parenthesized.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/40-power-float-negative-exponent.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/40-power-float-negative-exponent.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/41-power-strong-codespan.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/41-power-strong-codespan.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/42-power-branch.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/42-power-branch.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/43-power-loop.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/43-power-loop.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/44-inert-power-prose.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/44-inert-power-prose.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/45-memory-buffer.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/45-memory-buffer.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/46-memory-grow-zero-fill.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/46-memory-grow-zero-fill.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/47-memory-isolation-and-alias.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/47-memory-isolation-and-alias.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/48-memory-bump-allocator.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/48-memory-bump-allocator.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/49-memory-linked-list.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/49-memory-linked-list.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/50-memory-allocation-failure-atomic.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/50-memory-allocation-failure-atomic.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/51-list-map-value-semantics.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/51-list-map-value-semantics.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/52-text-codepoints.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/52-text-codepoints.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/53-table-projection.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/53-table-projection.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/54-table-filter-stdlib.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/54-table-filter-stdlib.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/55-first-fit-free-list-allocator.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/55-first-fit-free-list-allocator.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/56-memory-binary-tree.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/56-memory-binary-tree.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/57-csv-row-splitter.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/57-csv-row-splitter.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/58-memory-hash-table.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/58-memory-hash-table.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/59-utf8-encoder.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/59-utf8-encoder.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/60-utf8-decoder.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/60-utf8-decoder.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/61-memory-graph-adjacency.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/61-memory-graph-adjacency.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/62-json-array-parser.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/62-json-array-parser.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/63-memory-bytecode-vm.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/63-memory-bytecode-vm.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/64-memory-integer-codecs.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/64-memory-integer-codecs.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/65-table-sort-stdlib.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/65-table-sort-stdlib.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/66-resource-stdout-write.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/66-resource-stdout-write.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/67-table-join-stdlib.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/67-table-join-stdlib.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/68-csv-quoted-row.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/68-csv-quoted-row.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/69-table-group-stdlib.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/69-table-group-stdlib.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/70-matrix-multiply.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/70-matrix-multiply.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/71-http-parser.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/71-http-parser.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/72-table-columnar.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/72-table-columnar.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/conformance/semantics/73-sparse-matrix.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/conformance/semantics/73-sparse-matrix.mq.md	test	yes	old syntax	migrate source	tests	conformance/negative	migrated
+tests/consumers/analysis_consumer.py	test	yes	harness	review	tests	review	reviewed
+tests/consumers/trace_consumer.py	test	yes	harness	review	tests	review	reviewed
+tests/consumers/validate_protocols.py	test	yes	harness	review	tests	review	reviewed
+tests/e2e/README.md	test	yes	harness	review	tests	review	reviewed
+tests/fixtures/tool_echo.rs	test	yes	harness	review	tests	review	reviewed
+tests/negative/01-invalid-mode-marker-case.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/01-invalid-mode-marker-case.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/02-invalid-mode-marker-misspelled.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/02-invalid-mode-marker-misspelled.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/03-invalid-mode-marker-conflict.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/03-invalid-mode-marker-conflict.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/04-empty-unit-name-exec.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/04-empty-unit-name-exec.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/05-empty-unit-name-knowledge.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/05-empty-unit-name-knowledge.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/06-exec-without-function-under-knowledge.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/06-exec-without-function-under-knowledge.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/07-exec-without-function-under-h1.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/07-exec-without-function-under-h1.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/08-payload-nested-strong-emph.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/08-payload-nested-strong-emph.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/09-payload-nested-strong-strong.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/09-payload-nested-strong-strong.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/10-payload-nested-strong-link.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/10-payload-nested-strong-link.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/11-payload-nested-strong-math.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/11-payload-nested-strong-math.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/12-payload-nested-strong-strikethrough.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/12-payload-nested-strong-strikethrough.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/13-payload-nested-emph-strong.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/13-payload-nested-emph-strong.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/14-payload-nested-emph-emph.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/14-payload-nested-emph-emph.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/15-payload-nested-linebreak.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/15-payload-nested-linebreak.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/16-empty-payload-strong.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/16-empty-payload-strong.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/17-empty-payload-emph.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/17-empty-payload-emph.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/18-syntax-if-missing-operand.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/18-syntax-if-missing-operand.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/19-syntax-if-trailing-colon.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/19-syntax-if-trailing-colon.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/20-syntax-end-if.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/20-syntax-end-if.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/21-syntax-return-missing-value.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/21-syntax-return-missing-value.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/22-syntax-multi-statement-payload.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/22-syntax-multi-statement-payload.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/23-syntax-malformed-params.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/23-syntax-malformed-params.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/24-unmatched-else.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/24-unmatched-else.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/25-duplicate-else.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/25-duplicate-else.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/26-unmatched-end.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/26-unmatched-end.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/27-unclosed-control-if.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/27-unclosed-control-if.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/28-unclosed-control-while.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/28-unclosed-control-while.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/29-control-across-heading.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/29-control-across-heading.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/30-signature-position-after-statement.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/30-signature-position-after-statement.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/31-signature-position-in-list.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/31-signature-position-in-list.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/32-signature-position-duplicate.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/32-signature-position-duplicate.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/33-unsupported-version-directive.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/33-unsupported-version-directive.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/34-unsupported-syntax-selection.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/34-unsupported-syntax-selection.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/35-unknown-function.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/35-unknown-function.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/36-unknown-variable.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/36-unknown-variable.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/37-call-arity-missing-argument.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/37-call-arity-missing-argument.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/38-call-arity-unknown-named.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/38-call-arity-unknown-named.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/39-uninitialized-partial-branch.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/39-uninitialized-partial-branch.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/40-frontmatter-invalid-yaml.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/40-frontmatter-invalid-yaml.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/41-frontmatter-invalid-import-shape.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/41-frontmatter-invalid-import-shape.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/42-frontmatter-duplicate-import-alias.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/42-frontmatter-duplicate-import-alias.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/43-unknown-variable-with-signature.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/43-unknown-variable-with-signature.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/44-duplicate-function-name.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/44-duplicate-function-name.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/45-duplicate-namespace-name.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/45-duplicate-namespace-name.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/01-division-by-zero.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/01-division-by-zero.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/02-type-error.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/02-type-error.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/03-index-out-of-bounds.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/03-index-out-of-bounds.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/04-unknown-field.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/04-unknown-field.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/05-not-callable.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/05-not-callable.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/06-permission-denied-foreign.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/06-permission-denied-foreign.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/07-math-unsupported.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/07-math-unsupported.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/08-stack-overflow.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/08-stack-overflow.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/09-branch-condition-not-bool.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/09-branch-condition-not-bool.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/10-function-ref-bad-argument.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/10-function-ref-bad-argument.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/11-int-negative-exponent.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/11-int-negative-exponent.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/12-integer-exponent-limit.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/12-integer-exponent-limit.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/13-memory-out-of-bounds.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/13-memory-out-of-bounds.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/14-memory-byte-range.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/14-memory-byte-range.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/15-index-assign-non-memory.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/15-index-assign-non-memory.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/16-memory-huge-offset.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/16-memory-huge-offset.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/17-memory-grow-beyond-max.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/17-memory-grow-beyond-max.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/18-memory-negative-pages.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/18-memory-negative-pages.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/19-list-append-wrong-type.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/19-list-append-wrong-type.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/20-table-cell-out-of-bounds.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/20-table-cell-out-of-bounds.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/runtime/21-map-key-not-text.expected.json	test	yes	harness	review	tests	review	reviewed
+tests/negative/runtime/21-map-key-not-text.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/warnings/01-inferred-signature.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/warnings/01-inferred-signature.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/negative/warnings/02-knowledge-and-containers-are-inert.expected.json	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tests/negative/warnings/02-knowledge-and-containers-are-inert.mq.md	test	yes	old negative shape	rebuild for sem.* diagnostics	tests	negative	migrated
+tests/security/escape_helper.c	test	yes	harness	review	tests	review	reviewed
+tests/security/run-lane.sh	test	yes	old syntax	migrate source/expectations	tests	negative/properties	migrated
+tools/dev-only/check-mq-syntax.py	tooling	yes	migration aid	review	docs	review	reviewed
+tools/dev-only/gen-migration-inventory.py	tooling	yes	migration aid	review	docs	review	reviewed
+tools/pack-stdlib.py	tooling	yes	migration aid	review	docs	review	reviewed
+tools/perf/bench.py	tooling	yes	migration aid	review	docs	review	reviewed

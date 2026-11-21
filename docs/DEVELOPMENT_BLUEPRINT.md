@@ -7,11 +7,15 @@
 > **优先阅读**：本文件 → `spec/` 形式规范 → `tests/conformance/` 金样 → 相关模块源码  
 > **约定**：**[D]** 已确定的设计方向；**[P]** 本文提出的可实现细节，须经形式化测试和 ADR 批准后冻结；**[F]** 后期能力，不应阻塞首个独立运行版本。
 
+> **语言映射状态（2026-11-21，必读）**：本文档原本是 M0.5/M0.6 期的架构蓝图，其中关于 Markdown 程序角色的描述（旧映射：`Strong`=执行、`Emph`=返回、有序列表=分支、无序列表=循环、引用块=调用、首个独立 CodeSpan=签名）**已被废止，仅作为历史设计记录**。现行唯一语言语义权威是
+> [`docs/architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md)（由 [ADR-0052](adr/0052-unified-markdown-semantics.md) 采纳），其规范摘要为 [`spec/mapping.md`](../spec/mapping.md) 与 [`spec/expression.ebnf`](../spec/expression.ebnf)。
+> 本文 §0.1、§1.2–1.4、§2.2、§2.4、§3.1–3.2、§4.1、§5.2、§6.2、§8.1、§13、§14、§16.3、§17 已按现行映射改写或标注历史；其余章节（IR、ABI、安全、包管理、发布）仍是架构参考。
+> **实现状态**：RFC 与 `spec/` 领先于 Rust 实现。当前前端、表达式解析器与标准库仍实现旧映射，执行源码的测试预期为红；见 [`docs/STATUS.md`](STATUS.md) 与 [`docs/migration/README.md`](migration/README.md)。不要把本蓝图或 RFC 示例当作现有 CLI 已经支持的证据。
+> **示例标注**：本文未明确标注为“历史”的 Markdown/`.mq.md` 示例均按 RFC-LANG-0002 目标语法书写，属于示意片段，前端迁移前不能原样运行；标注为历史的片段保留旧映射，仅供决策考古。
+
 **这不是对 `cflmy/marqdo` 的兼容性重构。本项目必须从语言目标出发，独立建立 Marqdo 工具链。** 旧仓库只作为经验、算法、测试和可能的代码复用来源；旧语法、旧 ABI、旧插件体系不因名称相同而自动成为新版本的兼容契约。
 
-> **M0.6 规划说明**：`docs/NEXT_PHASE_IMPLEMENTATION.md`（Proposed）与 `docs/EXTENSIBILITY_AUDIT.md` 已在命令规模、能力注册、插件寻址、包身份、仓库解耦和发布门槛上提出新的目标方案；发生冲突时以该 M0.6 计划为准。`spec/`、已接受 ADR 与测试仍是已实现语言行为的规范来源，Proposed 内容不表示已实现。
->
-> **当前阶段基线**：`docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`（Proposed，审查基线 `0adebe4`）基于 M0.6 计划之后的提交重新审查 CI、锁图、源码身份、Analysis/Trace、Tool 与安全隔离，并定义 G-A/G-B/G-C 发布门槛。该文在**当前基线、问题清单和发布门槛**上取代上述两份文档；冲突时以其为准，但同样不表示已实现。
+> **规划文档关系（2026-11-21 更新）**：语言语义只以 RFC-LANG-0002 与 `spec/` 为准。下一阶段工作与发布门槛以 [`docs/STABLE_RELEASE_IMPLEMENTATION.md`](STABLE_RELEASE_IMPLEMENTATION.md) 为准；`docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`（审查基线 `0adebe4`）、`docs/NEXT_PHASE_IMPLEMENTATION.md`（M0.6）与 `docs/NEXT_RELEASE_CI_CONVERGENCE.md` 是历史规划输入，不表示已实现，也不能覆盖 RFC 的语言映射。当前执行状态见 [`docs/STATUS.md`](STATUS.md)。
 
 ---
 
@@ -19,7 +23,7 @@
 
 1. **[D] Markdown 是语言的语法，而不只是程序的注释格式。** Marqdo 的合法源码是选定 Markdown 方言的严格子集；不要求任意 `.md` 自动变成可运行程序。
 2. **[D] 标准 Markdown AST 是唯一的文档结构事实来源。** 使用成熟解析器；不用正则表达式重新识别 Markdown 块/强调/列表。可以构造程序 IR，但不能平行维护另一套“私有 Markdown AST”。
-3. **[D] Markdown 节点的程序角色是确定的。** `Strong`、`Emph`、`OrderedList`、`BulletList`、`BlockQuote` 等在适用的程序区域有明确语义。解析失败即诊断；禁止“像代码就执行，否则当文本”的启发式。
+3. **[D] Markdown 节点的程序角色是确定的。** 标题上的 `@exec`/`@knowledge` 声明（或从最近祖先标题继承）决定该区域是执行还是知识；执行区域内 `Strong`、`Emph`、行内 `Code` 是等价的单语句载荷，`if`/`else`/`while`/`end`/`return`/`params` 决定控制与签名，列表、引用块和段落只是容器。解析失败即诊断；禁止“像代码就执行，否则当文本”的启发式。现行权威为 RFC-LANG-0002；旧“`Strong`=执行、`Emph`=返回、列表=分支/循环、引用块=调用”映射已废止。
 4. **[D] 自然语言可与执行节点同处一个段落或分支。** 叙述永远不触发执行，任何中文/英文词语都不能被猜成控制关键字。
 5. **[D] Marqdo 自主执行，不翻译成 Python 作为正式后端。** 用 Rust 实现表达式求值、词法作用域、函数调用、返回、分支、循环和运行时错误；初期 tree-walk，后期可加字节码。
 6. **[D] 表格、数学公式、代码围栏是原生文档值。** 公式计算和外部语言执行是 CLI 内置能力，但读取或渲染文档不会自动求值/执行它们。
@@ -30,7 +34,7 @@
 
 ### 0.1 设计理念与取舍
 
-Marqdo 想要实现的不是 Python 的 Markdown 版本，也不是 Jupyter Notebook 的另一种封装，而是**让标准 Markdown 结构直接承担程序控制语义**：标题承载作用域、粗体承载执行、斜体承载返回、有序列表承载分支、无序列表承载循环、引用块承载调用。编程者通过有限约定撰写源文件，编译器对这些约定进行严格解释，普通 Markdown 阅读器仍能渲染。
+Marqdo 想要实现的不是 Python 的 Markdown 版本，也不是 Jupyter Notebook 的另一种封装，而是**让标准 Markdown 结构直接承担程序作用域与载荷承载**：标题用 `@exec`/`@knowledge` 声明语义模式并沿祖先继承，只有 Exec H2 是可调用函数；执行区域内粗体、斜体与行内代码是等价的单语句载荷，程序操作由载荷中的 `if`/`else`/`while`/`end`/`return`/`params` 关键字决定；有序/无序列表与引用块只组织阅读顺序，不产生指令。普通 Markdown 阅读器仍能渲染源文件。（上述为现行 RFC-LANG-0002 映射；本蓝图早期“粗体承载执行、斜体承载返回、有序列表承载分支、无序列表承载循环、引用块承载调用”的表述属于历史设计，已废止。）
 
 **不追求**“任意人类叙述皆可编译”；**不追求**“每种 Markdown 强调方式都仍有普通文档原义”；**不追求**“每一个 Markdown 节点都必须执行”；**不追求**“复杂程序完全不需要学习计算表达式”。
 
@@ -57,50 +61,53 @@ Marqdo 想要实现的不是 Python 的 Markdown 版本，也不是 Jupyter Note
 - 单个解析器可能在 AST 中合并相邻引用行、把 Setext/ATX 标题统一为 `Heading`、把不同项目符号统一为 `BulletList`。语言语义针对**AST 节点**，规范书写使用固定符号，但不能依赖丢失的源码标记。
 - 不从渲染后的 HTML 反推程序。输入 Markdown AST 是唯一解析来源，源位置信息应被保留用于 IDE 和诊断。
 
-### 1.2 文档区域与执行区域
+### 1.2 文档区域与执行区域（RFC-LANG-0002）
 
-**[P] 作用域**：`# 名称` 建立顶层作用域，`## 名称` 建立函数；更深层标题在当前函数内部创建命名分节而**不**引入新运行时函数。Markdown AST 中标题通常是同级块，必须按 heading level 另建**范围索引**：一个 `##` 的范围延续到下一个同级或更高级标题之前。若没有上层 `#`，函数位于模块根。嵌套标题和代码围栏内的标题不产生顶层函数。
+**[D] 标题模式**：H1–H6 的首个纯 Text 子节点可以以 `@exec` 或 `@knowledge` 加空白与非空名称开头，声明该标题范围的模式；未声明的标题继承最近祖先标题的模式，文档根为 Knowledge。模式声明不属于语义名称，`@exec`/`@knowledge` 不进入可调用名称。`# @exec 名称` 建立执行命名空间，`## @exec 名称` 建立**唯一可调用函数**；H2 Knowledge 只是知识单元，H3–H6 只是分节，永不创建可调用函数。
 
-**[P] 执行上下文限定**：程序区域内，强/斜体节点参与执行；标题文字、链接标签、表格数据单元、代码围栏内容、数学内部、HTML 原文等**惰性叶节点**中的内联格式绝不执行。此约束基于祖先 AST 类型、不是表达式文本。出现在正文或列表体中的普通 `Paragraph` 可以混合 `Text` 与执行节点。
+**[P] 执行上下文限定**：只有 Exec 范围（继承或显式）中的 `Strong`、`Emph`、行内 `Code` 才是载荷候选；每个闭合载体承载**恰好一条语句**，载体种类不决定操作。标题文字、链接标签与 URL、图片 alt、表格数据单元、代码围栏、数学、HTML、front matter 等惰性叶节点中的内容绝不执行。列表、引用块和段落只决定载荷的文档顺序，不赋予 Branch/Loop/Call 角色。
 
-**[P] 函数范围与入口**：`main`（模块根下唯一入口函数）为 `marqdo run` 默认入口，导入模块的 `main` 不执行；`marqdo call file.mq.md 函数名` 选择明确目标。纯叙述函数调用后返回 `Unit`，不自动返回其段落内容。
+**[D] 函数范围与入口**：只有 Exec H2 产生函数；其直接正文与后代 Exec H3–H6 分节按源序拼接为同一函数体，并在每个标题边界重置并要求控制栈为空。`main` 必须是 Exec H2 才能作为 `marqdo run` 默认入口；`marqdo call file.mq.md 函数名` 选择明确目标。无任何显式 `return` 的函数自然结束返回 `Unit`，不等于 `None`。
 
-### 1.3 核心 Markdown AST 映射（强制无歧义）
+### 1.3 核心 Markdown AST 映射（RFC-LANG-0002；强制无歧义）
 
-| Markdown AST 节点 | 程序意义 | 必须满足的条件 | 非法时 |
+| Markdown AST 节点 | 当前程序意义 | 必须满足的条件 | 非法时 |
 |---|---|---|---|
-| `Document` | 模块 | 文档根 | 编译错误 |
-| `Heading(level=1)` | 命名空间/对象域 | 非空规范名称 | 编译错误 |
-| `Heading(level=2)` | 函数 | 非空可寻址名称；作用域唯一 | 编译错误 |
-| `Heading(level>=3)` | 分节/源码定位 | 必须位于所属模块或函数范围 | 不执行 |
+| `Document` | 模块，根模式为 Knowledge | 文档根 | 编译错误 |
+| `Heading(level=1)` | 命名空间/顶层单元（声明或继承模式） | 非空规范名称 | 编译错误 |
+| `Heading(level=2, mode=Exec)` | **唯一可调用函数** | 非空可寻址名称；作用域唯一 | 编译错误 |
+| `Heading(level=2, mode=Knowledge)` | 惰性知识单元 | 非空名称 | 不执行 |
+| `Heading(level>=3)` | 所属函数/知识单元的分节（可本地覆盖模式） | 必须位于合法祖先范围 | 不创建函数 |
 | `Text` | 叙述 | 不参与求值 | 不报错 |
-| `Strong` | 执行语句 | 其完整纯文本/代码跨度载荷满足 `Statement` 文法 | **硬错误，不降级为强调** |
-| `Emph` | 返回语句 | 载荷满足 `Expression` 文法；可嵌入段落 | **硬错误** |
-| `Code` 行内 | 符号、形式条件、名称载荷 | 仅当位于声明/分支/循环头等规定位置才被解释 | 指定位置非法时报错 |
-| `OrderedList` | 顺序优先的条件分支 | 每个 Item 有合法布尔条件头 | **硬错误，不降级为普通列表** |
-| `BulletList` | 循环组 | 每个 Item 有合法条件或遍历头 | **硬错误** |
-| `BlockQuote` | 调用 | 完整的调用节点结构；不得混普通引文 | **硬错误** |
-| `Table` | 结构化值 | GFM 合法数据表 | 类型/约束错误 |
+| `Strong` @ Exec | 单语句载荷载体 | 直接 Text/Code 子节点内容恰好一条语句；嵌套载体/复杂子节点报错 | **硬错误，不降级为强调** |
+| `Emph` @ Exec | 单语句载荷载体 | 与 `Strong` 完全等价 | **硬错误** |
+| `Code` 行内 @ Exec | 单语句载荷载体 | 与 `Strong`/`Emph` 完全等价；不享有签名特权 | 载荷非法时报错 |
+| `Code` 行内 @ Knowledge/惰性区 | 文档代码文本 | 不执行 | 不报错 |
+| `OrderedList` / `BulletList` | 纯文档容器 | 按源序递归提取其中的合法载荷；列表属性不影响指令 | **不产生隐含分支/循环** |
+| `Paragraph` | 纯文档容器/载荷载体宿主 | 按源序提取合法载荷；纯叙述零指令 | 不报错 |
+| `BlockQuote` | 纯文档容器 | 按源序递归提取合法载荷；引用本身不是调用 | **不产生隐含调用** |
+| `Table` | 结构化值 | GFM 合法数据表；单元格内容不执行 | 类型/约束错误 |
 | `CodeBlock` | `Code` 值 | 识别语言标记；未知语言允许存档 | 请求运行未知语言时报错 |
 | `Math` | `Formula` 值 | 可渲染，不承诺均可符号解析 | 请求计算不受支持时诊断 |
 | `Link` | 静态知识引用 | 可解析内外资源；普通外链不自动加载 | 按引用策略诊断 |
 | `Image` / `Footnote` | 文档资源/来源 | 惰性 | 不执行 |
 | `ThematicBreak` | 视觉分隔 | 惰性 | 不执行 |
 
-**关于保留标记的代价**：在函数体中 `**自然语言强调**` 会尝试编译成语句并失败，`*普通斜体*` 会尝试返回并失败，`1. 步骤` 会被视为分支，`- 条目` 会被视为循环，`> 引言` 会被视为调用。作者需要使用普通段落、标题、公式或其他未保留结构表达这些内容。这是语言设计选择，不是解析器缺陷。
+**关于保留标记的代价（RFC-LANG-0002）**：在 Exec 范围内 `**自然语言强调**`、`*普通斜体*` 和 `` `任意代码` `` 都会被当作一条语句载荷；若无法解析为合法语句，就是硬诊断，不会被猜成排版。需要纯视觉强调时，放进 `@knowledge` 分节或其他惰性区域。列表和引用块不再被强制解释为分支/循环/调用，普通文档结构可以在函数内自由使用。
 
-**关键消歧约束**：不要采用“在 `Strong` 中能解析成语句才是执行，否则不执行”的规则。AST 节点类型及位置确定角色，角色确定后才解析内部表达式。错误必须立即报告。
+**关键消歧约束**：不要采用“在 `Strong` 中能解析成语句才是执行，否则不执行”的规则。AST 节点类型及其模式/位置决定它是否是载荷，载荷必须按唯一文法完整解析；控制操作只由载荷内的关键字决定，不能由载体种类或容器种类决定。错误必须立即报告。旧的 Strong=执行/Emph=返回/List=分支/Quote=调用规则**不得**再作为现行设计。
 
-### 1.4 Markdown 结构对齐的困难问题（必须写进测试）
+### 1.4 Markdown 结构对齐的困难问题（必须写进测试；RFC-LANG-0002）
 
-1. `Strong`/`Emph` 在一个 Paragraph 内可多次出现；按 DFS 文档顺序遍历并执行，但遇到 `Return` 立即短路剩余节点。`Strong`/`Emph` 相互嵌套或包含 `Link` 等非纯载荷时首版拒绝，避免 AST 内容被递归执行两次。
-2. `OrderedList` 不能使用 `1.` 后的任何自然语言充当条件。每个列表项的**首个块**必须是 Paragraph，且它的第一个有效 inline 节点必须为 `CodeSpan(布尔表达式)`；其余同段文本只作说明。每个 Item 后续块按顺序构成分支体。分支从上到下选首个为 `true` 的条件，只执行该分支。无命中返回 `Unit` 并继续执行列表之后的节点。
-3. `BulletList` 的结构头与分支类似；每个 Item 是一个独立的 `while` 型循环，循环头条件每轮重新求值，每轮执行其余 Item 块；多个 Item 按顺序执行多个循环。集合遍历优先采用标准库 `map/filter/fold` 或预定义迭代器；是否增加独立 foreach 头必须另写 ADR。
-4. `BlockQuote` 默认表示**一次明确调用**。只接受**一个 Paragraph**，内容必须是完整 `CallExpr` 或 `Link + 后续实参`；不接受普通引文、多个段落或嵌套引用块。两次独立调用必须分成两个独立 `BlockQuote` AST 节点（需实测 CommonMark 的合并行为）。若作者需要在引用块内写叙述，首版不允许；避免调用/引证混淆。
-5. 标题内部的 `Strong`、表格中的 `Strong` 不会因递归访问而执行。实现必须基于**上下文访问器**而非无条件遍历全树。
-6. Markdown `*` 既是乘法运算符又是强调界定符。执行语句中推荐 `**a * b**`（包含空格）或稳定的 `**\`a*b\`**`（渲染突出一个行内代码表达式）。两者**都属于 Strong**，表达式载荷相同；如源码被 Markdown 解析为非法嵌套，则报出“请将表达式放入行内代码跨度”。检查器必须直接验证最终 AST，而不靠原始正则。
+1. `Strong`/`Emph`/行内 `Code` 在 Exec 范围内都是单语句载体，彼此等价；必须提取完整外壳节点且只提取一次。嵌套 `Strong`/`Emph`/`Link`/数学等复杂子节点报 `sem.payload_nested`，不得部分执行或静默拼接。
+2. `OrderedList`/`BulletList` 只是容器，`ordered`/`start`/`tight`/任务框选等属性不影响指令；编译器按源序递归提取其中载荷，没有条件头、没有隐含分支或循环。空投影（零语句）不等于产生 `List([])` 值。
+3. `BlockQuote` 只是容器，没有调用语义；其中合法的独立载荷照常执行，纯引用正文零指令。旧 `>` 自动调用规则已废止。
+4. 标题模式声明只在标题首个纯 Text 子节点以精确 `@exec`/`@knowledge` 开头时生效；大小写变体、拼错、冲突声明、空名称都是硬错误，不可退回祖先模式。Setext 标题只继承模式，不携带声明。
+5. 标题内部的 `Strong`、表格单元格中的 `Strong`、链接标签中的载荷绝不执行；实现必须基于上下文访问器而不是无条件遍历全树。
+6. Markdown `*`/`**` 仍是强调界定符。表达式中的乘方 `**` 只在载荷已提取后具有运算符意义；为避免 Markdown 吃掉运算符或把载荷切碎，推荐把表达式放进行内 CodeSpan（例如 `` `n = n ** 2` ``）。检查器必须直接验证最终 AST，不能靠原始正则。
 7. CommonMark 的“紧凑/松散列表”、换行、嵌套列表及标点有复杂规则；定义的是**AST 的结构匹配**，而不是缩进空格个数。提供 `marqdo inspect --ast` 展示实际节点。
-8. 数学公式与代码围栏**不因为位于函数内部而执行**。可通过所属函数的标题范围生成地址，但不能执行其内部文本。
+8. 数学公式与代码围栏**不因为位于 Exec 标题内部而执行**。行内 `Code` 是载荷载体，围栏代码块是惰性 `Code` 值，两者不可混同。
+9. 控制块（`if`/`while`）只能在同一标题的直接正文内闭合；跨 H3/H4 或跨越 Knowledge 分节的 `end` 必须分别报 `sem.unclosed_control` 与 `sem.unmatched_end`，不得跨边界“修复”。
 
 ---
 
@@ -117,21 +124,21 @@ Marqdo 想要实现的不是 Python 的 Markdown 版本，也不是 Jupyter Note
 
 ### 2.2 可选形式参数声明
 
-**[D]** 默认允许从执行表达式静态推断参数，**不能**从自然语言、行内代码提及、标题措辞推断。**[P]** 若需要稳定的公开 API，在函数标题后第一个段落用单独的行内代码跨度声明可选签名：
+**[D]** 默认允许从执行表达式静态推断参数，**不能**从自然语言、行内代码提及、标题措辞推断。**[P]** 若需要稳定的公开 API，在函数体第一条直接执行载荷写 `params(...)` 声明（RFC-LANG-0002）：
 
 ```markdown
-## 圆面积
+## @exec 圆面积
 
-`(r: Number, precision: Int = 2)`
+`params(r: Number, precision: Int = 2)`
 
 按照圆面积公式计算。
 
-**结果 = pi * r * r**
+`结果 = pi * r * r`
 
-*结果*
+`return 结果`
 ```
 
-**固定规则**：仅标题后的第一个合法 `Paragraph(CodeSpan)` 可是签名；其他位置的代码跨度仍是普通符号。没有签名不代表需要从当前调用者环境中找变量。允许 `()`, 必选形参、类型注解、编译期常量默认值；首版不支持可变参数、解构形参、运行时默认表达式。
+**固定规则（RFC-LANG-0002）**：`params(...)` 只能作为 Exec H2 的**第一条直接执行载荷**、最多一次、且不得位于列表或引用块内部；它是编译期元数据，不是运行时调用。其他位置的 `params` 报 `sem.signature_position`。允许必选形参、类型注解、编译期常量默认值；首版不支持可变参数、解构形参、运行时默认表达式。旧“函数标题后的独立 CodeSpan 即签名”规则已废止。
 
 ### 2.3 静态参数推断（必须区分于动态作用域）
 
@@ -148,10 +155,10 @@ Marqdo 想要实现的不是 Python 的 Markdown 版本，也不是 Jupyter Note
 
 统一调用形式：`函数(...)`；零参数仍写 `函数()`；位置参数只对显式签名开放，具名实参允许覆盖声明顺序，禁止重复实参、未知实参、多余位置参数。参数表达式**按源码出现顺序、恰好求值一次**，再绑定到被调用函数的形参槽；调用者帧和被调用者帧隔离。默认实参值仅在缺失时使用，显式 `None` 不等于未提供。参数绑定失败必须按规范传播错误。
 
-- `> 打印("你好")`：`BlockQuote` 表示调用语句；执行后结果丢弃，必要时由执行记录保留。
-- `**面积 = 计算圆面积(r=3)**`：在粗体执行节点中的表达式调用，保存返回结果。
-- `> [计算面积](./math.mq.md#计算面积)(r=3)`：调用被 Markdown 链接引用的目标；需对 Link 与后缀参数进行 AST 级匹配，不按行字符串拼接。
-- `*面积*`：`Emph` 返回整个函数，嵌套在分支或循环中也必须向外传播到函数帧；不得只退出局部列表项。
+- `> **打印("你好")`：调用来自载荷内的表达式，引用块本身不是调用；执行后结果丢弃，必要时由执行记录保留。
+- `**面积 = 计算圆面积(r=3)**`：在粗体载荷中的表达式调用，保存返回结果；也可用 `` `面积 = 计算圆面积(r=3)` ``。
+- `[计算面积](./math.mq.md#计算面积)`：只是静态引用；跨模块调用必须在显式导入/锁定闭包内以表达式调用完成，需对 Link 目标与后缀参数进行 AST 级匹配，不按行字符串拼接。
+- `**return 面积**`、`*return 面积*` 或 `` `return 面积` ``：显式 `return` 退出整个 H2 函数，嵌套在分支或循环中也向外传播到函数帧；斜体/粗体本身不再表示返回。
 - 函数自然结束返回 `Unit`；`None` 是显式空值，`Unit` 是无结果，二者必须区分。
 - 初期**不支持同名重载**；默认值、命名空间和语言类型均不参与模糊候选选取。支持函数递归与互递归。
 
@@ -165,49 +172,41 @@ Marqdo 想要实现的不是 Python 的 Markdown 版本，也不是 Jupyter Note
 
 ### 3.1 表达式是小型独立文法，不是第二套 Markdown
 
-**[D]** Markdown AST 确定“哪里可以执行”；执行节点的文本载荷使用一个**独立、严格、很小的表达式解析器**。不得把整个 `.mq.md` 转译成 Python。表达式候选文法（简化 EBNF）：
+**[D]** Markdown AST 确定“哪里可以执行”；每条执行载荷的文本使用一个**独立、严格、很小的语句/表达式解析器**（现行文法见 `spec/expression.ebnf`，权威为 RFC-LANG-0002）。不得把整个 `.mq.md` 转译成 Python。载荷必须恰好是一条语句并被完整消费：
 
 ```ebnf
-Statement   = Assignment | Expression ;
-Assignment  = Identifier, "=", Expression ;
-Expression  = OrExpression ;
-OrExpression= AndExpression, { "or", AndExpression } ;
-AndExpression = CompareExpression, { "and", CompareExpression } ;
-CompareExpression = AddExpression, [ CompareOp, AddExpression ] ;
-CompareOp   = "==" | "!=" | "<" | "<=" | ">" | ">=" ;
-AddExpression = MulExpression, { ("+" | "-"), MulExpression } ;
-MulExpression = UnaryExpression, { ("*" | "/" | "//" | "%"), UnaryExpression } ;
-UnaryExpression = ("not" | "-" | "+"), UnaryExpression | PowerExpression ;
-PowerExpression = PostfixExpression, [ "**", UnaryExpression ] ;
-PostfixExpression = Primary, { CallArgs | ".", Identifier | "[", Expression, "]" } ;
-CallArgs    = "(", [ Argument, { ",", Argument } ], ")" ;
-Argument    = [ Identifier, "=" ], Expression ;
-Primary     = Literal | Identifier | "(", Expression, ")" | ListLiteral | RecordLiteral ;
+payload     = statement , EOF ;
+statement   = if_stmt | else_stmt | while_stmt | end_stmt
+            | return_stmt | params_stmt | assignment | expression ;
+if_stmt     = "if" , expression ;
+else_stmt   = "else" ;
+while_stmt  = "while" , expression ;
+end_stmt    = "end" ;
+return_stmt = "return" , expression ;
+params_stmt = "params" , "(" , [ parameter_list ] , ")" ;
+assignment  = assign_target , "=" , expression ;
 ```
 
-- 以上是**建议子集**，需要单独 `spec/expression.ebnf`、优先级表、歧义测试后冻结。`**` 既是 Markdown 强调界定符也是表达式乘方符号，但后者只出现在已提取的表达式载荷内部；若 Markdown 已把输入分割成意外 AST，使用行内代码跨度保证载荷保真。
+- `if`/`while` 由显式 `end` 闭合，`else` 可选且最多一次；控制配对由前端独立控制栈完成，不属于表达式文法。没有 `elif`/`for`/`break`/`continue`/`try`/`end if`/分号多语句/行尾冒号。`if`/`while`/`return` 需要非空表达式并消费整个载荷。
+- 表达式部分沿用既有优先级、字面量、调用、索引、赋值与 `Memory` 位置写入；`**` 只在已提取的载荷内是乘方符号，Markdown 强调边界仍由 Comrak AST 决定，必要时用行内 CodeSpan 保证载荷保真。
 - 数值初期选择 `Int`（任意精度或严格有界的语义必须明确，**推荐任意精度 BigInt**）、`Float64`、`Bool`、`Text`、`None`、`Unit`、`List`、`Map`、`Table`、`Formula`、`Code`、`FunctionRef`、`Result`、`PluginHandle` 等。跨 ABI/JSON 边界保留类型标签和大整数的字符串形式，禁止 silently 精度损失。
 - 只有 `Bool` 可用于条件。`and`/`or` 短路；数值除零、类型错误、未定义变量、越界均是结构化错误；禁止隐式字符串数字转换。字典访问和数组索引的越界语义必须标准化。
 - 赋值为当前局部绑定更新，不隐式写入外层作用域；模块导入绑定只读。
 
-### 3.2 控制流与程序区域
+### 3.2 控制流与程序区域（RFC-LANG-0002）
 
-**OrderedList = `Branch`**：项目按照 AST 顺序检查条件；首个为 `true` 的项执行一次。必须只有一个条件头 CodeSpan；描述文本可紧随条件，后续 Markdown 块皆可含叙述与执行。无匹配时继续下一节点。禁止先检查所有条件再选择（条件求值可能涉及错误；原则上条件必须是纯计算表达式，禁止在条件里产生 I/O 副作用）。
+**载荷关键字，不是 Markdown 类型**：每条 Exec 载荷是一条语句；`if <expr>` 打开 `Branch`，`else` 切换最近尚未关闭的 `if` 的 else 分支，`while <expr>` 打开 `Loop`，`end` 关闭最近的 `if`/`while`，`return <expr>` 产生 `Return` 并退出整个 H2 函数。`else`/`end` 不产生运行时指令。控制栈在标题边界必须为空，`if`/`while` 不得跨标题闭合。
 
-**BulletList = `Loop`**：每项代表一个 while-loop，条件每次迭代求值；条件必须是 `Bool`；循环体可含 Text、Paragraph、Strong、Emph、BlockQuote、嵌套 OrderedList/BulletList；每次执行都消耗 fuel。
+**容器无语义**：`Paragraph`、有序/无序 `List`、`BlockQuote` 只是按源序递归提取合法载荷；`1.` 与 `-` 的替换、`>` 的包裹、列表紧/松属性都不改变指令。空容器投影为零语句，不是 `List([])` 值。
 
-**BlockQuote = `Call`**：整体是一个 Call 结构；无效调用硬错误。调用表达式可以包括具名参数或标准 Markdown Link 目标。是否允许 `> [引用](#函数)` 无显式括号首版建议**不允许**。
+**求值顺序**：同级块按 Markdown AST 文档顺序；段内载荷按源序；分支只执行命中臂；循环条件每轮重新求值；参数按源码出现顺序求值一次；函数帧隔离；导入模块无副作用初始化。错误传播停止当前控制流并保留调用栈/源码位置。
 
-**Strong = `ExecStmt`**、**Emph = `Return`**：所有出现于程序上下文中的对应节点都按固定角色处理；AST 中 `Strong` 与 `Emph` 的拼写变体具有相同执行行为。返回沿所有嵌套控制流传播到所属函数边界。
-
-**求值顺序**：同级块按 Markdown AST 文档顺序；段内执行节点按源序；分支只执行命中项；循环按项顺序执行；参数按源码出现顺序求值一次；函数帧隔离；导入模块无副作用初始化。错误传播停止当前控制流并保留调用栈/源码位置。
-
-**基本示例**（M0.5 候选；新解释器尚未验证）：
+**基本示例**（RFC-LANG-0002 目标语法；前端尚未迁移，不能原样运行）：
 
 ````markdown
-# 数学
+# @exec 数学
 
-## 阶乘
+## @exec 阶乘
 
 数学定义为：
 
@@ -215,30 +214,32 @@ $$
 n! = \begin{cases}1,& n\le1\\n(n-1)!,& n>1\end{cases}
 $$
 
-1. `n <= 1`，递归终点。
+`if n <= 1`
 
-   *1*
+`return 1`
 
-2. `n > 1`，计算更小的问题。
+`else`
 
-   **结果 = n * 阶乘(n=n-1)**
+`return n * 阶乘(n=n-1)`
 
-   *结果*
+`end`
 
-## 倒计时
+## @exec 倒计时
 
-**n = 3**
+`n = 3`
 
-- `n > 0`，继续执行。
+`while n > 0`
 
-  > 打印(n)
+`打印(n)`
 
-  **n = n - 1**
+`n = n - 1`
 
-*n*
+`end`
+
+`return n`
 ````
 
-上述阶乘函数通过自由变量推断形参 `n`，故自调用采用 `阶乘(n=n-1)`；倒计时的 `n` 在入口赋值后才读取，属于局部变量，不应被推断成参数。嵌套段落的强调节点在 Markdown AST 中须以金样确认。
+上述阶乘函数通过自由变量推断形参 `n`（公开 API 推荐用 `params(n: Int)` 显式声明）；倒计时的 `n` 在入口赋值后才读取，属于局部变量，不应被推断成参数。旧版“列表条件头 + 斜体返回”的示例属于历史设计，见 RFC-LANG-0002 §1.4 的迁移对照。
 
 ### 3.3 终止与图灵完备性
 
@@ -260,9 +261,9 @@ $$
 |---|---|---|---|
 | `Import` | YAML `import` | 模块加载/静态编译 | 否，模块只注册定义 |
 | `Reference` | 普通 Markdown `[说明](目标)` | 文档索引阶段 | 否 |
-| `Call` | `BlockQuote` 或执行表达式的 `CallExpr` | 静态解析并在执行时调用 | 是（函数有运行时行为） |
+| `Call` | Exec 载荷中的表达式调用 | 静态解析并在执行时调用 | 是（函数有运行时行为） |
 
-`[牛顿第二定律](#牛顿第二定律)` 只是引用；`> [计算作用力](#计算作用力)(m=2,a=3)` 才是明确调用。跨模块调用须在固定的模块/文件权限下解析，外网 HTTP 链接绝不通过导入自动下载和执行。外部文档链接可以纳入可选的网络知识索引，但**不得**改变本地程序求值。
+`[牛顿第二定律](#牛顿第二定律)` 只是引用；明确调用必须在 Exec 载荷中写出表达式，例如 `` `print(计算作用力(m=2, a=3))` ``。引用块本身不再是调用，`> [计算作用力](#计算作用力)(m=2,a=3)` 若不处于 Exec 载荷内则只是文档引用。跨模块调用须在固定的模块/文件权限下解析，外网 HTTP 链接绝不通过导入自动下载和执行。外部文档链接可以纳入可选的网络知识索引，但**不得**改变本地程序求值。
 
 ### 4.2 规范身份与兼容
 
@@ -292,19 +293,21 @@ M0.5 的“知识单元”只等价于**可寻址标题范围 + 其正文 AST + 
 ### 5.2 示例（候选 API）
 
 ````markdown
-## 圆面积公式
+## @knowledge 圆面积公式
 
 $$
 A = \pi r^2
 $$
 
-## 计算圆面积
+## @exec 计算圆面积
 
 依据[圆面积公式](#圆面积公式)代入半径。
 
-**面积 = math.eval(ref("#圆面积公式"), {"r": r}, target="A")**
+`params(r: Number)`
 
-*面积*
+`面积 = math.eval(ref("#圆面积公式"), {"r": r}, target="A")`
+
+`return 面积`
 ````
 
 `Formula` 可以按函数标题范围寻址。一个范围存在多段公式时，默认对象选择必须是明确规则（例如禁止无选择器，要求 `math.formulas(ref(...))` 列出候选；不选“第一条”）。数学可符号计算子集应该单独版本化。高级张量/量子数学可通过插件提供，不进入不可控的内核表面。
@@ -331,7 +334,7 @@ $$
 ### 6.2 例子（候选 API）
 
 ````markdown
-## Python 校验
+## @knowledge Python 校验
 
 ```python
 import json, math, sys
@@ -339,11 +342,13 @@ args = json.load(sys.stdin)
 print(json.dumps({"area": math.pi * args["r"] ** 2}))
 ```
 
-## main
+## @exec main
 
-**结果 = foreign.call(ref("#Python 校验"), {"r": 2})**
+`params(r: Number)`
 
-> 打印(结果.area)
+`结果 = foreign.call(ref("#python-校验"), {"r": r})`
+
+`打印(结果.area)`
 ````
 
 不能因为这个文件里存在 Python 代码围栏就自动创建 Python 进程；当 `foreign.call` 被执行且权限通过后才创建或复用受控内核。
@@ -441,9 +446,11 @@ import:
   quantum: "@quantum"
 ---
 
-# main
+# @exec 示例模块
 
-**面积 = geometry.圆面积(r=3)**
+## @exec main
+
+`面积 = geometry.圆面积(r=3)`
 ````
 
 `capabilities` 是**项目提出的权限请求**，不等于宿主已批准的权限；导入和安装不能自动赋权。
@@ -766,7 +773,7 @@ marqdo sync --locked
 
 - 固定 Markdown 解析器、扩展配置及版本；枚举节点级映射、惰性区域、表达式载荷抽取算法。
 - 写 `spec/markdown-profile.md`, `spec/mapping.md`, `spec/expression.ebnf`, `spec/evaluation.md`。
-- 先写 ≥100 个 AST 金样和负例：`Strong`/`Emph` 等价源码、嵌套列表、含叙述分支、标题边界、块引用合并、Markdown 中乘号/下划线/反引号、无效执行表达式必须硬错误。
+- 先写 ≥100 个 AST 金样和负例：`Strong`/`Emph`/行内 `Code` 载荷等价源码、标题模式声明与继承、嵌套列表/引用容器（应为零指令或合法载荷）、控制块跨标题边界、Markdown 中乘号/下划线/反引号、无效载荷必须硬错误。
 - 交付最小 `inspect --ast`，能输出节点、span 和解析来源。
 - **验收**：AST 结构语义无歧义；任何执行位错误不静默退化为文本；渲染前后 Markdown 正常。
 
@@ -816,11 +823,11 @@ marqdo sync --locked
 
 | 类别 | 目标 | 核心样例 |
 |---|---|---|
-| AST 金样 | Markdown AST 不被私有解析取代 | 等价粗斜体、混合段落、嵌套列表、引用合并 |
-| 语义正例 | 正确程序可执行 | 参数、递归、嵌套分支/循环、调用值 |
-| 语义反例 | 不进行启发式兜底 | 非法粗体、非法斜体、非布尔条件、错误调用 |
+| AST 金样 | Markdown AST 不被私有解析取代 | 等价粗斜体、混合段落、嵌套列表、引用合并、`@exec`/`@knowledge` 前缀 |
+| 语义正例 | 正确程序可执行 | 参数/`params`、递归、`if`/`else`/`while`/`end`、`return` 值 |
+| 语义反例 | 不进行启发式兜底 | 非法载荷、悬空 `else`、缺失 `end`、非布尔条件、`params` 位置错误 |
 | 不变性 | 叙述修改不影响程序 | 只改 Text/非执行资源，IR 与输出保持 |
-| AST 等价性 | 等价 Markdown 结构语义相同 | `**a**` vs `__a__`、列表标记替代 |
+| AST 等价性 | 等价 Markdown 结构语义相同 | `**a**`/`*a*`/`` `a` `` 载荷等价、列表/引用容器替换不改变指令 |
 | 参数数据流 | 推断正确和诊断准确 | 自增输入、分支部分赋值、同名全局、错别字 |
 | 引用/导入 | 可寻址、可复现 | 重名、断链、循环导入、模块版本冲突 |
 | 数学 | 求值子集准确、超界报错 | 数值精度、导数、非法 LaTeX、不可解方程 |
@@ -907,7 +914,7 @@ Migration & rollout:
 
 ### 16.3 不允许的实现捷径
 
-- 解析失败便把 `Strong`/`List` 当成普通 Markdown；
+- 解析失败便把 Exec 载荷或容器当成普通 Markdown 并静默跳过；
 - 用自然语言词（“若/执行/返回/对”等）决定是否启动控制节点；
 - 为解决语法问题写大量文本级 regex 来覆盖 Markdown AST；
 - 把 Marqdo 编译为 Python 作为唯一官方运行语义；
@@ -923,16 +930,18 @@ Migration & rollout:
 
 ## 17. 首批仍需通过 ADR 冻结的设计问题（不是阻止开发的借口）
 
+> **状态更新（2026-11-21）**：本节 S-01/S-02/S-03/S-06 描述的旧映射冲突已由 [RFC-LANG-0002](architecture/RFC-LANG-0002-unified-semantics.md) 与 [ADR-0052](adr/0052-unified-markdown-semantics.md) 解决并废止；下表保留原始表述作为历史记录，其中“本文默认立场”不再是现行设计。仍未冻结的语义问题（参数推断策略、未来 `elif`/`for`/`break`、知识锚点等）需要单独的 Accepted ADR。
+
 下列问题涉及语义精确性。团队可以按本文暂定规则编写参考实现和测试，但**不得在对外声称语言已稳定时留下空白**。
 
-| ID | 问题 | 本文默认立场 | 冻结前需要的证据 |
+| ID | 问题 | 本文默认立场（历史） | 冻结前需要的证据 / 现行状态 |
 |---|---|---|---|
-| S-01 | 直接运行 `Strong` 中的数学 `*` 与 CommonMark 强调冲突 | 强调强制执行，允许行内代码无损载荷 | Markdown AST 金样/错误诊断 |
-| S-02 | 普通斜体与返回冲突 | 程序体中的 Emph 永远是返回，文档约束使用者 | 真实文档可读性与反例测试 |
-| S-03 | `OrderedList`/`BulletList` 在无前缀 `#` 的顶层语义 | 只在函数体内执行；其他区域按文档处理 | 作用域与链接索引测试 |
-| S-04 | 参数推断在部分赋值路径中的歧义 | 静态数据流；不确定时报错 | CFG 案例与 ABI 变更测试 |
-| S-05 | 中文函数名与英文点号/括号表达式 | Unicode 标识符、固定优先级；含空格走链接引用 | 词法与调用金样 |
-| S-06 | 用 Markdown Link + 参数列表作为调用 | BlockQuote 内接受 `Link + suffix`，固定 AST 形式 | 标准解析器真实解析结果 |
+| S-01 | 直接运行 `Strong` 中的数学 `*` 与 CommonMark 强调冲突 | 强调强制执行，允许行内代码无损载荷 | 已由 RFC-LANG-0002 解决：载荷统一、建议用行内 CodeSpan；需 AST 金样 |
+| S-02 | 普通斜体与返回冲突 | 程序体中的 Emph 永远是返回，文档约束使用者 | 已由 RFC-LANG-0002 解决：`return` 是关键字，斜体只是等价载体 |
+| S-03 | `OrderedList`/`BulletList` 在无前缀 `#` 的顶层语义 | 只在函数体内执行；其他区域按文档处理 | 已由 RFC-LANG-0002 解决：列表只是容器，无隐含指令 |
+| S-04 | 参数推断在部分赋值路径中的歧义 | 静态数据流；不确定时报错 | 仍需 ADR；CFG 案例与 ABI 变更测试 |
+| S-05 | 中文函数名与英文点号/括号表达式 | Unicode 标识符、固定优先级；含空格走链接引用 | 仍需词法与调用金样 |
+| S-06 | 用 Markdown Link + 参数列表作为调用 | BlockQuote 内接受 `Link + suffix`，固定 AST 形式 | 已废止：BlockQuote 不再调用；跨文件调用须显式导入/表达式调用，另有 ADR |
 | S-07 | 多公式/代码围栏在同一章节下如何寻址 | 不自动选第一条；显式 selector/API | 引用稳定性与用户体验测试 |
 | S-08 | 任意精度数值与跨语言/插件 JSON 边界 | BigInt 为精确整数、wire 有类型标签 | 数值和跨 ABI 测试 |
 | S-09 | strict sandbox 不同平台的保障 | 不能落实就拒绝 strict | Linux/Win/macOS 安全功能矩阵 |

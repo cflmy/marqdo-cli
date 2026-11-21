@@ -1,5 +1,17 @@
 # Marqdo CLI 最新提交架构审查与重构 RFC
 
+> **Historical review input.** This document is a review snapshot frozen at
+> commit `7fbe069…` (2026-11-21). It is **not** current architecture, status or
+> language guidance. Its responsibility-split analysis (core / runtime /
+> platform boundary / stdlib / CLI) remains useful review input, but its
+> Markdown-syntax references describe the historical pre-RFC mapping. The
+> current language contract is
+> [RFC-LANG-0002](RFC-LANG-0002-unified-semantics.md) with
+> [`spec/mapping.md`](../../spec/mapping.md) and
+> [ADR-0052](../adr/0052-unified-markdown-semantics.md); any old-syntax snippet
+> below (e.g. `> resource.write(...)` as a call) is archived spelling, not a
+> current tutorial. Status lives in [`../STATUS.md`](../STATUS.md).
+
 > 状态：**审查报告 / 待讨论设计，不是已实施代码**  
 > 仓库：[`cflmy/marqdo-cli`](https://github.com/cflmy/marqdo-cli)  
 > 冻结审查提交：[`7fbe069196e61d06a00d64fe8d65049c327373eb`](https://github.com/cflmy/marqdo-cli/commit/7fbe069196e61d06a00d64fe8d65049c327373eb)  
@@ -218,7 +230,7 @@ stdin 与 stdout 使用同一个 `ResourceTable`、同一个权限检查和同�
 
 1. 将任意长度文本按**字节**分片编码，或按需增长 Memory；禁止超过区域上限时静默截断。
 2. `resource.write` 若 `{ok:false}`，返回带原因的 `Result`；若 `0 < count < requested`，继续写剩余字节；若 `count=0` 且有剩余，返回 `io.write_zero` 防止死循环。
-3. 不因 `> resource.write(...)` 语句返回值被忽略而掩盖错误；`打印` 的失败须有明确可观测结果。若要求完全兼容旧 `print` 的致命失败行为，需要规定 `Result` 到致命错误的桥接方式，不能在 `.mq.md` 中擅自吞错。
+3. 不因 `resource.write(...)` 载荷返回值被忽略而掩盖错误（旧语法写作 `> resource.write(...)`；RFC-LANG-0002 中引用块只是容器）；`打印` 的失败须有明确可观测结果。若要求完全兼容旧 `print` 的致命失败行为，需要规定 `Result` 到致命错误的桥接方式，不能在 `.mq.md` 中擅自吞错。
 4. 使用统一缓冲生命周期与容量预算；stdout、文件和 TCP 共享 `write_all`，只在入口处选择资源。
 5. 确保多字节 Unicode、嵌入 NUL、超过一页、短写、失效资源、无权限、EOF 等均有测试。
 

@@ -1,33 +1,48 @@
 # Marqdo CLI
 
-Marqdo is a **Markdown-native, independently interpreted programming language**:
-standard CommonMark/GFM structures carry program control (headings scope,
-`**strong**` executes, `*emph*` returns, ordered lists branch, bullet lists
-loop, block quotes call), prose and executable nodes mix in one document, and
-all side effects go through a capability-checked host boundary. The official
-implementation is a Rust workspace; Python/Node are optional foreign kernels,
-never the compiler target.
+Marqdo is a **Markdown-native, independently interpreted programming language**.
+A `.mq.md` file is ordinary CommonMark/GFM prose plus explicit executable
+regions: a heading declares `@exec` or `@knowledge`, `**strong**`, `*emph*` and
+inline `` `code` `` are interchangeable carriers of one statement, and keywords
+inside that payload — `if`, `else`, `while`, `end`, `return`, `params` — decide
+control flow. Lists, block quotes and emphasis are document presentation only.
+The official implementation is a Rust workspace; Python/Node are optional
+foreign kernels, never the compiler target.
 
 This repository is the new, independent Marqdo toolchain (M0.5). It is **not**
 a compatibility rewrite of `cflmy/marqdo`; the old syntax, package format and
 plugin ABI v2 are not claimed to work here.
 
+> **Breaking language revision in progress.** The current semantic contract is
+> [RFC-LANG-0002](docs/architecture/RFC-LANG-0002-unified-semantics.md)
+> (see also [`spec/mapping.md`](spec/mapping.md) and
+> [`spec/expression.ebnf`](spec/expression.ebnf)). The repository documentation,
+> examples and test sources have been migrated to this single syntax, but the
+> Rust frontend, expression parser and bundled `stdlib/` have **not** landed it
+> yet. Until they do, executable tests that contain migrated source are expected
+> to be red; this checkout must not be described as supporting the new syntax.
+> Old syntax (`**strong**` = execute, `*emph*` = return, `1.` = branch,
+> `-` = loop, `>` = call) is **not** an active language. Migration status:
+> [`docs/migration/README.md`](docs/migration/README.md) and
+> [`docs/STATUS.md`](docs/STATUS.md).
+
 > **Status: stabilization candidate, not released.** The language, lock v3,
 > Analysis v2, Trace v2, Tool v1, Plugin ABI v1 (native + worker) and pinned
-> Foreign providers are implemented and covered by tests on Linux. The
-> macOS/Windows `E0433` platform-cfg failure and the Linux strict
-> probe→launch race are fixed in source at `8af7262`, but the native
-> Windows/macOS and GitHub Linux lanes have not been re-run from this
-> checkout. **`strict` OS isolation is available on Linux only when the
-> runtime Bubblewrap probe passes**; it was verified against the full
-> escape/resource matrix in a disposable Ubuntu 26.04 VM at `8af7262`
-> (ADR-0021). macOS/Windows fail closed, strict L2 (Worker/Foreign) is not
-> implemented, and the broker/worker are not a sandbox. The release decision
-> is **DO NOT RELEASE** until the remote gates have same-SHA URLs. See
+> Foreign providers are implemented and covered by tests on Linux for the
+> pre-RFC syntax. The macOS/Windows `E0433` platform-cfg failure and the Linux
+> strict probe→launch race are fixed in source at `8af7262`, but the native
+> Windows/macOS and GitHub Linux lanes have not been re-run from this checkout.
+> **`strict` OS isolation is available on Linux only when the runtime
+> Bubblewrap probe passes**; it was verified against the full escape/resource
+> matrix in a disposable Ubuntu 26.04 VM at `8af7262` (ADR-0021).
+> macOS/Windows fail closed, strict L2 (Worker/Foreign) is not implemented, and
+> the broker/worker are not a sandbox. The release decision is **DO NOT
+> RELEASE** until the remote gates have same-SHA URLs. See
 > [`docs/STATUS.md`](docs/STATUS.md), [`COMPATIBILITY.md`](COMPATIBILITY.md)
 > and [`docs/security-gate.md`](docs/security-gate.md). The single current CI
 > convergence plan is
-> [`docs/NEXT_RELEASE_CI_CONVERGENCE.md`](docs/NEXT_RELEASE_CI_CONVERGENCE.md).
+> [`docs/NEXT_RELEASE_CI_CONVERGENCE.md`](docs/NEXT_RELEASE_CI_CONVERGENCE.md)
+> (historical baseline; refresh before use).
 
 CI: the private remote [git.cflmy.cn/cflmy/marqdo-cli](https://git.cflmy.cn/cflmy/marqdo-cli)
 uses Woodpecker at [ci.cflmy.cn](https://ci.cflmy.cn); [`.woodpecker.yml`](.woodpecker.yml)
@@ -45,11 +60,16 @@ cargo build -p marqdo-cli
 
 ## Quickstart
 
+> **Not yet executable in this checkout.** The source below is the only current
+> syntax. The published binary still contains the pre-RFC frontend and will
+> report these sources as Knowledge (no callable `main`) or a payload error
+> until the migration lands. See [`docs/STATUS.md`](docs/STATUS.md).
+
 ```bash
 marqdo init demo
 cd demo
 marqdo check index.mq.md
-marqdo run index.mq.md            # executes ## main
+marqdo run index.mq.md            # executes ## @exec main once implemented
 marqdo inspect index.mq.md --ast
 marqdo inspect index.mq.md --signature
 marqdo call index.mq.md main
@@ -58,37 +78,68 @@ marqdo call index.mq.md main
 Example project from scratch (`index.mq.md`):
 
 ````markdown
-# 数学
+# @knowledge 数学
 
-## 阶乘
+## @exec 阶乘
 
-1. `n <= 1`
+`params(n: Int)`
 
-   *1*
+`if n <= 1`
 
-2. `n > 1`
+`return 1`
 
-   **结果 = n * 阶乘(n=n-1)**
+`else`
 
-   *结果*
+`结果 = n * 阶乘(n=n-1)`
+`return 结果`
+
+`end`
 ````
 
 ```bash
 marqdo check examples/factorial.mq.md
-marqdo call examples/factorial.mq.md 数学.阶乘 --arg n=5   # 120
+marqdo call examples/factorial.mq.md 数学.阶乘 --arg n=5   # target: 120
 ```
 
 The parser is frozen: `marqdo.md.v1` = CommonMark 0.31.2 + GFM tables,
 strikethrough, task lists + `$...$`/`$$...$$` math (comrak `=1.0.0`). A `.mq.md`
 file still renders normally in any compatible Markdown reader; rendering never
-executes anything.
+executes anything. The Markdown profile is unchanged by the semantic rewrite.
+
+## Language in 60 seconds
+
+* **Headings declare the mode.** `# @knowledge 笔记` is a document namespace;
+  `## @exec main` overrides to an executable function. Any H1–H6 may carry
+  `@exec`/`@knowledge`; unmarked headings inherit the nearest ancestor. The
+  document root is Knowledge. An Exec H2 is the only callable function; H3–H6
+  are sections inside it.
+* **Closed carriers are interchangeable.** In an Exec section, `**x = 1**`,
+  `*x = 1*` and `` `x = 1` `` are the same assignment. Prefer inline code spans
+  for expressions containing `*` or `**`.
+* **Statements are explicit.** `if <Bool>`, `else`, `while <Bool>`, `end`,
+  `return <expr>`, `params(n: Int)`, assignment, or an expression call. Each
+  carrier holds exactly one statement; every `if`/`while` is closed by `end`
+  inside the same heading body.
+* **Containers do not compute.** `1.`, `-`, `>` and emphasis only organize the
+  document. `> print(1)` is prose; `> **print(1)**` contains a call.
+* **Knowledge is inert.** Nothing in a `@knowledge` section executes, so it is
+  the place for normal emphasis, explanatory lists, tables and formula
+  resources.
+* **No syntax switch.** There is no `marqdo_semantics` field or `--legacy`
+  flag; all `.mq.md` files use this syntax.
+
+The full contract is [`spec/mapping.md`](spec/mapping.md) and
+[`spec/expression.ebnf`](spec/expression.ebnf); the rationale and migration
+rules are [`RFC-LANG-0002`](docs/architecture/RFC-LANG-0002-unified-semantics.md).
 
 ## What works (implemented and tested)
 
-* **P0 contracts** — frozen Markdown profile, AST → program mapping, strict
-  expression grammar, evaluation semantics; 160 AST goldens, 73 semantic
-  goldens, 52 compile-error fixtures and 21 runtime-error fixtures
-  (`tests/`).
+* **P0 contracts** — frozen Markdown profile, evaluation semantics and the
+  pre-RFC AST → program mapping; 160 AST goldens, 73 semantic goldens, 52
+  compile-error fixtures and 21 runtime-error fixtures (`tests/`). The test
+  corpus has been rewritten to the current syntax but the frontend has not, so
+  these suites are **expected red** until the migration in
+  [`docs/migration/`](docs/migration/README.md) lands.
 * **P1 interpreter** — native Rust tree-walk interpreter: values, scopes,
   functions, static parameter inference, assignments, branches, loops,
   returns, recursion, structured errors, fuel/stack/output budgets.
@@ -192,8 +243,9 @@ cargo clippy --workspace --all-targets -- -D warnings
   `capabilities` are requests, never grants.
 * **Reference validation is opt-in**: `check --refs` reports broken links;
   plain `check` ignores them because links are static knowledge references.
-  Link-form calls cannot cross modules; cross-module calls use imported alias
-  expressions such as `geometry.圆面积(r=2)`.
+  Markdown links never call; calls are expressions inside executable payloads,
+  and cross-module calls use imported alias expressions such as
+  `geometry.圆面积(r=2)`.
 * **`ref("#anchor")` is module-local** and errors with `ref.ambiguous` when a
   heading range contains more than one formula/code block instead of picking
   the first.
@@ -235,18 +287,26 @@ tests/                        conformance/negative corpus (see tests/README.md)
 ## Documentation index
 
 * [`AGENTS.md`](AGENTS.md) — operating rules for contributors and coding agents.
+* [`docs/architecture/RFC-LANG-0002-unified-semantics.md`](docs/architecture/RFC-LANG-0002-unified-semantics.md)
+  — **the single language authority**: full new syntax, breaking changes,
+  architecture, migration and acceptance gates. Adopted by
+  [ADR-0052](docs/adr/0052-unified-markdown-semantics.md).
+* [`spec/mapping.md`](spec/mapping.md) — normative AST→program mapping
+  (heading modes, unified carriers, control stack, diagnostics).
+* [`spec/expression.ebnf`](spec/expression.ebnf) — normative statement and
+  expression grammar.
+* [`docs/migration/README.md`](docs/migration/README.md) — migration rules and
+  the inventory of remaining work.
 * [`docs/DEVELOPMENT_BLUEPRINT.md`](docs/DEVELOPMENT_BLUEPRINT.md) — architecture
-  baseline (Chinese; the M0.6 plan below supersedes it on command-surface scope,
-  extension registration, plugin addressing, package identity, repository
-  decoupling and release gates).
+  baseline (Chinese); historical sections are marked and the current language
+  contract is RFC-LANG-0002, not the blueprint's old mapping.
 * [`docs/STABLE_RELEASE_IMPLEMENTATION.md`](docs/STABLE_RELEASE_IMPLEMENTATION.md)
-  — **the single authoritative next-phase plan**: PR order, G-A/G-B/G-C gates,
-  Windows/macOS fixes, protocol/environment stabilization, strict isolation
-  requirements and the release checklist.
+  — **the single authoritative next-phase plan** for release gates, PR order,
+  Windows/macOS fixes and the release checklist; it is a plan, not evidence.
 * [`COMPATIBILITY.md`](COMPATIBILITY.md) — protocol versions, per-platform
-  feature evidence and explicit unsupported features.
+  feature evidence, the breaking language change and unsupported features.
 * [`CHANGELOG.md`](CHANGELOG.md) — unreleased stabilization changes and the
-  `0.1.0` baseline.
+  `0.1.0` baseline, including the syntax breaking change.
 * [`docs/security-gate.md`](docs/security-gate.md) — G-C evidence and limits;
   [`docs/security-vm.md`](docs/security-vm.md) reproduces the disposable VM and
   the self-hosted security runner.
@@ -280,6 +340,9 @@ tests/                        conformance/negative corpus (see tests/README.md)
   workflow.
 
 ## Examples
+
+> Examples are migrated to the current syntax but cannot execute until the
+> frontend migration lands; the commands below are the intended contract.
 
 ```bash
 marqdo run examples/hello.mq.md

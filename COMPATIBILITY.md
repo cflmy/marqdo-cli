@@ -2,14 +2,52 @@
 
 Snapshot: workspace version **0.1.0**, code/security SHA **`8af7262`**, no
 release tag cut. This file records what was actually verified and separates it
-from what is only implemented.
+from what is only implemented. Executed status is in
+[`docs/STATUS.md`](docs/STATUS.md).
+
+## Language source syntax (breaking change)
+
+**The `.mq.md` source language is a breaking change.** The current contract is
+[RFC-LANG-0002](docs/architecture/RFC-LANG-0002-unified-semantics.md)
+(accepted by [ADR-0052](docs/adr/0052-unified-markdown-semantics.md)), with the
+normative summaries in [`spec/mapping.md`](spec/mapping.md) and
+[`spec/expression.ebnf`](spec/expression.ebnf):
+
+- H1–H6 headings declare `@exec`/`@knowledge` modes; unmarked headings inherit
+  the nearest ancestor's mode and the document root is Knowledge.
+- Only an Exec H2 is a callable function. H2 Knowledge is inert and H3–H6 are
+  non-callable sections.
+- In an Exec scope, `Strong`, `Emph` and inline `Code` are interchangeable
+  carriers of one statement; the original emphasis role is gone.
+- Control flow comes from keywords in the payload (`if`/`else`/`while`/`end`/
+  `return`/`params(...)`). Ordered lists, bullet lists and block quotes are
+  inert presentation containers.
+- There is no version selector, `--legacy` path or fallback mapper.
+
+Consequences for compatibility:
+
+- **Old pre-RFC `.mq.md` source is not executable.** A file that relied on
+  `Strong` = execute, `Emph` = return, ordered list = branch, bullet list =
+  loop, block quote = call or a first code-span signature must be rewritten by
+  AST role (see `docs/migration/README.md`). A parse failure is a hard
+  diagnostic, never a fallback to prose.
+- The Markdown parser profile stays `marqdo.md.v1`; only the Markdown→program
+  mapping changed. Rendering of otherwise-ordinary Markdown is unaffected.
+- **Implementation state:** `spec/` is ahead of the Rust implementation. The
+  frontend migration is only partially present in this worktree: heading-mode
+  and Knowledge-unit plumbing has started, but the executable mapping, statement
+  parser and bundled stdlib still follow pre-RFC behaviour. Tests that exercise
+  executable Marqdo source are therefore expected to be red, and this candidate
+  must not be described as supporting the new syntax until the full migration
+  lands. See [`docs/STATUS.md`](docs/STATUS.md) and
+  [`docs/migration/README.md`](docs/migration/README.md).
 
 ## Public protocol versions
 
 | Surface | Version | Compatibility rule |
 |---|---|---|
-| Markdown profile | `marqdo.md.v1` | Frozen parser/options; semantic change needs an ADR, new goldens and a profile id bump. |
-| Language / CLI | workspace `0.1.0` | Pre-1.0. CLI flags may change with a changelog note; `strict` refusal is contractual. |
+| Markdown profile | `marqdo.md.v1` | Frozen parser/options. The RFC-LANG-0002 mapping rewrite keeps this profile; the source-language break is tracked above, not by a new profile id. |
+| Language / CLI | workspace `0.1.0` | Pre-1.0. The `.mq.md` source language changed incompatibly (RFC-LANG-0002); there is no old-syntax execution path. CLI flags may change with a changelog note; `strict` refusal is contractual. |
 | `marqdo.lock` | v3 | v1/v2 are rejected with a relock instruction; `run`/`call`/`check` never rewrite or fetch the lock. |
 | Analysis | v2 | Consumers reject unknown majors; incompatible field changes require v3. |
 | Trace | v2 | Binds to the exact Analysis bytes; unknown majors rejected. |
@@ -72,6 +110,10 @@ reproduce the Windows checkout byte behavior.
 
 ## Explicitly unsupported in this candidate
 
+- Pre-RFC `.mq.md` source syntax (Strong-execute / Emph-return / ordered-list
+  branch / bullet-list loop / block-quote call / first code-span signature).
+  Old sources are a rewrite task, not a compatibility mode: there is no
+  `--legacy`, `marqdo_semantics` selector or second mapper.
 - OS-level strict isolation on macOS/Windows (Linux only, probe-gated).
 - Strict L2: Worker/Foreign execution inside strict (refused in L1).
 - Windows Native/Worker ABI runtime support.

@@ -48,6 +48,15 @@ On a host that cannot create the namespaces the same block is
 for the Linux construction, L1 scope and non-goals; ADR-0019 still governs
 every other platform.
 
+### 1.1 `@exec` is not a grant
+
+The `@exec` heading mode introduced by RFC-LANG-0002 is a **compile-time
+projection**, not an authorization. A payload in `@exec` still passes the same
+`CapabilityHost` checks, budgets and sandbox rules; a payload in `@knowledge`
+produces no IR and therefore cannot cause a host effect at all. No heading
+annotation, keyword or Markdown container can grant a file/network/process
+capability, and permission flags never change the AST→IR result.
+
 ## 2. Capability grants
 
 `Capabilities` (`crates/marqdo-host/src/capability.rs`) is the effective grant

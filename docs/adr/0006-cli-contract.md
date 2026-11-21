@@ -55,6 +55,14 @@ Codes are stable contract. Diagnostic **codes** (for example
 `markdown.invalid_construct`, `expr.parse`, `symbol.unknown`,
 `permission.denied`, `ref.ambiguous`) are stable; message wording is not.
 
+> **Historical diagnostic note.** `markdown.invalid_construct` (and the
+> executable-shape `Strong`/`Emph`/list/quote errors it described) belongs to
+> the pre-RFC-LANG-0002 mapping. Under the current contract
+> ([RFC-LANG-0002](../architecture/RFC-LANG-0002-unified-semantics.md) /
+> [ADR-0052](0052-unified-markdown-semantics.md),
+> [`spec/mapping.md`](../../spec/mapping.md) §8) syntax-role failures use the
+> `sem.*` codes. The rest of this CLI contract is unaffected.
+
 ### 3. Stream separation
 
 * **Program output** (`打印`/`print`) goes to stdout in text mode. In JSON mode

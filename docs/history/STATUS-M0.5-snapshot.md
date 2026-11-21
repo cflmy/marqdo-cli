@@ -1,5 +1,14 @@
 # Marqdo Implementation Status (M0.5)
 
+> **Historical snapshot (2026-11-20).** This file is archived evidence of the
+> M0.5 state and is **not** current status or language guidance. The language
+> contract was later rewritten by
+> [RFC-LANG-0002](../architecture/RFC-LANG-0002-unified-semantics.md) /
+> [ADR-0052](../adr/0052-unified-markdown-semantics.md) and
+> [`spec/mapping.md`](../../spec/mapping.md). Any old-syntax examples or role
+> wording below are preserved **as archives**, not as current syntax; see
+> [`../STATUS.md`](../STATUS.md) for the current state.
+
 Snapshot: **2026-11-20**, workspace version `0.1.0`, plugin ABI `1.0`,
 `wire_version` 1, Markdown profile `marqdo.md.v1`.
 

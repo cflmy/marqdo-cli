@@ -21,7 +21,9 @@ Access is by `ref("#heading")` (exactly one code/formula resource in that
 heading range; `ref.ambiguous` otherwise — see `spec/references.md` §5):
 
 ````markdown
-## Python 校验
+# @knowledge 示例
+
+## @knowledge Python 校验
 
 ```python
 import json, math, sys
@@ -30,11 +32,11 @@ r = int(envelope["input"]["entries"]["r"]["decimal"])
 print(json.dumps({"type": "float", "value": math.pi * r ** 2}))
 ```
 
-## main
+## @exec main
 
-**结果 = foreign.call(ref("#python-校验"), {"r": 3})**
-
-> 打印(结果)
+`结果 = foreign.call(ref("#python-校验"), {"r": 3})`
+`print(结果)`
+`return 结果`
 ````
 
 The anchor is the GitHub-style slug of the heading (`#python-校验`), not the

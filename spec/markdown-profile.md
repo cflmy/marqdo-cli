@@ -7,6 +7,13 @@ Profile id: `marqdo.md.v1`
 Parser: [comrak](https://comrak.ee/) `=1.0.0`, `default-features = false`
 CommonMark baseline: 0.31.2
 
+> **Semantic mapping notice (RFC-LANG-0002).** The Markdown profile is
+> unchanged by the breaking syntax revision: the same CommonMark/GFM AST and
+> byte spans are produced. What changed is the separate Markdown→program
+> mapping in `spec/mapping.md` (heading `@exec`/`@knowledge` modes, unified
+> `Strong`/`Emph`/inline `Code` payloads, keyword control flow). Do not bump
+> this profile id for a semantic-mapping-only change.
+
 ## 1. Why a profile
 
 Markdown is the syntax of the language. Any parser behaviour that can change
@@ -22,7 +29,7 @@ Enabled extensions:
 | Option | Value | Consequence |
 |---|---|---|
 | `extension.table` | `true` | GFM tables produce `table`/`table_row`/`table_cell` nodes. |
-| `extension.strikethrough` | `true` | `~~x~~` produces `strikethrough`. Inert unless it appears in an executable payload (where it is an error). |
+| `extension.strikethrough` | `true` | `~~x~~` produces `strikethrough`. Strikethrough is never an executable carrier and its content is inert in both modes. |
 | `extension.tasklist` | `true` | `- [x]`/`- [ ]` items carry a checkbox flag on the item node. |
 | `extension.math_dollars` | `true` | `$...$` and inline `$$...$$` produce `math`; standalone `$$` fences with `math_dollars_block` produce `math_block`. |
 | `extension.math_dollars_block` | `true` | Multi-line `$$` display math is a block node. |
