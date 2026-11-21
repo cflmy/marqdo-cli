@@ -1,6 +1,7 @@
 # Marqdo Implementation Status
 
-Snapshot: **2026-11-21**, workspace version `0.1.0`, no release tag.
+Snapshot: **2026-11-22**, workspace version `0.1.0`, no release tag. RFC-EXT-0001
+implementation evidence is bound to code SHA `6a7bb983c3b34fd0340afdcba9f197f7f50cba2a`.
 Current architecture overview:
 [`architecture/CURRENT.md`](architecture/CURRENT.md).
 Authoritative CI convergence plan:
@@ -40,12 +41,15 @@ Implemented and tested in this tree (PR-00…PR-07; no release claim):
 | `marqdo.yaml.extensions` + lock v4 identity + `inspect --extensions`; CLI/manifest merge and conflicts | **IMPLEMENTED / TESTED** | `extension_selection` (13), `package_env`, package crate tests |
 | Capability handler registry; `fs.read` real handler; audit/unavailable | **IMPLEMENTED / TESTED** | `marqdo-host` `capability_handlers` (12) |
 | Official stdlib public aliases; print_override/AST scan/runtime branch removed | **IMPLEMENTED / TESTED** | `stdlib_alias_routing` (5), print/format/Trace goldens |
-| Independent external repo + frozen-CLI suite (pure pinned Git, plugin, kernel, provider, tool) | **PASS against a development binary; release-binary rerun + SHA-bound manifest pending** | `/root/work/marqdo-extension-conformance` `tests/run_all.py`: all 7 categories PASS |
+| Independent external repo + frozen-CLI suite (pure pinned Git, plugin, kernel, provider, tool) | **PASS on the frozen `--release` binary** | [`evidence/extension/6a7bb983.../manifest.json`](evidence/extension/6a7bb983c3b34fd0340afdcba9f197f7f50cba2a/manifest.json): all 7 required categories PASS; CLI sha256 `28e3776d…`, fixture repo `e4b7352c…` |
 
-Evidence: [`evidence/2026-11-22-ext-implementation.md`](evidence/2026-11-22-ext-implementation.md)
-and baseline [`evidence/ext-baseline-595279f.md`](evidence/ext-baseline-595279f.md).
-The RFC-EXT-0001 release gate additionally requires a `--release` frozen-binary
-rerun and `docs/evidence/extension/<SHA>/manifest.json` on the tagged commit.
+Evidence: [`evidence/2026-11-22-ext-implementation.md`](evidence/2026-11-22-ext-implementation.md),
+baseline [`evidence/ext-baseline-595279f.md`](evidence/ext-baseline-595279f.md),
+and the frozen-binary manifest
+[`evidence/extension/6a7bb983.../manifest.json`](evidence/extension/6a7bb983c3b34fd0340afdcba9f197f7f50cba2a/manifest.json).
+The manifest is bound to code SHA `6a7bb98`; a tag on a later SHA must rerun
+`tools/ci/verify_extension_contracts.py` on that SHA. Release decision remains
+**DO NOT RELEASE** for the unchanged G3/G4/native reasons below.
 
 ## 0. Language migration completed (RFC-LANG-0002)
 

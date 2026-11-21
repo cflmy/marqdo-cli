@@ -195,10 +195,12 @@ against the frozen release binary after PR-04 lands.
 
 ## 4. Known gaps / deviations (not hidden)
 
-1. **Frozen release evidence is not yet bound to a tagged SHA.** The external
-   suite PASSes against a `--release` build of this tree, but
-   `docs/evidence/extension/<SHA>/manifest.json` must be regenerated on the
-   final release commit and every mandatory result must be PASS there.
+1. **Frozen release evidence is bound to code SHA `6a7bb98`, not to a tag yet.**
+   The external suite PASSes on the `--release` binaries
+   (`marqdo` sha256 `28e3776d…`) and the SHA-bound manifest exists at
+   `docs/evidence/extension/6a7bb983c3b34fd0340afdcba9f197f7f50cba2a/manifest.json`
+   (fixture repo `e4b7352c…`, all 7 categories PASS). A tag on a later SHA must
+   rerun the generator on that SHA; this document is not a release.
 2. **Provider platform claims are Linux x86_64 only**; macOS/Windows are
    explicitly unsupported for the worker transport. The RFC's mac/Windows
    provider lanes are not claimed.

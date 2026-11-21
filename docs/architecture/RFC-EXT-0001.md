@@ -1,6 +1,10 @@
 # RFC-EXT-0001：Marqdo CLI 可扩展性闭环与第三方仓库彻底解耦实施规范
 
-> **状态：Proposed / 待实施。** 本文是下一阶段开发的**规范性任务书**，不是已实现能力说明。文中标注 `MUST` 的项目是必须达成的验收要求；`SHOULD` 为建议，偏离须写 ADR；`MAY` 为可选。本文同时给出架构、接口、程序顺序、负例、操作命令、交付物和退出条件。未明确授权修改仓库；实施者应以 PR 形式完成并保留全部证据。
+> **状态：Implemented（实现与证据已按本文件验收，见 §19）。** 本文同时保留为规范性任务书和验收记录；其中 `MUST` 项目已由 PR-00…PR-08 实现并测试。发布 tag 仍受仓库既有的 G3/G4/平台门禁与 Owner 批准约束，见 `docs/releasing.md`。
+>
+> **实现基线：** `6a7bb98`（`feat/extensible-ecosystem`，2026-11-22，Linux x86_64）。实现与测试证据：`docs/evidence/2026-11-22-ext-implementation.md`；冻结 CLI 外部证据：`docs/evidence/extension/6a7bb983c3b34fd0340afdcba9f197f7f50cba2a/manifest.json`（CLI sha256 `28e3776d…`，fixture repo `e4b7352c…`，全部必需结果 PASS）。
+>
+> **原始任务书文本保留如下。**文中标注 `MUST` 的项目是必须达成的验收要求；`SHOULD` 为建议，偏离须写 ADR；`MAY` 为可选。本文同时给出架构、接口、程序顺序、负例、操作命令、交付物和退出条件。未明确授权修改仓库；实施者应以 PR 形式完成并保留全部证据。
 >
 > **固定审查基线**：`cflmy/marqdo-cli`，`master@595279fe38048b52b96d9ff1e7d57a867ec5c4c6`（2026-11-21 查验）。原仓库：https://github.com/cflmy/marqdo-cli 。如果开发开始时 HEAD 已移动，先按 §2 的盘点模板重新核对事实，不能把本文基线判断无条件套用到新 SHA。
 >
@@ -1163,3 +1167,28 @@ UNDECLARED ──(显式声明)──> DECLARED ──(校验签名/版本)─�
 **最终原则**：让外部库扩展的是**能力、算法、资源与可读知识制品**，而不是篡改 Marqdo 的唯一执行语义。以单一静态绑定与受控 Host 为中心，保证语言内核和独立生态在功能增加时不互相挟持。
 
 ---
+
+## 19. Implementation record (2026-11-22)
+
+This section records the executed state. It does not tag a release or override
+`docs/releasing.md`; the owner still decides tags/assets.
+
+| PR | State | Evidence |
+|---|---|---|
+| PR-00 baseline | done | `docs/evidence/ext-baseline-595279f.md` (fmt/clippy/test green at `595279f`) |
+| PR-01/02 unique callable binding | done | `CallSiteKey`/`CallBindingTable`, one `bind_program_calls`, runtime dispatch by identity; `crates/cli/tests/callable_resolution.rs` 14 tests; `spec/callable-resolution.md`, ADR-0054 |
+| PR-03 provider v2 CLI | done on linux/x86_64 | `crates/cli/tests/provider_cli.rs` 12 tests; `spec/resource-provider-v2.md`, ADR-0055; macOS/Windows FAIL-CLOSED |
+| PR-04 extension selection/lock v4 | done | `extensions:` manifest block, lock v4 identity, `inspect --extensions`; `crates/cli/tests/extension_selection.rs` 13 tests; `spec/extension-selection.md`, ADR-0056 |
+| PR-05 capability handlers | done | handler registry + real `fs.read`; `crates/marqdo-host/tests/capability_handlers.rs` 12 tests; ADR-0057 |
+| PR-06 stdlib public aliases | done | verified `public_aliases`/`aliases_digest`; `print_override`/scan/runtime branch removed; `stdlib_alias_routing` 5 tests; ADR-0058 |
+| PR-07 external consumers | done | separate repo `marqdo-extension-conformance` (pure pinned-Git lib, plugin, unknown kernel, provider v2, Analysis/Trace tool) + frozen-CLI suite |
+| PR-08 release/docs convergence | implemented; release-tag rerun pending | workspace gate `599 passed / 67 targets`, fmt/clippy clean; evidence manifest bound to `6a7bb98`; the tag action itself requires owner approval and the unchanged G3/G4/native gates |
+
+Known deviations are recorded in `docs/evidence/2026-11-22-ext-implementation.md`
+§4 (provider transport linux/x86_64 only; additive provider error codes;
+analysis `calls[]` projection; no tag).
+
+**Do not treat this record as a release.** The release decision remains
+`DO NOT RELEASE` until the remote G3 artifact and same-SHA mandatory lanes
+exist; the external-extension manifest is an additional necessary gate, never a
+substitute.

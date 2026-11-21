@@ -78,7 +78,7 @@ portable/tested locally but the native platform lane has not run here;
 | Official stdlib public aliases (print de-magic; byte-identical output) | PASS | UNVERIFIED | UNVERIFIED |
 | Resource Provider v2 CLI (`--provider`/`--allow-provider`, worker helper) | PASS (linux/x86_64; real C sensor + helper) | **FAIL-CLOSED** (`ext.platform_unsupported`) | **UNSUPPORTED** |
 | Capability handler registry (`fs.read` handler, audit, unavailable) | PASS | UNVERIFIED | UNVERIFIED |
-| External conformance repository (`marqdo-extension-conformance`, frozen CLI) | PASS (provisional development binary; release rerun pending) | UNVERIFIED | UNVERIFIED |
+| External conformance repository (`marqdo-extension-conformance`, frozen CLI) | PASS (`--release` binary sha256 `28e3776d…`, fixture repo `e4b7352c…`; see `docs/evidence/extension/6a7bb983.../manifest.json`) | UNVERIFIED | UNVERIFIED |
 | Analysis v2 / Trace v2 + Python consumers | PASS | UNVERIFIED | UNVERIFIED |
 | Tool Protocol v1 + 3 independent consumers | PASS | UNVERIFIED | UNVERIFIED |
 | Native ABI (`plugin inspect`, trusted call) | PASS (C fixture) | UNVERIFIED (host-native fixture) | **UNSUPPORTED** |

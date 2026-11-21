@@ -1,0 +1,23 @@
+{
+  "schema": "marqdo.extension-evidence",
+  "schema_version": 1,
+  "tested_sha": "6a7bb983c3b34fd0340afdcba9f197f7f50cba2a",
+  "cli_binary_sha256": "28e3776dd3d0ee9134323dd449edb9a7b5d2d8a5e6d3225845f54fc818397c74",
+  "fixture_repo_sha": "e4b7352c9213f8fa41bbab9f9da6aaf43eb8f929",
+  "os": "linux",
+  "arch": "x86_64",
+  "results": {
+    "callable_registry": "PASS",
+    "plugin_worker": "PASS",
+    "foreign_kernel": "PASS",
+    "resource_provider_cli": "PASS",
+    "package_pinned_git": "PASS",
+    "tool_analysis_consumer": "PASS",
+    "negative_security": "PASS"
+  },
+  "commands": [
+    "python3 /root/work/marqdo-extension-conformance/tests/run_all.py (cwd=/root/work/marqdo-extension-conformance)"
+  ],
+  "failures": [],
+  "unverified": []
+}
