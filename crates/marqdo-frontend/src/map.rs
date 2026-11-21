@@ -141,10 +141,13 @@ impl Mapper {
         let mut position = 0;
         let (stmts, stop) = self.sequence(&raw, &mut position, false, false);
         if stop != Stop::Eof {
+            // `sequence` leaves `position` on the stray `end` payload, so the
+            // diagnostic points at the keyword instead of the previous
+            // statement. A control frame may never close across a heading.
             self.error(
                 codes::SEM_UNMATCHED_END,
-                raw.get(position.saturating_sub(1)).map(|node| node.span),
-                "control frame ends outside its owning function segment",
+                raw.get(position).map(|node| node.span),
+                "`end` has no open `if`/`while` in this heading segment",
             );
         }
         stmts

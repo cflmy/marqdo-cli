@@ -271,6 +271,23 @@ mod tests {
     }
 
     #[test]
+    fn unmatched_end_points_at_the_end_payload() {
+        let source = "## @exec f\n\n`x = 1`\n\n`end`\n";
+        let result = analyze(source);
+        let diagnostic = result
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "sem.unmatched_end")
+            .expect("sem.unmatched_end");
+        let span = diagnostic.span.expect("span");
+        assert_eq!(
+            &source[span.start..span.end],
+            "`end`",
+            "the diagnostic must point at the stray end payload"
+        );
+    }
+
+    #[test]
     fn invalid_strong_payload_is_a_hard_error() {
         let result = analyze("## @exec f\n\n**a *b* c**\n");
         assert!(result.has_errors());
