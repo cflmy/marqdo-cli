@@ -205,6 +205,9 @@ resource.request("fs.list",     [path])        -> {ok:true, value:List<Text>}
 resource.request("fs.mkdir",    [path])        -> {ok:true, value:None}
 resource.request("fs.remove",   [path])        -> {ok:true, value:None}
 resource.request("fs.rename",   [from, to])    -> {ok:true, value:None}
+resource.request("fs.append",  [path, text])    -> {ok:true, value:count}
+resource.request("fs.read_at", [path, offset, len]) -> {ok:true, value:Text}
+resource.request("fs.walk",    [dir])           -> {ok:true, value:List<Text>}
 resource.request("clock.now",   [])             -> {ok:true, value:UnixMillis}
 resource.request("env.get",     [name])         -> {ok:true, value:Text}
 resource.request("process.run", [program, args])-> {ok:true, value:{status, stdout, stderr}}
@@ -224,6 +227,10 @@ resource.request("process.run", [program, args])-> {ok:true, value:{status, stdo
   (`remove` on a non-empty directory). Unknown operations, traversal,
   capability denial and I/O failures stay fatal.
 * `remove` never recurses; `rename` never overwrites; `mkdir` is single-level.
+* `append` writes UTF-8 text to the end of a file (creating it) and returns the
+  written count; `read_at` returns at most `len` bytes from `offset` as Text;
+  `walk` recursively lists regular files under a directory, skipping symlinks,
+  with depth 64 / 4096-entry limits (ADR-0045).
 * The operation never moves file bytes. Content still uses
   `resource.open/read/write/close`.
 * `clock.now` takes no arguments and returns UTC Unix milliseconds. It is

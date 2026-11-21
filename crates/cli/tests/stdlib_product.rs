@@ -202,8 +202,11 @@ fn fs_test_exercises_the_file_operation_surface() {
     assert_eq!(items[7]["value"], true);
     assert_eq!(items[8]["value"], true);
     assert_eq!(items[9]["value"], "你好\n");
-    assert_eq!(items[10]["value"], true);
-    assert_eq!(items[11]["value"], true);
+    assert_eq!(items[10]["decimal"], "7");
+    assert_eq!(items[11]["value"], "你好\n世界\n");
+    assert_eq!(items[12]["items"][0]["value"], "fs-b.txt");
+    assert_eq!(items[13]["value"], true);
+    assert_eq!(items[14]["value"], true);
     assert!(
         !stdlib_dir().join("tests/out").exists(),
         "the fs test did not remove its directory"

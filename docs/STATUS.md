@@ -58,7 +58,7 @@ byte-identical).
 cargo fmt --all -- --check                            PASS
 cargo clippy --workspace --all-targets -- -D warnings PASS
 cargo test --workspace --locked                       PASS
-  478 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
+  479 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
 ```
 
 The documentation and test migration is local work; re-run this block after it
@@ -200,13 +200,14 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   `Value::Table`; inputs are never mutated; GFM AST laziness and physical T0
   storage are unchanged. `std:fs/file` provides bounded `读文本`/`写文本`/`复制文件`
   over the existing `resource.*` ABI plus `存在`/`元数据`/`列出目录`/`创建目录`/
-  `删除`/`重命名` over `resource.request` (ADR-0041); `data/json`/`data/csv`
+  `删除`/`重命名`/`追加文本`/`读取片段`/`遍历` over `resource.request`
+  (ADR-0041/0045); `data/json`/`data/csv`
   provide recursive JSON and quoted single-row CSV product parsers; `path` and a
   `regex` subset are pure `.mq.md`; `datetime` is pure UTC ISO-8601 and
   `clock.现在` reads `clock.now` in project mode (ADR-0042); `env.读取` reads
   only exact `--allow-env NAME` grants in project mode (ADR-0043); `process.运行`
   runs an exact `--allow-process PROGRAM` grant with 5 s timeout and 1 MiB caps
-  (ADR-0044, not an OS sandbox). Append/seek/watch, recursive walk, streaming
+  (ADR-0044, not an OS sandbox). File watch, binary offset reads, streaming
   JSON/CSV, a JSON depth bound, regex groups/alternation, secure random and
   compression remain open.
 - Bundled standard library (CM-A10, ADR-0028): `stdlib/` ships

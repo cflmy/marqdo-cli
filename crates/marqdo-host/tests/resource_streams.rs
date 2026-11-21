@@ -744,3 +744,54 @@ fn process_run_requires_an_exact_program_grant() {
         .unwrap_err();
     assert_eq!(missing.category, ErrorCategory::PermissionDenied);
 }
+
+#[test]
+fn fs_append_read_at_and_walk_are_bounded() {
+    let dir = tempfile::tempdir().unwrap();
+    let capabilities = Capabilities::project()
+        .allow_read("out")
+        .allow_read("out/**")
+        .allow_write("out")
+        .allow_write("out/**");
+    let mut host = StdHost::new(SandboxMode::Project, capabilities, dir.path());
+    let ctx = context();
+    host.resource_request("fs.mkdir", vec![Value::text("out")], &ctx)
+        .unwrap();
+    let appended = host
+        .resource_request(
+            "fs.append",
+            vec![Value::text("out/data.txt"), Value::text("hello")],
+            &ctx,
+        )
+        .unwrap();
+    assert_eq!(field(&appended, "value"), &Value::int(5));
+    host.resource_request(
+        "fs.append",
+        vec![Value::text("out/data.txt"), Value::text(" world")],
+        &ctx,
+    )
+    .unwrap();
+    let slice = host
+        .resource_request(
+            "fs.read_at",
+            vec![Value::text("out/data.txt"), Value::int(6), Value::int(5)],
+            &ctx,
+        )
+        .unwrap();
+    assert_eq!(field(&slice, "value"), &Value::text("world"));
+    let walked = host
+        .resource_request("fs.walk", vec![Value::text("out")], &ctx)
+        .unwrap();
+    assert_eq!(
+        field(&walked, "value"),
+        &Value::List(vec![Value::text("data.txt")])
+    );
+    let error = host
+        .resource_request(
+            "fs.read_at",
+            vec![Value::text("out/data.txt"), Value::int(-1), Value::int(1)],
+            &ctx,
+        )
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::Type);
+}

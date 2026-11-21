@@ -4,6 +4,7 @@
 //! symlink escapes outside the project root are rejected before the capability
 //! check, and the capability check happens before any I/O.
 
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Component, Path, PathBuf};
 
 use marqdo_span::Span;
@@ -321,6 +322,131 @@ impl ProjectFs {
                 }
                 Ok(fs_ok(Value::None))
             }
+            "append" => {
+                if args.len() != 2 {
+                    return Err(fs_arity(operation, 2, args.len(), span));
+                }
+                let (absolute, relative) = self.resolve(&args[0], span)?;
+                self.ensure_parent_inside(&absolute, &relative, span)?;
+                let bytes = args[1].as_bytes();
+                if bytes.len() > MAX_READ_BYTES as usize {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::ResourceExhausted,
+                        span,
+                        format!(
+                            "append to `{relative}` exceeds the {} byte limit",
+                            MAX_READ_BYTES
+                        ),
+                    ));
+                }
+                let mut file = std::fs::OpenOptions::new()
+                    .append(true)
+                    .create(true)
+                    .open(&absolute)
+                    .map_err(|error| {
+                        RuntimeError::new(
+                            ErrorCategory::HostError,
+                            span,
+                            format!("cannot append to `{relative}`: {error}"),
+                        )
+                    })?;
+                file.write_all(bytes).map_err(|error| {
+                    RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("cannot append to `{relative}`: {error}"),
+                    )
+                })?;
+                Ok(fs_ok(Value::int(bytes.len() as i64)))
+            }
+            "read_at" => {
+                if args.len() != 3 {
+                    return Err(fs_arity(operation, 3, args.len(), span));
+                }
+                let (absolute, relative) = self.resolve(&args[0], span)?;
+                let offset = parse_offset(&args[1], span)?;
+                let length = parse_offset(&args[2], span)?;
+                if length > MAX_READ_BYTES {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::ResourceExhausted,
+                        span,
+                        format!("read_at length exceeds the {} byte limit", MAX_READ_BYTES),
+                    ));
+                }
+                let mut file = std::fs::File::open(&absolute).map_err(|error| {
+                    RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("cannot read `{relative}`: {error}"),
+                    )
+                })?;
+                file.seek(SeekFrom::Start(offset)).map_err(|error| {
+                    RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("cannot seek `{relative}`: {error}"),
+                    )
+                })?;
+                let mut buffer = Vec::new();
+                file.take(length)
+                    .read_to_end(&mut buffer)
+                    .map_err(|error| {
+                        RuntimeError::new(
+                            ErrorCategory::HostError,
+                            span,
+                            format!("cannot read `{relative}`: {error}"),
+                        )
+                    })?;
+                let text = String::from_utf8(buffer).map_err(|_| {
+                    RuntimeError::new(
+                        ErrorCategory::Type,
+                        span,
+                        format!("`{relative}` slice is not valid UTF-8"),
+                    )
+                })?;
+                Ok(fs_ok(Value::text(text)))
+            }
+            "walk" => {
+                let (absolute, relative) = self.resolve(one_arg(operation, args, span)?, span)?;
+                if !absolute.exists() {
+                    return Ok(fs_error(
+                        "fs.not_found",
+                        &format!("`{relative}` does not exist"),
+                    ));
+                }
+                let absolute = self.ensure_inside(&absolute, &relative, span)?;
+                let metadata = std::fs::metadata(&absolute).map_err(|error| {
+                    RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("cannot stat `{relative}`: {error}"),
+                    )
+                })?;
+                if !metadata.is_dir() {
+                    return Ok(fs_error(
+                        "fs.not_directory",
+                        &format!("`{relative}` is not a directory"),
+                    ));
+                }
+                let mut entries = Vec::new();
+                walk_directory(&absolute, "", &mut entries, 0).map_err(|error| {
+                    RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("cannot walk `{relative}`: {error}"),
+                    )
+                })?;
+                if entries.len() > 4096 {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::ResourceExhausted,
+                        span,
+                        "walk exceeds the 4096 entry limit",
+                    ));
+                }
+                Ok(fs_ok(Value::List(
+                    entries.into_iter().map(Value::text).collect(),
+                )))
+            }
             "rename" => {
                 if args.len() != 2 {
                     return Err(fs_arity(operation, 2, args.len(), span));
@@ -459,6 +585,50 @@ impl ProjectFs {
             )
         })
     }
+}
+
+fn parse_offset(raw: &str, span: Option<Span>) -> Result<u64, RuntimeError> {
+    raw.parse::<u64>().map_err(|_| {
+        RuntimeError::new(
+            ErrorCategory::Type,
+            span,
+            format!("`{raw}` is not a non-negative integer offset"),
+        )
+    })
+}
+
+fn walk_directory(
+    dir: &Path,
+    prefix: &str,
+    out: &mut Vec<String>,
+    depth: usize,
+) -> std::io::Result<()> {
+    if depth > 64 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "directory depth exceeds 64",
+        ));
+    }
+    let mut entries = std::fs::read_dir(dir)?.collect::<Result<Vec<_>, _>>()?;
+    entries.sort_by_key(|entry| entry.file_name());
+    for entry in entries {
+        let file_type = entry.file_type()?;
+        if file_type.is_symlink() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        let relative = if prefix.is_empty() {
+            name.clone()
+        } else {
+            format!("{prefix}/{name}")
+        };
+        if file_type.is_dir() {
+            walk_directory(&entry.path(), &relative, out, depth + 1)?;
+        } else {
+            out.push(relative);
+        }
+    }
+    Ok(())
 }
 
 fn invalid_path(span: Option<Span>, message: impl Into<String>) -> RuntimeError {

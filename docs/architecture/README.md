@@ -49,6 +49,7 @@ The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 | `clock.now` resource operation | [0042](../adr/0042-clock-resource-operation.md) | Accepted (project mode, Unix millis) |
 | `env.get` resource operation | [0043](../adr/0043-env-resource-operation.md) | Accepted (exact-name project grant) |
 | `process.run` resource operation | [0044](../adr/0044-process-resource-operation.md) | Accepted (exact program grant, project only, not a sandbox) |
+| `fs.append`/`fs.read_at`/`fs.walk` | [0045](../adr/0045-fs-append-read-at-walk.md) | Accepted (bounded content, directory walk) |
 | Table physical storage (T1/T2/T3), strict stdin/stderr/file/network resources | — | **Not decided**; do not implement by implication |
 
 ## Evidence and status

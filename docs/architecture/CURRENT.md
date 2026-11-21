@@ -90,7 +90,7 @@ review RFC, not a new crate per provider.
 | stdio stderr | `resource.open("stdio","stderr",["write"])`; separate from stdout and CLI diagnostics | implemented | `resource_streams`, `stdlib_product` |
 | project file read | `resource.open("file", path, ["read"])`; path/grant checked; bounded | implemented, project mode | `resource_streams`, `stdlib_product` |
 | project file write | `resource.open("file", path, ["write"])`; buffers until `close`, never flush-on-drop | implemented, project mode | `resource_streams`, `stdlib_product` |
-| `std:fs/file` | `fs.读文本`, `fs.写文本`, `fs.复制文件` over `resource.open/read/write/close` and `Memory`; bounded at 8 MiB | implemented (read/write/copy) | `stdlib_product` |
+| `std:fs/file` | `读文本/写文本/复制文件/存在/元数据/列出目录/创建目录/删除/重命名/追加文本/读取片段/遍历` over `resource.*`; bounded at 8 MiB | implemented; no watch/binary offset read | `stdlib_product` |
 | `resource.request` | `resource.request("fs.exists|metadata|list|mkdir|remove|rename", paths)`; project mode, grant-checked, recoverable fs Result | implemented `fs.*`; no seek/append/watch | `resource_streams`, `stdlib_product` |
 | `std:data/json` | `json.解析(文本)` -> Result with nested Value; `json.格式化(值)` -> Text | implemented (recursive, recoverable errors) | `stdlib_product` |
 | `std:data/csv` | `csv.解析行(文本)` -> Result with List<Text>; `csv.格式化行(列表)` -> Text | implemented (single row, quoted) | `stdlib_product` |
@@ -125,8 +125,8 @@ that a phase is complete.
 |---|---|---|
 | P0 | Stdlib release is a bundle in this repo; extraction is deferred (ADR-0039) | accepted, keep in repo |
 | P0 | Documentation drift between `STATUS.md`, the architecture index and the evidence | being fixed by this migration and the docs gate |
-| P1 | `std:fs/file` read/write/copy and `resource.request` fs metadata/directory operations are implemented; append/seek/watch/recursive walk remain open | open |
-| P1 | No file append/seek/watch/recursive directory walk | open; future Resource Operation extension |
+| P1 | `std:fs/file` read/write/copy, metadata/directory, append/read_at/walk are implemented; watch and binary offset reads remain open | open |
+| P1 | No file watch or binary `read_at` | open; future Resource Operation extension |
 | P1 | JSON/CSV product parsers are implemented; no streaming/multi-line CSV or depth-bounded JSON walker | open |
 | P1 | CLI split into `commands/{sandbox,run,check,inspect,init,package,tool}.rs`; host split into `host/{resource_ops,providers,effects,dispatch}.rs` plus `process.rs`; `commands.rs` keeps shared project/runtime helpers and `host.rs` keeps the `Host` trait methods and capability checks | split; shared helpers and trait methods remain by design |
 | P2 | HTTP parsing is Unicode-codepoint oriented; a general byte body is not the only path | open; convert before a general network release |
@@ -165,5 +165,6 @@ that a phase is complete.
 - [ADR-0042: `clock.now` resource operation](../adr/0042-clock-resource-operation.md) — accepted project-mode Unix-millis clock.
 - [ADR-0043: `env.get` resource operation](../adr/0043-env-resource-operation.md) — accepted exact-name environment grants.
 - [ADR-0044: `process.run` resource operation](../adr/0044-process-resource-operation.md) — accepted exact-path process grant; not a sandbox.
+- [ADR-0045: fs append/read_at/walk](../adr/0045-fs-append-read-at-walk.md) — accepted bounded content and directory walk.
 - [Compute-machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) and [core/stdlib RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) — design input.
 - [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) — review input for this migration.

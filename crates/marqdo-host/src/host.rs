@@ -879,6 +879,123 @@ impl Host for StdHost {
                 format!("unsupported resource operation `{operation}`"),
             ));
         };
+        if name == "read_at" {
+            if args.len() != 3 {
+                return Err(RuntimeError::new(
+                    ErrorCategory::Arity,
+                    ctx.span,
+                    format!(
+                        "resource operation `fs.read_at` expects 3 arguments, got {}",
+                        args.len()
+                    ),
+                ));
+            }
+            let path_type = args[0].type_name();
+            let Value::Text(path) = args[0].clone() else {
+                return Err(RuntimeError::type_error(
+                    ctx.span,
+                    format!("fs.read_at path must be Text, got {path_type}"),
+                ));
+            };
+            let offset = match &args[1] {
+                Value::Int(value) => value.to_string(),
+                other => {
+                    return Err(RuntimeError::type_error(
+                        ctx.span,
+                        format!("fs.read_at offset must be Int, got {}", other.type_name()),
+                    ))
+                }
+            };
+            let length = match &args[2] {
+                Value::Int(value) => value.to_string(),
+                other => {
+                    return Err(RuntimeError::type_error(
+                        ctx.span,
+                        format!("fs.read_at length must be Int, got {}", other.type_name()),
+                    ))
+                }
+            };
+            self.capabilities.check_read(&path, ctx.span)?;
+            let result = self
+                .fs
+                .request("read_at", &[path, offset, length], ctx.span)?;
+            self.record_semantic(
+                "resource.request",
+                None,
+                Some(&ctx.module_id),
+                ctx.span,
+                Some("op=fs.read_at"),
+            );
+            self.record_resource_effect("resource.request", ctx, started, "fs.read_at");
+            return Ok(result);
+        }
+        if name == "append" {
+            if args.len() != 2 {
+                return Err(RuntimeError::new(
+                    ErrorCategory::Arity,
+                    ctx.span,
+                    format!(
+                        "resource operation `fs.append` expects 2 arguments, got {}",
+                        args.len()
+                    ),
+                ));
+            }
+            let path_type = args[0].type_name();
+            let Value::Text(path) = args[0].clone() else {
+                return Err(RuntimeError::type_error(
+                    ctx.span,
+                    format!("fs.append path must be Text, got {path_type}"),
+                ));
+            };
+            let text_type = args[1].type_name();
+            let Value::Text(text) = args[1].clone() else {
+                return Err(RuntimeError::type_error(
+                    ctx.span,
+                    format!("fs.append text must be Text, got {text_type}"),
+                ));
+            };
+            self.capabilities.check_write(&path, ctx.span)?;
+            let result = self.fs.request("append", &[path, text], ctx.span)?;
+            self.record_semantic(
+                "resource.request",
+                None,
+                Some(&ctx.module_id),
+                ctx.span,
+                Some("op=fs.append"),
+            );
+            self.record_resource_effect("resource.request", ctx, started, "fs.append");
+            return Ok(result);
+        }
+        if name == "walk" {
+            if args.len() != 1 {
+                return Err(RuntimeError::new(
+                    ErrorCategory::Arity,
+                    ctx.span,
+                    format!(
+                        "resource operation `fs.walk` expects 1 argument, got {}",
+                        args.len()
+                    ),
+                ));
+            }
+            let path_type = args[0].type_name();
+            let Value::Text(path) = args[0].clone() else {
+                return Err(RuntimeError::type_error(
+                    ctx.span,
+                    format!("fs.walk path must be Text, got {path_type}"),
+                ));
+            };
+            self.capabilities.check_read(&path, ctx.span)?;
+            let result = self.fs.request("walk", &[path], ctx.span)?;
+            self.record_semantic(
+                "resource.request",
+                None,
+                Some(&ctx.module_id),
+                ctx.span,
+                Some("op=fs.walk"),
+            );
+            self.record_resource_effect("resource.request", ctx, started, "fs.walk");
+            return Ok(result);
+        }
         let expected = match name {
             "exists" | "metadata" | "list" | "mkdir" | "remove" => 1,
             "rename" => 2,
