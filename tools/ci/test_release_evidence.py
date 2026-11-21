@@ -83,6 +83,96 @@ class ReleaseEvidenceTests(unittest.TestCase):
         )
         self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
 
+    def test_beta_profile_accepts_declared_linux_scope_with_warn_performance(self) -> None:
+        manifest = release_evidence.build_manifest(
+            SHA,
+            [
+                gate("linux", "PASS"),
+                gate("strict_vm", "PASS"),
+                gate("extension", "PASS"),
+                gate("clean_install", "PASS"),
+                gate("version_compat", "PASS"),
+                gate("windows", "UNSUPPORTED", url="linux-only-support-matrix"),
+                gate("macos", "UNSUPPORTED", url="linux-only-support-matrix"),
+                gate("performance", "WARN"),
+            ],
+            profile="beta",
+        )
+        self.assertEqual(manifest["release_decision"], "BETA_RELEASE_CANDIDATE")
+        self.assertEqual(manifest["profile"], "beta")
+        self.assertEqual(manifest["reasons"], [])
+
+    def test_beta_profile_allows_tested_fail_closed_strict_policy(self) -> None:
+        manifest = release_evidence.build_manifest(
+            SHA,
+            [
+                gate("linux", "PASS"),
+                gate("strict_vm", "UNSUPPORTED", url="strict.fail_closed_test"),
+                gate("extension", "PASS"),
+                gate("clean_install", "PASS"),
+                gate("version_compat", "PASS"),
+                gate("windows", "UNSUPPORTED"),
+                gate("macos", "UNSUPPORTED"),
+                gate("performance", "WARN"),
+            ],
+            profile="beta",
+        )
+        self.assertEqual(manifest["release_decision"], "BETA_RELEASE_CANDIDATE")
+
+    def test_beta_profile_requires_explicit_platform_and_extension_gates(self) -> None:
+        manifest = release_evidence.build_manifest(
+            SHA,
+            [
+                gate("linux", "PASS"),
+                gate("strict_vm", "PASS"),
+                gate("clean_install", "PASS"),
+                gate("version_compat", "PASS"),
+                gate("performance", "WARN"),
+            ],
+            profile="beta",
+        )
+        self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+        joined = " ".join(manifest["reasons"])
+        self.assertIn("extension: missing gate", joined)
+        self.assertNotIn("windows: missing gate", joined)
+
+    def test_beta_profile_rejects_wrong_sha_and_unverified_gates(self) -> None:
+        manifest = release_evidence.build_manifest(
+            SHA,
+            [
+                gate("linux", "PASS", OTHER),
+                gate("strict_vm", "PASS"),
+                gate("extension", "UNVERIFIED"),
+                gate("clean_install", "PASS"),
+                gate("version_compat", "PASS"),
+                gate("windows", "UNSUPPORTED"),
+                gate("macos", "UNSUPPORTED"),
+                gate("performance", "PASS"),
+            ],
+            profile="beta",
+        )
+        self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+        joined = " ".join(manifest["reasons"])
+        self.assertIn("linux", joined)
+        self.assertIn("extension", joined)
+
+    def test_stable_profile_rejects_beta_unsupported_states(self) -> None:
+        manifest = release_evidence.build_manifest(
+            SHA,
+            [
+                gate("linux", "PASS"),
+                gate("windows", "UNSUPPORTED"),
+                gate("macos", "UNSUPPORTED"),
+                gate("strict_vm", "UNSUPPORTED"),
+                gate("performance", "WARN"),
+            ],
+        )
+        self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+
+    def test_unknown_profile_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            release_evidence.build_manifest(SHA, [], profile="lts")
+
     def test_unknown_gate_and_bad_sha_are_rejected(self) -> None:
         with self.assertRaises(ValueError):
             release_evidence.build_manifest(SHA, [gate("solaris", "PASS")])

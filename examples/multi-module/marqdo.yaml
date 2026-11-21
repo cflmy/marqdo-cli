@@ -1,5 +1,5 @@
 project:
   name: multi-module
   version: 0.1.0
-  marqdo: ">=0.1,<1"
+  marqdo: ">=3.0.0-beta.1,<4.0.0"
 dependencies: {}

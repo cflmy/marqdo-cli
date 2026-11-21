@@ -10,7 +10,7 @@ steps:
     commands:
       - rustup component add clippy rustfmt
       - apt-get update
-      - apt-get install -y --no-install-recommends curl ca-certificates python3 gcc-mingw-w64-x86-64
+      - apt-get install -y --no-install-recommends curl ca-certificates python3 build-essential gcc-mingw-w64-x86-64
       - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
       - apt-get install -y --no-install-recommends nodejs
       - cargo fmt --all -- --check
@@ -36,3 +36,11 @@ steps:
       # only supported transport and resolution is a sibling-of-CLI lookup.
       - cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
       - test -x target/release/marqdo-provider-worker
+      # Build the deterministic archive from this exact commit and cold-install
+      # smoke-test it; the package script refuses a dirty tree or wrong SHA.
+      - |
+        set -eu
+        version="$(cargo metadata --no-deps --format-version 1 --offline \
+          | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"]=="marqdo-cli"))')"
+        python3 tools/release/package.py --source-sha "$CI_COMMIT_SHA" --version "$version"
+        python3 tools/release/smoke.py --archive dist/marqdo-*.tar.gz

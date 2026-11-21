@@ -412,7 +412,7 @@ checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
 name = "marqdo-cli"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "clap",
  "hex",
@@ -439,7 +439,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-expression"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "marqdo-span",
  "num-bigint",
@@ -450,7 +450,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-foreign"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "hex",
  "libc",
@@ -466,7 +466,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-frontend"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "marqdo-expression",
  "marqdo-ir",
@@ -481,7 +481,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-host"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "flate2",
  "getrandom 0.4.3",
@@ -506,7 +506,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-ir"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "marqdo-expression",
  "marqdo-span",
@@ -516,7 +516,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-markdown"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "comrak",
  "marqdo-span",
@@ -527,7 +527,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-math"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "marqdo-value",
  "num-bigint",
@@ -538,9 +538,10 @@ dependencies = [
 
 [[package]]
 name = "marqdo-package"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "hex",
+ "semver",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -551,7 +552,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-plugin-abi"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "hex",
  "libloading",
@@ -566,7 +567,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-plugin-sdk"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "marqdo-plugin-abi",
  "serde",
@@ -575,7 +576,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-provider-worker"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "libloading",
  "marqdo-host",
@@ -587,7 +588,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-runtime"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "marqdo-expression",
  "marqdo-frontend",
@@ -606,7 +607,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-sandbox"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "libc",
  "serde",
@@ -614,14 +615,14 @@ dependencies = [
 
 [[package]]
 name = "marqdo-span"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "marqdo-value"
-version = "0.1.0"
+version = "3.0.0-beta.1"
 dependencies = [
  "marqdo-span",
  "num-bigint",

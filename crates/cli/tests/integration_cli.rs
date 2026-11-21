@@ -143,6 +143,11 @@ fn init_creates_a_runnable_project() {
     let output = cli(dir.path(), &["init", "proj"]);
     assert_exit(&output, 0, "init must succeed");
     assert!(stdout_text(&output).contains("Initialized Marqdo project"));
+    let manifest = std::fs::read_to_string(dir.path().join("proj/marqdo.yaml")).unwrap();
+    assert!(
+        manifest.contains("name: proj"),
+        "init must derive the project name from the target directory: {manifest}"
+    );
     let project = dir.path().join("proj");
     assert!(project.join("marqdo.yaml").is_file(), "manifest missing");
     assert!(

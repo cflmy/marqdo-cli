@@ -1,161 +1,213 @@
-# Releasing Marqdo CLI
+# Releasing Marqdo CLI (`3.0.0-beta.1` and later)
 
-This document describes the release-candidate procedure. It does **not** grant
-permission to tag or publish; that requires explicit owner approval and a green
-required CI matrix on the exact commit.
+This document is the release-candidate procedure. It does **not** grant
+permission to tag or publish: a tag requires the gates below to be green on the
+exact commit and an explicit maintainer sign-off recorded in the release notes.
 
-## 1. Preconditions
+Two profiles are deliberately separate (see
+[`MARQDO_3_0_PRERELEASE_PLAN.md`](MARQDO_3_0_PRERELEASE_PLAN.md) §3):
 
-- All applicable gates in
-  [`STABLE_RELEASE_IMPLEMENTATION.md`](STABLE_RELEASE_IMPLEMENTATION.md) are
-  PASS, and `docs/evidence/ci/<SHA>/manifest.json` has
-  `release_decision: RELEASE_CANDIDATE` with every gate's `tested_sha` equal to
-  the release SHA. The manifest is produced by
-  `tools/ci/release_evidence.py`; a missing, skipped, timed-out or
-  SHA-mismatched gate is not PASS.
-- **Language migration is closed through the release SHA.** The source language
-  is [RFC-LANG-0002](architecture/RFC-LANG-0002-unified-semantics.md); the
-  release notes must state that this is a **breaking** change and that pre-RFC
-  `.mq.md` sources are not executable (no `--legacy` path). The migration
-  inventory is 100% classified, `stdlib/**/*.mq.md` and examples are migrated,
-  and executable-source tests are green at `ffd1cc9`; re-run them for the actual
-  release SHA. Platform and strict-lane evidence are still required before this
-  is a releasable state; see [`STATUS.md`](STATUS.md) and
-  [`migration/README.md`](migration/README.md).
-- G-C is either PASS with a security-lane URL **and** a
-  `strict-evidence.json` whose `tested_sha` is the release SHA, or the release
-  explicitly says strict isolation is unavailable with owner approval. Never
-  claim G-C from a local root/sudo run, a container, or a TCG/QEMU timing run.
-  See [`security-gate.md`](security-gate.md) and [`security-vm.md`](security-vm.md).
-- G4 performance is `MEASURED` on the fixed node with `--approved-node`, or
-  explicitly `UNVERIFIED`/`WARN` with the reason recorded. Never copy a
-  development-container or TCG number. See [`performance.md`](performance.md).
-- `git status --porcelain` is clean apart from intended release files.
-- `Cargo.lock` is committed and the build uses `--locked`.
+* **beta** — a prerelease (`-beta.N`) on the platform(s) the project can really
+  test and fix. Known non-security gaps are allowed only when explicitly
+  recorded. `3.0.0-beta.1` claims **Linux x86_64 (glibc)** only.
+* **stable** — `3.0.0`/LTS. Not covered by beta exceptions; see
+  [`STABLE_RELEASE_IMPLEMENTATION.md`](STABLE_RELEASE_IMPLEMENTATION.md)
+  (historical roadmap input) and the public support matrix.
 
-## 2. Build verification
+The binary release pipeline uses the Gitea remote
+[`git.cflmy.cn/cflmy/marqdo-cli`](https://git.cflmy.cn/cflmy/marqdo-cli) and
+Woodpecker [`ci.cflmy.cn`](https://ci.cflmy.cn). `.woodpecker/main.yml` runs on
+`push`/`pull_request`, so a tag push alone does not build release assets; build
+the archive from the tagged commit on Linux x86_64 and attach it to the Gitea
+release. Do not publish binaries built from a different checkout.
+
+## 1. Beta preconditions (non-waivable)
+
+Freeze one **release SHA** first; any later source change creates a new SHA and
+requires re-running every gate. On that SHA:
+
+1. `git status --porcelain` is clean; `Cargo.lock` is committed; all builds use
+   `--locked`.
+2. `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D
+   warnings`, `cargo test --workspace --locked` PASS.
+3. `cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker`
+   PASS; both binaries carry the same target triple and source SHA.
+4. The same-SHA Woodpecker Linux pipeline PASS (fmt, clippy, tests, Windows
+   cross-target compile gate, release build).
+5. **Frozen-binary external conformance:** build the release binary first, then
+   run the independent fixtures from
+   [`marqdo-extension-conformance`](https://git.cflmy.cn/cflmy/marqdo-extension-conformance)
+   against it and write
+   `docs/evidence/extension/<40-hex-release-sha>/manifest.json` with
+   `tools/ci/verify_extension_contracts.py`. The CLI binary hash must not move
+   during the suite. All seven mandatory result categories PASS.
+6. **Strict policy (beta gate 5):** either same-SHA `strict-evidence.json` from
+   the disposable VM (`outcome: PASS`, non-root uid) for Linux strict L1, or an
+   explicitly tested **fail-closed `strict: unsupported`** policy in the
+   release notes. A local root/container-only PASS is never promoted to a
+   remote claim; if the evidence is local-VM-only, say exactly that.
+7. **G4 performance (beta gate 6):** correctness-verified `MEASURED` report on
+   the fixed Woodpecker agent. If the fixed node is still a shared/powersave
+   host, the maintainer may approve a **Beta-only WARN** and must publish the
+   environment and limits; the 9 correctness workloads must still pass. Never
+   report TCG/QEMU or development-container timings as G4.
+8. `README`, `CHANGELOG`, `COMPATIBILITY`, `docs/STATUS`, this file,
+   `spec/tool-v1.md`, `spec/plugin-abi.md` and the developer docs are on the
+   same fact baseline. No "implemented but says Proposed", no "released but
+   says DO NOT RELEASE", no product/protocol/package version confusion.
+9. Every shipped binary was actually built and smoke-tested on its claimed
+   platform. The archive records SHA256, `SOURCE_SHA`, toolchain and known
+   limitations; checksums are integrity, not publisher authentication.
+
+Windows/macOS native lanes, strict L2, uv/npm environment creation, registry,
+JIT and built-in Knowledge/Proof/View are **not** beta gates; they are listed as
+unsupported/experimental in
+[`developers/release-limits.md`](developers/release-limits.md).
+
+## 2. Build and local gate
 
 ```bash
 export PATH="$HOME/.cargo/bin:$PATH"
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-cargo build --release --locked -p marqdo-cli
+cargo test --workspace --locked
+cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
 ```
 
-## 3. Artifact creation
+Record the toolchain (`rustc -vV`, `cargo --version`), the release SHA and the
+binary SHA256 values; `tools/release/package.py` writes them into
+`RELEASE_INFO.json`.
 
-The artifact is a tarball containing the binary, license, README, changelog,
-compatibility matrix, specs, examples and the public protocol consumers. Build
-it from the repository root:
+## 3. Release archive
+
+The archive is built deterministically from a clean tree at `SOURCE_SHA`:
 
 ```bash
-version="$(cargo metadata --no-deps --format-version 1 \
-  | python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')"
-target="$(rustc -vV | sed -n 's/^host: //p')"
-stage="dist/marqdo-${version}-${target}"
-rm -rf "$stage"
-mkdir -p "$stage"
-install -m 0755 target/release/marqdo "$stage/"
-cp LICENSE* CHANGELOG.md COMPATIBILITY.md README.md "$stage/"
-cp -r spec examples "$stage/"
-mkdir -p "$stage/tests"
-cp -r tests/consumers "$stage/tests/"
-tar -C dist -czf "dist/marqdo-${version}-${target}.tar.gz" "$(basename "$stage")"
-sha256sum "dist/marqdo-${version}-${target}.tar.gz" \
-  | tee "dist/marqdo-${version}-${target}.tar.gz.sha256"
+version="$(cargo metadata --no-deps --format-version 1 --offline \
+  | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"]=="marqdo-cli"))')"
+sha="$(git rev-parse HEAD)"
+python3 tools/release/package.py --version "$version" --source-sha "$sha"
+# dist/marqdo-<version>-x86_64-unknown-linux-gnu.tar.gz(+.sha256)
 ```
 
-If the repository has no `LICENSE*` files at release time, do not silently
-skip the license requirement: add them before shipping.
+Contents: `marqdo` **and** `marqdo-provider-worker` in the same directory,
+`LICENSE-*`, `README.md`, `CHANGELOG.md`, `COMPATIBILITY.md`,
+`RELEASE_INFO.json`, `SOURCE_SHA`, `KNOWN_LIMITATIONS.md`, `spec/`,
+`docs/developers/`, `examples/` (with host-built plugin/provider artifacts so
+the examples run without a compiler) and `tests/consumers/`.
 
-## 4. Clean-install smoke
+Do not publish an archive with only the CLI, with a mismatched worker target, or
+with a checksum that does not match the bytes.
 
-Run in a fresh directory (not the source tree). The example commands below
-assume the examples are migrated to RFC-LANG-0002 and accepted by the frozen
-binary; a failing example run is a release blocker, not a known migration
-artifact:
+## 4. Clean-install smoke (from the archive only)
+
+Run outside the source tree. The script below extracts the archive into a fresh
+directory and exercises only the shipped binaries:
 
 ```bash
-tmp="$(mktemp -d)"
-tar -C "$tmp" -xzf dist/marqdo-*.tar.gz
-cd "$tmp"/marqdo-*
-./marqdo --version
-./marqdo --help >/dev/null
-./marqdo check examples/multi-module/index.mq.md
-./marqdo run examples/hello.mq.md
-./marqdo call examples/factorial.mq.md 阶乘 --arg n=5
-./marqdo check examples/multi-module/index.mq.md --refs --emit analysis.json
-./marqdo run examples/multi-module/index.mq.md --trace-file trace.json
-python3 tests/consumers/analysis_consumer.py analysis.json
-python3 tests/consumers/trace_consumer.py analysis.json trace.json
-python3 tests/consumers/validate_protocols.py analysis.json trace.json \
-  examples/tool-unknown-name/tool.json
+python3 tools/release/smoke.py \
+  --archive dist/marqdo-*.tar.gz
 ```
 
-Also verify the SHA-256 file before extraction:
+It verifies the `.sha256`, `RELEASE_INFO.json`/`SOURCE_SHA`, offline
+`--version`/`--help`, `check`/`run`/`call`, lock/sync, Analysis v2 and Trace v2
+consumers, Tool install/dispatch, native + worker plugin transports, a foreign
+kernel, Resource Provider v2 through the shipped worker (positive,
+unauthorized and missing-helper fail-closed), and strict mode when the host
+actually supports it. A failure is a release blocker.
+
+## 5. Release evidence manifest
 
 ```bash
-sha256sum -c dist/marqdo-*.tar.gz.sha256
+sha="$(git rev-parse HEAD)"
+python3 tools/ci/release_evidence.py --profile beta --target-sha "$sha" \
+  --gate linux=PASS:$sha:<woodpecker-pipeline-url> \
+  --gate strict_vm=PASS:$sha:docs/evidence/<strict-doc> \
+  --gate extension=PASS:$sha:docs/evidence/extension/$sha/manifest.json \
+  --gate clean_install=PASS:$sha:docs/evidence/<smoke-doc> \
+  --gate version_compat=PASS:$sha:<version-test-log-or-pipeline> \
+  --gate windows=UNSUPPORTED:$sha:linux-only-beta-support-matrix \
+  --gate macos=UNSUPPORTED:$sha:linux-only-beta-support-matrix \
+  --gate performance=WARN:$sha:docs/evidence/<g4-doc> \
+  --out "docs/evidence/ci/$sha/manifest.json"
 ```
 
-## 5. Tagging and publication
+`BETA_RELEASE_CANDIDATE` is the only acceptable decision for a beta tag. A
+missing, skipped, failed or SHA-mismatched gate is `DO_NOT_RELEASE`; never
+hand-edit a manifest to PASS. Stable releases use the default `--profile
+stable` and additionally require Windows/macOS PASS and a strict PASS.
 
-Only after the above and the remote CI matrix are green on the release commit:
+## 6. Tagging and publication (owner approval required)
+
+Only after all gates above are green on the frozen SHA:
 
 ```bash
 git fetch origin --tags
 test "$(git rev-parse HEAD)" = "$(git rev-parse origin/master)"
-git tag -s "v${version}" -m "Marqdo CLI v${version}"
+git tag -a "v${version}" -m "Marqdo CLI v${version}" "$sha"
 git push origin "v${version}"
-# upload the tarball and .sha256 to the release
 ```
 
-Do not force-push, do not tag a red commit, and do not upload macOS/Windows
-binaries unless those platform lanes actually passed.
+Then create the Gitea release for the tag with `prerelease: true`, attach the
+tarball and its `.sha256`, and include the release notes. The notes must state:
 
-The current `0.1.0` candidate at `8af7262` is **not** releasable: it has local
-Linux/VM evidence and a checksummed Linux RC, but no same-SHA GitHub CI or
-self-hosted G-C URL. See
-[`evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md`](evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md).
+* beta / non-LTS status and the Linux x86_64-only support claim;
+* the breaking RFC-LANG-0002 language change and no legacy path;
+* the strict policy (same-SHA evidence, or `strict: unsupported` fail-closed);
+* the G4 Beta-only WARN environment and limits when applicable;
+* independently versioned protocols and stdlib/package versions;
+* the checksum-integrity-not-signature caveat and the known-limitations file;
+* the exact source SHA and links to the evidence manifest.
 
-## 6. Rollback
+Example Gitea API shape (token with repository release permission; never commit
+the token):
 
-- If an asset fails verification: delete the release asset and keep the tag
-  only if source/tag integrity is unaffected; otherwise publish a revised
-  patch release and mark the old one withdrawn.
-- If a platform regresses: remove that platform from the supported matrix in
-  `COMPATIBILITY.md` and the release notes, fix, and re-run the gate. Never
-  delete the failing test.
-- If the security gate regresses: set strict back to `Unavailable`, publish a
-  security note, and do not claim isolation until the lane is green again.
+```bash
+curl -X POST -H "Authorization: token $MARQDO_GIT_TOKEN" \
+  -H 'Content-Type: application/json' \
+  https://git.cflmy.cn/api/v1/repos/cflmy/marqdo-cli/releases \
+  -d '{"tag_name":"v3.0.0-beta.1","name":"Marqdo CLI 3.0.0-beta.1",
+       "prerelease":true,"draft":false,"body":"..."}'
+curl -X POST -H "Authorization: token $MARQDO_GIT_TOKEN" \
+  -F "attachment=@dist/marqdo-3.0.0-beta.1-x86_64-unknown-linux-gnu.tar.gz" \
+  https://git.cflmy.cn/api/v1/repos/cflmy/marqdo-cli/releases/<id>/assets
+```
 
-## 7. Extension-ecosystem gate (RFC-EXT-0001)
+The tag points at the tested SHA. Evidence files and the final STATUS update
+may land in a **post-release docs commit** that references the tagged SHA, so
+that the evidence never has to claim a SHA it cannot contain. Do not force-push,
+do not tag a red commit, and do not upload macOS/Windows binaries unless those
+platform lanes actually passed.
 
-Before a tag, in addition to §3 and §4:
+## 7. Rollback
 
-1. `cargo build --release --locked -p marqdo-cli` and build
-   `-p marqdo-provider-worker`; ship both binaries in the release archive for
-   the same target. A provider request without the sibling helper must fail
-   with `ext.worker_unavailable` — never fall back to `PATH`.
-2. Run the external frozen-binary suite from
-   `https://git.cflmy.cn/cflmy/marqdo-extension-conformance` against the exact
-   release binaries and generate
-   `docs/evidence/extension/<40-hex-source-SHA>/manifest.json` with
-   `tools/ci/verify_extension_contracts.py`. The manifest must validate against
-   `docs/evidence/extension/schema.json`, its `tested_sha` must equal the
-   tagged commit, and every mandatory result must be `PASS` on the claimed
-   platform. `UNSUPPORTED` is allowed only for a platform explicitly excluded
-   from the support matrix in `COMPATIBILITY.md`.
-3. `check`/`run`/`inspect`/Analysis share one prepared call binding
-   (`spec/callable-resolution.md`); `check` never loads an extension binary;
-   plugin exports reconcile exactly with static manifests; official stdlib
-   aliases are verified metadata with byte-identical print output.
-4. Existing gates remain mandatory and unchanged: G3 strict isolation evidence,
-   G4 measured performance on the fixed node, native platform lanes, schema
-   consumers and `tools/ci/release_evidence.py`. The extension evidence is an
-   additional gate; it never substitutes for them, and local/container smoke is
-   not a release claim.
-5. If any extension gate is missing or mismatched, the release decision is
-   **DO NOT RELEASE**. Tagging and asset publication still require explicit
-   owner approval.
+- Missing/mismatched gate discovered after tagging: mark the release withdrawn,
+  delete the assets, keep the tag only if source/tag integrity is unaffected,
+  and ship a corrected prerelease (for example `3.0.0-beta.2`). Never delete a
+  failing test.
+- Platform regression: remove that platform from `COMPATIBILITY.md`, the
+  release notes and the archive, then fix and re-run the gate.
+- Security regression: set strict back to fail-closed/unsupported, publish a
+  security note, and do not claim isolation until fresh same-SHA evidence
+  exists.
+- Performance regression: keep the previous fixed-node baseline, record the
+  new WARN/FAIL truthfully, and do not substitute another machine.
+
+## 8. Extension-ecosystem gate (additional, never a substitute)
+
+The external conformance gate is mandatory for every tag. It proves that an
+unchanged CLI binary accepts independent `.mq.md` packages, plugins, foreign
+kernels, resource providers and CLI tools, and that the negative paths
+(unauthorized, wrong digest, wrong target, wrong schema, tampered artifact)
+fail closed. Generate the manifest with
+`tools/ci/verify_extension_contracts.py`; its `tested_sha` must equal the
+tagged commit and its CLI binary hash must be the shipped binary. See
+[`evidence/extension/README.md`](evidence/extension/README.md).
+
+## 9. Stable releases
+
+The beta exceptions in §1 (platform scope, G4 WARN, strict-unsupported policy)
+do **not** apply to `3.0.0` or LTS. A stable release requires every committed
+feature on the supported platforms to have same-SHA security, compatibility and
+performance evidence, a public change/migration policy, and a real user-feedback
+cycle. Until then the product stays a prerelease.

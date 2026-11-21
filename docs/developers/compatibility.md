@@ -1,0 +1,62 @@
+# Compatibility, versioning and support
+
+This page summarizes the public support policy. The authoritative matrix is
+[`../../COMPATIBILITY.md`](../../COMPATIBILITY.md); the beta policy is
+[`../MARQDO_3_0_PRERELEASE_PLAN.md`](../MARQDO_3_0_PRERELEASE_PLAN.md).
+
+## Version axes (do not conflate)
+
+| Axis | `3.0.0-beta.1` value | Change rule |
+|---|---|---|
+| Product / CLI | `3.0.0-beta.1` | SemVer prerelease; breaking changes inside the 3.0 beta line are allowed and appear in `CHANGELOG.md`. |
+| Analysis | v2 | New major for incompatible changes; consumers reject unknown majors. |
+| Trace | v2 | New major for incompatible changes; binds to exact Analysis bytes. |
+| CLI Tool | v1 | Frozen manifest/negotiation/bundle contract for v1. |
+| Plugin ABI | v1 (`1.0`) | Frozen C layout and version negotiation. |
+| Foreign wire | v1 | One-shot request envelope. |
+| Provider manifest | v2 | `schema_version: 2`, `abi: c-abi-1`, `transport: worker`. |
+| Lock | v4 | v3 requires an explicit `marqdo lock` migration; no silent reinterpretation. |
+| Markdown profile | `marqdo.md.v1` | Frozen parser/options; the RFC-LANG-0002 mapping rewrite did not change the profile id. |
+| Bundled stdlib | `0.1.0` | Independent package version; not the product version. |
+| Plugin/tool/example packages | their own | Independent SemVer. |
+
+`project.marqdo` and a tool's `compatibility.marqdo` are **enforced product
+ranges**. Beta cores require a prerelease range such as
+`>=3.0.0-beta.1,<4.0.0`; `>=3.0.0,<4.0.0` does not match a beta core.
+
+## Platform support (`3.0.0-beta.1`)
+
+| Platform | Release status | Notes |
+|---|---|---|
+| Linux x86_64 (glibc) | **Supported** | Only release archive: CLI + provider worker, same target triple. |
+| Linux aarch64 | Not built | No artifact; source may build. |
+| macOS arm64/x86_64 | Experimental, not claimed | Core may run; no macOS provider worker, no plugin ABI claim, no archive. |
+| Windows x86_64 | Experimental, not claimed | Compile gate only; C ABI/plugin/provider/worker not claimed/fail-closed. |
+
+Strict is Linux-only and probe-gated. Plugin/provider worker transports are not
+OS sandboxes. `pure`/`project` are execution modes, not security boundaries.
+
+## Language compatibility
+
+`3.0.0-beta.1` implements RFC-LANG-0002 only. Pre-RFC `.mq.md` source
+(Strong-execute / Emph-return / ordered-list branch / bullet-list loop /
+block-quote call / first code-span signature) is **not executable**; there is no
+`--legacy`, syntax switch or downgrade path. Migration is a rewrite task
+documented in [`../migration/README.md`](../migration/README.md).
+
+The earlier `cflmy/marqdo` product line is a different architecture; its source
+syntax, package format and plugin ABI v2 are not compatible and no hidden
+compatibility layer is provided.
+
+## Beta policy
+
+- Beta may break behavior with a changelog note; protocols are versioned
+  separately and only change with a new major.
+- No LTS is announced. LTS is a later, evidence-based decision (see the
+  prerelease plan §3.2/§5), not a calendar promise.
+- Known non-security gaps are listed in [release-limits.md](release-limits.md)
+  and in the release notes; unsupported requests must fail closed.
+- G4 performance is a Beta-only `WARN` on the fixed Woodpecker agent for this
+  release; it is not a general performance guarantee.
+- Every archive is checksummed and records its source SHA and toolchain.
+  Checksums prove integrity only, not publisher identity.

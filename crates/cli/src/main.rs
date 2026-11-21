@@ -232,7 +232,7 @@ struct CheckArgs {
     /// Declare a plugin manifest for static export-signature checking.
     #[arg(long = "plugin", value_name = "PATH")]
     plugin: Vec<PathBuf>,
-    /// Write the public Analysis v1 projection (only on successful check).
+    /// Write the public Analysis v2 projection (only on successful check).
     #[arg(long, value_name = "PATH")]
     emit: Option<PathBuf>,
     /// Machine readable JSON output.
@@ -380,7 +380,7 @@ struct ToolRemoveArgs {
 
 #[derive(Args)]
 struct SyncArgs {
-    /// Fail instead of silently updating when the lockfile is stale.
+    /// Do not fetch pinned Git revisions; verify and materialize only from the local cache.
     #[arg(long)]
     locked: bool,
     /// Machine readable JSON output.

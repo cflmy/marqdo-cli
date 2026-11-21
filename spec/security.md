@@ -1,6 +1,6 @@
 # Marqdo Security Model (implemented status)
 
-Status: **describes the M0.5 implementation, including honest gaps.** This is
+Status: **describes the `3.0.0-beta.1` implementation, including honest gaps.** This is
 not a security audit; it documents what the code actually enforces.
 
 Normative implementation:

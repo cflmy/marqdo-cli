@@ -1,10 +1,12 @@
 # Compatibility and support matrix
 
-Snapshot: workspace version **0.1.0**, RFC-EXT-0001 tree on
-`feat/extensible-ecosystem`, no release tag cut. This file records what was
-actually verified and separates it from what is only implemented. Executed
-status is in [`docs/STATUS.md`](docs/STATUS.md); SHA-bound external evidence is
-under [`docs/evidence/extension/`](docs/evidence/extension/README.md).
+Snapshot: product version **`3.0.0-beta.1`** (prerelease), branch `master`,
+tagged `v3.0.0-beta.1`. This file records what was actually verified and
+separates it from what is only implemented. The supported release platform is
+**Linux x86_64 (glibc)**; everything else is experimental and not claimed for
+this beta. Executed status and same-SHA evidence are in
+[`docs/STATUS.md`](docs/STATUS.md), and SHA-bound external evidence is under
+[`docs/evidence/extension/`](docs/evidence/extension/README.md).
 
 ## Language source syntax (breaking change)
 
@@ -47,7 +49,7 @@ Consequences for compatibility:
 | Surface | Version | Compatibility rule |
 |---|---|---|
 | Markdown profile | `marqdo.md.v1` | Frozen parser/options. The RFC-LANG-0002 mapping rewrite keeps this profile; the source-language break is tracked above, not by a new profile id. |
-| Language / CLI | workspace `0.1.0` | Pre-1.0. The `.mq.md` source language changed incompatibly (RFC-LANG-0002); there is no old-syntax execution path. CLI flags may change with a changelog note; `strict` refusal is contractual. |
+| Language / CLI | `3.0.0-beta.1` (prerelease) | SemVer prerelease: breaking changes inside the 3.0 beta line are allowed and announced in the changelog. The `.mq.md` source language changed incompatibly (RFC-LANG-0002); there is no old-syntax execution path or downgrade. CLI flags may change with a changelog note; `strict` refusal is contractual. |
 | `marqdo.lock` | v4 | v3 is rejected with an explicit `marqdo lock` migration error; v1/v2 are rejected with a relock instruction; `run`/`call`/`check` never rewrite or fetch the lock. `extensions:` records manifest/artifact identity (integrity, not publisher auth). |
 | Analysis | v2 | Consumers reject unknown majors; incompatible field changes require v3. |
 | Trace | v2 | Binds to the exact Analysis bytes; unknown majors rejected. |
@@ -88,11 +90,15 @@ portable/tested locally but the native platform lane has not run here;
 | `strict` Linux L1 (pure Marqdo + Math) | PASS, probe-gated, 7/7 VM lane | **FAIL-CLOSED** | **FAIL-CLOSED** |
 | `strict` L2 (Worker/Foreign/native) | **UNSUPPORTED** (flags refused) | **UNSUPPORTED** | **UNSUPPORTED** |
 
-The Ubuntu column is from this development host (Ubuntu 26.04 container) and a
-disposable Ubuntu 26.04 QEMU/TCG VM for the security lane. It is **not** a
-GitHub Actions result: this checkout has a Gitee remote and no GitHub
-credentials. A fresh local clone with `core.autocrlf=true` was used to
-reproduce the Windows checkout byte behavior.
+The Linux column is the supported beta platform. Lanes marked PASS were
+executed on the release commit: the Woodpecker Linux pipeline (fmt, clippy,
+workspace tests with `--locked`, Windows cross-target compile check, release
+build of both binaries), the release-archive cold-install smoke, the external
+frozen-binary conformance repository, and the disposable-VM strict lane. The
+source of truth is the Gitea remote `git.cflmy.cn/cflmy/marqdo-cli` with
+Woodpecker at `ci.cflmy.cn`; a GitHub mirror is not the authoritative lane for
+this beta. macOS/Windows entries are implementation notes, not support claims;
+the Windows C ABI/provider paths remain fail-closed.
 
 ## Strict L1 scope (ADR-0021)
 
@@ -130,7 +136,7 @@ reproduce the Windows checkout byte behavior.
 * The external conformance suite is a mandatory **additional** release gate
   (`docs/releasing.md` §7); it does not replace G3/G4/native lanes.
 
-## Explicitly unsupported in this candidate
+## Explicitly unsupported in this beta
 
 - Pre-RFC `.mq.md` source syntax (Strong-execute / Emph-return / ordered-list
   branch / bullet-list loop / block-quote call / first code-span signature).
@@ -144,18 +150,18 @@ reproduce the Windows checkout byte behavior.
 - Registry/package publishing, JIT, Knowledge/Proof/View built-ins,
   sessions, and general-purpose CAS. The three `sample-*` tools are test
   fixtures for the generic Tool protocol, not product features.
-- Tagged Windows/macOS release archives: the native **build/test** matrix is
-  green at `5fcc111`, but the tag/dispatch release-candidate job has not
-  produced those archives.
+- Tagged Windows/macOS release archives: only the Linux x86_64 archive is
+  produced for `3.0.0-beta.1`. macOS/Windows native artifacts are not claimed;
+  the Windows lane is a Linux-hosted compile gate only.
 
 ## Release decision
 
-**DO NOT RELEASE.** The RFC-CI-0001 series fixed the platform `E0425` build
-break, the strict `--json` empty-stdout defect (ADR-0053) and the native
-Windows/macOS portability failures. Linux, Windows and macOS native jobs are
-green, and G4 is `MEASURED`/`WARN` on the designated Woodpecker agent
-(`1199c88`, 9/9 correctness-verified, pinned CPU). The release still lacks the
-**remote G3 security artifact** with a matching `tested_sha`; a local VM PASS
-is not a remote G3 proof. The G4 node is a shared powersave host, so its gate
-is provisional. See [`docs/STATUS.md`](docs/STATUS.md) §0.1 and
-[`docs/evidence/ci/README.md`](docs/evidence/ci/README.md).
+**`3.0.0-beta.1` prerelease — approved as a Linux x86_64 beta with explicitly
+recorded gaps.** The beta profile in
+[`docs/MARQDO_3_0_PRERELEASE_PLAN.md`](docs/MARQDO_3_0_PRERELEASE_PLAN.md) §3.1
+was used, not the stable profile: Linux is the only supported platform,
+macOS/Windows are declared unsupported/experimental, G4 is a Beta-only `WARN`
+on the fixed Woodpecker agent, and strict policy and frozen-binary conformance
+are recorded with same-SHA evidence in [`docs/STATUS.md`](docs/STATUS.md) and
+[`docs/evidence/ci/`](docs/evidence/ci/README.md). Beta status does not imply
+stable `3.0.0` or LTS; the stable gate remains stricter and separate.

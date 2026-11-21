@@ -4,7 +4,7 @@ Status: **current architecture overview**. This file summarises the tree as it
 is today. It is not a release promise, does not reopen a frozen ADR, and does not
 replace `spec/` or a recorded test log.
 
-- Baseline: [`9c1723d44f403d6b742136f7881515083b413cc2`](https://github.com/cflmy/marqdo-cli/commit/9c1723d44f403d6b742136f7881515083b413cc2) (2026-11-21, RFC-LANG-0002 implementation and follow-up fixes; language code baseline).
+- Baseline: `56189b176c612bf399ff965c3b642077f6b04617` (2026-11-22, RFC-EXT-0001 tree; the tagged `v3.0.0-beta.1` release SHA and its evidence are recorded in `../STATUS.md`).
 - Normative behavior: `spec/`; frozen decisions: `docs/adr/`; executed evidence: `docs/STATUS.md` and `docs/evidence/`.
 - This is the **single current overview**. Do not add a second running "current state" file;
   update this file, `docs/STATUS.md` and an evidence file together.
@@ -35,7 +35,7 @@ platform".
 
 | Dimension | Current state | Source |
 |---|---|---|
-| Implemented | Rust workspace `0.1.0`: RFC-LANG-0002 Markdown/frontend/IR, v2 statement parser, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, migrated bundled stdlib, CLI composition root | `Cargo.toml`, `crates/`, `stdlib/` |
+| Implemented | Rust workspace `3.0.0-beta.1`: RFC-LANG-0002 Markdown/frontend/IR, v2 statement parser, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, migrated bundled stdlib, CLI composition root | `Cargo.toml`, `crates/`, `stdlib/` |
 | Tested locally | `cargo test --workspace --locked`: **599 passed, 0 failed** across 67 targets on Linux x86_64 in the RFC-EXT-0001 tree; fmt and clippy clean. Historical baseline: 507 passed at `9c1723d`. | `docs/STATUS.md`, `docs/evidence/2026-11-22-ext-implementation.md` |
 | Bundled stdlib released | In-repo bundle `marqdo-stdlib@0.1.0`, SHA-256 digest verified before loading; it is **not** an external registry package | `stdlib/stdlib.json`, `stdlib/README.md` |
 | Multi-platform verified | Linux local gate is the only executed lane here; Windows/macOS native lanes are **UNVERIFIED**, and the GitHub security lane remains a **VM-only** gate | `docs/STATUS.md` §1, §4 |
@@ -195,7 +195,8 @@ that a phase is complete.
 - [Architecture index](README.md) — RFC/ADR/evidence history.
 - [Implementation status](../STATUS.md) — executed state and blockers.
 - [Language/frontmatter blueprint](../DEVELOPMENT_BLUEPRINT.md) — design baseline; not current status.
-- [Stable-release implementation plan](../STABLE_RELEASE_IMPLEMENTATION.md) — next-phase plan; not implemented behavior.
+- [3.0 prerelease plan](../MARQDO_3_0_PRERELEASE_PLAN.md) — current release policy and beta gates.
+- [Stable-release implementation plan](../STABLE_RELEASE_IMPLEMENTATION.md) — historical stable-release roadmap input; not current status.
 - [ADR-0041: non-streaming resource operations](../adr/0041-resource-operation-fs.md) — accepted `resource.request` `fs.*` contract.
 - [ADR-0042: `clock.now` resource operation](../adr/0042-clock-resource-operation.md) — accepted project-mode Unix-millis clock.
 - [ADR-0043: `env.get` resource operation](../adr/0043-env-resource-operation.md) — accepted exact-name environment grants.

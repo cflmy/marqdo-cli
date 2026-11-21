@@ -19,7 +19,7 @@ Three versions exist and are never conflated:
 
 | Version | Current | Where |
 |---|---|---|
-| Marqdo language/semantics | M0.5, `spec/*` | `docs/DEVELOPMENT_BLUEPRINT.md`, specs |
+| Marqdo language/semantics | RFC-LANG-0002 / ADR-0052, `spec/mapping.md` | `docs/architecture/RFC-LANG-0002-unified-semantics.md`, specs |
 | Plugin ABI major.minor | `1.0` | `MQ_ABI_MAJOR`/`MQ_ABI_MINOR`, `marqdo_plugin_abi::ABI_MAJOR/ABI_MINOR` |
 | Plugin package SemVer | e.g. `0.1.0` | `plugin.yaml` `plugin.version` |
 
@@ -299,7 +299,11 @@ When a plugin is used from Marqdo code, host errors become structured
 
 ## 9. Using a plugin from `.mq.md`
 
-This build supports explicitly trusted **in-process native** plugins only.
+Two transports are implemented for the same C ABI: `kind: native` loads the
+library in-process and requires the explicit unsafe `--trust-native-plugin`
+decision; `kind: worker` loads the same library in a child process behind the
+length-prefixed wire (crash isolation, **not** an OS sandbox). Wasm is rejected
+explicitly.
 
 ```bash
 # 1. Build the C example and refresh its sha256 in plugin.yaml
@@ -359,8 +363,7 @@ the address space: the core binary is re-invoked as `__plugin-worker`, loads
 one native library in the child, reports its complete export table, and serves
 length-prefixed invoke frames. Handshake and calls have timeouts; a crash/EOF
 becomes `plugin.crashed`/`plugin.timeout` in the host. This is crash isolation,
-not an OS sandbox: the worker still runs as the user. Wasm, hot unload and a
-full plugin capability broker for worker requests remain future work.
+not an OS sandbox: the worker still runs as the user. Wasm, hot unload and worker capabilities other than the granted `fs.read` request/reply remain future work.
 
 ### 9.1 Worker frames
 
@@ -453,14 +456,14 @@ when no C compiler is available.
 | Isolated plugin worker transport (length-prefixed IPC) | Implemented for crash isolation with handshake/call timeouts; a child process is not an OS sandbox. |
 | Wasm Component + WIT | Not implemented; `kind: wasm` is rejected explicitly. |
 | Hot unload/reload | Not supported by ABI v1; the worker is killed on unload. |
-| Plugin installation by package manager | Not implemented; `marqdo.yaml` `plugins:` is declarative only. |
+| Plugin installation by package manager | No package-manager install. `extensions.plugins` selects a manifest explicitly and lock v4 records its identity; `plugins:` versions stay declarative. |
 | Vendor capability handlers | The broker and vendor-name validation exist; no concrete vendor handler is shipped in this build. |
 | Static validation without an explicit manifest | `check` needs `--plugin <path>`; descriptors are not discovered from the network. |
 | Positional plugin arguments | Not supported; named only. |
 | Thread-safe / concurrent invocation | Not supported (single-threaded v1 contract). |
 | Old `marqdo_abi.h` v2 compatibility | Not implemented and not claimed; a separate adapter would be required. |
 
-## 12. Static descriptor / run-time reconciliation (RFC-EXT-0001 §4.5)
+## 13. Static descriptor / run-time reconciliation (RFC-EXT-0001 §4.5)
 
 The CLI never derives a callable signature from a loaded library. The
 **manifest is the static contract** and the runtime is checked against it:

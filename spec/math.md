@@ -1,6 +1,6 @@
 # Marqdo Math v1
 
-Status: **frozen subset for M0.5.** The kernel computes numbers; it never proves
+Status: **frozen subset (math v1)**; product baseline `3.0.0-beta.1`. The kernel computes numbers; it never proves
 theorems. `math.simplify` and `math.differentiate` are **not implemented** in
 this build.
 

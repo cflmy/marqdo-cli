@@ -1,6 +1,6 @@
 # Marqdo CLI Tool Protocol v1 — 通用外部工具协议
 
-> 状态：Proposed，配套 `docs/NEXT_PHASE_IMPLEMENTATION.md` §5 修订 v2。任何官方/第三方工具一视同仁；该协议**不是** C ABI 插件协议。本文不声称现有 CLI 已实现此协议。
+> 状态：**Implemented / frozen protocol v1**（产品 `3.0.0-beta.1`）。核心根命令同样优先；任何官方/第三方工具一视同仁；该协议**不是** C ABI 插件协议。安装、校验、分发与协议协商均已实现并由 `crates/cli/tests/tool_protocol.rs` 覆盖。
 
 ## 1. 范围与不变量
 
@@ -23,7 +23,7 @@
   "command": "benchmark",
   "entrypoint": "bin/marqdo-benchmark",
   "compatibility": {
-    "marqdo": ">=0.1,<1",
+    "marqdo": ">=3.0.0-beta.1,<4.0.0",
     "analysis": [2]
   }
 }

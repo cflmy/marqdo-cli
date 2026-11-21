@@ -13,6 +13,13 @@ pub fn init(dir: Option<&Path>) -> i32 {
         );
         return 1;
     }
+    if let Err(error) = std::fs::create_dir_all(dir) {
+        eprintln!("error: cannot create {}: {error}", dir.display());
+        return 1;
+    }
+    // Create the directory before canonicalizing: `init new-project` must name
+    // the project `new-project`, not silently fall back to `example` because
+    // the path did not exist yet.
     let name = dir
         .canonicalize()
         .ok()
@@ -21,10 +28,6 @@ pub fn init(dir: Option<&Path>) -> i32 {
                 .map(|name| name.to_string_lossy().to_string())
         })
         .unwrap_or_else(|| "example".to_string());
-    if let Err(error) = std::fs::create_dir_all(dir) {
-        eprintln!("error: cannot create {}: {error}", dir.display());
-        return 1;
-    }
     let manifest = marqdo_package::Manifest::template(&name);
     if let Err(error) = std::fs::write(dir.join(marqdo_package::MANIFEST_FILE), manifest.to_yaml())
     {

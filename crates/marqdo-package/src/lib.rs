@@ -393,6 +393,9 @@ impl Manifest {
         if self.project.version.trim().is_empty() {
             return Err("project.version must not be empty".to_string());
         }
+        if let Some(range) = &self.project.marqdo {
+            validate_core_range(range)?;
+        }
         for (name, dependency) in &self.dependencies {
             dependency.validate(name)?;
         }
@@ -420,7 +423,7 @@ impl Manifest {
             project: ProjectInfo {
                 name: project_name.to_string(),
                 version: "0.1.0".to_string(),
-                marqdo: Some(">=0.1,<1".to_string()),
+                marqdo: Some(">=3.0.0-beta.1,<4.0.0".to_string()),
             },
             dependencies: BTreeMap::new(),
             plugins: BTreeMap::new(),
@@ -428,6 +431,31 @@ impl Manifest {
             extensions: None,
         }
     }
+}
+
+/// Enforce the optional `project.marqdo` runtime range.
+///
+/// The field was informational before the 3.0 beta; a project that declares a
+/// range the running core does not satisfy must fail closed with a clear
+/// diagnostic instead of being silently ignored. SemVer prerelease semantics
+/// apply: a stable-only range such as `>=3.0.0,<4.0.0` does not accept
+/// `3.0.0-beta.1`, so prerelease users must opt in explicitly.
+fn validate_core_range(range: &str) -> Result<(), String> {
+    let requirement = semver::VersionReq::parse(range).map_err(|error| {
+        format!(
+            "package.marqdo_range_invalid: project.marqdo `{range}` is not a valid SemVer requirement: {error}"
+        )
+    })?;
+    let core = semver::Version::parse(env!("CARGO_PKG_VERSION")).map_err(|error| {
+        format!("package.marqdo_range_invalid: core version is not valid SemVer: {error}")
+    })?;
+    if !requirement.matches(&core) {
+        return Err(format!(
+            "package.marqdo_incompatible: project requires marqdo `{range}`, this core is {}",
+            env!("CARGO_PKG_VERSION")
+        ));
+    }
+    Ok(())
 }
 
 /// How a resolved package was obtained. Identity does not depend on this.
@@ -2055,6 +2083,36 @@ capabilities:
         let read = &manifest.capabilities.fs.as_ref().unwrap().read;
         assert_eq!(read, &vec!["./data/**".to_string()]);
         assert_eq!(manifest.capabilities.process, Some(false));
+    }
+
+    #[test]
+    fn project_marqdo_range_is_enforced_against_the_running_core() {
+        let core = env!("CARGO_PKG_VERSION");
+        assert!(
+            Manifest::template("template-project").validate().is_ok(),
+            "the init template must be runnable by the core that writes it"
+        );
+        let accepted =
+            format!("project:\n  name: p\n  version: 0.1.0\n  marqdo: \">={core},<4.0.0\"\n");
+        Manifest::from_yaml(&accepted).expect("an explicit opt-in range must be accepted");
+
+        let stale = "project:\n  name: p\n  version: 0.1.0\n  marqdo: \">=0.1,<1\"\n";
+        let error = Manifest::from_yaml(stale).unwrap_err();
+        assert!(
+            error.contains("package.marqdo_incompatible"),
+            "stale range must fail closed: {error}"
+        );
+        assert!(
+            error.contains(core),
+            "diagnostic must name the core: {error}"
+        );
+
+        let invalid = "project:\n  name: p\n  version: 0.1.0\n  marqdo: \"not a range\"\n";
+        let error = Manifest::from_yaml(invalid).unwrap_err();
+        assert!(
+            error.contains("package.marqdo_range_invalid"),
+            "invalid range must be rejected: {error}"
+        );
     }
 
     #[test]

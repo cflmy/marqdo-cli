@@ -1,6 +1,6 @@
 # Marqdo Value Wire Format v1
 
-Status: **frozen for M0.5; extended by ADR-0022 (non-transferable `Memory`)**.
+Status: **frozen (wire v1); extended by ADR-0022 (non-transferable `Memory`)**; product baseline `3.0.0-beta.1`.
 Changes require an ADR, a `wire_version` bump and cross-ABI compatibility
 tests. Adding a rejected tag is not a version bump; accepting a new value shape
 is.

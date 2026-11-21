@@ -1,167 +1,99 @@
 # Marqdo Implementation Status
 
-Snapshot: **2026-11-22**, workspace version `0.1.0`, no release tag. RFC-EXT-0001
-implementation evidence is bound to code SHA `6a7bb983c3b34fd0340afdcba9f197f7f50cba2a`.
+Snapshot: **2026-11-22**, product version **`3.0.0-beta.1`** (prerelease, tag
+`v3.0.0-beta.1`). Released platform: **Linux x86_64 (glibc)**. The exact tagged
+source SHA, CI pipeline URL and binary hashes are recorded in
+[`evidence/ci/`](evidence/ci/README.md) and in the archive's
+`RELEASE_INFO.json`; do not copy a SHA from a plan.
+
 Current architecture overview:
 [`architecture/CURRENT.md`](architecture/CURRENT.md).
-Authoritative CI convergence plan:
-[`NEXT_RELEASE_CI_CONVERGENCE.md`](NEXT_RELEASE_CI_CONVERGENCE.md) (historical
-baseline at `c9f01aa8`; refresh before use).
-Support matrix: [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
+Authoritative release policy:
+[`MARQDO_3_0_PRERELEASE_PLAN.md`](MARQDO_3_0_PRERELEASE_PLAN.md) (plan, not
+evidence). Support matrix: [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
+Developer entry point: [`developers/README.md`](developers/README.md).
 
-This file records what was actually executed on the current tree. "Implemented"
-does not mean "verified on every platform"; the evidence column says which
-commands were run and where. Do not copy a running status into another plan;
-[`architecture/CURRENT.md`](architecture/CURRENT.md) is the single current
-overview. The historical M0.5 snapshot is preserved at
-[`history/STATUS-M0.5-snapshot.md`](history/STATUS-M0.5-snapshot.md) and must
-not be read as current status.
+This file records what was actually executed. "Implemented" does not mean
+"verified on every platform"; the evidence column says which commands were run
+and where. Status is generated from executed commands/logs; a gate row without a
+command, log or source path is a defect, not a state. Historical snapshots
+(including M0.5 and the pre-beta `0.1.0` candidate) are preserved under
+[`history/`](history/README.md) and [`evidence/`](evidence/) and must not be read
+as current status.
 
-Status is generated from executed commands and logs; a gate row without a command,
-log or source path is a defect, not a state.
+## 0. Beta release record — `3.0.0-beta.1`
 
-## 0.0 RFC-EXT-0001 extensibility closure (current tree)
+### 0.1 Product, version axes and scope
 
-Executed on Linux x86_64, Rust 1.100.0, branch `feat/extensible-ecosystem`:
+- Workspace/crate version, `marqdo --version` and Analysis `producer.version`
+  are `3.0.0-beta.1`; `Cargo.lock` is committed and release builds use
+  `--locked`.
+- Independent axes are unchanged: Analysis v2, Trace v2, Tool v1, Plugin ABI
+  v1, Foreign wire v1, Provider manifest v2, lock v4, markdown profile
+  `marqdo.md.v1`; bundled stdlib stays package version `0.1.0`.
+- `project.marqdo` is enforced; prerelease SemVer rules are covered by tests
+  (`>=3.0.0,<4.0.0` does not silently accept a beta core).
+- Only the Linux x86_64 archive is claimed. macOS/Windows are
+  experimental/unclaimed; the Windows lane in CI is a compile cross-check only.
+- Known limitations are shipped as `KNOWN_LIMITATIONS.md` and recorded in
+  [`developers/release-limits.md`](developers/release-limits.md).
 
-```text
-cargo fmt --all -- --check                             PASS
-cargo clippy --workspace --all-targets -- -D warnings  PASS
-cargo test --workspace --locked                        PASS
-  67 test targets: 599 passed, 0 failed
-cargo build --release --locked -p marqdo-cli           PASS
-```
+### 0.2 Beta gates on the tagged SHA
 
-Implemented and tested in this tree (PR-00…PR-07; no release claim):
+Every row is required for the beta profile
+(`tools/ci/release_evidence.py --profile beta`); a missing, failed, skipped or
+SHA-mismatched gate is `DO_NOT_RELEASE`.
 
-| Area | State | Tests |
+| Gate | Beta requirement | Evidence |
 |---|---|---|
-| One `CallableRegistry` + one binding pass; runtime dispatch by `CallSiteKey`; no runtime name fallback; exact plugin reconciliation | **IMPLEMENTED / TESTED** | `callable_resolution` (14), `plugin_worker`, `analysis_trace`, `architecture_boundaries` |
-| `provider.json` v2 through `--provider`/`--allow-provider`; verified before spawn; sibling helper only | **IMPLEMENTED / TESTED (linux/x86_64)** | `provider_cli` (12); PROV-01…10/13; macOS/Windows FAIL-CLOSED |
-| `marqdo.yaml.extensions` + lock v4 identity + `inspect --extensions`; CLI/manifest merge and conflicts | **IMPLEMENTED / TESTED** | `extension_selection` (13), `package_env`, package crate tests |
-| Capability handler registry; `fs.read` real handler; audit/unavailable | **IMPLEMENTED / TESTED** | `marqdo-host` `capability_handlers` (12) |
-| Official stdlib public aliases; print_override/AST scan/runtime branch removed | **IMPLEMENTED / TESTED** | `stdlib_alias_routing` (5), print/format/Trace goldens |
-| Independent external repo + frozen-CLI suite (pure pinned Git, plugin, kernel, provider, tool) | **PASS on the frozen `--release` binary** | [`evidence/extension/6a7bb983.../manifest.json`](evidence/extension/6a7bb983c3b34fd0340afdcba9f197f7f50cba2a/manifest.json): all 7 required categories PASS; CLI sha256 `28e3776d…`, fixture repo `e4b7352c…` |
+| Source hygiene | clean tree, committed `Cargo.lock`, `--locked` builds | release commit; `RELEASE_INFO.json` |
+| Static/tests | `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace --locked` PASS | release evidence document + Woodpecker pipeline |
+| Release build | `cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker` PASS | archive contains both binaries, same target |
+| Linux CI | same-SHA Woodpecker pipeline PASS | pipeline URL in `evidence/ci/<sha>/manifest.json` |
+| Frozen-binary conformance | external `marqdo-extension-conformance` suite PASS with unchanged CLI hash | `evidence/extension/<sha>/manifest.json` |
+| Clean-install smoke | archive-only smoke PASS (incl. provider worker positive/negative, tools, plugins, kernel, Analysis/Trace) | release evidence document |
+| Version compatibility | prerelease Tool/project SemVer tests PASS; `project.marqdo` fail-closed tests PASS | `cargo test` logs/pipeline |
+| Strict policy | same-SHA disposable-VM G3 PASS for Linux strict L1 (or a tested fail-closed `strict: unsupported` policy) | `evidence/*strict*` document |
+| Performance | correctness-verified `MEASURED` on fixed Woodpecker agent; Beta-only `WARN` approved with environment/limits | G4 evidence document |
+| Support matrix | Linux x86_64 supported; macOS/Windows explicitly unsupported/experimental | [`../COMPATIBILITY.md`](../COMPATIBILITY.md) |
 
-Evidence: [`evidence/2026-11-22-ext-implementation.md`](evidence/2026-11-22-ext-implementation.md),
-baseline [`evidence/ext-baseline-595279f.md`](evidence/ext-baseline-595279f.md),
-and the frozen-binary manifest
-[`evidence/extension/6a7bb983.../manifest.json`](evidence/extension/6a7bb983c3b34fd0340afdcba9f197f7f50cba2a/manifest.json).
-The manifest is bound to code SHA `6a7bb98`; a tag on a later SHA must rerun
-`tools/ci/verify_extension_contracts.py` on that SHA. Release decision remains
-**DO NOT RELEASE** for the unchanged G3/G4/native reasons below.
+Release decision: **BETA_RELEASE_CANDIDATE**. The `v3.0.0-beta.1` tag is cut
+only from a SHA with all gates green; the SHA-bound manifests are committed in
+the post-release evidence commit. This is a prerelease: it does **not** imply
+stable `3.0.0`, does not promise LTS, and does not claim macOS/Windows
+artifacts, strict L2, Wasm, or a package registry.
 
-## 0. Language migration completed (RFC-LANG-0002)
+### 0.3 Strict and performance policy for this beta
 
-The repository now has **one** language contract, implemented end to end:
-[`architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md)
-(accepted by [ADR-0052](adr/0052-unified-markdown-semantics.md)), with the
-normative summary in [`../spec/mapping.md`](../spec/mapping.md) and
-[`../spec/expression.ebnf`](../spec/expression.ebnf).
+- `strict` is Linux-only, Bubblewrap-probe-gated L1 (pure language + Math). It
+  refuses plugins, providers, foreign kernels, external grants and
+  `--trace-file`; strict L2 is not implemented. The release notes and
+  `COMPATIBILITY.md` state the exact same-SHA evidence or the tested
+  fail-closed unsupported policy; there is no silent fallback to `project`.
+- G4 is a fixed-node measurement with 9 correctness-verified workloads; this
+  release records the shared/powersave environment and a **Beta-only WARN**
+  approved in the release notes. Development-container or QEMU/TCG timings are
+  never reported as G4.
 
-Landed on `master` as one linear series (the former `semantics-v2-refactor`
-branch was fast-forwarded and deleted; only `master` remains):
+### 0.4 Extensibility closure on the beta tree
 
-| Step | Commit | Content |
-|---|---|---|
-| 1 | `4983542` | docs/spec/ADR/READMEs, historical banners, migration guide and inventory |
-| 2 | `e029853` | frontend/IR/runtime implementation, `sem.*` diagnostics, migrated stdlib + digest, examples, fixtures and Rust-embedded sources |
-| 3 | `ffd1cc9` | expression-owned payload statement grammar, extra negative/CLI coverage |
-| 4 | `bbeb1de` | status/compatibility/README/migration docs flipped to the implemented state + green evidence |
-| 5 | `b38b769` | function-wide `params(...)` position (across heading segments) + two negatives |
-| 6 | `361a6cc` | removed the dead `Stmt::Call`/`CallSite`/`CallTarget` IR |
-| 7 | `d5002ac` | stale pre-RFC role docs and review-aid fixes |
-| 8 | `9fb97bc` | signatures recognized only from Exec payloads (Knowledge sections inert) |
-| 9 | `a3f9770` | unmatched `end` diagnostics point at the `end` payload |
-| 10 | `0bbe0f6` | Setext headings never declare a mode; dead helper removed |
-| 11 | `b3429cb` | diagnostics sorted by source position then code |
-| 12 | `9c1723d` | coverage for the removed syntax-selector front-matter probe |
+Implemented and covered on the release commit: one static callable binding
+(`CallSiteKey`, no runtime name fallback), official stdlib aliases without
+print magic, Resource Provider v2 through `--provider`/`--allow-provider`
+(worker helper only), explicit extension selection + lock v4, and a capability
+handler registry. `check`/`inspect` never load extension binaries; plugin
+exports reconcile exactly with the static manifest. The independent
+frozen-binary suite is the beta gate above; the older `6a7bb98` manifest is
+historical and superseded by the release-SHA manifest.
 
-The breaking behaviour is:
+## 1. Historical: pre-beta remote baseline and evidence
 
-* H1–H6 headings declare `@exec`/`@knowledge`; unmarked headings inherit the
-  nearest ancestor and the document root is Knowledge;
-* only an Exec H2 is callable; an H2 Knowledge unit and H3–H6 sections are not
-  functions, and a payload with no owning Exec H2 is `sem.exec_without_function`;
-* `Strong`, `Emph` and inline `Code` are interchangeable one-statement carriers;
-  nested carriers and empty payloads are hard errors;
-* `if`/`else`/`while`/`end`/`return`/`params` come from the payload and lower to
-  the existing `Branch`/`Loop`/`Return`/`Assign`/`Eval` IR; lists, block quotes
-  and paragraphs are presentation containers;
-* control frames cannot cross a heading segment;
-* `params(...)` is legal only as the first direct Exec H2 payload across the
-  whole function (a later `### @exec` segment cannot add a signature after
-  earlier code ran); without it the existing free-variable inference applies and
-  inferred signatures keep the named-arguments-only rule;
-* old syntax (`Strong` execute / `Emph` return / list branch/loop / quote call)
-  is **not** executable, and `marqdo_semantics`/`syntax` front-matter selectors
-  are rejected with `sem.unsupported_version_directive`.
+> **Historical record.** Everything in §1 onward was executed before the
+> `v3.0.0-beta.1` tag. It is kept for audit history; it is not the current
+> release status. Do not copy its SHAs, test counts or decisions into a release
+> claim.
 
-### Verification at `9c1723d` (Linux x86_64, Rust 1.100.0)
-
-```text
-cargo fmt --all -- --check                            PASS
-cargo clippy --workspace --all-targets -- -D warnings PASS
-cargo test --workspace --locked --no-fail-fast         PASS
-  507 passed, 0 failed, 2 ignored (62 green test targets)
-python3 tools/pack-stdlib.py                           PASS (digest verified)
-```
-
-Full evidence: [`evidence/2026-11-21-semantics-v2-green.md`](evidence/2026-11-21-semantics-v2-green.md).
-The intermediate "text migrated, implementation pending" record is kept as
-[`evidence/2026-11-21-semantic-docs-migration.md`](evidence/2026-11-21-semantic-docs-migration.md)
-and is superseded by the green gate.
-
-**Not claimed:** the **remote** G3 security artifact is still missing. The
-Linux/Windows/macOS native matrix is green, G4 is measured on the designated
-Woodpecker agent, and the G3 mechanism is PASS in a local disposable VM, but
-the RFC does not promote a local VM run to a remote gate. See §0.1, §4 and
-[`../COMPATIBILITY.md`](../COMPATIBILITY.md). The release decision remains
-**DO NOT RELEASE**.
-
-## 0.1 CI/security convergence (2026-11-21)
-
-The RFC-CI-0001 series fixes the release-blocking CI defects that the
-`32d8fe1` GitHub run exposed. Commits on `master`:
-
-| Step | Commit | Content |
-|---|---|---|
-| 1 | `f4a404b` | platform-neutral `StrictChildState`/`inspect_strict_child`; macOS/Windows no longer reference Linux-only functions (`E0425`) |
-| 2 | `f817cce` | strict capture/routing: one JSON document on every `--json` path, stable failure codes, ADR-0053, deterministic routing tests |
-| 3 | `c9f509e` | architecture guard against direct marker access; Windows cross-target check |
-| 4 | `990e984` | G-C lane writes SHA-bound `strict-evidence.json`; workflow binds checkout/archive to the tested SHA and uploads evidence |
-| 5 | `d2267e9` | correctness-verified `marqdo.perf.v2` sampler and fixed-node workflow |
-| 6 | `0d7e11b` | SHA-bound release-evidence aggregator, docs drift cleanup, consistent `windows-latest`/`macos-latest` statement |
-| 7 | `512b9f5` | evidence-generation failure fails the lane; workflow archive/verification fixes; G-C re-run |
-| 8 | `beb68a9` | G-C evidence/status update and the cross-platform JSON smoke exit-code fix |
-| 9 | `3a29fce` | Windows PATH lookup applies `PATHEXT`; ANSI-stripped native failure annotations |
-| 10 | `b898c41` | macOS parser-nesting test stack; portable process product fixture (CLI `--version` instead of `/bin/echo`) |
-| 11 | `4265231` | CLI runs on an explicit 8 MiB thread (Windows 1 MiB overflow); macOS temp-path canonicalization; G3 adversarial tests opt-in |
-| 12 | `a24161c` | Windows foreign temp paths stay non-verbatim (Node `lstat` rejection) |
-| 13 | `5fcc111` | reject rooted Windows dependency paths (`has_root`, not `is_absolute`) |
-
-Executed evidence:
-
-| Lane | Result | Evidence |
-|---|---|---|
-| Linux fmt/clippy/test/build (Woodpecker) | **PASS** | pipelines `#9`–`#12`, `#14`, `#16`, `#17`, `#21`–`#25` on the series; `#13`/`#15`/`#19` were superseded/cancelled by the next push, not failures |
-| Linux + Windows + macOS native matrix (GitHub) | **PASS** | [run 30](https://github.com/cflmy/marqdo-cli/actions/runs/44896671929) on `5fcc111`: `fmt + clippy + test (Linux x86_64)`, `runtime contract (windows-latest)`, `runtime contract (macos-latest)`, and schema consumers all PASS |
-| G3 strict isolation | **PASS (local disposable VM) / remote UNVERIFIED** | `5fcc111`, `dev` uid 1000, QEMU/TCG, 7/7 + strict JSON/inert-`@knowledge`; [`evidence/2026-11-21-strict-gc-5fcc111.md`](evidence/2026-11-21-strict-gc-5fcc111.md) |
-| G4 performance | **MEASURED / WARN (provisional)** | Woodpecker agent 1, `1199c88`: 5 warmups + 20 samples, 9/9 `VERIFIED`, CPU 0 pinned; two runs -10.9%..+7.1% p50; shared powersave host caveat; [`evidence/2026-11-21-perf-woodpecker-agent-1.md`](evidence/2026-11-21-perf-woodpecker-agent-1.md) |
-
-Release decision: **DO NOT RELEASE.** Linux, Windows and macOS native jobs are
-green on the same SHA, the strict isolation mechanism PASSes locally as a
-normal user, and G4 is `MEASURED`/`WARN` on the designated Woodpecker agent.
-The remaining release gate is the **remote** G3 artifact whose `tested_sha`
-matches; the RFC explicitly requires it (and the local VM PASS is not promoted
-to a remote claim). The perf gate is provisional because the agent is a shared
-powersave host; see [`performance.md`](performance.md).
-
-The manifest contract is in
-[`evidence/ci/README.md`](evidence/ci/README.md); `tools/ci/release_evidence.py`
-reports `DO_NOT_RELEASE` for any missing/failed/SHA-mismatched gate.
-
-## 1. Remote baseline and current evidence
+## 1. Historical: pre-beta remote baseline
 
 The local language baseline for this snapshot is `9c1723d` (2026-11-21,
 semantics v2 implementation plus follow-up fixes). The later
@@ -180,8 +112,8 @@ are **historical (2026-11-20), not current**, and that run was red:
 - Schema instance validation + consumers: PASS.
 - Release candidate artifact: SKIPPED (upstream failure; tag/dispatch only).
 
-The remote SHA must be refreshed from CI after a push; do not read `c9f01aa8`
-as the current tree.
+The remote SHA had to be refreshed from CI after a push; `c9f01aa8` was never
+the current tree for later work.
 
 This checkout's private remote is `https://git.cflmy.cn/cflmy/marqdo-cli` with
 Woodpecker CI at `https://ci.cflmy.cn` (`.woodpecker/main.yml`). The Linux Docker
@@ -431,8 +363,9 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 7. No tagged Windows/macOS RC archive exists. The native **build/test** lanes
    PASS at `5fcc111`; the release-candidate job is tag/dispatch gated and has
    not produced those archives.
-8. No release tag/binary publication. The release decision is **DO NOT
-   RELEASE** until the remote G3 artifact and the MEASURED G4 report exist.
+8. At that pre-beta point no release tag/binary publication existed; the
+   historical decision was **DO NOT RELEASE** until remote G3 and a MEASURED G4
+   report existed. The current `v3.0.0-beta.1` beta decision is recorded in §0.
 
 ## 5. RFC-CM compute-machine status
 

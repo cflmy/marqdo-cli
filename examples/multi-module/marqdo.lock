@@ -2,6 +2,6 @@ lock_version: 4
 content_profile_version: 1
 root:
   package: root:multi-module@0.1.0
-  manifest_digest: 3d11906f34641802949b75de4728ea66a3557671db5c1ca89d6359d58a7a6936
+  manifest_digest: c97de87f622fec9892622f40f991466da9e79c082f9586653327eb7758fa5ce1
 packages: []
 root_dependencies: {}

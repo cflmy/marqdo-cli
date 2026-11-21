@@ -434,3 +434,32 @@ fn tampered_path_dependency_content_is_rejected_by_locked_sync() {
         "a failed locked operation must not replace the materialized environment"
     );
 }
+
+#[test]
+fn incompatible_project_marqdo_range_fails_closed_before_program_load() {
+    let dir = TempDir::new("runtime-range");
+    let root = dir.path();
+    write(
+        &root.join("marqdo.yaml"),
+        "project:\n  name: stale\n  version: 0.1.0\n  marqdo: \">=0.1,<1\"\n",
+    );
+    write(&root.join("index.mq.md"), "## @exec main\n\n`return 1`\n");
+    for command in [["check", "index.mq.md"], ["run", "index.mq.md"]] {
+        let output = cli(root, &command);
+        assert!(
+            !output.status.success(),
+            "{} must fail closed: {}",
+            command[0],
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("package.marqdo_incompatible"),
+            "unexpected stderr: {stderr}"
+        );
+        assert!(
+            stderr.contains(env!("CARGO_PKG_VERSION")),
+            "diagnostic must name the running core: {stderr}"
+        );
+    }
+}

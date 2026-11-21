@@ -15,14 +15,14 @@ input and evidence. It is not a second running-status page.
 - Frozen behavior: [`../../spec/`](../../spec/); release gates: [`../security-gate.md`](../security-gate.md).
 - Historical planning snapshots: [`../history/README.md`](../history/README.md).
 
-## Design input RFCs (Proposed, not implemented behavior)
+## Design input and implemented contracts
 
 | Document | Status | What it is |
 |---|---|---|
 | [Unified semantics RFC-LANG-0002](RFC-LANG-0002-unified-semantics.md) | **Adopted and implemented** | Single syntax: heading modes, unified payloads, keyword control flow, breaking migration and acceptance gates. |
 | [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) | **Review input (historical)** | Responsibility convergence, stdio/file/stream correctness, CLI/Host split and the migration order at the time. Its language examples predate RFC-LANG-0002. |
 | [Compute machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) | **Proposed** | Opaque `Memory`, addressable regions, wire/host rejection. Compute semantics are unchanged by the syntax rewrite; its `.mq.md` examples are historical spelling. |
-| [Core and stdlib migration RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) | **Proposed** | Minimum core, `.mq.md` stdlib and system-capability migration. Stdlib source migration is pending per this RFC. |
+| [Core and stdlib migration RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) | **Proposed** | Minimum core, `.mq.md` stdlib and system-capability migration. The stdlib source migration is complete; current status is recorded in ../STATUS.md. |
 
 The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 `../STATUS.md`; the RFC text itself never proves that code exists.

@@ -1,6 +1,6 @@
 # Marqdo Foreign Kernels v1
 
-Status: **one-shot kernels with an explicit provider registry** (M0.6 R2),
+Status: **one-shot kernels with an explicit provider registry** (frozen foreign wire v1; product baseline `3.0.0-beta.1`),
 including built-in Python and Node/JavaScript providers. There are no sessions
 or persistent kernels.
 

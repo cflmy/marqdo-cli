@@ -1,6 +1,6 @@
 # Marqdo Markdown Profile v1
 
-Status: **frozen for M0.5**. Changes require an ADR, updated goldens and a
+Status: **frozen (marqdo.md.v1)**; product baseline `3.0.0-beta.1`. Changes require an ADR, updated goldens and a
 profile id bump.
 
 Profile id: `marqdo.md.v1`

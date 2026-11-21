@@ -1,14 +1,93 @@
 # Changelog
 
-All notable changes to the Marqdo CLI workspace. The workspace version is
-currently `0.1.0`; no release tag has been cut. Dates use ISO 8601.
+All notable changes to the Marqdo CLI workspace. Product version
+`3.0.0-beta.1` was tagged on 2026-11-22; the next section collects post-beta
+changes. Protocol versions (Analysis v2, Trace v2, Tool v1, Plugin ABI v1,
+Foreign wire v1, Provider manifest v2, lock v4) and independent package
+versions (including the bundled stdlib `0.1.0`) are versioned separately and
+do not follow the product version. Dates use ISO 8601.
 
-## Unreleased (stabilization candidate)
+## 3.0.0-beta.1 (2026-11-22)
+
+First public prerelease of the independent Marqdo toolchain. This is a
+**prerelease, not stable and not LTS**; the support claim is Linux x86_64 until
+the stable `3.0.0` gate passes. The complete beta policy, gates and deferred
+items are in
+[`docs/MARQDO_3_0_PRERELEASE_PLAN.md`](docs/MARQDO_3_0_PRERELEASE_PLAN.md) and
+[`docs/developers/release-limits.md`](docs/developers/release-limits.md).
+
+### Product version and compatibility
+
+- Workspace/crate product version, `marqdo --version` and Analysis
+  `producer.version` are now `3.0.0-beta.1`. `Cargo.lock` is committed and all
+  release builds use `--locked`.
+- `project.marqdo` in `marqdo.yaml` is now **enforced** against the running
+  core instead of being informational. Incompatible ranges fail closed with
+  `package.marqdo_incompatible`; malformed ranges fail with
+  `package.marqdo_range_invalid`. The `init` template writes
+  `>=3.0.0-beta.1,<4.0.0`.
+- SemVer prerelease negotiation is covered by tests: a stable-only range such
+  as `>=3.0.0,<4.0.0` does **not** silently accept a beta core, while an
+  explicit `>=3.0.0-beta.1,<4.0.0` Tool/Project range does.
+- The official bundled stdlib stays `0.1.0`; plugin, tool and example package
+  versions are independent of the product version. No protocol major is
+  renumbered because the product is 3.0.
+
+### Release engineering
+
+- Release archives now ship **both** `marqdo` and `marqdo-provider-worker` in
+  the same directory for the same target triple, plus `RELEASE_INFO.json`
+  (source SHA, target, toolchain, binary SHA-256), `SOURCE_SHA`,
+  `KNOWN_LIMITATIONS.md`, the public specs, developer docs, runnable examples
+  (including host-built plugin/provider artifacts) and the Analysis/Trace
+  consumers. `tools/release/package.py` builds deterministically;
+  `tools/release/smoke.py` verifies a cold install from the archive only.
+- Release evidence distinguishes the **beta** profile from the stable profile:
+  `tools/ci/release_evidence.py --profile beta` requires Linux, strict-policy,
+  frozen-binary extension, clean-install and version-compatibility gates,
+  records unsupported platforms explicitly and never turns a missing or
+  SHA-mismatched gate into a release.
+- Added a runnable Resource Provider v2 example
+  (`examples/provider-demo/`) and used the frozen external conformance
+  repository as the same-SHA black-box gate.
+
+### Developer entry points
+
+- New [`docs/developers/`](docs/developers/README.md): quickstart, `.mq.md`
+  libraries, Tool Protocol, extensions (plugin/kernel/provider), Analysis/Trace
+  consumers, compatibility and release limits.
+- The third-party integration handbook was corrected and exercised against the
+  released binary; `spec/tool-v1.md` no longer says Proposed,
+  `spec/plugin-abi.md` no longer says native-only, and `spec/package-format.md`
+  documents the enforced `project.marqdo` field and lock v4.
+- `check --emit` help now correctly says Analysis v2.
+
+### Support policy
+
+- Supported release platform: **Linux x86_64 (glibc)**. macOS/Windows are
+  experimental and not claimed; the Windows cross-target check remains a CI
+  compile gate only.
+- `strict` policy for this beta is recorded with same-SHA evidence in
+  [`docs/STATUS.md`](docs/STATUS.md); unsupported hosts fail closed. strict L2
+  is unsupported and refused.
+- The G4 performance gate is recorded as a Beta-only WARN on the fixed
+  Woodpecker agent, with environment and limits, instead of being promoted to a
+  stable PASS.
+
+## Unreleased (post-beta)
+
+### Planned changes
+
+- Fixes collected from the first beta users; see `docs/MARQDO_3_0_PRERELEASE_PLAN.md`
+  §5 for the conditional `3.0.0-beta.2` / `rc.1` line.
+
+## Historical: stabilization candidate
 
 ### Breaking changes — extensibility closure (RFC-EXT-0001)
 
 Implements [`docs/architecture/RFC-EXT-0001.md`](docs/architecture/RFC-EXT-0001.md)
-(ADR-0054/0055/0056/0057/0058). 0.x breaking changes:
+(ADR-0054/0055/0056/0057/0058). These are the 3.0 breaking changes; the
+independent protocol versions listed above are unchanged:
 
 - **One callable resolution.** `check`/`run`/`call`/`inspect`/Analysis share a
   single registry and binding pass (`CallSiteKey`). The runtime no longer
@@ -71,16 +150,14 @@ summarized normatively in [`spec/mapping.md`](spec/mapping.md) and
 - There is no syntax version switch, per-file selector, `--legacy` path or
   fallback mapper; `marqdo_semantics`/syntax-selection front matter is rejected.
 
-**Implementation status: landed** in the `semantics-v2-refactor` history
-(docs/spec `4983542`, frontend/runtime/stdlib/corpus `e029853`, expression-owned
-statement grammar `ffd1cc9`, then the follow-up fixes through `9c1723d`). At
-`9c1723d`,
-`cargo test --workspace --locked` is green (507 passed, 0 failed, 2 ignored),
-`cargo clippy --workspace --all-targets -- -D warnings` is clean and the
-stdlib digest is regenerated. See
-[`docs/STATUS.md`](docs/STATUS.md) and
+**Historical implementation record (at `9c1723d`).** The language migration
+landed in the `semantics-v2-refactor` history (docs/spec `4983542`,
+frontend/runtime/stdlib/corpus `e029853`, expression-owned statement grammar
+`ffd1cc9`, then the follow-up fixes through `9c1723d`). At `9c1723d` the
+workspace gate was green (507 passed, 0 failed, 2 ignored). That count is
+history; the current release-SHA gate is recorded in
+[`docs/STATUS.md`](docs/STATUS.md). See also
 [`docs/evidence/2026-11-21-semantics-v2-green.md`](docs/evidence/2026-11-21-semantics-v2-green.md).
-Platform CI and the disposable-VM strict lane were not re-run at this SHA.
 
 **Follow-up correctness fixes in the same series:**
 
@@ -300,16 +377,17 @@ Platform CI and the disposable-VM strict lane were not re-run at this SHA.
 - `spec/mapping.md` and `spec/expression.ebnf` were replaced in place by the
   RFC-LANG-0002 contract (heading modes, unified payload carriers, keyword
   control flow). `spec/markdown-profile.md` remains `marqdo.md.v1`; only the
-  Markdown→program mapping changed. These specs describe the target language and
-  are ahead of the Rust implementation; see "Breaking changes" above.
+  Markdown→program mapping changed. The frontend, expression parser, IR,
+  runtime and bundled stdlib implement these specs in the same tree; see
+  "Breaking changes" above.
 - Assignment targets are no longer restricted to bare identifiers: a single
   index place is accepted at statement level. Member assignment stays a parse
   error; chained assignment stays a parse error. `spec/expression.ebnf`,
   `spec/evaluation.md`, `spec/value-wire.md`, `spec/analysis-v2.md` and
   `spec/security.md` document the new semantics.
-- `docs/STABLE_RELEASE_IMPLEMENTATION.md` is the single next-phase
-  implementation plan. Older plan documents are historical input, not current
-  status.
+- `docs/MARQDO_3_0_PRERELEASE_PLAN.md` is the current release policy;
+  `docs/STABLE_RELEASE_IMPLEMENTATION.md` is historical roadmap input, not
+  current status.
 - AST conformance tests fail early when a golden contains CR bytes instead of
   reporting an opaque mismatch.
 - Worker plugin fixtures use the platform dynamic-library name and compiler

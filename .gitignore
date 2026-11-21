@@ -16,6 +16,7 @@ examples/plugin-multi-export/solver.so
 # Generated plugin fixture manifests/artifacts
 examples/plugin-demo/build/
 examples/plugin-multi-export/build/
+examples/provider-demo/build/
 
 # Release artifacts
 dist/

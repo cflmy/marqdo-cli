@@ -31,7 +31,7 @@ no `--project` flag in this build.
 project:
   name: example
   version: 0.1.0
-  marqdo: ">=0.1,<1"          # optional; informational in this build
+  marqdo: ">=3.0.0-beta.1,<4.0.0"   # optional; enforced against the running core
 dependencies:
   geometry:
     path: ./packages/geometry # exactly one of path / git+rev
@@ -62,7 +62,7 @@ extensions:                    # explicit activation sources; never grants
 |---|---|---|---|
 | `project.name` | string | yes | non-empty package name |
 | `project.version` | string | yes | non-empty version string (not semver-validated in the manifest) |
-| `project.marqdo` | string | no | required Marqdo runtime range; stored, not enforced by this build |
+| `project.marqdo` | string | no | Marqdo core SemVer requirement; enforced against the running core, incompatible ranges are hard errors |
 | `dependencies.<name>.path` | path string | one of path/git | project-relative path to a dependency directory or `.mq.md` file |
 | `dependencies.<name>.git` | URL string | one of path/git | git source (must be pinned with `rev`) |
 | `dependencies.<name>.rev` | string | with `git` | exact revision; a bare `git` without `rev` is rejected |
@@ -82,6 +82,12 @@ diagnostic.
 validates:
 
 * `project.name` and `project.version` are non-empty after trimming;
+* when `project.marqdo` is present it must parse as a `semver::VersionReq`
+  and match the running core version (`package.marqdo_range_invalid` /
+  `package.marqdo_incompatible`). SemVer prerelease rules apply: a stable-only
+  range such as `>=3.0.0,<4.0.0` does **not** accept `3.0.0-beta.1`; prerelease
+  users must opt in with a range whose comparator carries the prerelease
+  (for example `>=3.0.0-beta.1,<4.0.0`);
 * for every dependency, exactly one source is present:
   * both `path` and `git` → error "declares both path and git";
   * neither → error "must declare a path or a pinned git source";
@@ -94,8 +100,9 @@ validates:
   the project is loaded (`PackageResolver::resolve_extension_sources`), not in
   plain `Manifest::validate`.
 
-Note: a *git* dependency passes manifest validation when pinned, but the
-dependency is not resolvable or lockable in this build (§5).
+A pinned *git* dependency is resolvable, lockable and runnable; `lock`/`sync`
+clone it into the content-addressed cache and verify the checked-out commit
+and tree digest (§4.3).
 
 ### 2.3 `capabilities` are requests
 
@@ -169,7 +176,7 @@ An extension lock record binds:
 additionally verifies the real artifact bytes before starting any worker.
 `extensions` is omitted when no extension is declared.
 
-### 3.1 Lock v3 migration
+### 3.1 Lock v4 migration
 
 `from_yaml` of a v3 document returns a deterministic error: lock v3 is
 superseded by v4 (extension identities), and the user must run `marqdo lock`
@@ -178,7 +185,7 @@ their existing relock error with the v4 requirement.
 
 | Field | Semantics |
 |---|---|
-| `lock_version` | writers emit `3`; readers accept only `3` and tell v1/v2 users to run `marqdo lock` |
+| `lock_version` | writers emit `4`; readers accept only `4`; a v3 document gets the explicit "run `marqdo lock`" migration error and v1/v2 get the relock error |
 | `content_profile_version` | file-set/digest profile; only `1` is accepted |
 | `root.package` | logical root instance `root:<name>@<version>` |
 | `root.manifest_digest` | lowercase hex SHA-256 of the canonical `marqdo.yaml` |
@@ -193,7 +200,7 @@ The graph is the unit of reproducibility: a transitive dependency that can be
 imported is also locked. Edges are keyed by `(parent instance, alias)`, so the
 same alias in two packages may resolve to different instances.
 
-### 3.1 Serialization and validation
+### 3.2 Serialization and validation
 
 `lock` writes atomically (temporary file, `sync_all`, rename); a failed
 resolution leaves the previous lock untouched. `LockFile::to_yaml` sorts
@@ -203,7 +210,7 @@ byte-identical.
 
 `LockFile::from_yaml` validates before returning:
 
-* `lock_version == 3`, `content_profile_version == 1`;
+* `lock_version == 4`, `content_profile_version == 1`;
 * unique ids, each consistent with `dep:<name>@<version>#<content_digest>`;
 * every digest is 64 lowercase hex characters;
 * every source is normalized (path relative to the project root without `..`,
@@ -214,7 +221,7 @@ byte-identical.
 v1/v2 locks are rejected, not silently upgraded: a flat lock cannot represent
 the closure and treating it as complete would re-open fail-open loading.
 
-### 3.2 Tree hash
+### 3.3 Tree hash
 
 For a path or Git dependency, `lock` hashes the resolved package tree with
 `content_profile_version: 1` (`crates/marqdo-package/src/fileset.rs`, ADR-0016):
@@ -239,7 +246,7 @@ final digest equals the lock. This is a deterministic content fingerprint, not
 a Merkle tree and not a commitment to file modes or empty directories. Modes
 are normalized on materialization (`0644` files, `0755` directories on Unix).
 
-### 3.3 Lock generation rules
+### 3.4 Lock generation rules
 
 `marqdo lock` (run in a project):
 
@@ -303,12 +310,11 @@ after its file-set digest and cache marker verify.
   project:
     name: <name>
     version: 0.1.0
-    marqdo: '>=0.1,<1'
+    marqdo: '>=3.0.0-beta.1,<4.0.0'
   ```
 
   (empty dependencies/plugins/capabilities are omitted);
-* writes `index.mq.md` (the target syntax; the template in a pre-RFC binary
-  still emits the old spelling and is part of the pending migration):
+* writes `index.mq.md` using the RFC-LANG-0002 syntax:
 
   ```markdown
   ## @exec main
@@ -335,7 +341,7 @@ stale lock entry). They do not fetch, install, resolve or authorize anything.
   `marqdo add <name> --git <url> --rev <sha>`:
   validate the dependency shape (same rules as §2.2), refuse an existing name
   (exit 1), insert it, write the manifest, and tell the user to run
-  `marqdo lock`. A pinned Git dependency is lockable/resolvable in R5.
+  `marqdo lock`. A pinned Git dependency is lockable, resolvable and runnable.
 * `marqdo remove <name>`: remove the dependency from the manifest (exit 1 if
   absent), and drop a same-named entry from an existing lock file. It does not
   re-hash or re-lock the rest of the project.
@@ -372,8 +378,8 @@ inconsistency to fix).
 | Environment materialization (`.marqdo/env`, `cache`) | Implemented: `sync` materializes the full locked closure into `.marqdo/env` atomically; `lock`/`sync` populate a verified Git cache. Kernels/sessions are not materialized. |
 | Dependency signatures / trusted publishers / supply-chain scanning | Not implemented. |
 | Multiple/nested project boundary diagnostics | Not implemented; nearest `marqdo.yaml` wins. |
-| Lock file migration between `lock_version`s | Only v3 is read; v1/v2 are rejected with a relock instruction. `lock` regenerates the graph. |
-| Plugin installation / plugin dependency management | Not implemented; `plugins:` in the manifest is declarative only. |
+| Lock file migration between `lock_version`s | Only v4 is read. v3 gets the explicit "lock v3 is superseded by lock v4; run `marqdo lock`" error; v1/v2 get the relock instruction. `lock` regenerates the graph. |
+| Plugin installation / plugin dependency management | No package-manager install. `plugins:` is a declarative version requirement; explicit `extensions.plugins` activation plus lock v4 manifest/artifact identity is implemented and re-verified at run time. |
 
 The lock/package format is deliberately small and deterministic so these can
 be added later without changing the identity model. Changing `lock_version`,

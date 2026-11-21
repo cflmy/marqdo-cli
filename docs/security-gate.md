@@ -9,7 +9,7 @@ ordinary user `dev` (uid 1000), QEMU/TCG guest, 7/7 adversarial tests plus the
 strict `--json` and inert-`@knowledge` contracts — see
 [`evidence/2026-11-21-strict-gc-5fcc111.md`](evidence/2026-11-21-strict-gc-5fcc111.md).
 The older `8af7262` and `b6fc182` runs are retained below as history.
-Snapshot: workspace `0.1.0`, 2026-11-21. See ADR-0021 and ADR-0053.
+Snapshot: product `3.0.0-beta.1`, 2026-11-22. See ADR-0021 and ADR-0053.
 
 > **Language-syntax status.** The lane was re-run on the RFC-LANG-0002 tree
 > ([`architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md))

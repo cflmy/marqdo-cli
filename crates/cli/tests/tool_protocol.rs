@@ -95,7 +95,7 @@ fn write_tool(dir: &Path, command: &str, _script: &str) -> PathBuf {
     std::fs::write(
         &manifest,
         format!(
-            r#"{{"schema":"marqdo.cli-tool","schema_version":1,"name":"demo.{command}","version":"0.1.0","command":"{command}","entrypoint":"{entrypoint}","compatibility":{{"marqdo":">=0.1,<1"}}}}"#
+            r#"{{"schema":"marqdo.cli-tool","schema_version":1,"name":"demo.{command}","version":"0.1.0","command":"{command}","entrypoint":"{entrypoint}","compatibility":{{"marqdo":">=3.0.0-beta.1,<4.0.0"}}}}"#
         ),
     )
     .unwrap();
@@ -142,7 +142,7 @@ fn write_sample_from_source(dir: &Path, command: &str) -> PathBuf {
     std::fs::write(
         &manifest,
         format!(
-            r#"{{"schema":"marqdo.cli-tool","schema_version":1,"name":"demo.{command}","version":"0.1.0","command":"{command}","entrypoint":"{entrypoint}","compatibility":{{"marqdo":">=0.1,<1","analysis":[2],"trace":[2]}}}}"#
+            r#"{{"schema":"marqdo.cli-tool","schema_version":1,"name":"demo.{command}","version":"0.1.0","command":"{command}","entrypoint":"{entrypoint}","compatibility":{{"marqdo":">=3.0.0-beta.1,<4.0.0","analysis":[2],"trace":[2]}}}}"#
         ),
     )
     .unwrap();
@@ -301,7 +301,7 @@ fn invalid_manifests_and_path_escapes_are_rejected() {
 
     let incompatible = std::fs::read_to_string(&manifest)
         .unwrap()
-        .replace(">=0.1,<1", ">=99.0");
+        .replace(">=3.0.0-beta.1,<4.0.0", ">=99.0");
     let incompatible_manifest = dir.path().join("incompatible.json");
     std::fs::write(&incompatible_manifest, incompatible).unwrap();
     let output = cli(
@@ -364,8 +364,8 @@ fn protocol_negotiation_accepts_declared_versions_and_rejects_disjoint_ones() {
         "#!/bin/sh\nprintf 'analysis=%s\\ntrace=%s\\n' \"$MARQDO_PROTOCOL_ANALYSIS\" \"$MARQDO_PROTOCOL_TRACE\"\n",
     );
     let text = std::fs::read_to_string(&manifest).unwrap().replace(
-        "\"marqdo\":\">=0.1,<1\"",
-        "\"marqdo\":\">=0.1,<1\",\"analysis\":[2],\"trace\":[2]",
+        "\"marqdo\":\">=3.0.0-beta.1,<4.0.0\"",
+        "\"marqdo\":\">=3.0.0-beta.1,<4.0.0\",\"analysis\":[2],\"trace\":[2]",
     );
     std::fs::write(&manifest, text).unwrap();
     let install = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
@@ -384,8 +384,8 @@ fn protocol_negotiation_accepts_declared_versions_and_rejects_disjoint_ones() {
         let command = format!("bad-{tag}");
         let manifest = write_tool(dir.path(), &command, "#!/bin/sh\nexit 0\n");
         let text = std::fs::read_to_string(&manifest).unwrap().replace(
-            "\"marqdo\":\">=0.1,<1\"",
-            &format!("\"marqdo\":\">=0.1,<1\",{compat}"),
+            "\"marqdo\":\">=3.0.0-beta.1,<4.0.0\"",
+            &format!("\"marqdo\":\">=3.0.0-beta.1,<4.0.0\",{compat}"),
         );
         std::fs::write(&manifest, text).unwrap();
         let output = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
@@ -448,4 +448,38 @@ fn a_root_record_json_in_the_source_package_is_rejected() {
     let output = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
     assert_eq!(output.status.code(), Some(1));
     assert!(stderr(&output).contains("must not contain a root record.json"));
+}
+
+#[test]
+fn beta_core_requires_an_explicit_prerelease_compatible_range() {
+    let dir = TempDir::new("prerelease-range");
+    let home = dir.path().join("home");
+    let core = env!("CARGO_PKG_VERSION");
+
+    // The shipped example range opt-in must install on this real core.
+    let manifest = write_tool(dir.path(), "prerelease", "#!/bin/sh\nexit 0\n");
+    let install = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
+    assert_eq!(install.status.code(), Some(0), "{}", stderr(&install));
+
+    if core.contains('-') {
+        // SemVer: a stable-only requirement must not silently accept a
+        // prerelease core. The operator has to opt in with a prerelease range.
+        let manifest = write_tool(dir.path(), "stableonly", "#!/bin/sh\nexit 0\n");
+        let text = std::fs::read_to_string(&manifest)
+            .unwrap()
+            .replace(">=3.0.0-beta.1,<4.0.0", ">=3.0.0,<4.0.0");
+        std::fs::write(&manifest, text).unwrap();
+        let output = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
+        assert_eq!(
+            output.status.code(),
+            Some(1),
+            "a stable-only range must reject prerelease core {core}: {}",
+            stderr(&output)
+        );
+        assert!(
+            stderr(&output).contains("requires marqdo"),
+            "{}",
+            stderr(&output)
+        );
+    }
 }

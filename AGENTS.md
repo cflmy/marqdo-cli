@@ -2,13 +2,16 @@
 
 **Start here:** read `docs/architecture/RFC-LANG-0002-unified-semantics.md` — it is the single current language authority — and its normative summary `spec/mapping.md` + `spec/expression.ebnf`. Then read `docs/DEVELOPMENT_BLUEPRINT.md` (architecture baseline; its language-mapping sections are historical), `docs/STATUS.md` (what is actually implemented, including the landed RFC-LANG-0002 migration), the relevant `spec/` files, `docs/adr/` for decisions at their date, `docs/contributor-guide.md`, and `tests/README.md` plus the conformance fixtures. Do not assume any current implementation or legacy Marqdo syntax is authoritative.
 
-For next-phase work, the single authoritative plan is
-`docs/STABLE_RELEASE_IMPLEMENTATION.md` (stable-release gates G-A/G-B/G-C,
-PR order and release checklist). Also read `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`
+For next-phase work, the authoritative release policy for the current
+`3.0.0-beta.1` line is `docs/MARQDO_3_0_PRERELEASE_PLAN.md` (beta gates,
+REL-01..REL-05, version axes, LTS conditions). `docs/STABLE_RELEASE_IMPLEMENTATION.md`
+(stable gates G-A/G-B/G-C) is historical roadmap input for the later stable
+release; it does not override the 3.0 prerelease plan. Also read `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`
 (historical stabilization spec, baseline `0adebe4`), `docs/NEXT_PHASE_IMPLEMENTATION.md`
 (M0.6 plan), `docs/EXTENSIBILITY_AUDIT.md` (E01–E16), `COMPATIBILITY.md` and
-`docs/security-gate.md`. The older plans are historical input: the stable-release
-spec supersedes them on current baseline, gap list, PR order and release gates.
+`docs/security-gate.md`. Older plans are historical input; the 3.0 prerelease plan is authoritative for
+current release decisions, and the stable-release spec applies only when the
+project moves from beta to stable.
 None describes implemented behavior; re-check against HEAD and tests. `strict`
 remains fail-closed until G-C passes.
 

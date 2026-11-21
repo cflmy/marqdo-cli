@@ -9,43 +9,46 @@ control flow. Lists, block quotes and emphasis are document presentation only.
 The official implementation is a Rust workspace; Python/Node are optional
 foreign kernels, never the compiler target.
 
-This repository is the new, independent Marqdo toolchain (M0.5). It is **not**
-a compatibility rewrite of `cflmy/marqdo`; the old syntax, package format and
-plugin ABI v2 are not claimed to work here.
+This repository is the new, independent Marqdo toolchain, now at product
+version **`3.0.0-beta.1`**. It is **not** a compatibility rewrite of
+`cflmy/marqdo`; the old syntax, package format and plugin ABI v2 are not
+claimed to work here. See [docs/developers/](docs/developers/README.md) for the
+third-party entry point and `docs/MARQDO_3_0_PRERELEASE_PLAN.md` for the beta
+release policy.
 
 > **Breaking language revision landed.** The single semantic contract is
 > [RFC-LANG-0002](docs/architecture/RFC-LANG-0002-unified-semantics.md), with
 > normative summaries in [`spec/mapping.md`](spec/mapping.md) and
 > [`spec/expression.ebnf`](spec/expression.ebnf). The frontend, expression
-> parser, stdlib, examples and test corpus all implement it:
-> `cargo test --workspace --locked` is green (507 passed, 0 failed, 2 ignored
-> at `9c1723d`). Old syntax (`**strong**` = execute, `*emph*` = return,
-> `1.` = branch, `-` = loop, `>` = call) is **not** an active language and
+> parser, stdlib, examples and test corpus all implement it; the language
+> migration is closed and old syntax (`**strong**` = execute, `*emph*` =
+> return, `1.` = branch, `-` = loop, `>` = call) is **not** an active language.
 > `marqdo_semantics`/`--legacy` selectors do not exist. See
 > [`docs/STATUS.md`](docs/STATUS.md) and
 > [`docs/migration/README.md`](docs/migration/README.md).
 
-> **Status: stabilization candidate, not released.** The language (RFC-LANG-0002),
-> lock v3, Analysis v2, Trace v2, Tool v1, Plugin ABI v1 (native + worker) and
-> pinned Foreign providers are implemented and covered by tests on Linux. The macOS/Windows `E0433` platform-cfg failure and the Linux
-> strict probe→launch race are fixed in source at `8af7262`, but the native
-> Windows/macOS and GitHub Linux lanes have not been re-run from this checkout.
-> **`strict` OS isolation is available on Linux only when the runtime
-> Bubblewrap probe passes**; it was verified against the full escape/resource
-> matrix in a disposable Ubuntu 26.04 VM at `8af7262` (ADR-0021).
-> macOS/Windows fail closed, strict L2 (Worker/Foreign) is not implemented, and
-> the broker/worker are not a sandbox. The release decision is **DO NOT
-> RELEASE** until the remote gates have same-SHA URLs. See
-> [`docs/STATUS.md`](docs/STATUS.md), [`COMPATIBILITY.md`](COMPATIBILITY.md)
-> and [`docs/security-gate.md`](docs/security-gate.md). The single current CI
-> convergence plan is
-> [`docs/NEXT_RELEASE_CI_CONVERGENCE.md`](docs/NEXT_RELEASE_CI_CONVERGENCE.md)
-> (historical baseline; refresh before use).
+> **Status: `3.0.0-beta.1` prerelease.** The public beta target is **Linux
+> x86_64 (glibc)**; macOS and Windows are experimental and not claimed, and the
+> C ABI plugin/provider paths are Linux-only in this beta. The language
+> (RFC-LANG-0002), lock v4, Analysis v2, Trace v2, Tool v1, Plugin ABI v1
+> (native + worker), pinned Foreign providers and Resource Provider v2 are
+> implemented and covered by tests. **`strict` OS isolation is Linux-only and
+> probe-gated**; unsupported hosts must fail closed, and strict L2
+> (Worker/Foreign/Provider) is not implemented. The broker and worker
+> transports are not sandboxes. The beta release decision, support matrix and
+> remaining gaps are recorded in [`docs/STATUS.md`](docs/STATUS.md),
+> [`COMPATIBILITY.md`](COMPATIBILITY.md),
+> [`docs/developers/release-limits.md`](docs/developers/release-limits.md) and
+> [`docs/releasing.md`](docs/releasing.md). The authoritative release policy is
+> [`docs/MARQDO_3_0_PRERELEASE_PLAN.md`](docs/MARQDO_3_0_PRERELEASE_PLAN.md).
 
-CI: the private remote [git.cflmy.cn/cflmy/marqdo-cli](https://git.cflmy.cn/cflmy/marqdo-cli)
-uses Woodpecker at [ci.cflmy.cn](https://ci.cflmy.cn); [`.woodpecker/main.yml`](.woodpecker/main.yml)
-runs fmt, clippy, workspace tests and a release build. The strict OS-isolation
-lane still requires the disposable VM described in [docs/ci.md](docs/ci.md).
+CI: the source of truth is the Gitea remote
+[git.cflmy.cn/cflmy/marqdo-cli](https://git.cflmy.cn/cflmy/marqdo-cli) with
+Woodpecker at [ci.cflmy.cn](https://ci.cflmy.cn); [`.woodpecker/main.yml`](.woodpecker/main.yml)
+runs fmt, clippy, workspace tests with `--locked`, the Windows cross-target
+compile gate and a release build of both binaries. The strict OS-isolation lane
+requires the disposable VM described in [docs/ci.md](docs/ci.md); a GitHub
+mirror is not used as the authoritative lane for this beta.
 
 ## Build
 
@@ -146,7 +149,7 @@ rules are [`RFC-LANG-0002`](docs/architecture/RFC-LANG-0002-unified-semantics.md
   `{ok:false,code,message}` as an ordinary Map, with a `.mq.md` first-fit
   free-list allocator demonstrating reuse, splitting and `alloc.no_space`
   recovery (ADR-0024). No `Result` type or exception syntax.
-* **Bundled stdlib + print prototype (RFC-CM CM-A07/A10)** — offline
+* **Bundled stdlib + official print aliases (RFC-CM CM-A07/A10)** — offline
   `stdlib/` with explicit `std:io`/`std:format`/`std:text` imports, SHA-256
   digest verification, Analysis identity and a frozen-CLI closure test; the
   `.mq.md` print chain is the only execution path for `打印`/`print` on an official install (ADR-0031),
@@ -184,10 +187,10 @@ rules are [`RFC-LANG-0002`](docs/architecture/RFC-LANG-0002-unified-semantics.md
   output (ADR-0058).
 * **C ABI ResourceProvider v1 (RFC-CM CM-A09)** — trusted native shared
   libraries expose resource open/read/write/close through a frozen header;
-  project + name grant; plugin-Worker binding remains open (ADR-0036).
+  project + name grant; the worker transport binding is implemented (ADR-0036/ADR-0038).
 * **Worker ResourceProvider transport v1 (RFC-CM CM-A09)** — trusted helper
-  process with framed JSON resource operations; project + name grant; C ABI
-  binding remains open (ADR-0035).
+  process with framed JSON resource operations; project + name grant; the C ABI
+  library is loaded by the helper (ADR-0035/ADR-0038).
 * **In-process ResourceProvider v1 (RFC-CM CM-A09 first slice)** — trusted
   providers register extra resource kinds, project-mode + name-grant gated,
   using the existing `resource.*`/`Result` ABI; no parser/runtime/`HostOp`
@@ -204,7 +207,7 @@ rules are [`RFC-LANG-0002`](docs/architecture/RFC-LANG-0002-unified-semantics.md
   `UnitId`/anchors, import cycle detection, multi-module calls,
   `run/call/check/inspect/fmt`, reference validation (`check --refs`) and the
   static link graph (`inspect --refs`).
-* **P3 project** — lock v3 full transitive package-instance graph for path and
+* **P3 project** — lock v4 full transitive package-instance graph for path and
   pinned Git sources, verified content-addressed Git cache, deterministic
   `lock`, strict `sync --locked` with atomic `.marqdo/env` materialization.
   `run`/`call`/`check` never fetch or rewrite the lock.
@@ -231,9 +234,9 @@ rules are [`RFC-LANG-0002`](docs/architecture/RFC-LANG-0002-unified-semantics.md
 Run everything:
 
 ```bash
-cargo test --workspace
+cargo test --workspace --locked
 cargo test -p marqdo-cli        # conformance corpus + CLI contract tests
-cargo fmt --check
+cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
@@ -310,21 +313,30 @@ tests/                        conformance/negative corpus (see tests/README.md)
 * [`docs/DEVELOPMENT_BLUEPRINT.md`](docs/DEVELOPMENT_BLUEPRINT.md) — architecture
   baseline (Chinese); historical sections are marked and the current language
   contract is RFC-LANG-0002, not the blueprint's old mapping.
+* [`docs/MARQDO_3_0_PRERELEASE_PLAN.md`](docs/MARQDO_3_0_PRERELEASE_PLAN.md)
+  — **the authoritative release policy for this line**: beta gates, version
+  axes, support matrix, REL work items and LTS conditions. It is a plan, not
+  evidence.
+* [`docs/developers/README.md`](docs/developers/README.md) — third-party and
+  integrator entry point (libraries, tools, plugins, kernels, providers,
+  Analysis/Trace consumers, compatibility).
+* [`docs/MARQDO_THIRD_PARTY_INTEGRATION_GUIDE.md`](docs/MARQDO_THIRD_PARTY_INTEGRATION_GUIDE.md)
+  — end-to-end third-party integration handbook.
 * [`docs/STABLE_RELEASE_IMPLEMENTATION.md`](docs/STABLE_RELEASE_IMPLEMENTATION.md)
-  — **the single authoritative next-phase plan** for release gates, PR order,
-  Windows/macOS fixes and the release checklist; it is a plan, not evidence.
+  — historical stable-release roadmap input (its own header marks it Proposed
+  and superseded by the 3.0 prerelease plan for current decisions).
 * [`COMPATIBILITY.md`](COMPATIBILITY.md) — protocol versions, per-platform
   feature evidence, the breaking language change and unsupported features.
-* [`CHANGELOG.md`](CHANGELOG.md) — unreleased stabilization changes and the
-  `0.1.0` baseline, including the syntax breaking change.
+* [`CHANGELOG.md`](CHANGELOG.md) — `3.0.0-beta.1` release notes plus the
+  historical `0.1.0` baseline, including the syntax breaking change.
 * [`docs/security-gate.md`](docs/security-gate.md) — G-C evidence and limits;
   [`docs/security-vm.md`](docs/security-vm.md) reproduces the disposable VM and
   the self-hosted security runner.
 * [`docs/releasing.md`](docs/releasing.md) — artifact, checksum, clean-install
   smoke, tagging and rollback procedure.
 * [`docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`](docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md)
-  — historical stabilization spec (baseline `0adebe4`), superseded on current
-  priorities by the stable-release plan.
+  — historical stabilization spec (baseline `0adebe4`), superseded by the
+  3.0 prerelease plan for current release decisions.
 * [`docs/NEXT_PHASE_IMPLEMENTATION.md`](docs/NEXT_PHASE_IMPLEMENTATION.md) —
   historical M0.6 plan.
 * [`docs/EXTENSIBILITY_AUDIT.md`](docs/EXTENSIBILITY_AUDIT.md) — source-backed
@@ -407,7 +419,7 @@ marqdo run plugin/demo.mq.md \
 marqdo run kernel/demo.mq.md \
   --kernel kernel/build/kernel.json --allow-foreign
 
-# 4. Resource provider v2 (see the next section)
+# 4. Resource provider v2 (examples/provider-demo/build.sh first; see below)
 marqdo run provider/demo.mq.md \
   --provider provider/build/provider.json --allow-provider demo.sensor
 
