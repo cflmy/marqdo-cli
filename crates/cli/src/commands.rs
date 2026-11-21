@@ -24,6 +24,8 @@ pub struct SandboxSettings {
     pub allow_write: Vec<String>,
     /// Network grants (IP literals, ADR-0034).
     pub allow_net: Vec<String>,
+    /// Environment variable grants (ADR-0043).
+    pub allow_env: Vec<String>,
     /// Foreign execution grant.
     pub allow_foreign: bool,
     /// Plugin grants.
@@ -74,6 +76,7 @@ impl SandboxSettings {
             || !self.allow_read.is_empty()
             || !self.allow_net.is_empty()
             || !self.allow_write.is_empty()
+            || !self.allow_env.is_empty()
             || !self.allow_plugin.is_empty()
             || !self.plugins.is_empty()
             || self.trust_native_plugin
@@ -82,8 +85,8 @@ impl SandboxSettings {
         if requested {
             return Err(
                 "strict mode currently supports pure Marqdo and native Math only; \
-                 --allow-read/--allow-write/--allow-foreign/--allow-plugin/--plugin/\
-                 --trust-native-plugin/--kernel/--trace-file are rejected. Use \
+                 --allow-read/--allow-write/--allow-env/--allow-foreign/--allow-plugin/\
+                 --plugin/--trust-native-plugin/--kernel/--trace-file are rejected. Use \
                  --mode project for those capabilities."
                     .to_string(),
             );
@@ -99,6 +102,7 @@ impl SandboxSettings {
                 if !self.allow_read.is_empty()
                     || !self.allow_net.is_empty()
                     || !self.allow_write.is_empty()
+                    || !self.allow_env.is_empty()
                     || self.allow_foreign
                     || !self.allow_plugin.is_empty()
                 {
@@ -118,6 +122,9 @@ impl SandboxSettings {
                 }
                 for host in &self.allow_net {
                     capabilities = capabilities.allow_net(host.clone());
+                }
+                for name in &self.allow_env {
+                    capabilities = capabilities.allow_env(name.clone());
                 }
                 if self.allow_foreign {
                     capabilities = capabilities.allow_foreign();

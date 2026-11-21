@@ -15,6 +15,7 @@ module; a mismatch is a hard error.
 - `data/json.mq.md` — recursive JSON parser and formatter (recoverable Result)
 - `data/csv.mq.md` — quoted single-row CSV parser and formatter
 - `data/table.mq.md` — value-returning table select/filter/sort/append/set/join/group/GFM
+- `env.mq.md` — explicitly granted `env.get` names over `resource.request`
 - `datetime.mq.md` — UTC ISO-8601 format/parse over Unix milliseconds (pure)
 - `clock.mq.md` — project-mode `clock.now` over `resource.request`
 - `path.mq.md` — lexical join/basename/dirname/extension/normalize (no I/O)

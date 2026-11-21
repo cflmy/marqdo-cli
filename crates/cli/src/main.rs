@@ -92,6 +92,9 @@ struct SandboxArgs {
     /// Grant write access to a project-relative glob (repeatable).
     #[arg(long = "allow-write", value_name = "GLOB")]
     allow_write: Vec<String>,
+    /// Grant read access to an environment variable (repeatable, ADR-0043).
+    #[arg(long = "allow-env", value_name = "NAME")]
+    allow_env: Vec<String>,
     /// Grant explicit foreign kernel execution.
     #[arg(long = "allow-foreign")]
     allow_foreign: bool,
@@ -143,6 +146,7 @@ impl SandboxArgs {
             allow_read: self.allow_read.clone(),
             allow_net: self.allow_net.clone(),
             allow_write: self.allow_write.clone(),
+            allow_env: self.allow_env.clone(),
             allow_foreign: self.allow_foreign,
             allow_plugin: self.allow_plugin.clone(),
             fuel: self.fuel,

@@ -641,3 +641,44 @@ fn clock_now_is_project_only_and_returns_unix_millis() {
         .unwrap_err();
     assert_eq!(error.category, ErrorCategory::Arity);
 }
+
+#[test]
+fn env_get_requires_an_exact_grant_and_reports_missing_names() {
+    let dir = tempfile::tempdir().unwrap();
+    let ctx = context();
+    let mut denied = StdHost::new(SandboxMode::Project, Capabilities::project(), dir.path());
+    let error = denied
+        .resource_request("env.get", vec![Value::text("PATH")], &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+
+    let mut pure = StdHost::new(SandboxMode::Pure, Capabilities::pure(), dir.path());
+    let error = pure
+        .resource_request("env.get", vec![Value::text("PATH")], &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+
+    let capabilities = Capabilities::project()
+        .allow_env("PATH")
+        .allow_env("MARQDO_TEST_MISSING_ENV");
+    let mut host = StdHost::new(SandboxMode::Project, capabilities, dir.path());
+    let present = host
+        .resource_request("env.get", vec![Value::text("PATH")], &ctx)
+        .unwrap();
+    assert_eq!(field(&present, "ok"), &Value::Bool(true));
+
+    let missing = host
+        .resource_request(
+            "env.get",
+            vec![Value::text("MARQDO_TEST_MISSING_ENV")],
+            &ctx,
+        )
+        .unwrap();
+    assert_eq!(field(&missing, "ok"), &Value::Bool(false));
+    assert_eq!(field(&missing, "code"), &Value::text("env.not_found"));
+
+    let error = host
+        .resource_request("env.get", Vec::new(), &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::Arity);
+}

@@ -27,8 +27,8 @@ Normative implementation:
 | Mode | Intended guarantee | Actual status in this build |
 |---|---|---|
 | `pure` | No external I/O; memory computation and budgets only. | **Enforced.** `Capabilities::pure()` = `console`, `math` only; every FS/foreign/plugin grant flag makes the CLI exit 2 with "pure mode prohibits external I/O grants". |
-| `project` | Operator-approved project resources under `CapabilityHost` + bounded resources. | **Enforced for the implemented operations.** Defaults equal `pure`; `--allow-read`, `--allow-write`, `--allow-foreign`, `--allow-plugin` add grants. `resource.open` supports stdin read, separate stdout/stderr write, granted project-file read/write (ADR-0025/0026/0040), granted in-process provider kinds (ADR-0033) and granted IP-literal TCP streams (ADR-0034); process/device remain unsupported. Sandboxing is cooperative (in-process checks), not OS isolation; in-process providers are trusted, not sandboxed. |
-| `strict` | Untrusted documents under real OS isolation. | **Linux: enforced when the runtime probe passes (ADR-0021).** `resource.open` is **refused** in strict except for the existing `stdio/stdout` console channel (console grant); stdin/stderr, file/TCP/provider/process resources remain refused until a provider passes the isolation lane (CM-A11, ADR-0030/0034/0040). `PlatformCapabilities::detect()` runs a real Bubblewrap smoke test; success reports `Available { mechanism }`, failure reports `Unavailable { reason }`. Strict L1 supports the interpreter, console, native Math and the read-only bundled stdlib (published at `/run/marqdo-stdlib` for the Compat-C print chain); `--allow-read/--allow-write/--allow-foreign/--allow-plugin/--plugin/--trust-native-plugin/--kernel/--trace-file` are rejected with exit 2. macOS/Windows and Linux hosts without the mechanisms remain `Unavailable`; there is **no fallback** to an unrestricted process. |
+| `project` | Operator-approved project resources under `CapabilityHost` + bounded resources. | **Enforced for the implemented operations.** Defaults equal `pure`; `--allow-read`, `--allow-write`, `--allow-net`, `--allow-env`, `--allow-foreign`, `--allow-plugin` add grants. `resource.open` supports stdin read, separate stdout/stderr write, granted project-file read/write (ADR-0025/0026/0040), granted in-process provider kinds (ADR-0033) and granted IP-literal TCP streams (ADR-0034); process/device remain unsupported. Sandboxing is cooperative (in-process checks), not OS isolation; in-process providers are trusted, not sandboxed. |
+| `strict` | Untrusted documents under real OS isolation. | **Linux: enforced when the runtime probe passes (ADR-0021).** `resource.open` is **refused** in strict except for the existing `stdio/stdout` console channel (console grant); stdin/stderr, file/TCP/provider/process resources remain refused until a provider passes the isolation lane (CM-A11, ADR-0030/0034/0040). `PlatformCapabilities::detect()` runs a real Bubblewrap smoke test; success reports `Available { mechanism }`, failure reports `Unavailable { reason }`. Strict L1 supports the interpreter, console, native Math and the read-only bundled stdlib (published at `/run/marqdo-stdlib` for the Compat-C print chain); `--allow-read/--allow-write/--allow-net/--allow-env/--allow-foreign/--allow-plugin/--plugin/--trust-native-plugin/--kernel/--trace-file` are rejected with exit 2. macOS/Windows and Linux hosts without the mechanisms remain `Unavailable`; there is **no fallback** to an unrestricted process. |
 
 `marqdo inspect <file> --platform` prints the detection report, for example:
 
@@ -60,6 +60,7 @@ set for one run:
 | `fs_read: Vec<String>` | empty | `fs.read` and project `resource.open("file", path, ["read"])` |
 | `fs_write: Vec<String>` | empty | `fs.write` and project `resource.open("file", path, ["write"])` |
 | `net_hosts: Vec<String>` | empty | exact IP-literal grants for `resource.open("tcp", "<ip>:<port>", ["read","write"])`; DNS is not resolved; `--allow-net <IP>` adds a grant (ADR-0034) |
+| `env: Vec<String>` | empty | exact-name grants for `resource.request("env.get", [name])`; no glob and no `env.list`; `--allow-env <NAME>` adds a grant (ADR-0043) |
 | `process: bool` | `false` | required together with `foreign` for `foreign.run`/`foreign.call` |
 | `foreign: bool` | `false` | foreign kernels |
 | `plugins: Vec<String>` | empty | `plugin.invoke` and `StdHost::load_plugin` |
@@ -76,13 +77,17 @@ Requests versus grants:
 * CLI grant flags (`crates/cli/src/main.rs::SandboxArgs`):
   * `--allow-read <GLOB>` and `--allow-write <GLOB>` (repeatable, project mode
     only);
+  * `--allow-net <IP>` (repeatable, exact IP literal, project mode only,
+    ADR-0034);
+  * `--allow-env <NAME>` (repeatable, exact environment variable name, project
+    mode only, ADR-0043);
   * `--allow-foreign` (project mode only; sets `foreign = true` and
     `process = true`);
   * `--allow-plugin <PACKAGE-NAME>` (repeatable, project mode only; matches the
     manifest `plugin.name`, not the call namespace);
   * `--plugin <PATH>` (repeatable, loads a plugin after the trust check);
   * `--trust-native-plugin` (explicit in-process native trust decision).
-* There is no network grant flag and no plugin-worker flag in this build.
+* There is no plugin-worker flag in this build. Network and environment grants are exact and project-mode only.
 
 ### 2.1 Filesystem grants are project-relative globs
 
@@ -117,6 +122,9 @@ before reading. Full symlink/race hardening is an open P4 item.
 `HostOp` and the checks run immediately before the effect:
 
 * `fs.read` → `capabilities.check_read(path)` then `ProjectFs::read`;
+* `resource.request("fs.*")` → `check_read`/`check_write` before path resolution;
+* `resource.request("env.get")` → `capabilities.check_env(name)` before
+  `std::env::var`;
 * `fs.write` → `check_write` then `ProjectFs::write`;
 * math ops → `capabilities.math` (in `crates/marqdo-host/src/kernels.rs`);
 * foreign ops → `capabilities.check_foreign` (requires `foreign && process`);

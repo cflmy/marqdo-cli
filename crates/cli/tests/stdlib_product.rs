@@ -38,6 +38,7 @@ struct TestFile {
     stdin: &'static str,
     stdout: &'static str,
     args: &'static [&'static str],
+    env: &'static [(&'static str, &'static str)],
 }
 
 fn product_tests() -> Vec<TestFile> {
@@ -52,6 +53,7 @@ fn product_tests() -> Vec<TestFile> {
                     stdin: "",
                     stdout: "",
                     args: &[],
+                    env: &[],
                 };
             }
             let name = path.file_name().unwrap().to_string_lossy().to_string();
@@ -72,6 +74,18 @@ fn product_tests() -> Vec<TestFile> {
                     "--allow-write",
                     "out/**",
                 ][..]
+            } else if name == "env.mq.md" {
+                &[
+                    "--allow-env",
+                    "MARQDO_TEST_ENV",
+                    "--allow-env",
+                    "MARQDO_MISSING_ENV",
+                ][..]
+            } else {
+                &[][..]
+            };
+            let env = if name == "env.mq.md" {
+                &[("MARQDO_TEST_ENV", "env-value")][..]
             } else {
                 &[][..]
             };
@@ -80,6 +94,7 @@ fn product_tests() -> Vec<TestFile> {
                 stdin,
                 stdout,
                 args,
+                env,
             }
         })
         .filter(|file| !file.name.is_empty())
@@ -99,6 +114,7 @@ fn run_product_test(file: &TestFile) -> serde_json::Value {
         .args(["--json"])
         .current_dir(stdlib_dir())
         .env("MARQDO_STDLIB_DIR", stdlib_dir())
+        .envs(file.env.iter().copied())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -132,6 +148,7 @@ fn every_public_stdlib_module_has_a_product_test() {
             "csv.mq.md",
             "datetime.mq.md",
             "demo.mq.md",
+            "env.mq.md",
             "format.mq.md",
             "fs.mq.md",
             "http.mq.md",
@@ -308,6 +325,23 @@ fn clock_test_reports_project_mode_unix_millis() {
     assert_eq!(items[0]["value"], true);
     assert_eq!(items[1]["value"], "Int");
     assert_eq!(items[2]["value"], true);
+}
+
+#[test]
+fn env_test_reads_only_granted_names() {
+    let report = run_product_test(
+        product_tests()
+            .iter()
+            .find(|file| file.name == "env.mq.md")
+            .expect("env test"),
+    );
+    let items = report["value"]["items"].as_array().expect("list");
+    assert_eq!(items[0]["value"], true);
+    assert_eq!(items[1]["value"], true);
+    assert_eq!(items[2]["value"], true);
+    assert_eq!(items[3]["value"], "env-value");
+    assert_eq!(items[4]["value"], false);
+    assert_eq!(items[5]["value"], "env.not_found");
 }
 
 #[test]

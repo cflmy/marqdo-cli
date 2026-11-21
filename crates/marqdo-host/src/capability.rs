@@ -317,6 +317,8 @@ pub struct Capabilities {
     pub fs_write: Vec<String>,
     /// Allowed network hosts (empty = no network).
     pub net_hosts: Vec<String>,
+    /// Allowed environment variable names (empty = no environment).
+    pub env: Vec<String>,
     /// May spawn processes (foreign kernels).
     pub process: bool,
     /// May run foreign kernels (Python/Node).
@@ -336,6 +338,7 @@ impl Capabilities {
             fs_read: Vec::new(),
             fs_write: Vec::new(),
             net_hosts: Vec::new(),
+            env: Vec::new(),
             process: false,
             foreign: false,
             plugins: Vec::new(),
@@ -359,6 +362,25 @@ impl Capabilities {
     pub fn allow_write(mut self, pattern: impl Into<String>) -> Self {
         self.fs_write.push(pattern.into());
         self
+    }
+
+    /// Grant read access to one environment variable name (ADR-0043).
+    pub fn allow_env(mut self, name: impl Into<String>) -> Self {
+        self.env.push(name.into());
+        self
+    }
+
+    /// Check an environment variable grant. Names are exact, not globs.
+    pub fn check_env(&self, name: &str, span: Option<Span>) -> Result<(), RuntimeError> {
+        if self.env.iter().any(|allowed| allowed == name) {
+            Ok(())
+        } else {
+            Err(denied(
+                span,
+                format!("environment variable `{name}` was not granted"),
+                format!("grant it with --allow-env {name}"),
+            ))
+        }
     }
 
     /// Grant foreign kernel execution.

@@ -1127,6 +1127,58 @@ impl Host for StdHost {
                 "resource operations accept only Text path arguments",
             ));
         }
+        if operation == "env.get" {
+            if args.len() != 1 {
+                return Err(RuntimeError::new(
+                    ErrorCategory::Arity,
+                    ctx.span,
+                    format!(
+                        "resource operation `env.get` expects 1 argument, got {}",
+                        args.len()
+                    ),
+                ));
+            }
+            let value_type = args[0].type_name();
+            let Value::Text(name) = args[0].clone() else {
+                return Err(RuntimeError::type_error(
+                    ctx.span,
+                    format!("resource operation `env.get` expects a Text name, got {value_type}"),
+                ));
+            };
+            self.capabilities.check_env(&name, ctx.span)?;
+            let mut map = BTreeMap::new();
+            match std::env::var(&name) {
+                Ok(value) => {
+                    map.insert("ok".to_string(), Value::Bool(true));
+                    map.insert("value".to_string(), Value::text(value));
+                }
+                Err(std::env::VarError::NotPresent) => {
+                    map.insert("ok".to_string(), Value::Bool(false));
+                    map.insert("code".to_string(), Value::text("env.not_found"));
+                    map.insert(
+                        "message".to_string(),
+                        Value::text(format!("environment variable `{name}` is not set")),
+                    );
+                }
+                Err(std::env::VarError::NotUnicode(_)) => {
+                    map.insert("ok".to_string(), Value::Bool(false));
+                    map.insert("code".to_string(), Value::text("env.not_unicode"));
+                    map.insert(
+                        "message".to_string(),
+                        Value::text(format!("environment variable `{name}` is not valid UTF-8")),
+                    );
+                }
+            }
+            self.record_semantic(
+                "resource.request",
+                None,
+                Some(&ctx.module_id),
+                ctx.span,
+                Some("op=env.get"),
+            );
+            self.record_resource_effect("resource.request", ctx, started, "env.get");
+            return Ok(Value::Map(map));
+        }
         if operation == "clock.now" {
             if !args.is_empty() {
                 return Err(RuntimeError::new(

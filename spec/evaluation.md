@@ -206,6 +206,7 @@ resource.request("fs.mkdir",    [path])        -> {ok:true, value:None}
 resource.request("fs.remove",   [path])        -> {ok:true, value:None}
 resource.request("fs.rename",   [from, to])    -> {ok:true, value:None}
 resource.request("clock.now",   [])             -> {ok:true, value:UnixMillis}
+resource.request("env.get",     [name])         -> {ok:true, value:Text}
 ```
 
 * Arguments are `Text` paths only. `Memory`/`Resource` values are rejected.
@@ -227,6 +228,9 @@ resource.request("clock.now",   [])             -> {ok:true, value:UnixMillis}
 * `clock.now` takes no arguments and returns UTC Unix milliseconds. It is
   project-mode only like `fs.*`; a clock before the epoch is fatal host error
   (ADR-0042).
+* `env.get` takes one exact variable name and requires an `--allow-env NAME`
+  grant; un-granted names are `permission.denied`, missing names are recoverable
+  `env.not_found` and non-UTF-8 values are `env.not_unicode` (ADR-0043).
 
 ## 4. Errors
 
@@ -322,7 +326,7 @@ host boundary. Names are stable; adding one requires a spec update.
 | `resource.read` | `(handle, memory: Memory, offset: Int, max_bytes: Int) -> Result` | bounded chunk read into Memory; `{count,eof}` |
 | `resource.write` | `(handle, memory: Memory, offset: Int, length: Int) -> Result` | bounded byte write; `{count}` |
 | `resource.close` | `(handle) -> Result` | releases the host slot |
-| `resource.request` | `(operation: Text, arguments: List) -> Result` | non-streaming `fs.*` operations (ADR-0041) and `clock.now` (ADR-0042); project-mode and grant-checked |
+| `resource.request` | `(operation: Text, arguments: List) -> Result` | non-streaming `fs.*` operations (ADR-0041) `clock.now` (ADR-0042) and `env.get` (ADR-0043); project-mode and grant-checked |
 | `math.parse/eval/substitute` | see `spec/math.md` | P5; `math.simplify`/`math.differentiate` are declared but return `math.unsupported` in this build |
 | `foreign.run/call` | see `spec/foreign.md` | P5, capability-gated |
 | `fs.read/write` | see `spec/security.md` | capability-gated |
