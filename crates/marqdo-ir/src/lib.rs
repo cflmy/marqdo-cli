@@ -17,6 +17,7 @@ use marqdo_span::Span;
 use serde::{Deserialize, Serialize};
 
 pub mod builtins;
+pub mod call_binding;
 pub mod callable;
 
 /// Canonical logical identity of a module: package instance plus a path
@@ -476,10 +477,13 @@ pub struct Program {
     /// metadata only: `check` never loads a library.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub external_callables: Vec<callable::CallableDescriptor>,
-    /// Compat-B/C `打印`/`print` destination (ADR-0030/0031). When set, the
-    /// runtime calls this stdlib function; there is no legacy HostOp path.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub print_override: Option<FunctionId>,
+    /// Resolved static call bindings (RFC-EXT-0001 §4.2, ADR-0054).
+    ///
+    /// Internal IR: deliberately skipped on the wire so Analysis/Trace v2
+    /// consumers are unaffected. A prepared program always carries a complete
+    /// table; the runtime never re-resolves names.
+    #[serde(skip)]
+    pub call_bindings: call_binding::CallBindingTable,
 }
 
 impl Program {
@@ -516,6 +520,19 @@ impl Program {
     /// Build the unified callable registry for this program.
     pub fn callable_registry(&self) -> callable::CallableRegistry {
         callable::CallableRegistry::from_program(self)
+    }
+
+    /// Resolved static call binding for one call site, if any.
+    pub fn call_binding(
+        &self,
+        key: &call_binding::CallSiteKey,
+    ) -> Option<&call_binding::BoundTarget> {
+        self.call_bindings.get(key)
+    }
+
+    /// Install the prepared binding table.
+    pub fn set_call_bindings(&mut self, bindings: call_binding::CallBindingTable) {
+        self.call_bindings = bindings;
     }
 }
 

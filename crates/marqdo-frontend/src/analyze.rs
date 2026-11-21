@@ -39,7 +39,30 @@ impl AnalysisResult {
 /// Analyze one Markdown source as a Marqdo module.
 ///
 /// `module_id` is the canonical project-relative identity (e.g. `index.mq.md`).
+///
+/// This standalone entry point also runs the module-local call check so that a
+/// single document can be validated without a program graph. The CLI
+/// composition root uses [`analyze_source_for_program`] instead: it defers all
+/// call resolution to the single program-wide binding pass (ADR-0054).
 pub fn analyze_source(module_id: &str, source: &str) -> AnalysisResult {
+    analyze_source_inner(module_id, source, true)
+}
+
+/// Analyze one Markdown source for the composition root.
+///
+/// Identical to [`analyze_source`] except that it does not run the provisional
+/// module-local call check; the caller binds calls exactly once over the whole
+/// program (including extension descriptors) and therefore owns the only
+/// authoritative call diagnostics.
+pub fn analyze_source_for_program(module_id: &str, source: &str) -> AnalysisResult {
+    analyze_source_inner(module_id, source, false)
+}
+
+fn analyze_source_inner(
+    module_id: &str,
+    source: &str,
+    validate_local_calls: bool,
+) -> AnalysisResult {
     let id = ModuleId::from(module_id);
     let document = marqdo_markdown::parse(source);
     let units = units::build_units(&document, &id);
@@ -161,7 +184,9 @@ pub fn analyze_source(module_id: &str, source: &str) -> AnalysisResult {
         resources,
         anchors: units.anchors.clone(),
     };
-    diagnostics.extend(calls::validate_module(&module));
+    if validate_local_calls {
+        diagnostics.extend(calls::validate_module(&module));
+    }
 
     // One stable order for every consumer: source position first, then the
     // stable code, as required by `spec/mapping.md` §8. Diagnostics without a

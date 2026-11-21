@@ -20,10 +20,11 @@ pub struct InspectFlags {
 }
 
 pub fn inspect(file: Option<&Path>, flags: &InspectFlags, json: bool) -> i32 {
-    let project = match load_project(file, json) {
-        Ok(project) => project,
+    let prepared = match prepare_project(file, json, &[]) {
+        Ok(prepared) => prepared,
         Err(code) => return code,
     };
+    let project = prepared.loaded;
     let entry = project.entry_file();
     let module = &entry.analysis.module;
     let selected_any =

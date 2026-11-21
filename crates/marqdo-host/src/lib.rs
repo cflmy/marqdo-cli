@@ -19,7 +19,10 @@ pub mod resource;
 pub mod trace;
 
 pub use budget::{Budget, DEFAULT_FUEL, DEFAULT_OUTPUT_BYTES, DEFAULT_STACK_LIMIT};
-pub use capability::Capabilities;
+pub use capability::{
+    Capabilities, CapabilityAudit, CapabilityBroker, CapabilityHandler, CapabilityRequest,
+    FsReadHandler, CORE_CAPABILITIES, RESERVED_HANDLER_PREFIXES,
+};
 pub use context::ExecutionContext;
 pub use fs::ProjectFs;
 pub use handles::{contains_plugin_handle, PluginHandleTable};

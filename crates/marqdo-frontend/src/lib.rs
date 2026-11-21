@@ -14,5 +14,5 @@ pub mod resources;
 pub mod signature;
 pub mod units;
 
-pub use analyze::{analyze_source, AnalysisResult};
+pub use analyze::{analyze_source, analyze_source_for_program, AnalysisResult};
 pub use units::{build_units, github_slug, FunctionScope, HeadingInfo, UnitIndex};

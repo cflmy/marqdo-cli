@@ -7,8 +7,11 @@
 mod analysis;
 mod args;
 mod commands;
+mod extension_descriptors;
 mod loader;
 mod output;
+mod project_prepare;
+mod provider_manifest;
 mod stdlib;
 mod tool;
 mod trace;
@@ -128,6 +131,16 @@ struct SandboxArgs {
     /// Explicitly trusted plugin manifest/directory to load (repeatable).
     #[arg(long = "plugin", value_name = "PATH")]
     plugin: Vec<PathBuf>,
+    /// Explicitly selected resource provider v2 manifest (repeatable).
+    ///
+    /// Selecting a provider never authorizes it; `--allow-provider NAME` is
+    /// required as well. `check`/`inspect` do not load providers.
+    #[arg(long = "provider", value_name = "PATH")]
+    provider: Vec<PathBuf>,
+    /// Grant one selected resource provider by its exact manifest name
+    /// (repeatable; wildcards are not supported).
+    #[arg(long = "allow-provider", value_name = "NAME")]
+    allow_provider: Vec<String>,
     /// Write a versioned Trace v2 file for this run.
     #[arg(long = "trace-file", value_name = "PATH")]
     trace_file: Option<PathBuf>,
@@ -164,6 +177,8 @@ impl SandboxArgs {
             max_region_memory: self.max_region_memory,
             timeout: self.timeout,
             plugins: self.plugin.clone(),
+            providers: self.provider.clone(),
+            allow_provider: self.allow_provider.clone(),
             trust_native_plugin: self.trust_native_plugin,
             trace_file: self.trace_file.clone(),
             trace_max_events: self.trace_max_events,

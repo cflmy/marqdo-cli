@@ -1,5 +1,20 @@
 {
   "name": "marqdo-stdlib",
   "version": "0.1.0",
-  "digest": "sha256:b94f1a48ca6619689584aca3af7befac64ac9fdb7ea7c0a9ccb491df8df226b8"
+  "digest": "sha256:5407d3665ba2fe105820d0f1af5efaafa10c277a69eb819c3225719813c8c713",
+  "public_aliases": [
+    {
+      "public_names": [
+        "print",
+        "打印"
+      ],
+      "target_module": "io.mq.md",
+      "target_function": "写值",
+      "expected_signature": "params(值)",
+      "effects": [
+        "host"
+      ]
+    }
+  ],
+  "aliases_digest": "sha256:5f513c0fdbb3c1e9829be3c9fa23a2d1e89cb8510073fb5eb1e8e2f5265a83bb"
 }

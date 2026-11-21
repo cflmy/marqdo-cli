@@ -395,6 +395,14 @@ fn narration_removal_preserves_execution() {
         let mut program = marqdo_ir::Program::default();
         program.insert(analysis.module.clone());
         program.main_module = Some(module_id.clone());
+        let registry = program.callable_registry();
+        let bound = marqdo_frontend::calls::bind_program_calls(&program, &registry);
+        assert!(
+            bound.diagnostics.is_empty(),
+            "property fixture failed binding: {:#?}",
+            bound.diagnostics
+        );
+        program.set_call_bindings(bound.bindings);
         let mut host = StdHost::new(
             SandboxMode::Project,
             Capabilities::pure(),

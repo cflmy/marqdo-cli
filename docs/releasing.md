@@ -129,3 +129,33 @@ self-hosted G-C URL. See
   delete the failing test.
 - If the security gate regresses: set strict back to `Unavailable`, publish a
   security note, and do not claim isolation until the lane is green again.
+
+## 7. Extension-ecosystem gate (RFC-EXT-0001)
+
+Before a tag, in addition to §3 and §4:
+
+1. `cargo build --release --locked -p marqdo-cli` and build
+   `-p marqdo-provider-worker`; ship both binaries in the release archive for
+   the same target. A provider request without the sibling helper must fail
+   with `ext.worker_unavailable` — never fall back to `PATH`.
+2. Run the external frozen-binary suite from
+   `https://git.cflmy.cn/cflmy/marqdo-extension-conformance` against the exact
+   release binaries and generate
+   `docs/evidence/extension/<40-hex-source-SHA>/manifest.json` with
+   `tools/ci/verify_extension_contracts.py`. The manifest must validate against
+   `docs/evidence/extension/schema.json`, its `tested_sha` must equal the
+   tagged commit, and every mandatory result must be `PASS` on the claimed
+   platform. `UNSUPPORTED` is allowed only for a platform explicitly excluded
+   from the support matrix in `COMPATIBILITY.md`.
+3. `check`/`run`/`inspect`/Analysis share one prepared call binding
+   (`spec/callable-resolution.md`); `check` never loads an extension binary;
+   plugin exports reconcile exactly with static manifests; official stdlib
+   aliases are verified metadata with byte-identical print output.
+4. Existing gates remain mandatory and unchanged: G3 strict isolation evidence,
+   G4 measured performance on the fixed node, native platform lanes, schema
+   consumers and `tools/ci/release_evidence.py`. The extension evidence is an
+   additional gate; it never substitutes for them, and local/container smoke is
+   not a release claim.
+5. If any extension gate is missing or mismatched, the release decision is
+   **DO NOT RELEASE**. Tagging and asset publication still require explicit
+   owner approval.

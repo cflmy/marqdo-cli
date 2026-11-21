@@ -459,3 +459,33 @@ when no C compiler is available.
 | Positional plugin arguments | Not supported; named only. |
 | Thread-safe / concurrent invocation | Not supported (single-threaded v1 contract). |
 | Old `marqdo_abi.h` v2 compatibility | Not implemented and not claimed; a separate adapter would be required. |
+
+## 12. Static descriptor / run-time reconciliation (RFC-EXT-0001 §4.5)
+
+The CLI never derives a callable signature from a loaded library. The
+**manifest is the static contract** and the runtime is checked against it:
+
+1. `check --plugin <manifest>` reads and validates the manifest, including every
+   export name and signature; it does not load the artifact and does not need
+   the artifact file to exist.
+2. `run`/`call` first verifies the selected artifact path, host target and
+   SHA-256, then checks the plugin grant, then loads exactly the selected
+   artifacts.
+3. After loading, the Host's actual exports are compared one-to-one with the
+   static descriptors: complete name, raw signature string, owner package and
+   verified artifact digest. Extra, missing, renamed or differently-signed
+   exports fail with `ext.plugin_binding_mismatch` before the entry function
+   runs.
+4. The binding pass validates call arguments against the manifest signature.
+   ABI v1 transports a named map, so positional arguments are statically
+   validated and deterministically normalised to manifest order
+   (`solver.add(1, b=2)` → `{a:1,b:2}`). Unknown, duplicate, missing or excess
+   arguments are `call.arity` before any process is started.
+5. Manifest signatures with default values are rejected in ABI v1 until the
+   default-value wire semantics are versioned. The host never injects a default.
+6. Duplicate complete export names across selected packages, or exports that
+   shadow a builtin/official name, are `ext.duplicate_callable` at prepare.
+   Selection order never decides which declaration wins.
+
+None of this changes ABI v1's C layout or wire format; it closes the static
+side of the contract described by `spec/callable-resolution.md`.

@@ -15,6 +15,15 @@ replace `spec/` or a recorded test log.
 > bundled `stdlib/` implement it. The workspace gate is green at `9c1723d`;
 > rollout evidence and historical banners are indexed in
 > [`../migration/README.md`](../migration/README.md).
+>
+> **Extensibility closure (RFC-EXT-0001).** The current tree implements the
+> single static callable binding (ADR-0054), official stdlib public aliases
+> replacing print magic (ADR-0058), third-party resource providers through the
+> normal CLI (ADR-0055), and the capability-handler registry (ADR-0057). The
+> extension selection/lock v4 composition and the frozen external-binary
+> evidence are tracked as remaining PR-04/PR-08 work, not claimed here. The
+> normative resolution contract is
+> [`spec/callable-resolution.md`](../../spec/callable-resolution.md).
 
 ## 1. Four state dimensions
 
@@ -25,7 +34,7 @@ platform".
 | Dimension | Current state | Source |
 |---|---|---|
 | Implemented | Rust workspace `0.1.0`: RFC-LANG-0002 Markdown/frontend/IR, v2 statement parser, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, migrated bundled stdlib, CLI composition root | `Cargo.toml`, `crates/`, `stdlib/` |
-| Tested locally | `cargo test --workspace --locked`: **507 passed, 0 failed, 2 ignored** on Linux x86_64 at the baseline; fmt and clippy clean | `docs/STATUS.md` §0, `docs/evidence/2026-11-21-semantics-v2-green.md` |
+| Tested locally | `cargo test --workspace --locked`: **584 passed, 0 failed** across 66 targets on Linux x86_64 in the RFC-EXT-0001 tree; fmt and clippy clean. Historical baseline: 507 passed at `9c1723d`. | `docs/STATUS.md`, `docs/evidence/2026-11-22-ext-implementation.md` |
 | Bundled stdlib released | In-repo bundle `marqdo-stdlib@0.1.0`, SHA-256 digest verified before loading; it is **not** an external registry package | `stdlib/stdlib.json`, `stdlib/README.md` |
 | Multi-platform verified | Linux local gate is the only executed lane here; Windows/macOS native lanes are **UNVERIFIED**, and the GitHub security lane remains a **VM-only** gate | `docs/STATUS.md` §1, §4 |
 
@@ -53,6 +62,12 @@ OS / external services / devices
 
 CLI is only the composition root: parse arguments, load the project,
 assemble Host + Runtime, route output, exit with a status.
+`project_prepare::prepare` is the single finalisation step: it loads sources,
+reads static extension descriptors (never `dlopen`/spawn), builds the unique
+`CallableRegistry`, binds every call site once and hands the same
+`PreparedProgram` to `check`/`run`/`call`/`inspect`/Analysis. The runtime
+dispatches only by the resulting `CallBindingTable`; it never re-resolves a
+name or guesses a plugin.
 Callable Plugin / Foreign kernel / Tool Protocol are separate extension
 categories; they do not enter the standard library or the language IR.
 ```
@@ -112,7 +127,10 @@ review RFC, not a new crate per provider.
 | network endpoints | `tcp`/`udp`/`tcp-listener`/`tls` open + `resource.accept`; exact host grant, DNS after grant, TLS certificate validation | implemented (project mode) | `resource_streams` |
 | `std:net/http` | byte-exact HTTP/1.1 parse/build; chunk sizes are byte counts; text wrapper compatible | implemented (pure `.mq.md`) | `stdlib_http` |
 | HTTP/1.1 | `stdlib/net/http.mq.md`: status/header/chunked-byte parse, request build | implemented over an already-authorized TCP stream; not a DNS/TLS client | `stdlib_http`, `http_over_tcp`, `stdlib_product` |
-| print | bundled `io.mq.md`/`console.mq.md` through `resource.write`; legacy `HostOp::Print` removed | implemented (Compat-C) | `print_routing`, `stdlib_product` |
+| print / official stdlib aliases | `打印`/`print` are verified `stdlib.json` public aliases bound to `io.mq.md::写值`; ordinary Marqdo calls, no `print_override`, no runtime branch, no `HostOp::Print` | implemented (ADR-0058) | `stdlib_alias_routing`, `print_routing`, `stdlib_product` |
+| callable resolution | one registry + one `bind_program_calls` pass; `check`/`run`/`inspect`/Analysis share `CallSiteKey` bindings; plugin exports reconcile exactly with static manifests; no runtime name fallback | implemented (ADR-0054) | `callable_resolution`, `plugin_worker`, `analysis_trace` |
+| resource provider v2 CLI | `--provider`/`--allow-provider` select and authorize a `provider.json` schema-2 `c-abi-1` worker artifact; manifest/artifact/grants/duplicate kinds verified before spawn; sibling helper only | implemented linux/x86_64; other platforms fail closed (ADR-0055) | `provider_cli` |
+| capability handlers | trusted handler registry executes granted capabilities under budget/audit; missing handler is `capability.unavailable`; `fs.read` is the first real handler | implemented (ADR-0057) | `capability_handlers` |
 | strict mode | only the pure/Math execution path and the built-in stdout console channel; project/foreign/plugin/tool/trace/file/network grants are rejected | implemented L1; L2 not implemented | `tests/security`, `resource_streams`, `stdlib_product` |
 
 ## 4. Extension path classification
@@ -120,9 +138,10 @@ review RFC, not a new crate per provider.
 | Extension path | Responsibility | State |
 |---|---|---|
 | Tool Protocol | external `marqdo` CLI tools, inspect/verify/IDE commands; versioned manifest and install/remove | implemented v1; not a standard-I/O replacement inside a user program |
-| Callable Plugin ABI | native callable functions and controlled experimental acceleration | implemented v1 (native + worker); not an ordinary JSON/CSV formatter |
-| Resource Provider | new resource kinds/devices/network/file endpoints | implemented v1 in-process, worker and trusted C ABI; not one provider per high-level algorithm |
-| Foreign kernel | explicit cross-language compatibility for Python/Node one-shot execution | implemented; not a Marqdo implementation of common algorithms |
+| Callable Plugin ABI | native callable functions and controlled experimental acceleration | implemented v1 (native + worker); static manifest is the contract and run reconciles exports exactly; not an ordinary JSON/CSV formatter |
+| Resource Provider | new resource kinds/devices/network/file endpoints | v2 CLI entry implemented for trusted worker transport on linux/x86_64 (ADR-0055); v1 in-process/trusted C ABI remain embedder APIs; not one provider per high-level algorithm |
+| Foreign kernel | explicit cross-language compatibility for Python/Node one-shot execution | implemented; registry accepts an explicitly declared unknown language; not a Marqdo implementation of common algorithms |
+| Official stdlib public alias | language-surface aliases such as `打印`/`print` declared in verified bundle metadata | implemented (ADR-0058); third parties cannot claim these names |
 | Shared registry/policy/budget/audit/trace | package/adapter identity, descriptor/version checks, per-request grants, timeouts, error classes and trace metadata | housed inside `marqdo-host`; do not invent a shared binary ABI for function calls and resource streams |
 
 ## 5. Gap and closure backlog
@@ -146,6 +165,9 @@ that a phase is complete.
 | P3 | No concurrency tasks, atomics or cancellable long-running scheduling | open; separate ADR |
 | P3 | No native optimizer/JIT or columnar numeric backend | open; benchmark-first |
 | P3 | Windows Native/Worker ABI is unsupported; macOS/Windows CI is unverified | open |
+| P0 | RFC-EXT-0001 PR-04: `marqdo.yaml.extensions` + lock v4 extension selection, CLI composition-root wiring, `inspect --extensions` | **open / in progress** |
+| P0 | RFC-EXT-0001 PR-08: frozen release binary, external conformance rerun, SHA-bound evidence manifest, final docs/status convergence | **open / in progress** |
+| P1 | Provider worker transport only linux/x86_64; macOS/Windows provider lanes fail closed | open; separate platform work |
 
 ## 6. Documentation governance
 
@@ -184,3 +206,9 @@ that a phase is complete.
 - [ADR-0052: byte-exact HTTP framing](../adr/0051-byte-exact-http-framing.md) — accepted byte-list HTTP/1.1 parser/builder.
 - [Compute-machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) and [core/stdlib RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) — design input.
 - [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) — review input for this migration.
+- [RFC-EXT-0001](RFC-EXT-0001.md) — extensibility closure task specification (implementation status tracked here and in STATUS).
+- [ADR-0054: single callable binding](../adr/0054-callable-binding-single-source.md) — one registry/binding pass, runtime dispatch by identity.
+- [ADR-0055: resource provider CLI v2](../adr/0055-resource-provider-cli-v2.md) — provider v2 manifest/worker CLI closure and trust boundary.
+- [ADR-0057: capability handler registration](../adr/0057-capability-handler-registration.md) — declared capability vs installed handler vs audit.
+- [ADR-0058: stdlib public aliases](../adr/0058-stdlib-public-alias.md) — verified metadata replaces print magic.
+- [`spec/callable-resolution.md`](../../spec/callable-resolution.md) and [`spec/resource-provider-v2.md`](../../spec/resource-provider-v2.md) — normative extension boundaries.

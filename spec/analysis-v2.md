@@ -95,6 +95,13 @@ a separate statement. `imports`, `references` and `calls` remain static facts; a
 Markdown reference is not a call. `effects` remains `["unknown"]` (a
 conservative summary, not a purity proof).
 
+`calls[]` is projected from the single prepared call binding
+(`spec/callable-resolution.md` §6): `state` remains
+`function`/`builtin`/`plugin`/`unresolved`, and official stdlib aliases such as
+`打印` are reported as `function` targets because that is the implementation
+that runs. The private `CallBindingTable` is not serialized; Analysis v2's
+schema and version are unchanged.
+
 An `assign` node keeps the v1 string `target` for a local rebinding. Addressable
 memory adds one additive target form (ADR-0022); consumers that only understand
 local assignments can ignore an object target:

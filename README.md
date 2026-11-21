@@ -163,6 +163,25 @@ rules are [`RFC-LANG-0002`](docs/architecture/RFC-LANG-0002-unified-semantics.md
 * **Provider package manifest v1 (RFC-CM CM-A09)** — local `marqdo.provider`
   manifest installs a trusted C ABI provider; no registry/signature/CLI install
   (ADR-0037).
+* **Third-party Resource Provider v2 through the normal CLI (RFC-EXT-0001
+  PR-03)** — a `provider.json` v2 bundle with a targeted, sha256-verified
+  `c-abi-1` artifact is selected with repeatable `--provider` and authorized by
+  the exact `--allow-provider` name on `run`/`call`; the existing
+  `marqdo-provider-worker` transport is spawned only after every manifest,
+  artifact, grant and duplicate-kind check passes. `check`/`inspect` never load
+  providers, `pure`/`strict` refuse them, and the worker transport is
+  linux/x86_64-only in this release (ADR-0055,
+  [`spec/resource-provider-v2.md`](spec/resource-provider-v2.md)).
+* **Single callable binding through the frozen composition root
+  (RFC-EXT-0001 PR-01/02)** — one `CallableRegistry` and one binding pass feed
+  `check`/`run`/`call`/`inspect`/Analysis; the runtime dispatches by
+  `CallSiteKey` and never re-resolves a name or guesses a plugin. Static plugin
+  descriptors must reconcile one-to-one with the loaded exports (ADR-0054,
+  [`spec/callable-resolution.md`](spec/callable-resolution.md)).
+* **Official stdlib public aliases (RFC-EXT-0001 PR-06)** — `打印`/`print` are
+  verified `stdlib.json` metadata bound to `io.mq.md::写值`; the
+  `print_override`/AST-scan/runtime special case is removed with byte-identical
+  output (ADR-0058).
 * **C ABI ResourceProvider v1 (RFC-CM CM-A09)** — trusted native shared
   libraries expose resource open/read/write/close through a frozen header;
   project + name grant; plugin-Worker binding remains open (ADR-0036).
@@ -357,6 +376,115 @@ marqdo tool install examples/tool-unknown-name/tool.json
 marqdo benchmark run .
 marqdo tool remove benchmark
 ```
+
+### Extending Marqdo without modifying or rebuilding the CLI
+
+RFC-EXT-0001 defines five extension kinds. Each one is discovered only through
+an explicit manifest/flag, is versioned, and is authorized separately from
+being visible. A physically separate repository exercising all five against a
+frozen binary is `marqdo-extension-conformance`
+(`https://git.cflmy.cn/cflmy/marqdo-extension-conformance`).
+
+| Kind | Static discovery | Execution | Grant |
+|---|---|---|---|
+| `.mq.md` package | `marqdo.yaml` dependency + `marqdo.lock` | Marqdo interpreter | project mode |
+| Callable plugin | `plugin.yaml` ABI v1 exports | worker (default) or trusted native | `--plugin` + `--allow-plugin NAME` |
+| Foreign kernel | `kernel.json` + pinned executable digest | one-shot child process | `--kernel` + `--allow-foreign` |
+| Resource provider | `provider.json` schema v2 | `marqdo-provider-worker` + C ABI | `--provider` + `--allow-provider NAME` |
+| CLI Tool | `tool.json` install record | independent CLI process | tool installation, no project grants |
+
+```bash
+# 1. Pure Markdown library from a pinned Git dependency
+marqdo lock && marqdo sync
+marqdo check consumer/index.mq.md
+marqdo run consumer/index.mq.md
+
+# 2. Callable ABI plugin (worker transport by default)
+marqdo run plugin/demo.mq.md \
+  --plugin plugin/build --allow-plugin demo.ext
+
+# 3. Foreign kernel with a language label the CLI has never heard of
+marqdo run kernel/demo.mq.md \
+  --kernel kernel/build/kernel.json --allow-foreign
+
+# 4. Resource provider v2 (see the next section)
+marqdo run provider/demo.mq.md \
+  --provider provider/build/provider.json --allow-provider demo.sensor
+
+# 5. Independent CLI Tool consuming only public Analysis v2
+marqdo tool install tool/tool.json
+marqdo inspect-ext tool/demo.mq.md
+```
+
+#### One callable resolution, visible in `check` and `run`
+
+Calls are bound statically once per prepared program (ADR-0054, normative
+details in [`spec/callable-resolution.md`](spec/callable-resolution.md)):
+
+* `f(...)`: local callable value → official alias/reserved builtin → current
+  namespace → canonical name → unique local name;
+* `alias.f(...)`: explicit import alias → builtin dotted name → exact plugin
+  export;
+* `some_value.f(...)`: dynamic language value only.
+
+`check` and `run` consume the same binding; an unknown export, wrong arguments
+or a duplicate export fails before execution. An import alias that collides
+with a builtin/plugin dotted namespace (for example importing a module as
+`math`) is rejected with `ext.import_namespace_conflict`; rename it. A plugin
+manifest is the static contract: `run` verifies the loaded artifact and its
+exports/signatures match the manifest exactly
+(`ext.plugin_binding_mismatch` otherwise) and never synthesises a signature.
+
+#### Official stdlib aliases, no print magic
+
+`打印`/`print` are declared in the verified `stdlib/stdlib.json`
+(`public_aliases`, covered by `aliases_digest`) and bound as ordinary
+`Marqdo` calls to `io.mq.md::写值` (ADR-0058). There is no
+`Program.print_override`, no AST-wide print scan and no runtime print branch;
+output bytes, permissions and Trace behavior are unchanged, and a program that
+never uses the alias does not load the stdlib module graph. Third-party
+packages cannot claim `打印`/`print` or `std.*` names.
+
+### Third-party resource providers (`provider.json` v2)
+
+An external repository adds a new resource kind (for example `demo.sensor`)
+with a `provider.json` schema-version-2 bundle and a targeted `c-abi-1` shared
+library. No CLI rebuild and no core change are needed: select the manifest with
+repeatable `--provider` and authorize it by its exact manifest `name` with
+`--allow-provider` (also repeatable). A `--provider` without a matching
+`--allow-provider` is `permission.denied` and the helper is never started;
+wildcards (`*`) are not accepted.
+
+```bash
+marqdo run index.mq.md \
+  --provider vendor/demo-sensor/provider.json \
+  --allow-provider demo.sensor
+
+marqdo call index.mq.md main \
+  --provider vendor/demo-sensor/provider.json \
+  --allow-provider demo.sensor
+```
+
+The document still uses the ordinary resource surface, e.g.
+`resource.open("demo.sensor", "unit-1", ["read"])`; provider kinds do not become
+new callables.
+
+* `check`/`inspect` do not accept these options and never load a provider.
+* `--mode pure` and `--mode strict` reject `--provider`/`--allow-provider` in
+  preflight; strict L1 stays fail-closed and does not silently switch to
+  `project`.
+* Everything is verified before any worker starts: `schema_version: 2`,
+  `abi: c-abi-1`, `transport: worker`, strict SemVer, non-reserved kinds, the
+  current target artifact's bundle containment and sha256, exact grants and
+  duplicate provider names/kinds.
+* The helper `marqdo-provider-worker` must ship next to the `marqdo` executable
+  for the same target (no `PATH` fallback); a missing helper is
+  `ext.worker_unavailable`. The worker transport is linux/x86_64-only in this
+  release; other platforms fail with `ext.platform_unsupported`.
+* The helper is a trusted process, not an OS sandbox: it runs with the user's
+  privileges. `sha256` is an integrity check, not publisher authentication.
+  See [`spec/resource-provider-v2.md`](spec/resource-provider-v2.md) and
+  [ADR-0055](docs/adr/0055-resource-provider-cli-v2.md).
 
 ## References
 

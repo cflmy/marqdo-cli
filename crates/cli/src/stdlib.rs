@@ -13,6 +13,25 @@ use sha2::{Digest, Sha256};
 /// Environment override used by tests and relocatable installations.
 pub const STDLIB_DIR_ENV: &str = "MARQDO_STDLIB_DIR";
 
+/// One official bundled-stdlib public alias (ADR-0058).
+///
+/// The alias table lives in the verified `stdlib.json` metadata, not in Rust
+/// source: `打印`/`print` are ordinary `Marqdo` bindings to `io.mq.md::写值`
+/// and the runtime no longer special-cases print names.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PublicAlias {
+    /// Public names that resolve to the target function.
+    pub public_names: Vec<String>,
+    /// Package-relative target module (for example `io.mq.md`).
+    pub target_module: String,
+    /// Canonical/local target function name.
+    pub target_function: String,
+    /// Declared parameter names, used to verify the target signature.
+    pub expected_signature: Option<String>,
+    /// Conservative effect request summary.
+    pub effects: Vec<String>,
+}
+
 /// Verified bundled standard library.
 #[derive(Debug, Clone)]
 pub struct StdlibBundle {
@@ -20,6 +39,7 @@ pub struct StdlibBundle {
     name: String,
     version: String,
     digest: String,
+    aliases: Vec<PublicAlias>,
 }
 
 impl StdlibBundle {
@@ -81,12 +101,40 @@ impl StdlibBundle {
                 "stdlib digest mismatch: declared {declared}, actual {actual}"
             ));
         }
+        let aliases = parse_public_aliases(&manifest, &manifest_path)?;
+        let declared_alias_digest = manifest
+            .get("aliases_digest")
+            .and_then(serde_json::Value::as_str);
+        let actual_alias_digest = aliases_digest(&aliases);
+        match (declared_alias_digest, aliases.is_empty()) {
+            (Some(declared), _) => {
+                if declared != actual_alias_digest {
+                    return Err(format!(
+                        "stdlib public-alias metadata digest mismatch: declared {declared}, \
+                         actual {actual_alias_digest}"
+                    ));
+                }
+            }
+            (None, false) => {
+                return Err(format!(
+                    "`{}` declares public_aliases without aliases_digest",
+                    manifest_path.display()
+                ));
+            }
+            (None, true) => {}
+        }
         Ok(Self {
             root,
             name,
             version,
             digest: actual,
+            aliases,
         })
+    }
+
+    /// Verified official public aliases.
+    pub fn public_aliases(&self) -> &[PublicAlias] {
+        &self.aliases
     }
 
     /// Bundle root.
@@ -225,6 +273,167 @@ fn hex(bytes: &[u8]) -> String {
         out.push_str(&format!("{byte:02x}"));
     }
     out
+}
+
+fn parse_public_aliases(
+    manifest: &serde_json::Value,
+    manifest_path: &Path,
+) -> Result<Vec<PublicAlias>, String> {
+    let Some(entries) = manifest.get("public_aliases") else {
+        return Ok(Vec::new());
+    };
+    let entries = entries.as_array().ok_or_else(|| {
+        format!(
+            "`{}` public_aliases must be an array",
+            manifest_path.display()
+        )
+    })?;
+    let mut aliases = Vec::new();
+    let mut seen_names = std::collections::BTreeSet::new();
+    for entry in entries {
+        let public_names = entry
+            .get("public_names")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| {
+                format!(
+                    "`{}` public alias has no public_names array",
+                    manifest_path.display()
+                )
+            })?
+            .iter()
+            .map(|name| {
+                name.as_str().map(ToString::to_string).ok_or_else(|| {
+                    format!(
+                        "`{}` public alias name must be a string",
+                        manifest_path.display()
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        if public_names.is_empty() {
+            return Err(format!(
+                "`{}` public alias declares no names",
+                manifest_path.display()
+            ));
+        }
+        for name in &public_names {
+            if name.is_empty() {
+                return Err(format!(
+                    "`{}` public alias name must not be empty",
+                    manifest_path.display()
+                ));
+            }
+            if !seen_names.insert(name.clone()) {
+                return Err(format!(
+                    "`{}` public alias name `{name}` is declared more than once",
+                    manifest_path.display()
+                ));
+            }
+        }
+        let target_module = entry
+            .get("target_module")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| {
+                format!(
+                    "`{}` public alias has no target_module",
+                    manifest_path.display()
+                )
+            })?
+            .to_string();
+        validate_bundle_relative(&target_module).map_err(|error| {
+            format!(
+                "`{}` public alias target_module `{target_module}` is invalid: {error}",
+                manifest_path.display()
+            )
+        })?;
+        let target_function = entry
+            .get("target_function")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| {
+                format!(
+                    "`{}` public alias has no target_function",
+                    manifest_path.display()
+                )
+            })?
+            .to_string();
+        if target_function.is_empty() {
+            return Err(format!(
+                "`{}` public alias target_function must not be empty",
+                manifest_path.display()
+            ));
+        }
+        let expected_signature = entry
+            .get("expected_signature")
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string);
+        let effects = entry
+            .get("effects")
+            .and_then(serde_json::Value::as_array)
+            .map(|effects| {
+                effects
+                    .iter()
+                    .filter_map(serde_json::Value::as_str)
+                    .map(ToString::to_string)
+                    .collect()
+            })
+            .unwrap_or_default();
+        aliases.push(PublicAlias {
+            public_names,
+            target_module,
+            target_function,
+            expected_signature,
+            effects,
+        });
+    }
+    aliases.sort_by(|left, right| {
+        (&left.target_module, &left.target_function)
+            .cmp(&(&right.target_module, &right.target_function))
+    });
+    Ok(aliases)
+}
+
+fn validate_bundle_relative(path: &str) -> Result<(), String> {
+    let mut normalised = PathBuf::new();
+    for component in Path::new(path).components() {
+        match component {
+            Component::Normal(part) => normalised.push(part),
+            Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err("must be a relative path inside the bundle".to_string())
+            }
+        }
+    }
+    if normalised.as_os_str().is_empty() {
+        return Err("must not be empty".to_string());
+    }
+    Ok(())
+}
+
+/// Canonical digest over the official public-alias table.
+///
+/// Format (identical to `tools/pack-stdlib.py`): for every alias sorted by
+/// `(target_module, target_function)`: module, NUL, function, NUL, then every
+/// public name sorted, NUL. A fixed binary format avoids JSON formatting drift.
+pub fn aliases_digest(aliases: &[PublicAlias]) -> String {
+    let mut sorted = aliases.to_vec();
+    sorted.sort_by(|left, right| {
+        (&left.target_module, &left.target_function)
+            .cmp(&(&right.target_module, &right.target_function))
+    });
+    let mut hasher = Sha256::new();
+    for alias in &sorted {
+        hasher.update(alias.target_module.as_bytes());
+        hasher.update([0]);
+        hasher.update(alias.target_function.as_bytes());
+        hasher.update([0]);
+        let mut names = alias.public_names.clone();
+        names.sort();
+        for name in names {
+            hasher.update(name.as_bytes());
+            hasher.update([0]);
+        }
+    }
+    format!("sha256:{}", hex(&hasher.finalize()))
 }
 
 #[cfg(test)]

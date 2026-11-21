@@ -9,6 +9,7 @@ Normative implementation:
 |---|---|
 | Sandbox modes, strict refusal | `crates/marqdo-sandbox/src/lib.rs` |
 | Capability sets and checks | `crates/marqdo-host/src/capability.rs` |
+| Trusted capability handlers | `crates/marqdo-host/src/capability.rs` (`CapabilityBroker`, `CapabilityHandler`, `FsReadHandler`; ADR-0057) |
 | Host dispatch and per-op checks | `crates/marqdo-host/src/host.rs` |
 | Project-rooted filesystem | `crates/marqdo-host/src/fs.rs` |
 | Budgets | `crates/marqdo-host/src/budget.rs` |
@@ -175,17 +176,71 @@ before reading. Full symlink/race hardening is an open P4 item.
 * plugin invoke → the **complete export name** must be registered, then
   `capabilities.check_plugin(package)` on **every call**; loading also checks
   the same grant once;
-* plugin host-capability requests → `CapabilityBroker` checks the package and
-  effective grants and **executes** granted `fs.read` through `ProjectFs`,
-  returning the real file bytes. Other core capabilities (`fs.write`,
-  `net.request`, `process`, console/math/log/...), and vendor capabilities
-  without a trusted executing handler, return `capability.unavailable`; they
-  never pretend an empty reply is success. Unknown/vendor names without a
-  trusted policy entry become `capability.unavailable`/`permission.denied`;
+* plugin host-capability requests → `CapabilityBroker` runs a fixed chain:
+  `decide` (package, effective grants, trusted vendor policy, payload shape) →
+  a trusted `CapabilityHandler` must be installed for the exact capability name
+  → a package-bound handler must own the trusted package identity → the handler
+  executes under the broker budget and reply limit → one audit entry. Granted
+  `fs.read` executes through `FsReadHandler`, which resolves the path with
+  `ProjectFs` and re-checks the read grant on the normalized project-relative
+  path before returning the real file bytes. Every capability without an
+  installed handler — other core capabilities (`fs.write`, `net.request`,
+  `process`, console/math/log/clock/random/artifact.record) and vendor
+  capabilities without a trusted executor — returns `capability.unavailable`;
+  it never pretends an empty reply is success. A vendor name with no trusted
+  policy entry is `permission.denied` (ADR-0011, ADR-0057);
 * print → output budget only.
 
 Static analysis may warn, but it never replaces these runtime checks. There is
 no host bypass for tests: tests use the same `StdHost`/`Capabilities` types.
+
+### 2.3 Executable capabilities need an installed trusted handler
+
+`CapabilityBroker` (`crates/marqdo-host/src/capability.rs`, ADR-0057) separates
+*being authorized* from *being executable*:
+
+| Question | Registry | Failure |
+|---|---|---|
+| Is this capability granted for this trusted package? | `Capabilities` / `vendor_policy` | `permission.denied` |
+| Is a trusted executor installed for this exact name? | `handlers: BTreeMap<String, HandlerEntry>` | `capability.unavailable` |
+| Does a package-bound handler own the claimed package? | `HandlerEntry.package` | `permission.denied` |
+
+Execution order is fixed: `decide` → handler installed → package binding →
+handler execution under the broker `Budget` and reply limit → audit. A name in
+`vendor_policy` is policy only; it does not install anything, and it cannot
+turn into an executor. A core capability granted by `Capabilities` but missing
+a handler is `capability.unavailable`, never an empty `Ok`.
+
+* **Registration is host-only.** `register_handler(handler)` /
+  `register_package_handler(package, handler)` are called by the trusted host /
+  embedder composition root; no manifest, plugin or wire message can reach the
+  registry. The registry key is `handler.name()`, so a handler cannot be
+  registered under a name it does not declare.
+* **Rejected names** (stable codes): empty/whitespace/malformed names are
+  `capability.handler_invalid`; names under the reserved host prefixes
+  `marqdo.` / `host.` are `capability.handler_reserved`; an already registered
+  name (including the built-in `fs.read`) is `capability.handler_conflict`. A
+  rejected handler is not installed.
+* **`fs.read`** is the first migrated standard handler (`FsReadHandler`),
+  installed by `CapabilityBroker::with_fs(fs)`. It keeps the `ProjectFs` root,
+  traversal/absolute-path rejection, regular-file/UTF-8/8 MiB limits and the
+  glob grant, and it re-checks the grant against the normalized path at the
+  execution point. The broker reply limit (`MAX_CAPABILITY_REPLY_BYTES` by
+  default) bounds the returned bytes; an oversize reply is
+  `resource.exhausted`.
+* **Audit**: every decision records package, capability,
+  `granted`/`denied`/`unavailable`, a reason and `duration_micros`. Payloads
+  and file contents are never recorded, so ordinary secrets do not appear in
+  the audit log.
+* **Budgets**: handlers receive `&mut Budget` and can charge fuel/output; the
+  broker also enforces the reply byte limit. Native handlers still run
+  in-process and are trusted code, not a sandbox.
+
+Known gaps in this build: the broker `trace_id` is settable
+(`with_trace_id`) but `host.rs` does not supply it yet; and a broker-level
+`resource.exhausted` reply keeps its stable code but the host plugin-error
+mapping currently collapses `PluginError` kind `capability` to the
+`permission.denied` runtime category (changing that mapping is a follow-up).
 
 ## 3. Resource budgets
 
@@ -338,11 +393,15 @@ Neither command executes project code. Specifically:
 4. Write-path symlink TOCTOU (see §2.1).
 5. Plugin **worker crash isolation** and the worker capability bridge are
    implemented (not usable in strict L1): both native and worker plugins can
-   reach the broker's
-   `fs.read` execution when granted. Other core capabilities and vendor
-   handlers remain unavailable. Broker execution is a cooperative API
-   contract, not an OS sandbox; a worker and a native plugin can still issue
-   direct syscalls.
+   reach the broker's `fs.read` handler when granted (ADR-0057). Only
+   `fs.read` has a registered handler; every other core capability and every
+   vendor capability without an explicitly registered trusted handler remains
+   `capability.unavailable`, and there is no API to register one from a plugin,
+   manifest or CLI flag. Broker execution is a cooperative API contract, not an
+   OS sandbox; a worker and a native plugin can still issue direct syscalls.
+   Follow-ups: wire the run `trace_id` into the broker audit and teach the host
+   plugin-error mapping to report `resource.exhausted` as a resource category
+   rather than `permission.denied`.
 6. `plugin_handle` wire values are structurally reconstructable, but host
    authority comes only from the `PluginHandleTable` owner/run/generation
    check; untrusted plugin/foreign output containing a handle is rejected

@@ -72,3 +72,45 @@ cargo build --release --locked -p marqdo-cli
 The ignored `.secrets/dev.env` may contain a Woodpecker API token for local
 queries/triggers. The token is not needed by the pipeline itself and must never
 be committed.
+
+## External extension evidence (RFC-EXT-0001 PR-07/PR-08)
+
+A release candidate must also prove that a **frozen** CLI binary can use
+extensions from physically separate repositories without modifying or
+rebuilding this workspace. This is a new necessary condition; it does **not**
+replace the security/platform/performance gates above.
+
+Required inputs:
+
+* a release build of this commit: `cargo build --release --locked -p marqdo-cli`;
+* the provider helper shipped next to it for the same target:
+  `marqdo-provider-worker` (the provider transport resolves only that sibling;
+  no `PATH` fallback);
+* a clean checkout of the external fixture repository
+  `https://git.cflmy.cn/cflmy/marqdo-extension-conformance`.
+
+Generation and validation:
+
+```bash
+CLI="$(realpath target/release/marqdo)"
+python3 tools/ci/verify_extension_contracts.py \
+  --cli "$CLI" \
+  --fixtures /path/to/marqdo-extension-conformance
+python3 tools/ci/verify_extension_contracts.py \
+  --validate docs/evidence/extension/<40-hex-source-SHA>/manifest.json
+```
+
+The generator hashes the CLI before and after the external suite, records the
+source SHA and fixture repo SHA, and refuses to write evidence for a changed
+binary, a dirty fixture checkout, a `FAIL`, or an unexplained
+`UNSUPPORTED`/`SKIPPED` result. The external suite itself
+(`tests/run_all.py` in that repository) uses only `$MARQDO_BIN` (absolute),
+never Cargo, and covers: pinned-Git `.mq.md` package, worker ABI plugin,
+unknown foreign kernel, provider v2 worker, and an independent Analysis/Trace
+consumer.
+
+The schema is [`evidence/extension/schema.json`](evidence/extension/schema.json);
+the generator is `tools/ci/verify_extension_contracts.py`. A manifest whose
+`tested_sha` is not the release SHA is invalid. Platform-specific results must
+be reported as `UNSUPPORTED` (for example provider worker on non-linux/x86_64);
+a Linux PASS never substitutes for a macOS/Windows lane.

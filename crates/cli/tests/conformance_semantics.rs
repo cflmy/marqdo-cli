@@ -166,8 +166,8 @@ fn semantic_goldens_match_end_to_end_execution() {
         let mut program = marqdo_ir::Program::default();
         program.insert(analysis.module.clone());
         program.main_module = Some(module_id.clone());
-        install_stdlib_print(&mut program);
         install_entry_stdlib_imports(&mut program, &module_id, &analysis);
+        bind_calls_with_stdlib_aliases(&mut program);
 
         let mut capabilities = Capabilities::pure();
         if grant_foreign {
@@ -284,26 +284,88 @@ fn normalise_relative(path: &Path) -> String {
         .join("/")
 }
 
-/// Load the bundled stdlib print modules for direct-runtime fixtures.
+/// Bind direct-runtime fixtures exactly like the CLI composition root.
 ///
-/// The CLI loader normally injects these for Compat-B. The semantic harness
-/// builds a Program directly, so it mirrors the same resolution here; without
-/// it, fixtures that call `打印` would hit the Compat-C "no bundle" error.
-fn install_stdlib_print(program: &mut Program) {
+/// The semantic harness builds a `Program` directly, so it mirrors the
+/// production path: load the official stdlib public-alias targets, build the
+/// unique registry, run the single binding pass and install its table. There is
+/// no `print_override` and no runtime name guessing.
+fn bind_calls_with_stdlib_aliases(program: &mut Program) {
     let root = repo_root().join("stdlib");
-    if !root.join("stdlib.json").is_file() {
-        return;
-    }
     let mut loaded = std::collections::BTreeSet::new();
-    let io = match load_stdlib_module(&root, "io.mq.md", program, &mut loaded) {
-        Ok(id) => id,
-        Err(error) => panic!("cannot load bundled stdlib: {error}"),
-    };
-    let function = program
-        .module(&io)
-        .and_then(|module| module.function("写值"))
-        .unwrap_or_else(|| panic!("stdlib io has no 写值 function"));
-    program.print_override = Some(function.id.clone());
+    let mut official = Vec::new();
+    if root.join("stdlib.json").is_file() {
+        let text = fs::read_to_string(root.join("stdlib.json"))
+            .unwrap_or_else(|error| panic!("cannot read stdlib.json: {error}"));
+        let manifest: serde_json::Value = serde_json::from_str(&text)
+            .unwrap_or_else(|error| panic!("invalid stdlib.json: {error}"));
+        if let Some(aliases) = manifest
+            .get("public_aliases")
+            .and_then(serde_json::Value::as_array)
+        {
+            for entry in aliases {
+                let public_names: Vec<String> = entry
+                    .get("public_names")
+                    .and_then(serde_json::Value::as_array)
+                    .unwrap_or_else(|| panic!("public alias has no public_names"))
+                    .iter()
+                    .filter_map(serde_json::Value::as_str)
+                    .map(ToString::to_string)
+                    .collect();
+                let target_module = entry
+                    .get("target_module")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_else(|| panic!("public alias has no target_module"));
+                let target_function = entry
+                    .get("target_function")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_else(|| panic!("public alias has no target_function"));
+                let module_id = load_stdlib_module(&root, target_module, program, &mut loaded)
+                    .unwrap_or_else(|error| panic!("cannot load stdlib alias module: {error}"));
+                let function = program
+                    .module(&module_id)
+                    .and_then(|module| module.function(target_function))
+                    .unwrap_or_else(|| {
+                        panic!("stdlib alias target `{target_function}` is missing")
+                    });
+                let effects = entry
+                    .get("effects")
+                    .and_then(serde_json::Value::as_array)
+                    .map(|effects| {
+                        effects
+                            .iter()
+                            .filter_map(serde_json::Value::as_str)
+                            .map(ToString::to_string)
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                official.push(marqdo_ir::callable::OfficialAlias {
+                    public_names,
+                    function: function.id.clone(),
+                    signature: marqdo_ir::callable::CallableSignature {
+                        params: function.params.clone(),
+                        kind: function.signature,
+                    },
+                    owner_package: module_id.instance.clone(),
+                    effects_requested: effects,
+                });
+            }
+        }
+    }
+    let mut registry = program.callable_registry();
+    for alias in official {
+        registry
+            .insert_official_alias(alias)
+            .unwrap_or_else(|error| panic!("cannot register stdlib alias: {error}"));
+    }
+    let bound = marqdo_frontend::calls::bind_program_calls(program, &registry);
+    if !bound.diagnostics.is_empty() {
+        panic!(
+            "fixture failed static call binding: {:#?}",
+            bound.diagnostics
+        );
+    }
+    program.set_call_bindings(bound.bindings);
 }
 
 fn load_stdlib_module(

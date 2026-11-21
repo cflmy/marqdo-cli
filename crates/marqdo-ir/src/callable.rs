@@ -10,7 +10,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{builtins, Function, Module, ModuleId, Param, Program, SignatureKind};
+use crate::{builtins, Function, FunctionId, Module, ModuleId, Param, Program, SignatureKind};
 use marqdo_span::Span;
 
 /// Globally unique callable identity.
@@ -138,6 +138,42 @@ pub struct CallableRegistry {
     builtins: BTreeMap<String, CallableDescriptor>,
     functions: BTreeMap<ModuleId, BTreeMap<String, CallableDescriptor>>,
     external: BTreeMap<String, CallableDescriptor>,
+    /// Official stdlib public aliases (for example `打印`/`print`) mapped to
+    /// the bundled Markdown function that implements them. Only the verified
+    /// stdlib loader may populate this table; third-party packages cannot.
+    official_aliases: BTreeMap<String, FunctionId>,
+}
+
+/// One official bundled-stdlib public alias.
+#[derive(Debug, Clone, PartialEq)]
+pub struct OfficialAlias {
+    /// Public names that resolve to the same target (for example both
+    /// `打印` and `print`).
+    pub public_names: Vec<String>,
+    /// Bundled Marqdo function implementing the alias.
+    pub function: FunctionId,
+    /// Effective signature; the loader must have checked it against the
+    /// verified stdlib metadata before registration.
+    pub signature: CallableSignature,
+    /// Owner package instance (the verified stdlib instance).
+    pub owner_package: String,
+    /// Conservative effect request summary for Trace/Analysis.
+    pub effects_requested: Vec<String>,
+}
+
+/// A deterministic static-table conflict.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CallableConflict {
+    /// Colliding public name.
+    pub public_name: String,
+    /// Human-readable reason; never used as a machine code.
+    pub reason: String,
+}
+
+impl fmt::Display for CallableConflict {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "`{}`: {}", self.public_name, self.reason)
+    }
 }
 
 impl CallableRegistry {
@@ -150,21 +186,46 @@ impl CallableRegistry {
     }
 
     /// Build a registry for all modules and declared external descriptors.
-    pub fn from_program(program: &Program) -> Self {
+    ///
+    /// Duplicate external names are rejected rather than silently keeping the
+    /// first entry: a static table must never depend on registration order.
+    pub fn try_from_program(program: &Program) -> Result<Self, CallableConflict> {
         let mut registry = Self::default();
         registry.add_builtins();
         for module in program.modules.values() {
             registry.add_module(module);
         }
         for descriptor in &program.external_callables {
-            // Conflicting declarations are reported by the loader; keep the
-            // first deterministic entry here rather than overwriting silently.
             registry
-                .external
-                .entry(descriptor.public_name.clone())
-                .or_insert_with(|| descriptor.clone());
+                .insert_external(descriptor.clone())
+                .map_err(|reason| CallableConflict {
+                    public_name: descriptor.public_name.clone(),
+                    reason,
+                })?;
         }
-        registry
+        Ok(registry)
+    }
+
+    /// Build a registry for all modules and declared external descriptors.
+    ///
+    /// Prefer [`CallableRegistry::try_from_program`] on the CLI composition
+    /// path; this compatibility wrapper keeps the first declaration for
+    /// already-validated callers (tests and embedders).
+    pub fn from_program(program: &Program) -> Self {
+        Self::try_from_program(program).unwrap_or_else(|_| {
+            let mut registry = Self::default();
+            registry.add_builtins();
+            for module in program.modules.values() {
+                registry.add_module(module);
+            }
+            for descriptor in &program.external_callables {
+                registry
+                    .external
+                    .entry(descriptor.public_name.clone())
+                    .or_insert_with(|| descriptor.clone());
+            }
+            registry
+        })
     }
 
     /// Look up a builtin by canonical name or alias.
@@ -186,6 +247,85 @@ impl CallableRegistry {
     /// Iterate external descriptors deterministically.
     pub fn externals(&self) -> impl Iterator<Item = &CallableDescriptor> {
         self.external.values()
+    }
+
+    /// Register one official bundled-stdlib public alias.
+    ///
+    /// The loader calls this only after verifying the bundled stdlib digest and
+    /// the metadata digest, so a third-party package can never claim `打印`,
+    /// `print` or any other official public name through this path.
+    pub fn insert_official_alias(&mut self, alias: OfficialAlias) -> Result<(), String> {
+        if alias.public_names.is_empty() {
+            return Err("official alias must declare at least one public name".to_string());
+        }
+        if alias.function.module.instance.is_empty() || alias.function.name.is_empty() {
+            return Err("official alias target function identity must not be empty".to_string());
+        }
+        for name in &alias.public_names {
+            if name.is_empty() {
+                return Err("official alias public name must not be empty".to_string());
+            }
+            if self.external.contains_key(name) {
+                return Err(format!(
+                    "official alias `{name}` conflicts with a declared plugin export"
+                ));
+            }
+            let descriptor = CallableDescriptor {
+                id: CallableId(format!("marqdo:{}", alias.function)),
+                public_name: name.clone(),
+                owner_package: alias.owner_package.clone(),
+                signature: alias.signature.clone(),
+                effects_requested: alias.effects_requested.clone(),
+                origin: CallableOrigin::Marqdo,
+                implementation_digest: None,
+                source_span: None,
+            };
+            // Official aliases intentionally replace the reserved placeholder
+            // builtin (for example `打印`); no third-party path can do this.
+            self.builtins.insert(name.clone(), descriptor);
+            self.official_aliases
+                .insert(name.clone(), alias.function.clone());
+        }
+        Ok(())
+    }
+
+    /// Target Marqdo function of an official alias, if `name` is one.
+    pub fn alias_target(&self, name: &str) -> Option<&FunctionId> {
+        self.official_aliases.get(name)
+    }
+
+    /// Iterate official aliases deterministically (public name, target).
+    pub fn official_aliases(&self) -> impl Iterator<Item = (&String, &FunctionId)> {
+        self.official_aliases.iter()
+    }
+
+    /// Whether a dotted builtin namespace starts with `prefix.`.
+    pub fn has_builtin_dotted_prefix(&self, prefix: &str) -> bool {
+        self.builtins.keys().any(|name| {
+            name.strip_prefix(prefix)
+                .is_some_and(|rest| rest.starts_with('.'))
+        })
+    }
+
+    /// Whether a declared plugin export starts with `prefix.`.
+    pub fn has_external_dotted_prefix(&self, prefix: &str) -> bool {
+        self.external.keys().any(|name| {
+            name.strip_prefix(prefix)
+                .is_some_and(|rest| rest.starts_with('.'))
+        })
+    }
+
+    /// Resolve a module function to its exact identity.
+    pub fn function_id(&self, module: &ModuleId, name: &str) -> Option<FunctionId> {
+        let descriptor = self.function(module, name)?;
+        if matches!(descriptor.origin, CallableOrigin::Marqdo) {
+            Some(FunctionId {
+                module: module.clone(),
+                name: descriptor.public_name.clone(),
+            })
+        } else {
+            None
+        }
     }
 
     /// Insert an external descriptor, rejecting duplicate public names.

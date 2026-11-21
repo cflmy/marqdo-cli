@@ -27,146 +27,40 @@ pub use sandbox::SandboxSettings;
 pub use tool::{fmt, plugin_inspect};
 
 use crate::args;
-use crate::loader::{self, FileDiagnostic, LoadedProject};
+use crate::extension_descriptors::{self, StaticPluginSet};
+use crate::loader::{FileDiagnostic, LoadedProject};
 use crate::output;
+use crate::project_prepare::{self, PrepareOptions, PreparedProgram};
 
-fn load_project(file: Option<&Path>, json: bool) -> Result<LoadedProject, i32> {
-    let file = file.unwrap_or_else(|| Path::new("index.mq.md"));
-    match loader::load(file) {
-        Ok(project) => Ok(project),
+/// Prepare one document through the single composition-root step.
+///
+/// `check`/`run`/`call`/`inspect` must all use this function so they share the
+/// same call bindings and diagnostics (RFC-EXT-0001 §4.4, §18.2).
+pub(super) fn prepare_project(
+    file: Option<&Path>,
+    json: bool,
+    plugins: &[PathBuf],
+) -> Result<PreparedProgram, i32> {
+    let options = PrepareOptions {
+        plugins: plugins.to_vec(),
+    };
+    match project_prepare::prepare(file, &options) {
+        Ok(prepared) => Ok(prepared),
         Err(error) => {
             if json {
-                output::print_json(&json!({"success": false, "error": error}));
+                output::print_json(&json!({
+                    "success": false,
+                    "error": {
+                        "code": error.code,
+                        "message": error.message,
+                    }
+                }));
             } else {
-                eprintln!("error: {error}");
+                eprintln!("error[{}]: {}", error.code, error.message);
             }
-            if error.contains("marqdo.lock") || error.contains("lockfile") {
-                Err(1)
-            } else {
-                Err(2)
-            }
+            Err(error.exit_code)
         }
     }
-}
-
-/// Add plugin export descriptors from manifests without loading a library.
-fn add_static_plugin_descriptors(
-    project: &mut LoadedProject,
-    paths: &[PathBuf],
-) -> Result<(), String> {
-    for path in paths {
-        let manifest_path = if path.is_dir() {
-            path.join("plugin.yaml")
-        } else {
-            path.clone()
-        };
-        let manifest = marqdo_plugin_abi::PluginManifest::load(&manifest_path)
-            .map_err(|error| format!("{}: {}", error.code, error.message))?;
-        manifest
-            .validate()
-            .map_err(|error| format!("{}: {}", error.code, error.message))?;
-        let digest = manifest
-            .resolve_artifact(&marqdo_plugin_abi::HostTarget::current())
-            .map_err(|error| format!("{}: {}", error.code, error.message))?
-            .sha256
-            .clone();
-        for export in &manifest.plugin.exports {
-            if project
-                .program
-                .external_callables
-                .iter()
-                .any(|callable| callable.public_name == export.name)
-            {
-                return Err(format!(
-                    "plugin export `{}` is declared more than once",
-                    export.name
-                ));
-            }
-            let signature = plugin_signature(&export.signature).map_err(|error| {
-                format!(
-                    "plugin export `{}` has an invalid signature: {error}",
-                    export.name
-                )
-            })?;
-            project
-                .program
-                .external_callables
-                .push(marqdo_ir::callable::CallableDescriptor {
-                    id: marqdo_ir::callable::CallableId(format!(
-                        "plugin:{}:{}",
-                        manifest.plugin.name, export.name
-                    )),
-                    public_name: export.name.clone(),
-                    owner_package: manifest.plugin.name.clone(),
-                    signature,
-                    effects_requested: manifest.plugin.requires.clone(),
-                    origin: marqdo_ir::callable::CallableOrigin::AbiPlugin {
-                        package: manifest.plugin.name.clone(),
-                        export: export.name.clone(),
-                    },
-                    implementation_digest: Some(digest.clone()),
-                    source_span: None,
-                });
-        }
-    }
-    if paths.is_empty() {
-        return Ok(());
-    }
-    let existing: Vec<(Option<marqdo_span::Span>, String)> = project
-        .diagnostics
-        .iter()
-        .map(|file| {
-            (
-                file.diagnostic.span,
-                format!("{}:{}", file.module_id, file.diagnostic.message),
-            )
-        })
-        .collect();
-    for (module_id, diagnostic) in marqdo_frontend::calls::validate_program(&project.program) {
-        let key = format!("{}:{}", module_id, diagnostic.message);
-        if existing.contains(&(diagnostic.span, key)) {
-            continue;
-        }
-        if let Some(file) = project.files.get(&module_id) {
-            project.diagnostics.push(FileDiagnostic {
-                module_id,
-                path: file.path.clone(),
-                source: file.source.clone(),
-                diagnostic,
-            });
-        }
-    }
-    Ok(())
-}
-
-/// Convert a plugin manifest signature (`($a: Int) -> Int`) to the language
-/// parameter list, dropping the display-only return annotation and `$` sigils.
-fn plugin_signature(raw: &str) -> Result<marqdo_ir::callable::CallableSignature, String> {
-    let before_return = raw.split("->").next().unwrap_or(raw).trim();
-    let open = before_return
-        .find('(')
-        .ok_or_else(|| "missing `(`".to_string())?;
-    let close = before_return
-        .rfind(')')
-        .ok_or_else(|| "missing `)`".to_string())?;
-    if close < open {
-        return Err("malformed parameter list".to_string());
-    }
-    let params = before_return[open + 1..close].replace('$', "");
-    let parsed =
-        marqdo_frontend::signature::parse(&format!("({params})"), marqdo_span::Span::default());
-    if parsed.has_errors() {
-        return Err(parsed
-            .diagnostics
-            .iter()
-            .map(|diagnostic| diagnostic.message.clone())
-            .collect::<Vec<_>>()
-            .join("; "));
-    }
-    Ok(marqdo_ir::callable::CallableSignature {
-        params: parsed.params,
-        kind: marqdo_ir::SignatureKind::Explicit,
-    })
 }
 
 /// `marqdo check`.

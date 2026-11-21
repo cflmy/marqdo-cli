@@ -81,6 +81,34 @@ pub mod codes {
     pub const PROJECT_LOCK: &str = "project.lock";
     /// Dependency resolution failed.
     pub const PROJECT_DEPENDENCY: &str = "project.dependency";
+    /// A statically visible callable export is declared more than once
+    /// (RFC-EXT-0001 §16.1).
+    pub const EXT_DUPLICATE_CALLABLE: &str = "ext.duplicate_callable";
+    /// An import alias collides with a builtin or plugin dotted namespace.
+    pub const EXT_IMPORT_NAMESPACE_CONFLICT: &str = "ext.import_namespace_conflict";
+    /// A loaded plugin's exports/signature/owner/artifact digest do not exactly
+    /// match the statically prepared descriptors.
+    pub const EXT_PLUGIN_BINDING_MISMATCH: &str = "ext.plugin_binding_mismatch";
+    /// Two resource providers try to register the same non-reserved kind.
+    pub const EXT_DUPLICATE_PROVIDER_KIND: &str = "ext.duplicate_provider_kind";
+    /// A legacy/future provider manifest is passed to the v2-only CLI entry.
+    pub const EXT_UNSUPPORTED_PROVIDER_SCHEMA: &str = "ext.unsupported_provider_schema";
+    /// No provider artifact matches the current host target triple.
+    pub const EXT_NO_MATCHING_ARTIFACT: &str = "ext.no_matching_artifact";
+    /// A provider artifact differs from its declared sha256, escapes its
+    /// bundle, is not a regular file or is an unallowed symlink.
+    pub const EXT_ARTIFACT_INTEGRITY: &str = "ext.artifact_integrity";
+    /// The matching provider worker/helper program is missing or cannot start.
+    pub const EXT_WORKER_UNAVAILABLE: &str = "ext.worker_unavailable";
+    /// The current platform explicitly does not support the requested
+    /// extension transport.
+    pub const EXT_PLATFORM_UNSUPPORTED: &str = "ext.platform_unsupported";
+    /// A locked extension identity does not match the actual manifest or
+    /// artifact on disk.
+    pub const EXT_EXTENSION_LOCK_MISMATCH: &str = "ext.extension_lock_mismatch";
+    /// An extension is explicitly selected but is not part of the project lock
+    /// (development-only use; release mode rejects it).
+    pub const EXT_UNLOCKED_EXTENSION: &str = "ext.unlocked_extension";
     /// Internal invariant violation; never expected in normal operation.
     pub const INTERNAL: &str = "internal.error";
 }

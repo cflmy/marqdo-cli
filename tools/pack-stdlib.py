@@ -18,6 +18,22 @@ STDLIB = ROOT / "stdlib"
 DIST = ROOT / "dist"
 
 
+def aliases_digest(manifest: dict) -> str:
+    digest = hashlib.sha256()
+    for alias in sorted(
+        manifest.get("public_aliases", []),
+        key=lambda a: (a["target_module"], a["target_function"]),
+    ):
+        digest.update(alias["target_module"].encode())
+        digest.update(b"\0")
+        digest.update(alias["target_function"].encode())
+        digest.update(b"\0")
+        for name in sorted(alias["public_names"]):
+            digest.update(name.encode())
+            digest.update(b"\0")
+    return f"sha256:{digest.hexdigest()}"
+
+
 def tree_digest() -> str:
     digest = hashlib.sha256()
     for path in sorted(
@@ -37,6 +53,9 @@ def main() -> int:
     digest = tree_digest()
     if manifest["digest"] != f"sha256:{digest}":
         raise SystemExit("stdlib.json digest does not match the tree")
+    alias_digest = aliases_digest(manifest)
+    if manifest.get("aliases_digest") != alias_digest:
+        raise SystemExit("stdlib.json aliases_digest does not match public_aliases")
 
     files = sorted(
         [p for p in STDLIB.rglob("*") if p.is_file() and p.name != "stdlib.json"]
@@ -65,6 +84,7 @@ def main() -> int:
         "name": manifest["name"],
         "version": version,
         "tree_digest": f"sha256:{digest}",
+        "aliases_digest": alias_digest,
         "archive": archive.name,
         "archive_sha256": f"sha256:{archive_sha}",
         "files": [p.relative_to(STDLIB).as_posix() for p in files],

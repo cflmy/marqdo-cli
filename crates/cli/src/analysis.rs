@@ -536,7 +536,7 @@ fn expr_calls(
 ) {
     match expr {
         Expr::Call { callee, args, span } => {
-            let (state, target) = resolve_callee(project, module, callee);
+            let (state, target) = resolve_callee(project, module, function, *span);
             calls.push(json!({
                 "function": function.id.to_string(),
                 "span": span_json(*span),
@@ -572,42 +572,34 @@ fn expr_calls(
     }
 }
 
+/// Project the authoritative call binding into the Analysis `state`/`target`
+/// fields.
+///
+/// Analysis is a read-only projection of the same prepared binding the runtime
+/// consumes (RFC-EXT-0001 §4/§9): there is no second name-resolution algorithm
+/// here. `state` keeps its v1 vocabulary (`function`, `builtin`, `plugin`,
+/// `unresolved`); official stdlib aliases such as `打印` therefore appear as
+/// `function` targets because that is the implementation that actually runs.
 fn resolve_callee(
     project: &LoadedProject,
-    module: &Module,
-    callee: &Expr,
+    _module: &Module,
+    function: &Function,
+    span: Span,
 ) -> (&'static str, Value) {
-    match callee {
-        Expr::Ident(ident) => {
-            if marqdo_ir::builtins::find(&ident.name).is_some() {
-                ("builtin", json!(ident.name))
-            } else if let Some(function) = module.function(&ident.name) {
-                ("function", json!(function.id.to_string()))
-            } else {
-                ("unresolved", Value::Null)
-            }
+    let key = marqdo_ir::call_binding::CallSiteKey::new(function.id.clone(), span);
+    match project.program.call_bindings.get(&key) {
+        Some(marqdo_ir::call_binding::BoundTarget::Builtin { canonical_name }) => {
+            ("builtin", json!(canonical_name))
         }
-        Expr::Member { base, name, .. } => {
-            if let Expr::Ident(alias) = base.as_ref() {
-                let qualified = format!("{}.{}", alias.name, name);
-                if marqdo_ir::builtins::find(&qualified).is_some() {
-                    return ("builtin", json!(qualified));
-                }
-                if let Some(target_module) = project.program.resolve_import(&module.id, &alias.name)
-                {
-                    if let Some(target) = project.program.module(target_module) {
-                        if let Some(function) = target.function(name) {
-                            return ("function", json!(function.id.to_string()));
-                        }
-                    }
-                }
-                if project.program.external_callable(&qualified).is_some() {
-                    return ("plugin", json!(qualified));
-                }
-            }
+        Some(marqdo_ir::call_binding::BoundTarget::Marqdo { function }) => {
+            ("function", json!(function.to_string()))
+        }
+        Some(marqdo_ir::call_binding::BoundTarget::AbiPlugin { export, .. }) => {
+            ("plugin", json!(export))
+        }
+        Some(marqdo_ir::call_binding::BoundTarget::DynamicValue) | None => {
             ("unresolved", Value::Null)
         }
-        _ => ("unresolved", Value::Null),
     }
 }
 

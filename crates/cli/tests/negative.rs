@@ -224,6 +224,7 @@ fn runtime_negative_goldens() {
         let mut program = marqdo_ir::Program::default();
         program.insert(analysis.module.clone());
         program.main_module = Some(module_id.clone());
+        bind_program_calls(&mut program);
         let mut host = StdHost::new(
             SandboxMode::Project,
             Capabilities::pure(),
@@ -283,4 +284,16 @@ fn runtime_negative_goldens() {
         }
     }
     let _ = fs::remove_dir_all(&project_root);
+}
+
+/// Bind direct-runtime fixtures exactly like the CLI composition root.
+fn bind_program_calls(program: &mut marqdo_ir::Program) {
+    let registry = program.callable_registry();
+    let bound = marqdo_frontend::calls::bind_program_calls(program, &registry);
+    assert!(
+        bound.diagnostics.is_empty(),
+        "fixture failed static call binding: {:#?}",
+        bound.diagnostics
+    );
+    program.set_call_bindings(bound.bindings);
 }

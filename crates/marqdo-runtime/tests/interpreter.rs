@@ -19,6 +19,14 @@ fn build(source: &str) -> Program {
         ..Program::default()
     };
     program.insert(result.module);
+    let registry = program.callable_registry();
+    let bound = marqdo_frontend::calls::bind_program_calls(&program, &registry);
+    assert!(
+        bound.diagnostics.is_empty(),
+        "unexpected binding diagnostics: {:#?}",
+        bound.diagnostics
+    );
+    program.set_call_bindings(bound.bindings);
     program
 }
 

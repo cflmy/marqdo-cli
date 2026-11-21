@@ -9,18 +9,11 @@ pub fn check(
     plugins: &[PathBuf],
     emit: Option<&Path>,
 ) -> i32 {
-    let mut project = match load_project(file, json) {
-        Ok(project) => project,
+    let prepared = match prepare_project(file, json, plugins) {
+        Ok(prepared) => prepared,
         Err(code) => return code,
     };
-    if let Err(error) = add_static_plugin_descriptors(&mut project, plugins) {
-        if json {
-            output::print_json(&json!({"success": false, "error": error}));
-        } else {
-            eprintln!("error: {error}");
-        }
-        return 2;
-    }
+    let mut project = prepared.loaded;
     if refs {
         let ref_diagnostics = validate_refs(&project);
         project.diagnostics.extend(ref_diagnostics);

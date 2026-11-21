@@ -14,7 +14,8 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use marqdo_expression::Expr;
-use marqdo_frontend::{analyze_source, AnalysisResult};
+use marqdo_frontend::AnalysisResult;
+use marqdo_ir::callable::OfficialAlias;
 use marqdo_ir::{ModuleId, PlaceTarget, Program, ResolvedImport, Stmt};
 use marqdo_package::{
     discover_root, LockFile, Manifest, PackageResolver, ResolvedPackage, LOCK_FILE, MANIFEST_FILE,
@@ -157,6 +158,11 @@ pub struct LoadedProject {
     pub diagnostics: Vec<FileDiagnostic>,
     /// Verified bundled stdlib identity, when one was available.
     pub stdlib: Option<StdlibInfo>,
+    /// Official stdlib public aliases referenced by this program (ADR-0058).
+    ///
+    /// These are ordinary `Marqdo` bindings; the runtime has no print special
+    /// case and no `Program.print_override`.
+    pub official_aliases: Vec<marqdo_ir::callable::OfficialAlias>,
 }
 
 impl LoadedProject {
@@ -280,32 +286,11 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
     let entry_id = loader.load_module(&entry_module.package, &entry_module.relative_path)?;
     loader.program.main_module = Some(entry_id.clone());
 
-    // Compat-B (ADR-0030): only programs that actually call 打印/print need the
-    // stdlib print module; injecting it for every program would change the
-    // module graph, analysis output and startup cost for no benefit.
-    if program_uses_print(&loader.program) {
-        if let Some(stdlib) = loader.stdlib.clone() {
-            let package = stdlib.package();
-            let io = loader.load_module(&package, "io.mq.md")?;
-            let Some(module) = loader.program.module(&io) else {
-                return Err("stdlib print module was not loaded".to_string());
-            };
-            let Some(function) = module.function("写值") else {
-                return Err("stdlib print module has no `写值` function".to_string());
-            };
-            loader.program.print_override = Some(function.id.clone());
-        }
-    }
-    for (module_id, diagnostic) in marqdo_frontend::calls::validate_program(&loader.program) {
-        if let Some(file) = loader.files.get(&module_id) {
-            loader.diagnostics.push(FileDiagnostic {
-                module_id,
-                path: file.path.clone(),
-                source: file.source.clone(),
-                diagnostic,
-            });
-        }
-    }
+    // Official stdlib public aliases (ADR-0058): the verified metadata names
+    // the target module/function; only aliases the program actually references
+    // load their module, and the runtime binds them as ordinary Marqdo calls.
+    let official_aliases = loader.load_official_aliases()?;
+
     let stdlib_info = loader.stdlib.as_ref().map(|bundle| StdlibInfo {
         version: bundle.version().to_string(),
         digest: bundle.digest().to_string(),
@@ -328,6 +313,7 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
         packages: loader.packages,
         diagnostics: loader.diagnostics,
         stdlib: stdlib_info,
+        official_aliases,
     })
 }
 
@@ -378,7 +364,7 @@ impl Loader {
             .or_insert_with(|| package_root.clone());
         let source = std::fs::read_to_string(&path)
             .map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
-        let analysis = analyze_source(&module_id.to_string(), &source);
+        let analysis = marqdo_frontend::analyze_source_for_program(&module_id.to_string(), &source);
         let imports: Vec<(String, String, marqdo_span::Span)> = analysis
             .document
             .frontmatter()
@@ -516,57 +502,170 @@ impl Loader {
         }
         Ok(module_id)
     }
-}
 
-/// Whether the loaded program calls the legacy `打印`/`print` builtin.
-fn program_uses_print(program: &Program) -> bool {
-    program.modules.values().any(|module| {
-        module
-            .functions
-            .iter()
-            .any(|function| stmts_use_print(&function.body))
-    })
-}
-
-fn stmts_use_print(stmts: &[Stmt]) -> bool {
-    stmts.iter().any(|stmt| match stmt {
-        Stmt::Assign { target, value, .. } => {
-            let target_uses = match target {
-                PlaceTarget::Local { .. } => false,
-                PlaceTarget::Index { base, index, .. } => {
-                    expr_uses_print(base) || expr_uses_print(index)
-                }
+    /// Resolve the official stdlib public aliases referenced by the program.
+    ///
+    /// Only the verified `stdlib.json` metadata can declare an official alias;
+    /// a third-party package cannot claim `打印`/`print` or `std.*`. Modules are
+    /// loaded only when the program references one of the alias names, so an
+    /// ordinary program does not grow its module graph or startup cost.
+    fn load_official_aliases(&mut self) -> Result<Vec<OfficialAlias>, String> {
+        let Some(stdlib) = self.stdlib.clone() else {
+            return Ok(Vec::new());
+        };
+        if stdlib.public_aliases().is_empty() {
+            return Ok(Vec::new());
+        }
+        let referenced = referenced_identifiers(&self.program);
+        let mut aliases = Vec::new();
+        for alias in stdlib.public_aliases() {
+            if !alias
+                .public_names
+                .iter()
+                .any(|name| referenced.contains(name))
+            {
+                continue;
+            }
+            let resolved = stdlib.resolve(&alias.target_module)?;
+            let module_id = self.load_module(&resolved.package, &resolved.relative_path)?;
+            let Some(module) = self.program.module(&module_id) else {
+                return Err(format!(
+                    "stdlib public alias target module `{}` was not loaded",
+                    alias.target_module
+                ));
             };
-            target_uses || expr_uses_print(value)
+            let Some(function) = module.function(&alias.target_function) else {
+                return Err(format!(
+                    "stdlib public alias `{}` target `{}::{}` does not exist",
+                    alias.public_names.join("/"),
+                    alias.target_module,
+                    alias.target_function
+                ));
+            };
+            if let Some(expected) = &alias.expected_signature {
+                let parsed =
+                    marqdo_frontend::signature::parse(expected, marqdo_span::Span::default());
+                if parsed.has_errors() {
+                    return Err(format!(
+                        "stdlib public alias `{}` has an invalid expected_signature `{expected}`",
+                        alias.public_names.join("/")
+                    ));
+                }
+                let expected_names: Vec<&str> = parsed
+                    .params
+                    .iter()
+                    .map(|param| param.name.as_str())
+                    .collect();
+                let actual_names: Vec<&str> = function
+                    .params
+                    .iter()
+                    .map(|param| param.name.as_str())
+                    .collect();
+                if expected_names != actual_names
+                    || function.signature != marqdo_ir::SignatureKind::Explicit
+                {
+                    return Err(format!(
+                        "stdlib public alias `{}` expected signature `{expected}` does not match \
+                         target `{}::{}` (params {:?}, kind {:?})",
+                        alias.public_names.join("/"),
+                        alias.target_module,
+                        alias.target_function,
+                        actual_names,
+                        function.signature
+                    ));
+                }
+            }
+            aliases.push(OfficialAlias {
+                public_names: alias.public_names.clone(),
+                function: function.id.clone(),
+                signature: marqdo_ir::callable::CallableSignature {
+                    params: function.params.clone(),
+                    kind: function.signature,
+                },
+                owner_package: module_id.instance.clone(),
+                effects_requested: alias.effects.clone(),
+            });
         }
-        Stmt::Eval { expr, .. } | Stmt::Return { value: expr, .. } => expr_uses_print(expr),
-        Stmt::Branch { arms, .. } => arms
-            .iter()
-            .any(|arm| expr_uses_print(&arm.condition) || stmts_use_print(&arm.body)),
-        Stmt::Loop {
-            condition, body, ..
-        } => expr_uses_print(condition) || stmts_use_print(body),
-    })
+        Ok(aliases)
+    }
 }
 
-fn expr_uses_print(expr: &Expr) -> bool {
-    match expr {
-        Expr::Call { callee, args, .. } => {
-            matches!(callee.as_ref(), Expr::Ident(ident) if matches!(ident.name.as_str(), "打印" | "print"))
-                || expr_uses_print(callee)
-                || args.iter().any(|arg| expr_uses_print(&arg.value))
+/// Collect every identifier referenced by a program.
+///
+/// This is a conservative "is this alias used at all?" scan; it only decides
+/// whether an official alias target module should be loaded. It does not decide
+/// call targets (that is the single binding pass).
+fn referenced_identifiers(program: &Program) -> std::collections::BTreeSet<String> {
+    let mut names = std::collections::BTreeSet::new();
+    for module in program.modules.values() {
+        for function in &module.functions {
+            for param in &function.params {
+                if let Some(default) = &param.default {
+                    collect_identifiers_expr(default, &mut names);
+                }
+            }
+            collect_identifiers_stmts(&function.body, &mut names);
         }
-        Expr::List(items) => items.iter().any(expr_uses_print),
-        Expr::Record(entries) => entries.iter().any(|entry| expr_uses_print(&entry.value)),
-        Expr::Unary { operand, .. } => expr_uses_print(operand),
-        Expr::Binary { left, right, .. } => expr_uses_print(left) || expr_uses_print(right),
-        Expr::Member { base, .. } => expr_uses_print(base),
-        Expr::Index { base, index, .. } => expr_uses_print(base) || expr_uses_print(index),
-        Expr::Int(_)
-        | Expr::Float(_)
-        | Expr::Text(_)
-        | Expr::Bool(_)
-        | Expr::None
-        | Expr::Ident(_) => false,
+    }
+    names
+}
+
+fn collect_identifiers_stmts(stmts: &[Stmt], names: &mut std::collections::BTreeSet<String>) {
+    for stmt in stmts {
+        match stmt {
+            Stmt::Assign { target, value, .. } => {
+                if let PlaceTarget::Index { base, index, .. } = target {
+                    collect_identifiers_expr(base, names);
+                    collect_identifiers_expr(index, names);
+                }
+                collect_identifiers_expr(value, names);
+            }
+            Stmt::Eval { expr, .. } | Stmt::Return { value: expr, .. } => {
+                collect_identifiers_expr(expr, names)
+            }
+            Stmt::Branch { arms, .. } => {
+                for arm in arms {
+                    collect_identifiers_expr(&arm.condition, names);
+                    collect_identifiers_stmts(&arm.body, names);
+                }
+            }
+            Stmt::Loop {
+                condition, body, ..
+            } => {
+                collect_identifiers_expr(condition, names);
+                collect_identifiers_stmts(body, names);
+            }
+        }
+    }
+}
+
+fn collect_identifiers_expr(expr: &Expr, names: &mut std::collections::BTreeSet<String>) {
+    match expr {
+        Expr::Ident(ident) => {
+            names.insert(ident.name.clone());
+        }
+        Expr::List(items) => items
+            .iter()
+            .for_each(|item| collect_identifiers_expr(item, names)),
+        Expr::Record(entries) => entries
+            .iter()
+            .for_each(|entry| collect_identifiers_expr(&entry.value, names)),
+        Expr::Unary { operand, .. } => collect_identifiers_expr(operand, names),
+        Expr::Binary { left, right, .. } => {
+            collect_identifiers_expr(left, names);
+            collect_identifiers_expr(right, names);
+        }
+        Expr::Member { base, .. } => collect_identifiers_expr(base, names),
+        Expr::Index { base, index, .. } => {
+            collect_identifiers_expr(base, names);
+            collect_identifiers_expr(index, names);
+        }
+        Expr::Call { callee, args, .. } => {
+            collect_identifiers_expr(callee, names);
+            for arg in args {
+                collect_identifiers_expr(&arg.value, names);
+            }
+        }
+        Expr::Int(_) | Expr::Float(_) | Expr::Text(_) | Expr::Bool(_) | Expr::None => {}
     }
 }

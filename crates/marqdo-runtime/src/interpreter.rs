@@ -54,7 +54,6 @@ pub struct RunOutcome {
 /// Execution frame for one function call.
 struct Frame {
     function: FunctionId,
-    namespace: Option<String>,
     locals: BTreeMap<String, Value>,
 }
 
@@ -179,7 +178,6 @@ impl<'a> Interpreter<'a> {
         };
         let mut frame = Frame {
             function: function.id.clone(),
-            namespace: function.namespace.clone(),
             locals,
         };
         self.depth += 1;
@@ -277,7 +275,6 @@ impl<'a> Interpreter<'a> {
                         // an empty frame so they cannot reach caller state.
                         let mut empty = Frame {
                             function: function.id.clone(),
-                            namespace: function.namespace.clone(),
                             locals: BTreeMap::new(),
                         };
                         let value = self.eval_expr(default, &mut empty)?;
@@ -616,113 +613,96 @@ impl<'a> Interpreter<'a> {
         span: Span,
         frame: &mut Frame,
     ) -> Result<Value, RuntimeError> {
-        let caller_module = frame.function.module.clone();
-        match callee {
-            Expr::Ident(ident) => {
-                if let Some(value) = frame.locals.get(&ident.name).cloned() {
-                    let args = self.eval_args(args, frame)?;
-                    return self.call_value(program, value, args, Some(span), Some(&caller_module));
-                }
-                if matches!(ident.name.as_str(), "打印" | "print") {
-                    if let Some(target) = program.print_override.clone() {
-                        let args = self.eval_args(args, frame)?;
-                        let Some(function) = program.function(&target) else {
-                            return Err(RuntimeError::new(
-                                ErrorCategory::UnknownSymbol,
-                                Some(span),
-                                format!("print override `{target}` does not exist"),
-                            ));
-                        };
-                        return self.call_function(
-                            program,
-                            function,
-                            args,
-                            Some(span),
-                            Some(&caller_module),
-                        );
-                    }
-                }
-                if let Some(builtin) = builtins::find(&ident.name) {
-                    let args = self.eval_args(args, frame)?;
-                    return self.call_builtin(builtin, args, Some(span), frame);
-                }
-                let args = self.eval_args(args, frame)?;
-                let (module, namespace) = (frame.function.module.clone(), frame.namespace.clone());
-                let Some(function) =
-                    resolve_function(program, &module, namespace.as_deref(), &ident.name)
-                else {
+        // ADR-0054 / RFC-EXT-0001 §4: the frontend resolved this call site
+        // exactly once. Dispatch by the recorded identity; never re-resolve a
+        // name, never infer a plugin from a dotted prefix.
+        let key = marqdo_ir::call_binding::CallSiteKey::new(frame.function.clone(), span);
+        let Some(target) = program.call_bindings.get(&key).cloned() else {
+            return Err(RuntimeError::new(
+                ErrorCategory::Internal,
+                Some(span),
+                format!(
+                    "call site `{key}` has no static binding; run a prepared program (ADR-0054)"
+                ),
+            ));
+        };
+        match target {
+            marqdo_ir::call_binding::BoundTarget::Builtin { canonical_name } => {
+                let Some(builtin) = builtins::find(&canonical_name) else {
                     return Err(RuntimeError::new(
-                        ErrorCategory::UnknownSymbol,
+                        ErrorCategory::Internal,
                         Some(span),
-                        format!("unknown function `{}`", ident.name),
+                        format!("bound builtin `{canonical_name}` is not registered"),
                     ));
                 };
-                self.call_function(program, function, args, Some(span), Some(&caller_module))
+                let args = self.eval_args(args, frame)?;
+                self.call_builtin(builtin, args, Some(span), frame)
             }
-            Expr::Member { base, name, .. } => {
-                if let Expr::Ident(alias) = base.as_ref() {
-                    if let Some(target_module) =
-                        program.resolve_import(&frame.function.module, &alias.name)
-                    {
-                        let args = self.eval_args(args, frame)?;
-                        let Some(function) = resolve_function(program, target_module, None, name)
-                        else {
-                            return Err(RuntimeError::new(
-                                ErrorCategory::UnknownSymbol,
-                                Some(span),
-                                format!("unknown function `{name}` in module `{target_module}`"),
-                            ));
-                        };
-                        return self.call_function(
-                            program,
-                            function,
-                            args,
-                            Some(span),
-                            Some(&caller_module),
-                        );
-                    }
-                    let qualified = format!("{}.{name}", alias.name);
-                    if let Some(builtin) = builtins::find(&qualified) {
-                        let args = self.eval_args(args, frame)?;
-                        return self.call_builtin(builtin, args, Some(span), frame);
-                    }
-                    if !frame.locals.contains_key(&alias.name) {
-                        // A declared external descriptor is the only static
-                        // source of plugin exports. Calls without a descriptor
-                        // are still accepted for compatibility only when no
-                        // plugin descriptors exist at all; this fallback is
-                        // removed once the CLI always supplies descriptors.
-                        let qualified = format!("{}.{}", alias.name, name);
-                        let declared = program.external_callable(&qualified).is_some();
-                        if !declared && !program.external_callables.is_empty() {
-                            return Err(RuntimeError::new(
-                                ErrorCategory::UnknownSymbol,
-                                Some(span),
-                                format!("unknown plugin export `{qualified}`"),
-                            ));
-                        }
-                        // Plugin calls take named arguments only in this build.
-                        let evaluated = self.eval_args(args, frame)?;
-                        let mut named = std::collections::BTreeMap::new();
-                        for argument in evaluated {
-                            let Some(argument_name) = argument.name else {
+            marqdo_ir::call_binding::BoundTarget::Marqdo { function } => {
+                let Some(target_function) = program.function(&function) else {
+                    return Err(RuntimeError::new(
+                        ErrorCategory::Internal,
+                        Some(span),
+                        format!("bound function `{function}` does not exist"),
+                    ));
+                };
+                let args = self.eval_args(args, frame)?;
+                self.call_function(
+                    program,
+                    target_function,
+                    args,
+                    Some(span),
+                    Some(&frame.function.module.clone()),
+                )
+            }
+            marqdo_ir::call_binding::BoundTarget::AbiPlugin {
+                package: _,
+                export,
+                digest: _,
+                param_names,
+            } => {
+                // ABI v1 transports named arguments as a map. Normalise
+                // positional arguments deterministically against the static
+                // manifest order; static validation already rejected unknown,
+                // duplicate or missing arguments.
+                let evaluated = self.eval_args(args, frame)?;
+                let mut named = std::collections::BTreeMap::new();
+                let mut position = 0usize;
+                for argument in evaluated {
+                    let name = match argument.name {
+                        Some(name) => name,
+                        None => {
+                            let Some(name) = param_names.get(position).cloned() else {
                                 return Err(RuntimeError::new(
-                                    ErrorCategory::Type,
-                                    Some(argument.span),
-                                    "plugin calls require named arguments",
+                                    ErrorCategory::Internal,
+                                    Some(span),
+                                    format!(
+                                        "positional argument {} was not normalised for `{export}`",
+                                        position + 1
+                                    ),
                                 ));
                             };
-                            named.insert(argument_name, argument.value);
+                            position += 1;
+                            name
                         }
-                        let module = frame.function.module.clone();
-                        return self.host_invoke(
-                            HostOp::PluginInvoke,
-                            vec![Value::Text(qualified), Value::Map(named)],
+                    };
+                    if named.insert(name.clone(), argument.value).is_some() {
+                        return Err(RuntimeError::new(
+                            ErrorCategory::Arity,
                             Some(span),
-                            &module,
-                        );
+                            format!("duplicate argument `{name}` for `{export}`"),
+                        ));
                     }
                 }
+                let module = frame.function.module.clone();
+                self.host_invoke(
+                    HostOp::PluginInvoke,
+                    vec![Value::Text(export), Value::Map(named)],
+                    Some(span),
+                    &module,
+                )
+            }
+            marqdo_ir::call_binding::BoundTarget::DynamicValue => {
                 let callee_value = self.eval_expr(callee, frame)?;
                 let args = self.eval_args(args, frame)?;
                 self.call_value(
@@ -730,18 +710,7 @@ impl<'a> Interpreter<'a> {
                     callee_value,
                     args,
                     Some(span),
-                    Some(&caller_module),
-                )
-            }
-            other => {
-                let callee_value = self.eval_expr(other, frame)?;
-                let args = self.eval_args(args, frame)?;
-                self.call_value(
-                    program,
-                    callee_value,
-                    args,
-                    Some(span),
-                    Some(&caller_module),
+                    Some(&frame.function.module.clone()),
                 )
             }
         }
@@ -933,21 +902,6 @@ impl<'a> Interpreter<'a> {
             error
         })
     }
-}
-
-fn resolve_function<'p>(
-    program: &'p Program,
-    module: &ModuleId,
-    namespace: Option<&str>,
-    name: &str,
-) -> Option<&'p Function> {
-    let module = program.module(module)?;
-    if let Some(namespace) = namespace {
-        if let Some(found) = module.namespaced_function(namespace, name) {
-            return Some(found);
-        }
-    }
-    module.function(name)
 }
 
 /// Bind already-evaluated arguments to a builtin parameter list.

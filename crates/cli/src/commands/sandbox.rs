@@ -43,6 +43,10 @@ pub struct SandboxSettings {
     pub timeout: Option<u64>,
     /// Explicitly trusted plugin manifests to load.
     pub plugins: Vec<PathBuf>,
+    /// Explicitly selected resource provider v2 manifests (RFC-EXT-0001 §5.4).
+    pub providers: Vec<PathBuf>,
+    /// Exact resource provider name grants (declaration is not a grant).
+    pub allow_provider: Vec<String>,
     /// Explicit trust decision for in-process native plugin loading.
     pub trust_native_plugin: bool,
     /// Optional Trace v2 output path.
@@ -68,8 +72,8 @@ impl SandboxSettings {
 
     /// Reject strict-mode requests that this L1 isolation level does not
     /// support. Strict currently covers pure Marqdo and native Math only;
-    /// granting Foreign, ABI plugins, tools or trace files would require
-    /// extending the supervisor contract first.
+    /// granting Foreign, ABI plugins, resource providers, tools or trace files
+    /// would require extending the supervisor contract first.
     pub fn strict_preflight(&self) -> Result<(), String> {
         let requested = self.allow_foreign
             || !self.allow_read.is_empty()
@@ -80,6 +84,8 @@ impl SandboxSettings {
             || self.allow_random
             || !self.allow_plugin.is_empty()
             || !self.plugins.is_empty()
+            || !self.providers.is_empty()
+            || !self.allow_provider.is_empty()
             || self.trust_native_plugin
             || !self.kernels.is_empty()
             || self.trace_file.is_some();
@@ -87,8 +93,9 @@ impl SandboxSettings {
             return Err(
                 "strict mode currently supports pure Marqdo and native Math only; \
                  --allow-read/--allow-write/--allow-env/--allow-process/--allow-random/\
-                 --allow-foreign/--allow-plugin/--plugin/--trust-native-plugin/--kernel/--trace-file are
-                 rejected. Use --mode project for those capabilities."
+                 --allow-foreign/--allow-plugin/--plugin/--provider/--allow-provider/\
+                 --trust-native-plugin/--kernel/--trace-file are rejected. \
+                 Use --mode project for those capabilities."
                     .to_string(),
             );
         }
@@ -108,9 +115,13 @@ impl SandboxSettings {
                     || self.allow_random
                     || self.allow_foreign
                     || !self.allow_plugin.is_empty()
+                    || !self.providers.is_empty()
+                    || !self.allow_provider.is_empty()
                 {
                     return Err(
-                        "pure mode prohibits external I/O grants; use --mode project".to_string(),
+                        "pure mode prohibits external I/O grants and extension providers; \
+                         use --mode project"
+                            .to_string(),
                     );
                 }
                 Ok(Capabilities::pure())
@@ -141,6 +152,10 @@ impl SandboxSettings {
                 for plugin in &self.allow_plugin {
                     capabilities = capabilities.allow_plugin(plugin.clone());
                 }
+                for provider in &self.allow_provider {
+                    validate_provider_grant(provider)?;
+                    capabilities = capabilities.allow_resource_provider(provider.clone());
+                }
                 Ok(capabilities)
             }
             SandboxMode::Strict => {
@@ -149,4 +164,29 @@ impl SandboxSettings {
             }
         }
     }
+}
+
+/// Reject non-exact `--allow-provider` grants.
+///
+/// Provider grants are exact stable names (RFC-EXT-0001 §5.2): there is no `*`
+/// wildcard, no prefix matching and no implicit discovery, so a grant either
+/// names a selected manifest or the run fails closed.
+fn validate_provider_grant(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        return Err("--allow-provider requires a non-empty provider name".to_string());
+    }
+    if name
+        .chars()
+        .any(|character| matches!(character, '*' | '?' | '[' | ']'))
+    {
+        return Err(format!(
+            "--allow-provider `{name}`: wildcards are not supported; grants are exact provider names"
+        ));
+    }
+    if name.chars().any(char::is_control) {
+        return Err(format!(
+            "--allow-provider `{name}`: provider names must not contain control characters"
+        ));
+    }
+    Ok(())
 }

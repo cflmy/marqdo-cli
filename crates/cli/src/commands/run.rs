@@ -4,6 +4,7 @@
 //! runtime helpers, but keeps the run session out of the command table.
 
 use super::*;
+use crate::provider_manifest;
 use marqdo_sandbox::StrictChildState;
 
 pub fn execute(
@@ -15,18 +16,12 @@ pub fn execute(
     trace: bool,
 ) -> i32 {
     let command_name = if function.is_some() { "call" } else { "run" };
-    let mut project = match load_project(file, json) {
-        Ok(project) => project,
+    let prepared = match prepare_project(file, json, &settings.plugins) {
+        Ok(prepared) => prepared,
         Err(code) => return code,
     };
-    if let Err(error) = add_static_plugin_descriptors(&mut project, &settings.plugins) {
-        if json {
-            output::print_json(&json!({"success": false, "error": error}));
-        } else {
-            eprintln!("error: {error}");
-        }
-        return 2;
-    }
+    let project = prepared.loaded;
+    let static_plugins = prepared.plugins;
     if project.has_errors() {
         if json {
             output::print_json(&json!({
@@ -136,10 +131,80 @@ pub fn execute(
             return 2;
         }
     }
-    for plugin_path in &settings.plugins {
-        if let Err(message) =
-            load_plugin_into_host(&mut host, plugin_path, settings.trust_native_plugin)
+    // T6: verify every selected artifact/path/hash before starting a worker or
+    // loading native code. Static path/signature checks happened in `prepare`.
+    //
+    // Provider selection is host assembly, not callable semantics: `check`
+    // never sees it. Parse and verify every `--provider` manifest, resolve the
+    // current target artifact, check the exact grant and reject duplicate
+    // names/kinds *before* any provider or plugin worker process is spawned
+    // (RFC-EXT-0001 §5.4.6/§18.2 T6–T7).
+    let providers = match provider_manifest::read_provider_manifests(&settings.providers) {
+        Ok(providers) => providers,
+        Err(error) => {
+            emit_prepare_error(json, command_name, &error);
+            return error.exit_code;
+        }
+    };
+    // `--provider` alone never authorizes; the exact `--allow-provider NAME`
+    // is required before the helper process may be started. An ungranted
+    // provider fails closed instead of being silently ignored.
+    for provider in &providers {
+        if !settings
+            .allow_provider
+            .iter()
+            .any(|grant| grant == &provider.name)
         {
+            let error = extension_descriptors::PrepareError::load(
+                "permission.denied",
+                format!(
+                    "resource provider `{}` was selected with --provider but is not granted; \
+                     add --allow-provider {}",
+                    provider.name, provider.name
+                ),
+            );
+            emit_prepare_error(json, command_name, &error);
+            return error.exit_code;
+        }
+    }
+    // A grant that matches no selected provider is a deterministic option
+    // error: providers are never discovered from PATH, the working directory or
+    // the network.
+    for grant in &settings.allow_provider {
+        if !providers.iter().any(|provider| &provider.name == grant) {
+            let error = extension_descriptors::PrepareError::option(
+                "ext.provider_grant_unmatched",
+                format!(
+                    "--allow-provider `{grant}` matches no selected --provider manifest; \
+                     providers are never discovered automatically"
+                ),
+            );
+            emit_prepare_error(json, command_name, &error);
+            return error.exit_code;
+        }
+    }
+    for plugin in &static_plugins.plugins {
+        if let Err(error) = extension_descriptors::verify_bundle_regular_file(
+            &plugin.base_dir,
+            &plugin.artifact_relative,
+        ) {
+            emit_prepare_error(json, command_name, &error);
+            return error.exit_code;
+        }
+        let artifact = plugin.artifact_path();
+        if let Err(error) = extension_descriptors::verify_sha256(&artifact, &plugin.artifact_sha256)
+        {
+            emit_prepare_error(json, command_name, &error);
+            return error.exit_code;
+        }
+    }
+    // T7: start only selected, granted and verified extensions.
+    for plugin in &static_plugins.plugins {
+        if let Err(message) = load_plugin_into_host(
+            &mut host,
+            &plugin.manifest_path,
+            settings.trust_native_plugin,
+        ) {
             if json {
                 output::print_json(&json!({"success": false, "error": message}));
             } else {
@@ -148,36 +213,24 @@ pub fn execute(
             return 1;
         }
     }
-    // Expose the complete export names loaded from trusted manifests so the
-    // runtime resolves exactly those names instead of probing namespaces.
-    for (name, _signature, digest, package) in host.plugin_exports() {
-        if project
-            .program
-            .external_callables
-            .iter()
-            .any(|callable| callable.public_name == name)
-        {
-            continue;
+    // T8: exact one-to-one reconciliation with the static descriptors. Never
+    // synthesise a missing signature (`params: Vec::new()`) or guess an export.
+    if let Err(message) = reconcile_plugin_exports(&static_plugins, &host) {
+        emit_error(json, command_name, "ext.plugin_binding_mismatch", &message);
+        return 1;
+    }
+    // T7b: start only granted and verified provider helpers. Every manifest,
+    // artifact, target, grant and duplicate-kind check above already passed, so
+    // no worker is spawned for a provider that failed verification.
+    for provider in &providers {
+        if let Err(error) = provider_manifest::load_resource_provider_into_host(
+            &mut host,
+            provider,
+            &settings.allow_provider,
+        ) {
+            emit_prepare_error(json, command_name, &error);
+            return error.exit_code;
         }
-        project
-            .program
-            .external_callables
-            .push(marqdo_ir::callable::CallableDescriptor {
-                id: marqdo_ir::callable::CallableId(format!("plugin:{package}:{name}")),
-                public_name: name.clone(),
-                owner_package: package.clone(),
-                signature: marqdo_ir::callable::CallableSignature {
-                    params: Vec::new(),
-                    kind: marqdo_ir::SignatureKind::Explicit,
-                },
-                effects_requested: vec!["host".to_string()],
-                origin: marqdo_ir::callable::CallableOrigin::AbiPlugin {
-                    package,
-                    export: name,
-                },
-                implementation_digest: Some(digest),
-                source_span: None,
-            });
     }
     let function_name = function.unwrap_or("main").to_string();
     let entry_module = &project.program.modules[&project.entry];
@@ -292,6 +345,80 @@ pub fn execute(
     }
 }
 
+fn emit_prepare_error(
+    json: bool,
+    command_name: &str,
+    error: &crate::extension_descriptors::PrepareError,
+) {
+    if json {
+        output::print_json(&json!({
+            "command": command_name,
+            "success": false,
+            "error": {"code": error.code, "message": error.message},
+        }));
+    } else {
+        eprintln!("error[{}]: {}", error.code, error.message);
+    }
+}
+
+/// Compare the Host's actual plugin exports with the static manifest set.
+///
+/// Names, raw signatures, owners and verified artifact digests must match
+/// exactly; extra, missing or altered exports fail closed with
+/// `ext.plugin_binding_mismatch` and the main function never runs.
+fn reconcile_plugin_exports(
+    static_plugins: &StaticPluginSet,
+    host: &StdHost,
+) -> Result<(), String> {
+    let mut expected: std::collections::BTreeMap<String, (String, String, String)> =
+        std::collections::BTreeMap::new();
+    for plugin in &static_plugins.plugins {
+        for export in &plugin.exports {
+            expected.insert(
+                export.name.clone(),
+                (
+                    export.signature.clone(),
+                    plugin.artifact_sha256.clone(),
+                    plugin.package.clone(),
+                ),
+            );
+        }
+    }
+    let loaded = host.plugin_exports();
+    if loaded.len() != expected.len() {
+        return Err(format!(
+            "static plugin descriptors declare {} export(s) but the runtime loaded {}; \
+             refusing to execute",
+            expected.len(),
+            loaded.len()
+        ));
+    }
+    for (name, signature, digest, package) in loaded {
+        let Some((expected_signature, expected_digest, expected_package)) = expected.get(&name)
+        else {
+            return Err(format!(
+                "runtime export `{name}` was not declared by any selected plugin manifest"
+            ));
+        };
+        if &signature != expected_signature {
+            return Err(format!(
+                "export `{name}` signature mismatch: manifest `{expected_signature}`, runtime `{signature}`"
+            ));
+        }
+        if &digest != expected_digest {
+            return Err(format!(
+                "export `{name}` artifact digest mismatch: manifest `{expected_digest}`, runtime `{digest}`"
+            ));
+        }
+        if &package != expected_package {
+            return Err(format!(
+                "export `{name}` owner mismatch: manifest `{expected_package}`, runtime `{package}`"
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Read piped stdin once at the composition boundary.
 ///
 /// A terminal stdin is not read, so `marqdo run` never blocks waiting for an
@@ -309,4 +436,88 @@ fn read_stdin() -> Vec<u8> {
         return Vec::new();
     }
     bytes
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn empty_host() -> StdHost {
+        StdHost::new(
+            SandboxMode::Project,
+            marqdo_host::Capabilities::pure(),
+            std::env::temp_dir(),
+        )
+    }
+
+    fn static_plugin_with_export() -> StaticPluginSet {
+        let descriptor = marqdo_ir::callable::CallableDescriptor {
+            id: marqdo_ir::callable::CallableId("plugin:demo.ext:solver.add".into()),
+            public_name: "solver.add".into(),
+            owner_package: "demo.ext".into(),
+            signature: marqdo_ir::callable::CallableSignature {
+                params: vec![
+                    marqdo_ir::Param {
+                        name: "a".into(),
+                        span: Span::default(),
+                        type_annotation: None,
+                        default: None,
+                    },
+                    marqdo_ir::Param {
+                        name: "b".into(),
+                        span: Span::default(),
+                        type_annotation: None,
+                        default: None,
+                    },
+                ],
+                kind: marqdo_ir::SignatureKind::Explicit,
+            },
+            effects_requested: vec!["math.compute".into()],
+            origin: marqdo_ir::callable::CallableOrigin::AbiPlugin {
+                package: "demo.ext".into(),
+                export: "solver.add".into(),
+            },
+            implementation_digest: Some("a".repeat(64)),
+            source_span: None,
+        };
+        StaticPluginSet {
+            plugins: vec![crate::extension_descriptors::StaticPlugin {
+                manifest_path: PathBuf::from("/fixtures/demo/plugin.yaml"),
+                base_dir: PathBuf::from("/fixtures/demo"),
+                package: "demo.ext".into(),
+                version: "0.1.0".into(),
+                kind: marqdo_plugin_abi::PluginKind::Worker,
+                manifest_sha256: format!("sha256:{}", "b".repeat(64)),
+                artifact_target: marqdo_plugin_abi::HostTarget::current()
+                    .triple()
+                    .to_string(),
+                artifact_sha256: "a".repeat(64),
+                artifact_relative: "build/plugin.so".into(),
+                exports: vec![crate::extension_descriptors::StaticPluginExport {
+                    name: "solver.add".into(),
+                    signature: "($a: Int, $b: Int) -> Int".into(),
+                    descriptor,
+                }],
+                requires: Vec::new(),
+            }],
+        }
+    }
+
+    #[test]
+    fn reconcile_accepts_matching_empty_sets() {
+        assert!(
+            reconcile_plugin_exports(&StaticPluginSet::default(), &empty_host()).is_ok(),
+            "no selected plugin and no loaded plugin must reconcile"
+        );
+    }
+
+    #[test]
+    fn reconcile_rejects_missing_runtime_exports() {
+        let error = reconcile_plugin_exports(&static_plugin_with_export(), &empty_host())
+            .expect_err("a declared export that the runtime did not load must fail closed");
+        assert!(
+            error.contains("declare 1 export(s)") || error.contains("not declared"),
+            "{error}"
+        );
+    }
 }
