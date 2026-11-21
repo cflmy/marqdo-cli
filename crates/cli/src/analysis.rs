@@ -8,9 +8,7 @@
 use std::path::Path;
 
 use marqdo_expression::{BinaryOp, Expr, UnaryOp};
-use marqdo_ir::{
-    CallTarget, Function, Module, ModuleId, PlaceTarget, Resource, SignatureKind, Stmt, UnitKind,
-};
+use marqdo_ir::{Function, Module, ModuleId, PlaceTarget, Resource, SignatureKind, Stmt, UnitKind};
 use marqdo_span::Span;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -273,12 +271,6 @@ fn stmt_json(stmt: &Stmt) -> Value {
             "value": expr_json(expr),
             "span": span_json(*span),
         }),
-        Stmt::Call { call, span } => json!({
-            "kind": "call_site",
-            "target": call_target_json(&call.target),
-            "args": call.args.iter().map(arg_json).collect::<Vec<_>>(),
-            "span": span_json(*span),
-        }),
         Stmt::Branch { arms, span } => json!({
             "kind": "branch",
             "arms": arms.iter().map(|arm| json!({
@@ -376,19 +368,6 @@ fn arg_json(arg: &marqdo_expression::Arg) -> Value {
         "value": expr_json(&arg.value),
         "span": span_json(arg.span),
     })
-}
-
-fn call_target_json(target: &CallTarget) -> Value {
-    match target {
-        CallTarget::Function { name } => json!({"kind":"function","name":name}),
-        CallTarget::Qualified {
-            module_alias,
-            function,
-        } => json!({"kind":"qualified","module_alias":module_alias,"function":function}),
-        CallTarget::Resolved { module, function } => {
-            json!({"kind":"resolved","module":module.to_string(),"function":function})
-        }
-    }
 }
 
 fn reference_edges(project: &LoadedProject, module_id: &marqdo_ir::ModuleId) -> Vec<Value> {
@@ -532,12 +511,6 @@ fn collect_calls(
             }
             Stmt::Eval { expr: value, .. } => expr_calls(project, module, function, value, calls),
             Stmt::Return { value, .. } => expr_calls(project, module, function, value, calls),
-            Stmt::Call { call, span } => calls.push(json!({
-                "function": function.id.to_string(),
-                "span": span_json(*span),
-                "callee": call_target_json(&call.target),
-                "state": "resolved",
-            })),
             Stmt::Branch { arms, .. } => {
                 for arm in arms {
                     expr_calls(project, module, function, &arm.condition, calls);

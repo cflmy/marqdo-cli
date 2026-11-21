@@ -87,9 +87,11 @@ The module object is unchanged from Analysis v1 except for `resources`:
 ```
 
 Modules are sorted by `id`; functions, units and calls keep document order and
-the v1 semantic node shapes (`assign`, `expression`, `call_site`, `branch`,
-`loop`, `return`; literals, variables, lists, records, unary/binary, member,
-index, call). `imports`, `references` and `calls` remain static facts; a
+the v1 semantic node shapes (`assign`, `expression`, `branch`, `loop`,
+`return`; literals, variables, lists, records, unary/binary, member, index,
+call). The v1 `call_site` node was retired with RFC-LANG-0002: calls are
+`call` expressions inside an `assign`/`expression`/`return`/condition body, not
+a separate statement. `imports`, `references` and `calls` remain static facts; a
 Markdown reference is not a call. `effects` remains `["unknown"]` (a
 conservative summary, not a purity proof).
 

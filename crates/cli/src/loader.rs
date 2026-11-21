@@ -540,7 +540,6 @@ fn stmts_use_print(stmts: &[Stmt]) -> bool {
             target_uses || expr_uses_print(value)
         }
         Stmt::Eval { expr, .. } | Stmt::Return { value: expr, .. } => expr_uses_print(expr),
-        Stmt::Call { call, .. } => call.args.iter().any(|arg| expr_uses_print(&arg.value)),
         Stmt::Branch { arms, .. } => arms
             .iter()
             .any(|arm| expr_uses_print(&arm.condition) || stmts_use_print(&arm.body)),

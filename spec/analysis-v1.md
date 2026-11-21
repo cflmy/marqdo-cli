@@ -95,7 +95,8 @@ Body nodes use a small stable language, never internal IR serialization:
   `le`, `gt`, `ge`, `add`, `sub`, `mul`, `div`, `floor_div`, `mod`, `pow`);
 * `call` with `callee` and `args`;
 * `assign`, `expression`, `call_site`, `branch` (ordered arms), `loop`,
-  `return`.
+  `return`. (`call_site` existed for the pre-RFC link-form block-quote call and
+  is not produced by the current language; this document is historical.)
 
 Every node carries a byte `span`. Nodes outside the supported public subset
 must be marked `unsupported` (future extension), never silently given invented

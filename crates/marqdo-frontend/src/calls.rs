@@ -151,11 +151,6 @@ impl<'a> CallChecker<'a> {
                 Stmt::Eval { expr: value, .. } | Stmt::Return { value, .. } => {
                     self.expr(value);
                 }
-                Stmt::Call { call, .. } => {
-                    for Arg { value, .. } in &call.args {
-                        self.expr(value);
-                    }
-                }
                 Stmt::Branch { arms, .. } => {
                     for arm in arms {
                         self.expr(&arm.condition);

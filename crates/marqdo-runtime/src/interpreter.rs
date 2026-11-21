@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use marqdo_expression::{BinaryOp, Expr, RecordEntry};
 use marqdo_host::{ExecutionContext, Host, HostOp, ResourceRead};
-use marqdo_ir::{builtins, CallTarget, Function, FunctionId, ModuleId, PlaceTarget, Program, Stmt};
+use marqdo_ir::{builtins, Function, FunctionId, ModuleId, PlaceTarget, Program, Stmt};
 use marqdo_span::Span;
 use marqdo_value::{ErrorCategory, ResourceHandle, RuntimeError, Value};
 
@@ -344,9 +344,6 @@ impl<'a> Interpreter<'a> {
                 Stmt::Eval { expr, .. } => {
                     self.eval_expr(expr, frame)?;
                 }
-                Stmt::Call { call, span } => {
-                    self.exec_call_site(program, call, *span, frame)?;
-                }
                 Stmt::Return { value, span } => {
                     let value = self.eval_expr(value, frame)?;
                     let module = frame.function.module.canonical();
@@ -422,36 +419,6 @@ impl<'a> Interpreter<'a> {
             }
         }
         Ok(Flow::Next)
-    }
-
-    fn exec_call_site(
-        &mut self,
-        program: &'a Program,
-        call: &'a marqdo_ir::CallSite,
-        span: Span,
-        frame: &mut Frame,
-    ) -> Result<Value, RuntimeError> {
-        let args = self.eval_args(&call.args, frame)?;
-        let (module, name) = match &call.target {
-            CallTarget::Function { name } => (frame.function.module.clone(), name.clone()),
-            CallTarget::Qualified {
-                module_alias,
-                function,
-            } => {
-                let Some(target) = program.resolve_import(&frame.function.module, module_alias)
-                else {
-                    return Err(RuntimeError::new(
-                        ErrorCategory::UnknownSymbol,
-                        Some(span),
-                        format!("unknown imported module alias `{module_alias}`"),
-                    ));
-                };
-                (target.clone(), function.clone())
-            }
-            CallTarget::Resolved { module, function } => (module.clone(), function.clone()),
-        };
-        let caller = frame.function.module.clone();
-        self.call_by_name_from(&module, &name, args, Some(span), Some(&caller))
     }
 
     /// Commit one byte into an addressable region after all operand checks.

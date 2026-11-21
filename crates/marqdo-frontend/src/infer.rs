@@ -202,12 +202,6 @@ impl<'a> Analyzer<'a> {
                     self.read_expr(expr, &state);
                     state
                 }
-                Stmt::Call { call, .. } => {
-                    for Arg { value, .. } in &call.args {
-                        self.read_expr(value, &state);
-                    }
-                    state
-                }
                 Stmt::Return { value, .. } => {
                     self.read_expr(value, &state);
                     state

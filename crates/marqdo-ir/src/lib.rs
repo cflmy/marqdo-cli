@@ -12,7 +12,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use marqdo_expression::{Arg, Expr};
+use marqdo_expression::Expr;
 use marqdo_span::Span;
 use serde::{Deserialize, Serialize};
 
@@ -283,13 +283,6 @@ pub enum Stmt {
         /// Span of the whole statement.
         span: Span,
     },
-    /// Markdown-link call form from a block quote.
-    Call {
-        /// Resolved call site.
-        call: CallSite,
-        /// Span of the whole statement.
-        span: Span,
-    },
     /// Ordered list: first matching condition wins.
     Branch {
         /// Arms in AST order.
@@ -323,7 +316,6 @@ impl Stmt {
         match self {
             Stmt::Assign { span, .. }
             | Stmt::Eval { span, .. }
-            | Stmt::Call { span, .. }
             | Stmt::Branch { span, .. }
             | Stmt::Loop { span, .. }
             | Stmt::Return { span, .. } => *span,
@@ -341,42 +333,6 @@ pub struct BranchArm {
     /// Statements executed when the condition is true.
     pub body: Vec<Stmt>,
     /// Span of the whole list item.
-    pub span: Span,
-}
-
-/// Target of a call statement.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "target", rename_all = "snake_case")]
-pub enum CallTarget {
-    /// Unqualified function in the current module.
-    Function {
-        /// Canonical function name.
-        name: String,
-    },
-    /// Function reached through an imported module alias.
-    Qualified {
-        /// Local import alias.
-        module_alias: String,
-        /// Canonical function name.
-        function: String,
-    },
-    /// Function resolved from a Markdown link target.
-    Resolved {
-        /// Canonical module identity.
-        module: ModuleId,
-        /// Canonical function name.
-        function: String,
-    },
-}
-
-/// A call statement with evaluated arguments.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CallSite {
-    /// Callee target.
-    pub target: CallTarget,
-    /// Arguments in source order.
-    pub args: Vec<Arg>,
-    /// Span of the call.
     pub span: Span,
 }
 
