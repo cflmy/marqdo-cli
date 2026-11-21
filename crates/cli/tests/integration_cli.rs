@@ -79,6 +79,16 @@ fn cli(dir: &Path, args: &[&str]) -> Output {
         .unwrap_or_else(|error| panic!("cannot run marqdo {args:?}: {error}"))
 }
 
+/// Run the CLI in `dir` with one extra environment variable.
+fn cli_env(dir: &Path, args: &[&str], key: &str, value: &str) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_marqdo"))
+        .args(args)
+        .current_dir(dir)
+        .env(key, value)
+        .output()
+        .unwrap_or_else(|error| panic!("cannot run marqdo {args:?}: {error}"))
+}
+
 fn stdout_text(output: &Output) -> String {
     String::from_utf8_lossy(&output.stdout).to_string()
 }
@@ -466,6 +476,90 @@ fn strict_mode_enforces_isolation_or_refuses_closed() {
         .as_str()
         .expect("error string")
         .contains("strict mode"));
+}
+
+/// A forged `MARQDO_STRICT_ACTIVE` marker must never be trusted and every
+/// `--json` refusal must still contain exactly one JSON document. This runs on
+/// every platform; Linux rejects the marker during identity verification and
+/// non-Linux builds reject it as unsupported.
+#[test]
+fn forged_strict_marker_is_rejected_with_one_json_document() {
+    let root = repo_root();
+    let hello = root.join("examples").join("hello.mq.md");
+    let hello = hello.to_str().unwrap();
+    let json = cli_env(
+        &root,
+        &["run", hello, "--mode", "strict", "--json"],
+        "MARQDO_STRICT_ACTIVE",
+        "1",
+    );
+    assert_exit(&json, 1, "forged strict marker must fail closed");
+    let value = json_stdout(&json);
+    assert_eq!(value["command"], "run");
+    assert_eq!(value["success"], false);
+    assert_eq!(value["code"], "strict.identity_invalid");
+
+    let human = cli_env(
+        &root,
+        &["run", hello, "--mode", "strict"],
+        "MARQDO_STRICT_ACTIVE",
+        "1",
+    );
+    assert_exit(&human, 1, "forged strict marker must fail closed");
+    assert!(
+        stdout_text(&human).is_empty(),
+        "project output appeared for a rejected marker: {}",
+        stdout_text(&human)
+    );
+    assert!(stderr_text(&human).contains("strict isolation verification failed"));
+}
+
+/// CLI usage errors in `--json` mode keep the same one-document contract as
+/// successful and runtime-failure paths.
+#[test]
+fn json_mode_reports_cli_errors_as_one_document() {
+    let root = repo_root();
+    let hello = root.join("examples").join("hello.mq.md");
+    let hello = hello.to_str().unwrap();
+
+    let mode = cli(&root, &["run", hello, "--mode", "bogus", "--json"]);
+    assert_exit(&mode, 2, "unknown mode");
+    let value = json_stdout(&mode);
+    assert_eq!(value["success"], false);
+    assert_eq!(value["code"], "cli.invalid_mode");
+
+    let grants = cli(
+        &root,
+        &[
+            "run",
+            hello,
+            "--mode",
+            "pure",
+            "--allow-read",
+            "x",
+            "--json",
+        ],
+    );
+    assert_exit(&grants, 2, "pure mode must reject grants");
+    let value = json_stdout(&grants);
+    assert_eq!(value["success"], false);
+    assert_eq!(value["code"], "cli.invalid_grants");
+
+    let strict = cli(
+        &root,
+        &[
+            "run",
+            hello,
+            "--mode",
+            "strict",
+            "--allow-foreign",
+            "--json",
+        ],
+    );
+    assert_exit(&strict, 2, "strict L1 must reject foreign grants");
+    let value = json_stdout(&strict);
+    assert_eq!(value["success"], false);
+    assert_eq!(value["code"], "strict.unsupported_grant");
 }
 
 #[test]

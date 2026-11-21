@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
-pub use linux::{probe, StrictOutcome};
+pub use linux::probe;
 
 /// Environment variable set by the strict supervisor for its re-executed
 /// child. The marker alone never authorizes strict execution; [`inspect_strict_child`]
@@ -197,11 +197,62 @@ pub fn inspect_strict_child() -> Result<StrictChildState, String> {
     {
         if std::env::var_os(STRICT_ACTIVE_ENV).is_some() {
             return Err(
-                "strict active marker is unsupported on this platform; refusing to treat this                  process as a verified strict child"
+                "strict active marker is unsupported on this platform; refusing to treat this \
+                 process as a verified strict child"
                     .to_string(),
             );
         }
         Ok(StrictChildState::NotChild)
+    }
+}
+
+/// Result of one supervised strict execution.
+///
+/// The outcome is a byte capture, **not** proof that the child completed
+/// isolation verification: the caller must still route it through the public
+/// strict contract (one JSON document in `--json` mode, no fallback).
+#[derive(Debug, Clone)]
+pub struct StrictOutcome {
+    /// Process exit code when the program exited normally.
+    pub exit_code: Option<i32>,
+    /// Terminating signal, when the program was killed by the supervisor,
+    /// a resource limit or the kernel.
+    pub signal: Option<i32>,
+    /// Captured stdout (bounded by the output limit).
+    pub stdout: Vec<u8>,
+    /// Captured stderr (bounded by the output limit).
+    pub stderr: Vec<u8>,
+}
+
+/// Stable classification of a strict control-plane failure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StrictFailureKind {
+    /// The runtime probe could not construct the isolation mechanism.
+    ProbeUnavailable,
+    /// The supervisor process could not be spawned.
+    SpawnFailed,
+    /// The supervisor exceeded the wall-clock budget.
+    Timeout,
+    /// A resource limit or signal terminated the supervised child.
+    ResourceLimit,
+    /// The requested launch is invalid (host root, document outside project).
+    InvalidRequest,
+    /// Capturing or reading the supervised output failed.
+    Io,
+}
+
+impl StrictFailureKind {
+    /// Stable machine-readable code consumed by `--json` error documents.
+    pub const fn code(self) -> &'static str {
+        match self {
+            StrictFailureKind::ProbeUnavailable => "strict.probe_unavailable",
+            StrictFailureKind::SpawnFailed => "strict.spawn_failed",
+            StrictFailureKind::Timeout => "strict.timeout",
+            StrictFailureKind::ResourceLimit => "strict.resource_limit",
+            StrictFailureKind::InvalidRequest => "strict.launch_failed",
+            StrictFailureKind::Io => "strict.launch_failed",
+        }
     }
 }
 
@@ -215,9 +266,29 @@ pub enum SandboxError {
     },
     /// The strict supervisor could not launch, verify or supervise the child.
     LaunchFailed {
+        /// Machine-readable classification.
+        kind: StrictFailureKind,
         /// Actionable explanation.
         message: String,
     },
+}
+
+impl SandboxError {
+    /// Build a classified launch failure.
+    pub fn launch(kind: StrictFailureKind, message: impl Into<String>) -> Self {
+        SandboxError::LaunchFailed {
+            kind,
+            message: message.into(),
+        }
+    }
+
+    /// Stable machine-readable failure code for `--json` error documents.
+    pub const fn code(&self) -> &'static str {
+        match self {
+            SandboxError::StrictUnavailable { .. } => "strict.probe_unavailable",
+            SandboxError::LaunchFailed { kind, .. } => kind.code(),
+        }
+    }
 }
 
 impl std::fmt::Display for SandboxError {
@@ -227,7 +298,7 @@ impl std::fmt::Display for SandboxError {
                 f,
                 "refusing to run in strict mode: {reason}. Strict mode requires verified OS-level isolation and never falls back to an unrestricted process."
             ),
-            SandboxError::LaunchFailed { message } => {
+            SandboxError::LaunchFailed { message, .. } => {
                 write!(f, "strict isolation failed: {message}")
             }
         }
@@ -291,13 +362,24 @@ pub fn launch_strict(command: &StrictHostCommand<'_>) -> Result<i32, SandboxErro
 #[cfg(target_os = "linux")]
 pub fn launch_strict_capture(
     command: &StrictHostCommand<'_>,
-) -> Result<linux::StrictOutcome, SandboxError> {
+) -> Result<StrictOutcome, SandboxError> {
     linux::launch_capture(command)
 }
 
 /// Launch a command inside the strict sandbox (unsupported elsewhere).
 #[cfg(not(target_os = "linux"))]
 pub fn launch_strict(_command: &StrictHostCommand<'_>) -> Result<i32, SandboxError> {
+    Err(SandboxError::StrictUnavailable {
+        reason: "strict OS isolation is only implemented on Linux".to_string(),
+    })
+}
+
+/// Capture a strict execution (unsupported elsewhere): every platform must
+/// compile the same CLI routing code and fail closed instead of falling back.
+#[cfg(not(target_os = "linux"))]
+pub fn launch_strict_capture(
+    _command: &StrictHostCommand<'_>,
+) -> Result<StrictOutcome, SandboxError> {
     Err(SandboxError::StrictUnavailable {
         reason: "strict OS isolation is only implemented on Linux".to_string(),
     })

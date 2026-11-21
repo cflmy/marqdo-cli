@@ -10,6 +10,8 @@ examples/plugin-multi-export/solver.so
 
 # Local cargo home used on hosts with a read-only $HOME
 .cargo-home/
+# Local rustup home used for cross-target `cargo check` verification
+.rustup-home/
 
 # Generated plugin fixture manifests/artifacts
 examples/plugin-demo/build/

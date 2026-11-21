@@ -28,7 +28,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
-use crate::{SandboxError, StrictHostCommand};
+use crate::{SandboxError, StrictFailureKind, StrictHostCommand, StrictOutcome};
 
 /// Path of the program inside the sandbox.
 const SANDBOX_PROGRAM: &str = "/run/marqdo-program";
@@ -204,20 +204,6 @@ pub fn marker_present() -> bool {
     std::env::var(crate::STRICT_ACTIVE_ENV).ok().as_deref() == Some("1")
 }
 
-/// Result of one supervised strict execution.
-#[derive(Debug, Clone)]
-pub struct StrictOutcome {
-    /// Process exit code when the program exited normally.
-    pub exit_code: Option<i32>,
-    /// Terminating signal, when the program was killed by the supervisor,
-    /// a resource limit or the kernel.
-    pub signal: Option<i32>,
-    /// Captured stdout (bounded by the output limit).
-    pub stdout: Vec<u8>,
-    /// Captured stderr (bounded by the output limit).
-    pub stderr: Vec<u8>,
-}
-
 /// Launch `command` inside the strict sandbox and return its exit code,
 /// forwarding captured output to this process's stdout/stderr.
 pub fn launch(command: &StrictHostCommand<'_>) -> Result<i32, SandboxError> {
@@ -248,7 +234,10 @@ fn finish(outcome: StrictOutcome) -> Result<i32, SandboxError> {
         libc::SIGKILL => "strict child was killed by the resource supervisor".to_string(),
         other => format!("strict child terminated by signal {other}"),
     };
-    Err(SandboxError::LaunchFailed { message })
+    Err(SandboxError::launch(
+        StrictFailureKind::ResourceLimit,
+        message,
+    ))
 }
 
 /// Probe function used by [`run`]. A function pointer keeps the production
@@ -274,43 +263,52 @@ fn run_with(
     spawn_fn: SpawnFn,
 ) -> Result<StrictOutcome, SandboxError> {
     if command.project_root == Path::new("/") {
-        return Err(SandboxError::LaunchFailed {
-            message: "strict mode refuses to expose the host root as the project".to_string(),
-        });
+        return Err(SandboxError::launch(
+            StrictFailureKind::InvalidRequest,
+            "strict mode refuses to expose the host root as the project",
+        ));
     }
-    let project_root =
-        fs::canonicalize(command.project_root).map_err(|error| SandboxError::LaunchFailed {
-            message: format!(
+    let project_root = fs::canonicalize(command.project_root).map_err(|error| {
+        SandboxError::launch(
+            StrictFailureKind::InvalidRequest,
+            format!(
                 "cannot resolve the strict project root `{}`: {error}",
                 command.project_root.display()
             ),
-        })?;
+        )
+    })?;
     // The document (when supplied) must be inside the project root. It is
     // rewritten to the sandbox path, so the host's absolute layout never leaks
     // into the child and no other directory needs to be mounted.
     let document = match command.document {
         Some(document) => {
-            let absolute =
-                fs::canonicalize(document).map_err(|error| SandboxError::LaunchFailed {
-                    message: format!("cannot resolve strict document: {error}"),
-                })?;
-            let relative =
-                absolute
-                    .strip_prefix(&project_root)
-                    .map_err(|_| SandboxError::LaunchFailed {
-                        message: format!(
-                            "strict document `{}` is outside the project root `{}`",
-                            absolute.display(),
-                            project_root.display()
-                        ),
-                    })?;
+            let absolute = fs::canonicalize(document).map_err(|error| {
+                SandboxError::launch(
+                    StrictFailureKind::InvalidRequest,
+                    format!("cannot resolve strict document: {error}"),
+                )
+            })?;
+            let relative = absolute.strip_prefix(&project_root).map_err(|_| {
+                SandboxError::launch(
+                    StrictFailureKind::InvalidRequest,
+                    format!(
+                        "strict document `{}` is outside the project root `{}`",
+                        absolute.display(),
+                        project_root.display()
+                    ),
+                )
+            })?;
             Some(Path::new("/project").join(relative))
         }
         None => None,
     };
-    probe_fn().map_err(|reason| SandboxError::LaunchFailed { message: reason })?;
-    let bwrap = bwrap_path().ok_or_else(|| SandboxError::LaunchFailed {
-        message: "bubblewrap disappeared after the probe".to_string(),
+    probe_fn()
+        .map_err(|reason| SandboxError::launch(StrictFailureKind::ProbeUnavailable, reason))?;
+    let bwrap = bwrap_path().ok_or_else(|| {
+        SandboxError::launch(
+            StrictFailureKind::ProbeUnavailable,
+            "bubblewrap disappeared after the probe",
+        )
     })?;
 
     let mut args = common_args();
@@ -354,9 +352,10 @@ fn run_with(
         args.push(argument.clone());
     }
     if !replaced {
-        return Err(SandboxError::LaunchFailed {
-            message: "strict launcher could not rewrite the document argument".to_string(),
-        });
+        return Err(SandboxError::launch(
+            StrictFailureKind::InvalidRequest,
+            "strict launcher could not rewrite the document argument",
+        ));
     }
 
     let stdout = CaptureFile::create("stdout")?;
@@ -372,8 +371,11 @@ fn run_with(
         limit,
         cpu_limit,
     )
-    .map_err(|error| SandboxError::LaunchFailed {
-        message: format!("cannot start the strict supervisor: {error}"),
+    .map_err(|error| {
+        SandboxError::launch(
+            StrictFailureKind::SpawnFailed,
+            format!("cannot start the strict supervisor: {error}"),
+        )
     })?;
 
     let status = match wait_with_deadline(&mut child, timeout) {
@@ -384,7 +386,7 @@ fn run_with(
             let _ = child.wait();
             let _ = stdout.read_all();
             let _ = stderr.read_all();
-            return Err(SandboxError::LaunchFailed { message });
+            return Err(SandboxError::launch(StrictFailureKind::Timeout, message));
         }
     };
 
@@ -482,8 +484,11 @@ impl CaptureFile {
             .write(true)
             .create_new(true)
             .open(&path)
-            .map_err(|error| SandboxError::LaunchFailed {
-                message: format!("cannot create strict capture file: {error}"),
+            .map_err(|error| {
+                SandboxError::launch(
+                    StrictFailureKind::Io,
+                    format!("cannot create strict capture file: {error}"),
+                )
             })?;
         Ok(Self {
             path,
@@ -494,24 +499,32 @@ impl CaptureFile {
     fn reopen(&self) -> Result<fs::File, SandboxError> {
         self.file
             .as_ref()
-            .ok_or_else(|| SandboxError::LaunchFailed {
-                message: "strict capture file is closed".to_string(),
+            .ok_or_else(|| {
+                SandboxError::launch(StrictFailureKind::Io, "strict capture file is closed")
             })?
             .try_clone()
-            .map_err(|error| SandboxError::LaunchFailed {
-                message: format!("cannot clone strict capture file: {error}"),
+            .map_err(|error| {
+                SandboxError::launch(
+                    StrictFailureKind::Io,
+                    format!("cannot clone strict capture file: {error}"),
+                )
             })
     }
 
     fn read_all(&self) -> Result<Vec<u8>, SandboxError> {
-        let mut file = fs::File::open(&self.path).map_err(|error| SandboxError::LaunchFailed {
-            message: format!("cannot read strict capture file: {error}"),
+        let mut file = fs::File::open(&self.path).map_err(|error| {
+            SandboxError::launch(
+                StrictFailureKind::Io,
+                format!("cannot read strict capture file: {error}"),
+            )
         })?;
         let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes)
-            .map_err(|error| SandboxError::LaunchFailed {
-                message: format!("cannot read strict capture file: {error}"),
-            })?;
+        file.read_to_end(&mut bytes).map_err(|error| {
+            SandboxError::launch(
+                StrictFailureKind::Io,
+                format!("cannot read strict capture file: {error}"),
+            )
+        })?;
         Ok(bytes)
     }
 }
@@ -566,7 +579,8 @@ mod tests {
         let _ = fs::remove_dir_all(&project);
 
         match &error {
-            SandboxError::LaunchFailed { message } => {
+            SandboxError::LaunchFailed { kind, message } => {
+                assert_eq!(*kind, StrictFailureKind::SpawnFailed);
                 assert!(
                     message.contains("cannot start the strict supervisor"),
                     "unexpected launch diagnostic: {message}"
@@ -601,7 +615,12 @@ mod tests {
             |_, _, _, _, _, _| unreachable!("host root must be rejected before spawning"),
         )
         .expect_err("host root must be rejected");
-        assert!(matches!(error, SandboxError::LaunchFailed { .. }));
+        match &error {
+            SandboxError::LaunchFailed { kind, .. } => {
+                assert_eq!(*kind, StrictFailureKind::InvalidRequest);
+            }
+            other => panic!("expected LaunchFailed, got {other:?}"),
+        }
         assert!(error.to_string().contains("host root"));
     }
 }

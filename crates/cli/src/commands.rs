@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use marqdo_host::{Host, StdHost};
 use marqdo_runtime::{run_with_limits, EvaluatedArg, MemoryLimits, RuntimeError, Value};
-use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
+use marqdo_sandbox::{PlatformCapabilities, SandboxMode, StrictOutcome};
 use marqdo_span::Span;
 use serde_json::json;
 
@@ -324,15 +324,108 @@ fn resolve_link(
 }
 
 /// Re-execute this CLI inside the strict Linux supervisor.
+/// Emit one CLI error through the requested channel.
+///
+/// `--json` consumers require exactly one JSON document; human mode keeps the
+/// conventional `error:` line on stderr. This helper is shared with the run
+/// assembly so every strict control-plane failure follows one contract.
+pub(super) fn emit_error(json: bool, command_name: &str, code: &str, message: &str) {
+    if json {
+        output::print_json(&json!({
+            "command": command_name,
+            "success": false,
+            "error": message,
+            "code": code,
+        }));
+    } else {
+        eprintln!("error: {message}");
+    }
+}
+
+/// Machine-readable routing decision for one captured strict execution.
+#[derive(Debug, PartialEq, Eq)]
+enum StrictRoute {
+    /// Forward the captured child bytes unchanged.
+    Forward { exit_code: i32 },
+    /// Emit exactly one JSON error document instead of the raw child output.
+    Failure { code: &'static str, message: String },
+}
+
+/// Classify a captured strict execution.
+///
+/// A strict child in `--json` mode must produce exactly one JSON document on
+/// stdout. Anything else is a control-plane failure: forwarding bwrap text or
+/// an empty stream would break the CLI protocol (the GitHub-hosted Linux CI
+/// failure that motivated this contract).
+fn classify_strict_outcome(outcome: &StrictOutcome, json: bool) -> StrictRoute {
+    let exit_code = outcome.exit_code.unwrap_or(1);
+    if !json {
+        return StrictRoute::Forward { exit_code };
+    }
+    if !outcome.stdout.is_empty()
+        && serde_json::from_slice::<serde_json::Value>(&outcome.stdout).is_ok()
+    {
+        return StrictRoute::Forward { exit_code };
+    }
+    if outcome.exit_code.is_none() {
+        return StrictRoute::Failure {
+            code: "strict.resource_limit",
+            message: "strict child was terminated by a resource limit or signal".to_string(),
+        };
+    }
+    let stderr = String::from_utf8_lossy(&outcome.stderr);
+    if stderr.contains("namespace") || stderr.contains("bwrap") {
+        return StrictRoute::Failure {
+            code: "strict.namespace_failure",
+            message: "the strict supervisor could not construct the isolation namespaces; refusing to run the project"
+                .to_string(),
+        };
+    }
+    StrictRoute::Failure {
+        code: "strict.child_invalid",
+        message: "the strict child did not produce exactly one JSON document; refusing to forward partial output"
+            .to_string(),
+    }
+}
+
+/// Route one captured strict execution to stdout/stderr or one error document.
+fn route_strict_outcome(outcome: StrictOutcome, json: bool, command_name: &str) -> i32 {
+    use std::io::Write;
+    match classify_strict_outcome(&outcome, json) {
+        StrictRoute::Forward { exit_code } => {
+            let _ = std::io::stdout().write_all(&outcome.stdout);
+            let _ = std::io::stdout().flush();
+            let _ = std::io::stderr().write_all(&outcome.stderr);
+            let _ = std::io::stderr().flush();
+            exit_code
+        }
+        StrictRoute::Failure { code, message } => {
+            output::print_json(&json!({
+                "command": command_name,
+                "success": false,
+                "error": message,
+                "code": code,
+            }));
+            match outcome.exit_code {
+                Some(code) if code != 0 => code,
+                _ => 1,
+            }
+        }
+    }
+}
+
 fn launch_strict_process(
     project_root: &Path,
     document: Option<&Path>,
     settings: &SandboxSettings,
+    json: bool,
+    command_name: &str,
 ) -> i32 {
     let program = match std::env::current_exe() {
         Ok(path) => path,
         Err(error) => {
-            eprintln!("error: cannot locate the marqdo executable: {error}");
+            let message = format!("cannot locate the marqdo executable: {error}");
+            emit_error(json, command_name, "strict.launch_failed", &message);
             return 1;
         }
     };
@@ -356,10 +449,10 @@ fn launch_strict_process(
         timeout,
         stdlib_dir: stdlib_dir.as_deref(),
     };
-    match marqdo_sandbox::launch_strict(&command) {
-        Ok(code) => code,
+    match marqdo_sandbox::launch_strict_capture(&command) {
+        Ok(outcome) => route_strict_outcome(outcome, json, command_name),
         Err(error) => {
-            eprintln!("error: {error}");
+            emit_error(json, command_name, error.code(), &error.to_string());
             1
         }
     }
@@ -534,4 +627,135 @@ pub fn parse_named_args(raw: &[String]) -> Result<Vec<(String, Value)>, String> 
     raw.iter()
         .map(|entry| args::parse_named_arg(entry))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn outcome(
+        exit_code: Option<i32>,
+        signal: Option<i32>,
+        stdout: &[u8],
+        stderr: &[u8],
+    ) -> StrictOutcome {
+        StrictOutcome {
+            exit_code,
+            signal,
+            stdout: stdout.to_vec(),
+            stderr: stderr.to_vec(),
+        }
+    }
+
+    #[test]
+    fn strict_json_success_is_forwarded_once() {
+        let route = classify_strict_outcome(
+            &outcome(Some(0), None, br#"{"command":"run","success":true}"#, b""),
+            true,
+        );
+        assert_eq!(route, StrictRoute::Forward { exit_code: 0 });
+    }
+
+    #[test]
+    fn strict_json_program_error_is_forwarded_unchanged() {
+        let route = classify_strict_outcome(
+            &outcome(Some(2), None, br#"{"command":"run","success":false}"#, b""),
+            true,
+        );
+        assert_eq!(route, StrictRoute::Forward { exit_code: 2 });
+    }
+
+    #[test]
+    fn strict_json_empty_stdout_is_one_error_document() {
+        let route = classify_strict_outcome(
+            &outcome(Some(1), None, b"", b"unexpected child noise\n"),
+            true,
+        );
+        match route {
+            StrictRoute::Failure { code, message } => {
+                assert_eq!(code, "strict.child_invalid");
+                assert!(message.contains("exactly one JSON"));
+            }
+            other => panic!("expected Failure, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn strict_json_extra_text_is_not_forwarded() {
+        let route = classify_strict_outcome(
+            &outcome(
+                Some(0),
+                None,
+                br#"{"success":true}
+not json"#,
+                b"",
+            ),
+            true,
+        );
+        assert!(matches!(
+            route,
+            StrictRoute::Failure {
+                code: "strict.child_invalid",
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn strict_namespace_failure_is_classified() {
+        let route = classify_strict_outcome(
+            &outcome(
+                Some(1),
+                None,
+                b"",
+                b"bwrap: Creating new namespace failed: Resource temporarily unavailable\n",
+            ),
+            true,
+        );
+        assert!(matches!(
+            route,
+            StrictRoute::Failure {
+                code: "strict.namespace_failure",
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn strict_signal_is_a_resource_limit() {
+        let route = classify_strict_outcome(&outcome(None, Some(9), b"", b""), true);
+        assert!(matches!(
+            route,
+            StrictRoute::Failure {
+                code: "strict.resource_limit",
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn strict_human_mode_forwards_captured_bytes() {
+        let route = classify_strict_outcome(&outcome(Some(1), None, b"", b"boom\n"), false);
+        assert_eq!(route, StrictRoute::Forward { exit_code: 1 });
+    }
+
+    #[test]
+    fn sandbox_errors_expose_stable_codes() {
+        use marqdo_sandbox::{SandboxError, StrictFailureKind};
+        assert_eq!(
+            SandboxError::StrictUnavailable {
+                reason: "none".to_string()
+            }
+            .code(),
+            "strict.probe_unavailable"
+        );
+        assert_eq!(
+            SandboxError::launch(StrictFailureKind::SpawnFailed, "x").code(),
+            "strict.spawn_failed"
+        );
+        assert_eq!(
+            SandboxError::launch(StrictFailureKind::Timeout, "x").code(),
+            "strict.timeout"
+        );
+    }
 }

@@ -29,5 +29,7 @@ architecture; read them as decision history.
   [`docs/architecture/CURRENT.md`](../architecture/CURRENT.md); for executed
   status see [`docs/STATUS.md`](../STATUS.md).
 
-Files: `0001`–`0050`, plus `0051-byte-exact-http-framing.md` (HTTP framing) and
-`0052-unified-markdown-semantics.md` (current language mapping).
+Files: `0001`–`0050`, plus `0051-byte-exact-http-framing.md` (HTTP framing),
+`0052-unified-markdown-semantics.md` (current language mapping) and
+`0053-strict-child-inspection-and-json-failure-contract.md` (strict CI/JSON
+failure contract).

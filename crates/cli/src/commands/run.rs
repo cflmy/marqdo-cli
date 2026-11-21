@@ -52,17 +52,13 @@ pub fn execute(
     let mode = match settings.sandbox_mode() {
         Ok(mode) => mode,
         Err(error) => {
-            eprintln!("error: {error}");
+            emit_error(json, command_name, "cli.invalid_mode", &error);
             return 2;
         }
     };
     if mode == SandboxMode::Strict {
         if let Err(error) = settings.strict_preflight() {
-            if json {
-                output::print_json(&json!({"success": false, "error": error}));
-            } else {
-                eprintln!("error: {error}");
-            }
+            emit_error(json, command_name, "strict.unsupported_grant", &error);
             return 2;
         }
         match marqdo_sandbox::inspect_strict_child() {
@@ -72,42 +68,35 @@ pub fn execute(
             Ok(StrictChildState::NotChild) => {
                 let platform = PlatformCapabilities::detect();
                 if let Err(error) = marqdo_sandbox::enforce(mode, &platform) {
-                    if json {
-                        output::print_json(&json!({"success": false, "error": error.to_string()}));
-                    } else {
-                        eprintln!("error: {error}");
-                    }
+                    emit_error(json, command_name, error.code(), &error.to_string());
                     return 1;
                 }
-                return launch_strict_process(&project.root, file, settings);
+                return launch_strict_process(&project.root, file, settings, json, command_name);
             }
             // A marker without a verified identity is never trusted, and the
             // platform-neutral inspection keeps Linux-only symbols out of this
             // module so macOS/Windows builds compile.
             Err(reason) => {
                 let message = format!("strict isolation verification failed: {reason}");
-                if json {
-                    output::print_json(&json!({"success": false, "error": message}));
-                } else {
-                    eprintln!("error: {message}");
-                }
+                emit_error(json, command_name, "strict.identity_invalid", &message);
                 return 1;
             }
         }
     }
     let platform = PlatformCapabilities::detect();
     if let Err(error) = marqdo_sandbox::enforce(mode, &platform) {
-        if json {
-            output::print_json(&json!({"success": false, "error": error.to_string()}));
-        } else {
-            eprintln!("error: {error}");
-        }
+        emit_error(
+            json,
+            command_name,
+            "sandbox.unavailable",
+            &error.to_string(),
+        );
         return 1;
     }
     let capabilities = match settings.capabilities() {
         Ok(capabilities) => capabilities,
         Err(error) => {
-            eprintln!("error: {error}");
+            emit_error(json, command_name, "cli.invalid_grants", &error);
             return 2;
         }
     };
@@ -193,17 +182,22 @@ pub fn execute(
     let function_name = function.unwrap_or("main").to_string();
     let entry_module = &project.program.modules[&project.entry];
     if entry_module.function(&function_name).is_none() {
-        if function.is_none() {
-            eprintln!(
-                "error[sem.no_entry_function]: {} has no callable `main`; declare an Exec H2 \
-                 (`## @exec main`) or pass an explicit function name",
+        let message = if function.is_none() {
+            format!(
+                "{} has no callable `main`; declare an Exec H2 (`## @exec main`) or pass an \
+                 explicit function name",
                 project.entry_file().path.display()
-            );
+            )
         } else {
-            eprintln!(
-                "error: no function named `{function_name}` in {}",
+            format!(
+                "no function named `{function_name}` in {}",
                 project.entry_file().path.display()
-            );
+            )
+        };
+        if json {
+            emit_error(true, command_name, "sem.no_entry_function", &message);
+        } else {
+            eprintln!("error[sem.no_entry_function]: {message}");
         }
         return 1;
     }
@@ -234,7 +228,7 @@ pub fn execute(
         };
         let entry = format!("{}::{}", project.entry, function_name);
         if let Err(error) = crate::trace::write(&project, &host, &entry, status, path) {
-            eprintln!("error: {error}");
+            emit_error(json, command_name, "cli.trace_failed", &error);
             return 1;
         }
     }

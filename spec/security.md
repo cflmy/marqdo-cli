@@ -57,6 +57,32 @@ produces no IR and therefore cannot cause a host effect at all. No heading
 annotation, keyword or Markdown container can grant a file/network/process
 capability, and permission flags never change the AST→IR result.
 
+### 1.2 Strict failure and `--json` contract
+
+Strict execution is a two-phase operation: detect, then launch. Availability
+observed by `inspect --platform` is a snapshot, not a permanent promise. The
+runtime therefore re-probes before launching; a failure after a successful
+probe is a refusal, never a fallback.
+
+`--json` consumers must receive **exactly one** JSON document on stdout for
+every outcome:
+
+* a verified child in `--json` mode produces that document itself and its
+  bytes and exit code are forwarded unchanged;
+* a control-plane failure (probe, supervisor spawn, namespace construction,
+  timeout, capture) produces one CLI error document
+  `{"command": ..., "success": false, "error": ..., "code": ...}`;
+* output that is empty or is not exactly one JSON document is rejected as
+  `strict.child_invalid`; raw supervisor text is never forwarded as program
+  stdout.
+
+The stable codes are `strict.probe_unavailable`, `strict.spawn_failed`,
+`strict.namespace_failure`, `strict.timeout`, `strict.resource_limit`,
+`strict.child_invalid`, `strict.identity_invalid` and
+`strict.unsupported_grant` (ADR-0053). A marker alone never authorizes strict
+execution: Linux verifies the namespace/privilege identity, and every other
+platform rejects `MARQDO_STRICT_ACTIVE` outright (ADR-0053).
+
 ## 2. Capability grants
 
 `Capabilities` (`crates/marqdo-host/src/capability.rs`) is the effective grant
