@@ -124,7 +124,22 @@ jobs:
           (command -v python3 && python3 --version) || echo "python3: unavailable"
           (command -v node && node --version) || echo "node: unavailable"
       - name: Workspace tests
-        run: cargo test --workspace
+        shell: bash
+        run: |
+          set +e
+          cargo test --workspace 2>&1 | tee workspace-tests.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ]; then
+            # Surface the actual failing test/build line as a check annotation
+            # so a native-matrix failure is diagnosable without admin log access.
+            grep -E "^(test .* FAILED|failures:|thread .* panicked|error(\[|:))" workspace-tests.log \
+              | head -40 \
+              | while IFS= read -r line; do
+                  echo "::error title=Workspace tests on ${{ matrix.os }}::$line"
+                done
+          fi
+          exit "$status"
       - name: Portable CLI, analysis and trace smoke
         shell: bash
         run: |
