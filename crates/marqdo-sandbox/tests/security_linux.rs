@@ -4,11 +4,11 @@
 //! supervisor used by `marqdo run --mode strict`, then exercise direct
 //! syscalls for filesystem, network, process, privilege and resource escapes.
 //!
-//! They require a host where [`marqdo_sandbox::probe`] succeeds (Bubblewrap
-//! plus permitted user/mount/PID/net namespaces). On an incapable host they
-//! are skipped **unless** `MARQDO_REQUIRE_STRICT_SECURITY=1` is set, which the
-//! G-C security lane must set so a missing mechanism can never count as a
-//! pass.
+//! They are **opt-in** so an ordinary `cargo test --workspace` on a
+//! namespace-capable but non-disposable host does not become a false G0 gate.
+//! Set `MARQDO_REQUIRE_STRICT_SECURITY=1` (the G-C lane does; a missing
+//! mechanism then fails) or `MARQDO_RUN_STRICT_SECURITY=1` (developer opt-in;
+//! an incapable host skips).
 //!
 //! The helper path can be supplied with `MARQDO_SECURITY_HELPER` (used when
 //! running this test binary inside the disposable security VM). Otherwise the
@@ -30,6 +30,15 @@ fn required() -> bool {
         .ok()
         .as_deref()
         == Some("1")
+}
+
+/// The adversarial matrix is G3-only. Ordinary `cargo test --workspace` on a
+/// developer host or GitHub-hosted runner must not turn a namespace-capable but
+/// non-disposable environment into a red G0 gate. The G3 lane sets
+/// `MARQDO_REQUIRE_STRICT_SECURITY=1`; a developer can opt in with
+/// `MARQDO_RUN_STRICT_SECURITY=1`.
+fn enabled() -> bool {
+    required() || std::env::var("MARQDO_RUN_STRICT_SECURITY").ok().as_deref() == Some("1")
 }
 
 /// Compile the escape helper exactly once even when the test binary runs its
@@ -65,6 +74,13 @@ fn helper() -> Option<PathBuf> {
 }
 
 fn setup() -> Option<(PathBuf, PathBuf, PathBuf)> {
+    if !enabled() {
+        eprintln!(
+            "skipping strict security lane: set MARQDO_REQUIRE_STRICT_SECURITY=1 \
+             (G3) or MARQDO_RUN_STRICT_SECURITY=1 to opt in"
+        );
+        return None;
+    }
     if let Err(reason) = probe() {
         if required() {
             panic!("G-C security lane requires strict isolation but probe failed: {reason}");

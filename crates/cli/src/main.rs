@@ -367,8 +367,29 @@ struct SyncArgs {
 }
 
 fn main() {
+    // The interpreter and the bundled pure stdlib recurse on the parse/execute
+    // path. Windows gives the main thread 1 MiB by default (Linux/macOS use
+    // 8 MiB), which overflowed on the regex self-test. Run the CLI on an
+    // explicit 8 MiB thread on every platform so behavior does not depend on
+    // the host's main-thread default.
+    const STACK_BYTES: usize = 8 * 1024 * 1024;
+    let code = match std::thread::Builder::new()
+        .name("marqdo-main".to_string())
+        .stack_size(STACK_BYTES)
+        .spawn(dispatch)
+    {
+        Ok(handle) => handle.join().unwrap_or(101),
+        Err(error) => {
+            eprintln!("error: cannot start the marqdo main thread: {error}");
+            1
+        }
+    };
+    std::process::exit(code);
+}
+
+fn dispatch() -> i32 {
     let cli = Cli::parse();
-    let code = match cli.command {
+    match cli.command {
         Command::Init(args) => commands::init(args.dir.as_deref()),
         Command::Check(args) => commands::check(
             args.file.as_deref(),
@@ -433,6 +454,5 @@ fn main() {
         Command::PluginWorker(args) => {
             marqdo_plugin_abi::worker::serve(&args.manifest, &args.base_dir)
         }
-    };
-    std::process::exit(code);
+    }
 }

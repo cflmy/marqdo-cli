@@ -1858,11 +1858,11 @@ capabilities:
             "project:\n  name: p\n  version: 0.1.0\n",
         )
         .unwrap();
+        // macOS temp_dir is `/var/folders/...` while canonicalize resolves the
+        // `/var -> /private/var` symlink; compare canonical forms on both sides.
         assert_eq!(
-            discover_root(&nested).unwrap(),
-            dir.path()
-                .canonicalize()
-                .unwrap_or_else(|_| dir.path().to_path_buf())
+            discover_root(&nested).unwrap().canonicalize().unwrap(),
+            dir.path().canonicalize().unwrap()
         );
         assert!(discover_root(Path::new("/")).is_none());
     }
