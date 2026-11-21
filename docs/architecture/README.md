@@ -45,6 +45,7 @@ The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 | CM-A09 C ABI provider worker binding v1 | [0038](../adr/0038-c-abi-provider-worker-binding.md) | Accepted (trusted helper) |
 | Stdlib extraction deferral | [0039](../adr/0039-stdlib-extraction-intent.md) | Accepted (in-repo for now) |
 | Stdio stdin/stderr plus stdlib stream/console APIs | [0040](../adr/0040-stdio-stdin-stderr-and-stdlib-streams.md) | Accepted (stdin read, separate stdout/stderr, product stdlib) |
+| Non-streaming `resource.request` `fs.*` operations | [0041](../adr/0041-resource-operation-fs.md) | Accepted (project mode, grant-checked, recoverable fs Result) |
 | Table physical storage (T1/T2/T3), strict stdin/stderr/file/network resources | — | **Not decided**; do not implement by implication |
 
 ## Evidence and status

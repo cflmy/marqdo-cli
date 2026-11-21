@@ -109,3 +109,71 @@ import:
    3. `true`
 
       *{ok: true, value: {count: 写入.value.count}}*
+
+## 存在
+
+`(路径)`
+
+*resource.request("fs.exists", [路径])*
+
+## 元数据
+
+`(路径)`
+
+*resource.request("fs.metadata", [路径])*
+
+## 是文件
+
+`(路径)`
+
+**元数据 = resource.request("fs.metadata", [路径])**
+
+1. `not 元数据.ok`
+
+   *元数据*
+
+2. `true`
+
+   *{ok: true, value: 元数据.value.kind == "file"}*
+
+## 是目录
+
+`(路径)`
+
+**元数据 = resource.request("fs.metadata", [路径])**
+
+1. `not 元数据.ok`
+
+   *元数据*
+
+2. `true`
+
+   *{ok: true, value: 元数据.value.kind == "directory"}*
+
+## 列出目录
+
+`(路径)`
+
+*resource.request("fs.list", [路径])*
+
+## 创建目录
+
+`(路径)`
+
+*resource.request("fs.mkdir", [路径])*
+
+## 删除
+
+`(路径)`
+
+删除一个文件或空目录。非空目录返回 `fs.not_empty`，不递归删除。
+
+*resource.request("fs.remove", [路径])*
+
+## 重命名
+
+`(源, 目标)`
+
+目标已存在时返回 `fs.exists`，不覆盖。
+
+*resource.request("fs.rename", [源, 目标])*

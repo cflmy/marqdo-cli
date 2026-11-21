@@ -903,6 +903,23 @@ impl<'a> Interpreter<'a> {
             })
     }
 
+    /// Execute one non-streaming resource operation.
+    pub(crate) fn resource_request(
+        &mut self,
+        operation: &str,
+        args: Vec<Value>,
+        module: &ModuleId,
+        span: Option<Span>,
+    ) -> Result<Value, RuntimeError> {
+        let context = ExecutionContext::new(module.to_string(), span);
+        self.host
+            .resource_request(operation, args, &context)
+            .map_err(|mut error| {
+                error.mark_callsite();
+                error
+            })
+    }
+
     /// Close a resource stream.
     pub(crate) fn resource_close(
         &mut self,

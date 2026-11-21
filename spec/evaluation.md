@@ -166,6 +166,7 @@ resource.write(handle, memory: Memory, offset: Int, length: Int)
     -> {ok:true, value:{count:Int}} | {ok:false, code, message}
 resource.close(handle)
     -> {ok:true, value:None} | {ok:false, code, message}
+resource.request(operation: Text, arguments: List) -> Result
 ```
 
 * Providers: `stdio/stdin` with `["read"]` and `stdio/stdout`/`stdio/stderr`
@@ -191,6 +192,37 @@ resource.close(handle)
   writer buffer above 8 MiB is `resource.exhausted` and appends atomically.
 * `Memory` arguments never cross the host boundary as handles: the interpreter
   copies bytes for the call. Resource handles never cross the value wire.
+
+### 3.4 Resource operations (ADR-0041)
+
+`resource.request(operation, arguments)` is the non-streaming control plane for
+operations that are not byte streams. This build registers only `fs.*`:
+
+```text
+resource.request("fs.exists",   [path])        -> {ok:true, value:Bool}
+resource.request("fs.metadata", [path])        -> {ok:true, value:{kind, size}}
+resource.request("fs.list",     [path])        -> {ok:true, value:List<Text>}
+resource.request("fs.mkdir",    [path])        -> {ok:true, value:None}
+resource.request("fs.remove",   [path])        -> {ok:true, value:None}
+resource.request("fs.rename",   [from, to])    -> {ok:true, value:None}
+```
+
+* Arguments are `Text` paths only. `Memory`/`Resource` values are rejected.
+* Project mode only; `pure`/`strict` are `permission.denied`. Grants:
+  `exists`/`metadata`/`list` need `fs_read`; `mkdir`/`remove` need `fs_write`;
+  `rename` needs `fs_write` on both paths. Grants are checked before path
+  resolution or I/O.
+* Paths follow the project-file policy: relative, no `..`, no absolute path,
+  canonical target inside the root.
+* `kind` is `"file"`, `"directory"` or `"other"`; `size` is the file byte size
+  and `0` for non-files. `list` returns names sorted by their text form.
+* Expected conditions are recoverable: `fs.not_found`, `fs.not_directory`,
+  `fs.exists` (`mkdir`/`rename` target exists) and `fs.not_empty`
+  (`remove` on a non-empty directory). Unknown operations, traversal,
+  capability denial and I/O failures stay fatal.
+* `remove` never recurses; `rename` never overwrites; `mkdir` is single-level.
+* The operation never moves file bytes. Content still uses
+  `resource.open/read/write/close`.
 
 ## 4. Errors
 
@@ -286,6 +318,7 @@ host boundary. Names are stable; adding one requires a spec update.
 | `resource.read` | `(handle, memory: Memory, offset: Int, max_bytes: Int) -> Result` | bounded chunk read into Memory; `{count,eof}` |
 | `resource.write` | `(handle, memory: Memory, offset: Int, length: Int) -> Result` | bounded byte write; `{count}` |
 | `resource.close` | `(handle) -> Result` | releases the host slot |
+| `resource.request` | `(operation: Text, arguments: List) -> Result` | non-streaming `fs.*` operations; project-mode and grant-checked (ADR-0041) |
 | `math.parse/eval/substitute` | see `spec/math.md` | P5; `math.simplify`/`math.differentiate` are declared but return `math.unsupported` in this build |
 | `foreign.run/call` | see `spec/foreign.md` | P5, capability-gated |
 | `fs.read/write` | see `spec/security.md` | capability-gated |

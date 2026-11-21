@@ -511,3 +511,106 @@ fn tcp_requires_network_grant_and_rejects_dns_names() {
         assert_eq!(error.category, ErrorCategory::PermissionDenied);
     }
 }
+
+fn field<'a>(value: &'a Value, name: &str) -> &'a Value {
+    match value {
+        Value::Map(map) => map.get(name).unwrap_or_else(|| panic!("missing `{name}`")),
+        other => panic!("expected a Map, got {other:?}"),
+    }
+}
+
+#[test]
+fn resource_requests_are_project_only_and_grant_checked() {
+    let dir = tempfile::tempdir().unwrap();
+    let ctx = context();
+    let mut pure = StdHost::new(SandboxMode::Pure, Capabilities::pure(), dir.path());
+    let error = pure
+        .resource_request("fs.exists", vec![Value::text("out")], &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+
+    let mut project = StdHost::new(SandboxMode::Project, Capabilities::project(), dir.path());
+    let error = project
+        .resource_request("fs.mkdir", vec![Value::text("out")], &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+}
+
+#[test]
+fn fs_requests_create_list_rename_and_remove() {
+    let dir = tempfile::tempdir().unwrap();
+    let capabilities = Capabilities::project()
+        .allow_read("out")
+        .allow_read("out/**")
+        .allow_write("out")
+        .allow_write("out/**");
+    let mut host = StdHost::new(SandboxMode::Project, capabilities, dir.path());
+    let ctx = context();
+
+    let missing = host
+        .resource_request("fs.exists", vec![Value::text("out")], &ctx)
+        .unwrap();
+    assert_eq!(field(&missing, "value"), &Value::Bool(false));
+
+    let created = host
+        .resource_request("fs.mkdir", vec![Value::text("out")], &ctx)
+        .unwrap();
+    assert_eq!(field(&created, "ok"), &Value::Bool(true));
+
+    std::fs::write(dir.path().join("out/a.txt"), b"hello").unwrap();
+    let metadata = host
+        .resource_request("fs.metadata", vec![Value::text("out/a.txt")], &ctx)
+        .unwrap();
+    assert_eq!(
+        field(&metadata, "value"),
+        &Value::Map({
+            let mut map = std::collections::BTreeMap::new();
+            map.insert("kind".to_string(), Value::text("file"));
+            map.insert("size".to_string(), Value::int(5));
+            map
+        })
+    );
+
+    let listed = host
+        .resource_request("fs.list", vec![Value::text("out")], &ctx)
+        .unwrap();
+    assert_eq!(
+        field(&listed, "value"),
+        &Value::List(vec![Value::text("a.txt")])
+    );
+
+    let renamed = host
+        .resource_request(
+            "fs.rename",
+            vec![Value::text("out/a.txt"), Value::text("out/b.txt")],
+            &ctx,
+        )
+        .unwrap();
+    assert_eq!(field(&renamed, "ok"), &Value::Bool(true));
+    assert!(!dir.path().join("out/a.txt").exists());
+    assert!(dir.path().join("out/b.txt").exists());
+
+    let removed = host
+        .resource_request("fs.remove", vec![Value::text("out/b.txt")], &ctx)
+        .unwrap();
+    assert_eq!(field(&removed, "ok"), &Value::Bool(true));
+    let removed_dir = host
+        .resource_request("fs.remove", vec![Value::text("out")], &ctx)
+        .unwrap();
+    assert_eq!(field(&removed_dir, "ok"), &Value::Bool(true));
+    assert!(!dir.path().join("out").exists());
+}
+
+#[test]
+fn fs_requests_reject_traversal_before_touching_the_filesystem() {
+    let dir = tempfile::tempdir().unwrap();
+    let capabilities = Capabilities::project()
+        .allow_write("../**")
+        .allow_read("../**");
+    let mut host = StdHost::new(SandboxMode::Project, capabilities, dir.path());
+    let ctx = context();
+    let error = host
+        .resource_request("fs.mkdir", vec![Value::text("../escape")], &ctx)
+        .unwrap_err();
+    assert_eq!(error.category, ErrorCategory::PermissionDenied);
+}

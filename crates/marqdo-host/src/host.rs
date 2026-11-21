@@ -139,6 +139,23 @@ pub trait Host {
         ))
     }
 
+    /// Execute one non-streaming resource operation (ADR-0041).
+    ///
+    /// Default: unavailable. The standard host implements the `fs.*` group;
+    /// every call is capability-checked and project-mode only.
+    fn resource_request(
+        &mut self,
+        _operation: &str,
+        _args: Vec<Value>,
+        ctx: &ExecutionContext,
+    ) -> Result<Value, RuntimeError> {
+        Err(RuntimeError::new(
+            ErrorCategory::ResourceUnsupported,
+            ctx.span,
+            "this host does not provide resource operations",
+        ))
+    }
+
     /// Consume evaluation fuel.
     fn consume_fuel(&mut self, amount: u64, span: Option<Span>) -> Result<(), RuntimeError>;
 
@@ -1087,6 +1104,93 @@ impl Host for StdHost {
             &format!("flushed_bytes={count}"),
         );
         Ok(())
+    }
+
+    fn resource_request(
+        &mut self,
+        operation: &str,
+        args: Vec<Value>,
+        ctx: &ExecutionContext,
+    ) -> Result<Value, RuntimeError> {
+        let started = Instant::now();
+        if self.mode != SandboxMode::Project {
+            return Err(RuntimeError::new(
+                ErrorCategory::PermissionDenied,
+                ctx.span,
+                "resource operations are available only in project mode",
+            ));
+        }
+        if args.iter().any(Value::contains_memory) || args.iter().any(Value::contains_resource) {
+            return Err(RuntimeError::new(
+                ErrorCategory::ResourceUnsupported,
+                ctx.span,
+                "resource operations accept only Text path arguments",
+            ));
+        }
+        let Some(name) = operation.strip_prefix("fs.") else {
+            return Err(RuntimeError::new(
+                ErrorCategory::ResourceUnsupported,
+                ctx.span,
+                format!("unsupported resource operation `{operation}`"),
+            ));
+        };
+        let expected = match name {
+            "exists" | "metadata" | "list" | "mkdir" | "remove" => 1,
+            "rename" => 2,
+            other => {
+                return Err(RuntimeError::new(
+                    ErrorCategory::ResourceUnsupported,
+                    ctx.span,
+                    format!("unsupported filesystem operation `{other}`"),
+                ))
+            }
+        };
+        if args.len() != expected {
+            return Err(RuntimeError::new(
+                ErrorCategory::Arity,
+                ctx.span,
+                format!(
+                    "resource operation `{operation}` expects {expected} argument(s), got {}",
+                    args.len()
+                ),
+            ));
+        }
+        let mut paths = Vec::with_capacity(args.len());
+        for value in args {
+            let value_type = value.type_name();
+            let Value::Text(path) = value else {
+                return Err(RuntimeError::type_error(
+                    ctx.span,
+                    format!(
+                        "resource operation `{operation}` expects Text paths, got {value_type}"
+                    ),
+                ));
+            };
+            paths.push(path);
+        }
+        match name {
+            "exists" | "metadata" | "list" => {
+                self.capabilities.check_read(&paths[0], ctx.span)?;
+            }
+            "mkdir" | "remove" => {
+                self.capabilities.check_write(&paths[0], ctx.span)?;
+            }
+            "rename" => {
+                self.capabilities.check_write(&paths[0], ctx.span)?;
+                self.capabilities.check_write(&paths[1], ctx.span)?;
+            }
+            _ => unreachable!(),
+        }
+        let result = self.fs.request(name, &paths, ctx.span)?;
+        self.record_semantic(
+            "resource.request",
+            None,
+            Some(&ctx.module_id),
+            ctx.span,
+            Some(&format!("op=fs.{name}")),
+        );
+        self.record_resource_effect("resource.request", ctx, started, &format!("fs.{name}"));
+        Ok(result)
     }
 
     fn consume_fuel(&mut self, amount: u64, span: Option<Span>) -> Result<(), RuntimeError> {

@@ -62,7 +62,16 @@ fn product_tests() -> Vec<TestFile> {
                 _ => ("", ""),
             };
             let args = if name == "fs.mq.md" {
-                &["--allow-read", "out/*", "--allow-write", "out/*"][..]
+                &[
+                    "--allow-read",
+                    "out",
+                    "--allow-read",
+                    "out/**",
+                    "--allow-write",
+                    "out",
+                    "--allow-write",
+                    "out/**",
+                ][..]
             } else {
                 &[][..]
             };
@@ -148,7 +157,7 @@ fn the_whole_bundled_library_runs_through_std_imports() {
 }
 
 #[test]
-fn fs_test_reads_writes_and_copies_project_files() {
+fn fs_test_exercises_the_file_operation_surface() {
     let _guard = lock_fs("fs.mq.md");
     let report = run_product_test(
         product_tests()
@@ -157,18 +166,21 @@ fn fs_test_reads_writes_and_copies_project_files() {
             .expect("fs test"),
     );
     let items = report["value"]["items"].as_array().expect("list");
-    assert_eq!(items[0]["decimal"], "7");
-    assert_eq!(items[1]["value"], "你好\n");
-    assert_eq!(items[2]["decimal"], "7");
-    assert_eq!(items[3]["value"], "你好\n");
-    let out = stdlib_dir().join("tests/out");
-    assert_eq!(
-        std::fs::read(out.join("fs-a.txt")).unwrap(),
-        "你好\n".as_bytes()
-    );
-    assert_eq!(
-        std::fs::read(out.join("fs-b.txt")).unwrap(),
-        "你好\n".as_bytes()
+    assert_eq!(items[0]["value"], true);
+    assert_eq!(items[1]["decimal"], "7");
+    assert_eq!(items[2]["value"], true);
+    assert_eq!(items[3]["value"], "file");
+    assert_eq!(items[4]["decimal"], "7");
+    assert_eq!(items[5]["items"][0]["value"], "fs-a.txt");
+    assert_eq!(items[6]["value"], true);
+    assert_eq!(items[7]["value"], true);
+    assert_eq!(items[8]["value"], true);
+    assert_eq!(items[9]["value"], "你好\n");
+    assert_eq!(items[10]["value"], true);
+    assert_eq!(items[11]["value"], true);
+    assert!(
+        !stdlib_dir().join("tests/out").exists(),
+        "the fs test did not remove its directory"
     );
 }
 

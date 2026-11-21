@@ -478,6 +478,17 @@ pub(crate) fn dispatch(
                 Err(error) => resource_recoverable(error),
             }
         }
+        "resource.request" => {
+            let operation = expect_text_value(take(&bound, "operation", builtin, span)?, span)?;
+            let value_type = bound["arguments"].type_name();
+            let Value::List(arguments) = take(&bound, "arguments", builtin, span)? else {
+                return Err(RuntimeError::type_error(
+                    span,
+                    format!("resource.request arguments must be a List, got {value_type}"),
+                ));
+            };
+            interpreter.resource_request(&operation, arguments, &module, span)
+        }
         other => Err(RuntimeError::new(
             ErrorCategory::KernelUnavailable,
             span,

@@ -18,7 +18,7 @@ platform".
 | Dimension | Current state | Source |
 |---|---|---|
 | Implemented | Rust workspace `0.1.0`: Markdown/frontend/IR, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, bundled stdlib, CLI composition root | `Cargo.toml`, `crates/`, `stdlib/` |
-| Tested locally | `cargo test --workspace --locked`: **464 passed, 0 failed, 2 ignored** on Linux x86_64 at the baseline | `docs/STATUS.md` §3 |
+| Tested locally | `cargo test --workspace --locked`: **467 passed, 0 failed, 2 ignored** on Linux x86_64 at the baseline | `docs/STATUS.md` §3 |
 | Bundled stdlib released | In-repo bundle `marqdo-stdlib@0.1.0`, SHA-256 digest verified before loading; it is **not** an external registry package | `stdlib/stdlib.json`, `stdlib/README.md` |
 | Multi-platform verified | Linux local gate is the only executed lane here; Windows/macOS native lanes are **UNVERIFIED**, and the GitHub security lane remains a **VM-only** gate | `docs/STATUS.md` §1, §4 |
 
@@ -87,6 +87,7 @@ review RFC, not a new crate per provider.
 | project file read | `resource.open("file", path, ["read"])`; path/grant checked; bounded | implemented, project mode | `resource_streams`, `stdlib_product` |
 | project file write | `resource.open("file", path, ["write"])`; buffers until `close`, never flush-on-drop | implemented, project mode | `resource_streams`, `stdlib_product` |
 | `std:fs/file` | `fs.读文本`, `fs.写文本`, `fs.复制文件` over `resource.open/read/write/close` and `Memory`; bounded at 8 MiB | implemented (read/write/copy) | `stdlib_product` |
+| `resource.request` | `resource.request("fs.exists|metadata|list|mkdir|remove|rename", paths)`; project mode, grant-checked, recoverable fs Result | implemented `fs.*`; no seek/append/watch | `resource_streams`, `stdlib_product` |
 | file metadata / directory / rename / remove / mkdir | not part of the current Resource contract | **not implemented**; needs a separate Resource Operation ADR | — |
 | TCP | `resource.open("tcp", ip:port, ["read","write"])`; exact IP grant, 5 s timeout | implemented; no DNS/TLS/server socket/UDP | `tcp_endpoint`, `http_over_tcp` |
 | HTTP/1.1 | `stdlib/net/http.mq.md`: status/header/chunked-byte parse, request build | implemented over an already-authorized TCP stream; not a DNS/TLS client | `stdlib_http`, `http_over_tcp`, `stdlib_product` |
@@ -112,8 +113,8 @@ that a phase is complete.
 |---|---|---|
 | P0 | Stdlib release is a bundle in this repo; extraction is deferred (ADR-0039) | accepted, keep in repo |
 | P0 | Documentation drift between `STATUS.md`, the architecture index and the evidence | being fixed by this migration and the docs gate |
-| P1 | `std:fs/file` has read/write/copy; metadata, `exists`, `list`, `mkdir`, `remove` and `rename` need a Resource Operation | open |
-| P1 | No file stat/list/rename/remove/mkdir/append/seek capability | open; requires a Resource Operation ADR |
+| P1 | `std:fs/file` read/write/copy and `resource.request` fs metadata/directory operations are implemented; append/seek/watch/recursive walk remain open | open |
+| P1 | No file append/seek/watch/recursive directory walk | open; future Resource Operation extension |
 | P1 | JSON/CSV/UTF-8 decode remain mainly under `tests/conformance` | open as product stdlib API |
 | P1 | `crates/cli/src/commands.rs` and `crates/marqdo-host/src/host.rs` still mix multiple responsibilities | open refactor, behavior-preserving |
 | P2 | HTTP parsing is Unicode-codepoint oriented; a general byte body is not the only path | open; convert before a general network release |
@@ -148,5 +149,6 @@ that a phase is complete.
 - [Implementation status](../STATUS.md) — executed state and blockers.
 - [Language/frontmatter blueprint](../DEVELOPMENT_BLUEPRINT.md) — design baseline; not current status.
 - [Stable-release implementation plan](../STABLE_RELEASE_IMPLEMENTATION.md) — next-phase plan; not implemented behavior.
+- [ADR-0041: non-streaming resource operations](../adr/0041-resource-operation-fs.md) — accepted `resource.request` `fs.*` contract.
 - [Compute-machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) and [core/stdlib RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) — design input.
 - [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) — review input for this migration.

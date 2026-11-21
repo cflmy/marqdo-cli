@@ -58,7 +58,7 @@ byte-identical).
 cargo fmt --all -- --check                            PASS
 cargo clippy --workspace --all-targets -- -D warnings PASS
 cargo test --workspace --locked                       PASS
-  464 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
+  467 passed, 0 failed, 2 ignored; includes 7/7 Linux security tests
 ```
 
 The documentation and test migration is local work; re-run this block after it
@@ -199,7 +199,9 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   provides select/filter/sort/append/set/join/group/`转GFM` over the logical
   `Value::Table`; inputs are never mutated; GFM AST laziness and physical T0
   storage are unchanged. `std:fs/file` provides bounded `读文本`/`写文本`/`复制文件`
-  over the existing `resource.*` ABI; metadata/directory operations remain open.
+  over the existing `resource.*` ABI plus `存在`/`元数据`/`列出目录`/`创建目录`/
+  `删除`/`重命名` over `resource.request` (ADR-0041). Append/seek/watch and a
+  recursive walk remain open.
 - Bundled standard library (CM-A10, ADR-0028): `stdlib/` ships
   `format`/`text`/`io`/`fs`; explicit `std:` imports resolve only inside the bundle;
   a SHA-256 digest over `*.mq.md` is verified before loading; Analysis records
@@ -217,9 +219,11 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   stderr are separate capability/output-budget checked buffers; project-file
   read/write is path/grant checked; file writes buffer until `close` and
   never flush on drop; a `.mq.md` chunked copy loop reproduces a file without a
-  Rust `copy_file`; strict permits only the stdio stdout console channel and
-  refuses stdin/stderr/file/TCP/provider resources (CM-A11 lane PASS). Semantic
-  fixture 66 and CLI/host tests.
+  Rust `copy_file`; `resource.request` adds non-streaming `fs.exists`/
+  `fs.metadata`/`fs.list`/`fs.mkdir`/`fs.remove`/`fs.rename` (project mode,
+  grant-checked, recoverable fs Result); strict permits only the stdio stdout
+  console channel and refuses stdin/stderr/file/TCP/provider resources (CM-A11
+  lane PASS). Semantic fixture 66 and CLI/host tests.
 - Test and documentation migration (review RFC-CM P0/P2):
   `crates/cli/tests/docs_consistency.rs` pins one current overview, the
   status/index links and SHA-pinned evidence; `crates/cli/tests/architecture_boundaries.rs`
@@ -248,9 +252,10 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 4. `fs.write`, `net.request`, `process`, `clock`, `random` are not executed
    broker services; unsupported requests must return `capability.unavailable`.
 5. Resource streams cover project-file read/write (including `std:fs/file`
-   read/write/copy), stdout, compatible print, trusted in-process providers and
-   IP-literal TCP; file metadata/directories, process, device, DNS/TLS/HTTP, UDP
-   and provider packaging remain open. Strict permits only stdio and refuses the
+   read/write/copy), non-streaming `resource.request` `fs.*` metadata/directory
+   operations, stdout, compatible print, trusted in-process providers and
+   IP-literal TCP; append/seek/watch, process, device, DNS/TLS/HTTP, UDP and
+   provider packaging remain open. Strict permits only stdio and refuses the
    rest (CM-A11 lane PASS).
 6. uv/npm/venv provisioning is not implemented. Only a pre-provisioned,
    digest-pinned directory with a regular-file executable is supported.

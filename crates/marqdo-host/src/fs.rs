@@ -7,7 +7,8 @@
 use std::path::{Component, Path, PathBuf};
 
 use marqdo_span::Span;
-use marqdo_value::{ErrorCategory, RuntimeError};
+use marqdo_value::{ErrorCategory, RuntimeError, Value};
+use std::collections::BTreeMap;
 
 /// Maximum size for a single file read.
 pub const MAX_READ_BYTES: u64 = 8 * 1024 * 1024;
@@ -143,6 +144,266 @@ impl ProjectFs {
         })
     }
 
+    /// Execute a path operation on the project filesystem.
+    ///
+    /// This is the host side of `resource.request`; it validates every path
+    /// against the project root, then returns the recoverable `Result` map.
+    /// Capability checks are performed by the host before this method is
+    /// called. Unknown operations are a programming error and stay fatal.
+    pub fn request(
+        &self,
+        operation: &str,
+        args: &[String],
+        span: Option<Span>,
+    ) -> Result<Value, RuntimeError> {
+        match operation {
+            "exists" => {
+                let (absolute, relative) = self.resolve(one_arg(operation, args, span)?, span)?;
+                if !absolute.exists() {
+                    return Ok(fs_ok(Value::Bool(false)));
+                }
+                self.ensure_inside(&absolute, &relative, span)?;
+                Ok(fs_ok(Value::Bool(true)))
+            }
+            "metadata" => {
+                let (absolute, relative) = self.resolve(one_arg(operation, args, span)?, span)?;
+                if !absolute.exists() {
+                    return Ok(fs_error(
+                        "fs.not_found",
+                        &format!("`{relative}` does not exist"),
+                    ));
+                }
+                let absolute = self.ensure_inside(&absolute, &relative, span)?;
+                let metadata = std::fs::metadata(&absolute).map_err(|error| {
+                    RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("cannot stat `{relative}`: {error}"),
+                    )
+                })?;
+                let kind = if metadata.is_file() {
+                    "file"
+                } else if metadata.is_dir() {
+                    "directory"
+                } else {
+                    "other"
+                };
+                let size = if metadata.is_file() {
+                    metadata.len()
+                } else {
+                    0
+                };
+                let mut value = BTreeMap::new();
+                value.insert("kind".to_string(), Value::text(kind));
+                value.insert(
+                    "size".to_string(),
+                    Value::int(size.min(i64::MAX as u64) as i64),
+                );
+                Ok(fs_ok(Value::Map(value)))
+            }
+            "list" => {
+                let (absolute, relative) = self.resolve(one_arg(operation, args, span)?, span)?;
+                if !absolute.exists() {
+                    return Ok(fs_error(
+                        "fs.not_found",
+                        &format!("`{relative}` does not exist"),
+                    ));
+                }
+                let absolute = self.ensure_inside(&absolute, &relative, span)?;
+                let metadata = std::fs::metadata(&absolute).map_err(|error| {
+                    RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("cannot stat `{relative}`: {error}"),
+                    )
+                })?;
+                if !metadata.is_dir() {
+                    return Ok(fs_error(
+                        "fs.not_directory",
+                        &format!("`{relative}` is not a directory"),
+                    ));
+                }
+                let mut names = Vec::new();
+                let entries = std::fs::read_dir(&absolute).map_err(|error| {
+                    RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("cannot list `{relative}`: {error}"),
+                    )
+                })?;
+                for entry in entries {
+                    let entry = entry.map_err(|error| {
+                        RuntimeError::new(
+                            ErrorCategory::HostError,
+                            span,
+                            format!("cannot list `{relative}`: {error}"),
+                        )
+                    })?;
+                    names.push(entry.file_name().to_string_lossy().to_string());
+                }
+                names.sort();
+                Ok(fs_ok(Value::List(
+                    names.into_iter().map(Value::text).collect(),
+                )))
+            }
+            "mkdir" => {
+                let (absolute, relative) = self.resolve(one_arg(operation, args, span)?, span)?;
+                self.ensure_parent_inside(&absolute, &relative, span)?;
+                if absolute.exists() {
+                    return Ok(fs_error(
+                        "fs.exists",
+                        &format!("`{relative}` already exists"),
+                    ));
+                }
+                match std::fs::create_dir(&absolute) {
+                    Ok(()) => Ok(fs_ok(Value::None)),
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(fs_error(
+                        "fs.not_found",
+                        &format!("parent directory of `{relative}` does not exist"),
+                    )),
+                    Err(error) => Err(RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("cannot create directory `{relative}`: {error}"),
+                    )),
+                }
+            }
+            "remove" => {
+                let (absolute, relative) = self.resolve(one_arg(operation, args, span)?, span)?;
+                if !absolute.exists() {
+                    return Ok(fs_error(
+                        "fs.not_found",
+                        &format!("`{relative}` does not exist"),
+                    ));
+                }
+                let absolute = self.ensure_inside(&absolute, &relative, span)?;
+                let metadata = std::fs::metadata(&absolute).map_err(|error| {
+                    RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("cannot stat `{relative}`: {error}"),
+                    )
+                })?;
+                if metadata.is_dir() {
+                    let mut entries = std::fs::read_dir(&absolute).map_err(|error| {
+                        RuntimeError::new(
+                            ErrorCategory::HostError,
+                            span,
+                            format!("cannot list `{relative}`: {error}"),
+                        )
+                    })?;
+                    if entries.next().is_some() {
+                        return Ok(fs_error(
+                            "fs.not_empty",
+                            &format!("`{relative}` is not empty"),
+                        ));
+                    }
+                    std::fs::remove_dir(&absolute).map_err(|error| {
+                        RuntimeError::new(
+                            ErrorCategory::HostError,
+                            span,
+                            format!("cannot remove `{relative}`: {error}"),
+                        )
+                    })?;
+                } else {
+                    std::fs::remove_file(&absolute).map_err(|error| {
+                        let category = if error.kind() == std::io::ErrorKind::PermissionDenied {
+                            ErrorCategory::PermissionDenied
+                        } else {
+                            ErrorCategory::HostError
+                        };
+                        RuntimeError::new(
+                            category,
+                            span,
+                            format!("cannot remove `{relative}`: {error}"),
+                        )
+                    })?;
+                }
+                Ok(fs_ok(Value::None))
+            }
+            "rename" => {
+                if args.len() != 2 {
+                    return Err(fs_arity(operation, 2, args.len(), span));
+                }
+                let (from_absolute, from) = self.resolve(&args[0], span)?;
+                let (to_absolute, to) = self.resolve(&args[1], span)?;
+                if !from_absolute.exists() {
+                    return Ok(fs_error(
+                        "fs.not_found",
+                        &format!("`{from}` does not exist"),
+                    ));
+                }
+                let from_absolute = self.ensure_inside(&from_absolute, &from, span)?;
+                self.ensure_parent_inside(&to_absolute, &to, span)?;
+                if to_absolute.exists() {
+                    return Ok(fs_error("fs.exists", &format!("`{to}` already exists")));
+                }
+                match std::fs::rename(&from_absolute, &to_absolute) {
+                    Ok(()) => Ok(fs_ok(Value::None)),
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(fs_error(
+                        "fs.not_found",
+                        &format!("parent directory of `{to}` does not exist"),
+                    )),
+                    Err(error) => Err(RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("cannot rename `{from}` to `{to}`: {error}"),
+                    )),
+                }
+            }
+            other => Err(RuntimeError::new(
+                ErrorCategory::ResourceUnsupported,
+                span,
+                format!("unsupported filesystem operation `{other}`"),
+            )),
+        }
+    }
+
+    fn ensure_inside(
+        &self,
+        absolute: &Path,
+        relative: &str,
+        span: Option<Span>,
+    ) -> Result<PathBuf, RuntimeError> {
+        let canonical = absolute.canonicalize().map_err(|error| {
+            RuntimeError::new(
+                ErrorCategory::HostError,
+                span,
+                format!("cannot resolve `{relative}`: {error}"),
+            )
+        })?;
+        if !canonical.starts_with(&self.root) {
+            return Err(invalid_path(span, "path escapes the project root"));
+        }
+        Ok(canonical)
+    }
+
+    fn ensure_parent_inside(
+        &self,
+        absolute: &Path,
+        relative: &str,
+        span: Option<Span>,
+    ) -> Result<(), RuntimeError> {
+        let mut ancestor = absolute.parent();
+        while let Some(current) = ancestor {
+            if current.exists() {
+                let canonical = current.canonicalize().map_err(|error| {
+                    RuntimeError::new(
+                        ErrorCategory::HostError,
+                        span,
+                        format!("cannot resolve `{relative}`: {error}"),
+                    )
+                })?;
+                if !canonical.starts_with(&self.root) {
+                    return Err(invalid_path(span, "path escapes the project root"));
+                }
+                return Ok(());
+            }
+            ancestor = current.parent();
+        }
+        Ok(())
+    }
+
     /// Write a file inside the project root, creating parent directories.
     pub fn write(
         &self,
@@ -202,6 +463,40 @@ impl ProjectFs {
 
 fn invalid_path(span: Option<Span>, message: impl Into<String>) -> RuntimeError {
     RuntimeError::new(ErrorCategory::PermissionDenied, span, message)
+}
+
+fn one_arg<'a>(
+    operation: &str,
+    args: &'a [String],
+    span: Option<Span>,
+) -> Result<&'a str, RuntimeError> {
+    if args.len() != 1 {
+        return Err(fs_arity(operation, 1, args.len(), span));
+    }
+    Ok(&args[0])
+}
+
+fn fs_arity(operation: &str, expected: usize, actual: usize, span: Option<Span>) -> RuntimeError {
+    RuntimeError::new(
+        ErrorCategory::Arity,
+        span,
+        format!("filesystem operation `{operation}` expects {expected} argument(s), got {actual}"),
+    )
+}
+
+fn fs_ok(value: Value) -> Value {
+    let mut map = BTreeMap::new();
+    map.insert("ok".to_string(), Value::Bool(true));
+    map.insert("value".to_string(), value);
+    Value::Map(map)
+}
+
+fn fs_error(code: &str, message: &str) -> Value {
+    let mut map = BTreeMap::new();
+    map.insert("ok".to_string(), Value::Bool(false));
+    map.insert("code".to_string(), Value::text(code));
+    map.insert("message".to_string(), Value::text(message));
+    Value::Map(map)
 }
 
 #[cfg(test)]
