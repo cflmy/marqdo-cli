@@ -102,22 +102,28 @@ The RFC-CI-0001 series fixes the release-blocking CI defects that the
 | 6 | `0d7e11b` | SHA-bound release-evidence aggregator, docs drift cleanup, consistent `windows-latest`/`macos-latest` statement |
 | 7 | `512b9f5` | evidence-generation failure fails the lane; workflow archive/verification fixes; G-C re-run |
 | 8 | `beb68a9` | G-C evidence/status update and the cross-platform JSON smoke exit-code fix |
+| 9 | `3a29fce` | Windows PATH lookup applies `PATHEXT`; ANSI-stripped native failure annotations |
+| 10 | `b898c41` | macOS parser-nesting test stack; portable process product fixture (CLI `--version` instead of `/bin/echo`) |
+| 11 | `4265231` | CLI runs on an explicit 8 MiB thread (Windows 1 MiB overflow); macOS temp-path canonicalization; G3 adversarial tests opt-in |
+| 12 | `a24161c` | Windows foreign temp paths stay non-verbatim (Node `lstat` rejection) |
+| 13 | `5fcc111` | reject rooted Windows dependency paths (`has_root`, not `is_absolute`) |
 
 Executed evidence:
 
 | Lane | Result | Evidence |
 |---|---|---|
-| Linux fmt/clippy/test/build (Woodpecker) | **PASS** | pipelines `#9`–`#12`, `#14`, `#16` and `#17` on the series; `#13`/`#15` were superseded/cancelled by the next push, not failures |
-| Windows portability | **PASS (cross-target check)** | `cargo check --workspace --all-targets --locked --target x86_64-pc-windows-gnu` on this Linux host with MinGW; native `windows-latest` GitHub run still required for release |
-| macOS portability | **UNVERIFIED** | native `macos-latest` run required; cross-check from this Linux host is blocked by `ring`'s Darwin C/asm toolchain, not by Marqdo code |
-| G3 strict isolation | **PASS (local disposable VM) / remote UNVERIFIED** | `512b9f5`, `dev` uid 1000, QEMU/TCG, 7/7 + strict JSON/inert-`@knowledge`; [`evidence/2026-11-21-strict-gc-512b9f5.md`](evidence/2026-11-21-strict-gc-512b9f5.md) |
+| Linux fmt/clippy/test/build (Woodpecker) | **PASS** | pipelines `#9`–`#12`, `#14`, `#16`, `#17`, `#21`–`#25` on the series; `#13`/`#15`/`#19` were superseded/cancelled by the next push, not failures |
+| Linux + Windows + macOS native matrix (GitHub) | **PASS** | [run 30](https://github.com/cflmy/marqdo-cli/actions/runs/44896671929) on `5fcc111`: `fmt + clippy + test (Linux x86_64)`, `runtime contract (windows-latest)`, `runtime contract (macos-latest)`, and schema consumers all PASS |
+| G3 strict isolation | **PASS (local disposable VM) / remote UNVERIFIED** | `5fcc111`, `dev` uid 1000, QEMU/TCG, 7/7 + strict JSON/inert-`@knowledge`; [`evidence/2026-11-21-strict-gc-5fcc111.md`](evidence/2026-11-21-strict-gc-5fcc111.md) |
 | G4 performance | **SMOKE / UNVERIFIED** | nine workloads `VERIFIED` on the dev container, 1 warmup + 3 samples; [`evidence/2026-11-21-perf-smoke-0d7e11b.md`](evidence/2026-11-21-perf-smoke-0d7e11b.md) |
 
-Release decision: **DO NOT RELEASE.** Linux is green on Woodpecker, the strict
-isolation mechanism PASSes locally as a normal user, and the platform compile
-defect is fixed; but the release gate requires the same SHA to have PASSing
-remote Windows/macOS jobs, a remote G3 artifact whose `tested_sha` matches, and
-a `MEASURED` G4 report. None of those three remote claims is made here.
+Release decision: **DO NOT RELEASE.** Linux, Windows and macOS native jobs are
+green on the same SHA, and the strict isolation mechanism PASSes locally as a
+normal user. The remaining release gates are the **remote** G3 artifact whose
+`tested_sha` matches and a **MEASURED** G4 report on the fixed node; neither
+remote claim is made here. The RFC explicitly requires the remote G3 artifact
+for a release, so the local VM PASS is recorded but not promoted to a release
+gate.
 
 The manifest contract is in
 [`evidence/ci/README.md`](evidence/ci/README.md); `tools/ci/release_evidence.py`
@@ -476,9 +482,9 @@ user-written allocator is explicitly **not** claimed.
   print, strict file-resource refusal, forged-marker rejection and raw log.
 - [`evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md`](evidence/RELEASE_CANDIDATE_0.1.0_8af7262.md)
   — G0..G12 matrix and RC decision.
-- [`evidence/2026-11-21-strict-gc-512b9f5.md`](evidence/2026-11-21-strict-gc-512b9f5.md)
+- [`evidence/2026-11-21-strict-gc-5fcc111.md`](evidence/2026-11-21-strict-gc-5fcc111.md)
   — RFC-CI-0001 series G-C: local disposable VM, `dev` uid 1000, 7/7 plus the
-  strict JSON and inert-`@knowledge` contracts at `512b9f5`.
+  strict JSON and inert-`@knowledge` contracts at `5fcc111`; the earlier `512b9f5`/`0d7e11b` runs are historical.
 - [`evidence/2026-11-21-perf-smoke-0d7e11b.md`](evidence/2026-11-21-perf-smoke-0d7e11b.md)
   — `marqdo.perf.v2` smoke: nine workloads correctness-verified, explicitly
   not a G4 release baseline.

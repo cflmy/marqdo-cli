@@ -127,10 +127,11 @@ reproduce the Windows checkout byte behavior.
 ## Release decision
 
 **DO NOT RELEASE.** The RFC-CI-0001 series fixed the platform `E0425` build
-break and the strict `--json` empty-stdout defect (ADR-0053), Woodpecker is
-green at `0d7e11b`, and the G3 lane PASSes locally as a normal user. However
-the same SHA has **no remote Windows/macOS native PASS, no remote G3 security
-artifact and no `MEASURED` G4 performance report**. Those gates remain
-`UNVERIFIED`; a local or cross-target PASS is not a platform/security release
-proof. See [`docs/STATUS.md`](docs/STATUS.md) §0.1 and
+break, the strict `--json` empty-stdout defect (ADR-0053) and the native
+Windows/macOS portability failures. At `5fcc111` the Linux, Windows and macOS
+GitHub-native jobs and Woodpecker are green, and the G3 lane PASSes locally as
+an ordinary user. The release still lacks the **remote G3 security artifact**
+with a matching `tested_sha` and a **`MEASURED` G4 performance report**; those
+two gates remain `UNVERIFIED`. A local VM PASS is not a remote G3 proof. See
+[`docs/STATUS.md`](docs/STATUS.md) §0.1 and
 [`docs/evidence/ci/README.md`](docs/evidence/ci/README.md).

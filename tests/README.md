@@ -35,6 +35,13 @@ tests/
 └── README.md           this file
 ```
 
+G3 security matrix: `crates/marqdo-sandbox/tests/security_linux.rs` is
+**opt-in**. Ordinary `cargo test --workspace` skips it so a namespace-capable
+but non-disposable host cannot turn the G0 Linux gate red. The disposable-VM
+lane sets `MARQDO_REQUIRE_STRICT_SECURITY=1` (a missing mechanism fails); a
+developer opts in with `MARQDO_RUN_STRICT_SECURITY=1`. A skipped G0 test is
+never a G3 PASS.
+
 Rust harnesses (all in `crates/cli/tests/`):
 
 | Harness | What it proves |

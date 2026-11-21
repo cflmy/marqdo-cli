@@ -4,24 +4,25 @@ Status: **PASSED on the current CI-fix series in a local disposable Ubuntu
 VM; Linux strict is enabled only when the runtime probe succeeds. REMOTE G3
 UNVERIFIED: no self-hosted security-lane CI URL exists yet.**
 
-Current evidence: source SHA `512b9f5f1da6c56959ebb801d31a1887b1c341c3`,
+Current evidence: source SHA `5fcc111a304211dfbb3a4c85d72e0b3f4a2318be`,
 ordinary user `dev` (uid 1000), QEMU/TCG guest, 7/7 adversarial tests plus the
 strict `--json` and inert-`@knowledge` contracts — see
-[`evidence/2026-11-21-strict-gc-512b9f5.md`](evidence/2026-11-21-strict-gc-512b9f5.md).
+[`evidence/2026-11-21-strict-gc-5fcc111.md`](evidence/2026-11-21-strict-gc-5fcc111.md).
 The older `8af7262` and `b6fc182` runs are retained below as history.
 Snapshot: workspace `0.1.0`, 2026-11-21. See ADR-0021 and ADR-0053.
 
 > **Language-syntax status.** The lane was re-run on the RFC-LANG-0002 tree
 > ([`architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md))
-> at `512b9f5`, including the strict `@knowledge`-inert check. The security
+> at `5fcc111`, including the strict `@knowledge`-inert check. The security
 > facts are unchanged: `@exec` is a compile-time projection, not a capability
 > grant; `@knowledge` produces no IR and therefore no host effect; resource,
 > file, network, stdin/stdout, memory and budget checks remain at the
 > `CapabilityHost` boundary, and the strict sandbox is unaffected. See
 > [`STATUS.md`](STATUS.md) for the language gate and
 > [`evidence/2026-11-21-semantics-v2-green.md`](evidence/2026-11-21-semantics-v2-green.md).
-> The earlier `0d7e11b`/`990e984` runs are code-equivalent evidence;
-> `512b9f5` adds only the evidence-failure hardening in the lane script.
+> The earlier `512b9f5`/`0d7e11b`/`990e984` runs are historical evidence;
+> `5fcc111` is the native-green code SHA and also adds the CLI 8 MiB main
+> thread, portable process fixture and the G3-only opt-in gate.
 
 This report separates three things that are often conflated:
 
@@ -144,13 +145,13 @@ MARQDO_STRICT_ACTIVE=1 run --mode strict --json   -> one JSON doc,
 
 ### 4.1 Current evidence document
 
-`512b9f5` was archived with `git archive` and transferred as an ordinary user:
+`5fcc111` was archived with `git archive` and transferred as an ordinary user:
 
 ```text
-tested_sha:            512b9f5f1da6c56959ebb801d31a1887b1c341c3
-source archive:        sha256:f7c975b884fae6c79fb091324a85f8bcddf5b50ffa9082d7f97eb51823254104
-strict-evidence.json:  sha256:d8973396db8882ed7abeec89aa4be695acbdfebef3a3bdfd99d0ad5621486cfa
-lane log:              sha256:e9418f3b209a08524e2e5601dc14c28d46b4337cb42724c8e4f470c92d2dfa82
+tested_sha:            5fcc111a304211dfbb3a4c85d72e0b3f4a2318be
+source archive:        sha256:e13af3bbf65c576e57fde46ecf201925ad53fb70bf292b321baa96f154264fd2
+strict-evidence.json:  sha256:38be28aa556b04214c4b3bd3cb26e2ad00ad49c1c3a579fc9e7059784ef5c5d0
+lane log:              sha256:4f29201ab71b520ae3e0ea599bbff93a89cac8157fbdfc7037fac290477f83b7
 base image:            sha256:7b90593f5532b49b7e3fe3d2743f0d1f0d822e5b07cebcd8e00c0df8069ecab9
 guest:                 Ubuntu 26.04.1, kernel 7.0.0-43-generic, bwrap 0.11.1
 user:                  dev uid 1000 (root=false), container=none
@@ -181,3 +182,6 @@ the outcome. A root PASS is rejected by the generator; this run is non-root.
   skip.
 * The current run is QEMU/TCG. It is evidence for **isolation correctness**,
   never for performance; see [`performance.md`](performance.md).
+* The adversarial test file is opt-in: ordinary `cargo test --workspace` skips
+  it, the lane sets `MARQDO_REQUIRE_STRICT_SECURITY=1`, and a developer may set
+  `MARQDO_RUN_STRICT_SECURITY=1`. A skipped G0 test is not a G3 PASS.
