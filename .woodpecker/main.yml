@@ -15,14 +15,24 @@ steps:
       - apt-get install -y --no-install-recommends nodejs
       - cargo fmt --all -- --check
       - cargo clippy --workspace --all-targets -- -D warnings
+      # The provider CLI tests resolve a real provider worker next to the CLI
+      # binary. Build it once so the test harness does not need a nested build.
+      - cargo build --locked -p marqdo-provider-worker
       - cargo test --workspace --locked
       - cargo test -p marqdo-cli --test docs_consistency
       - cargo test -p marqdo-cli --test architecture_boundaries
       - python3 -m unittest discover -s tools/ci -p "test_*.py"
       - cargo test -p marqdo-cli --test stdlib_product
+      # Windows compile gate: runtime lanes are native on GitHub; this catches
+      # cfg/compile regressions on the Linux CI without a Windows runner.
+      - rustup target add x86_64-pc-windows-gnu
+      - cargo check --workspace --all-targets --target x86_64-pc-windows-gnu
 
   build:
     image: rust:1.100-bookworm
     depends_on: [test]
     commands:
-      - cargo build --release --locked -p marqdo-cli
+      # Release archives must ship both binaries: the provider worker is the
+      # only supported transport and resolution is a sibling-of-CLI lookup.
+      - cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
+      - test -x target/release/marqdo-provider-worker

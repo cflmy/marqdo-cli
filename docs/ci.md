@@ -57,6 +57,25 @@ syntax; Debian bookworm's Node 18 fails those tests.
   `release-evidence` job produces a SHA-bound manifest artifact; it does not
   tag or upload a release.
 
+## RFC-EXT-0001 CI/CD additions
+
+* The Woodpecker **test** lane builds `marqdo-provider-worker` before the
+  workspace tests so the provider CLI tests use the real helper, and adds a
+  `cargo check --workspace --all-targets --target x86_64-pc-windows-gnu`
+  compile gate (native Windows/macOS runtime lanes stay on the GitHub matrix).
+* The Woodpecker **build** lane and the GitHub **release-candidate** lane build
+  `marqdo` **and** `marqdo-provider-worker` and package both as siblings; the
+  provider transport resolves only that sibling (no PATH fallback), so an
+  archive without it would silently lose provider support.
+* `tools/ci/test_verify_extension_contracts.py` covers the external-extension
+  evidence validator in the existing `python3 -m unittest discover -s tools/ci`
+  step.
+* The release-evidence job validates
+  `docs/evidence/extension/<SHA>/manifest.json` when it is committed for the
+  target SHA and prints `UNVERIFIED` otherwise; generating it is the mandatory
+  release action described in `docs/releasing.md` §7, not a substitute for
+  G3/G4/native lanes.
+
 ## Local reproduction
 
 ```bash
