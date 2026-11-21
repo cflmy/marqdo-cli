@@ -277,9 +277,11 @@ Rules:
   segment are visible in later segments. They do not create new functions.
 * `params(name: Type, ...)` is legal only as the **first direct execution
   payload of an Exec H2 function**, at most once, and not inside a list or
-  block quote. It is compile-time metadata and may be preceded by prose or a
-  Knowledge subsection but not by an executing statement. Violations are
-  `sem.signature_position`; a duplicate declaration is also rejected.
+  block quote. The position is function-wide: it may be preceded by prose or a
+  Knowledge subsection, but not by an executing statement in **any** heading
+  segment of that function (a later `### @exec` section may not add a
+  signature after earlier code ran). Violations are `sem.signature_position`;
+  a duplicate declaration anywhere in the function is also rejected.
 * A function without `params` keeps the existing free-variable inference.
   As before, an inferred signature accepts **named arguments only**; declare
   `params(...)` to accept positional arguments. Public functions should declare
@@ -327,7 +329,7 @@ Stable machine-readable codes (the human `message`/`hint` text may change):
 | `sem.duplicate_else` | a second `else` for the same `if` |
 | `sem.unmatched_end` | `end` with no open control frame |
 | `sem.unclosed_control` | an open `if`/`while` at a heading/function/file boundary |
-| `sem.signature_position` | `params` not at the first direct payload, duplicated, or in a container |
+| `sem.signature_position` | `params` not the first function-wide direct payload, duplicated, or in a container |
 | `sem.unsupported_version_directive` | legacy `marqdo_semantics`/syntax-selection front matter |
 | `sem.no_entry_function` | `run` with no Exec H2 `main` |
 | `sem.inferred_signature` | lint: public function without explicit `params` |
@@ -361,7 +363,7 @@ the existing `Assign`/`Eval`/`Branch`/`Loop`/`Return` IR.
 | Branch | ordered list with a first code-span condition | `if cond ... else ... end`; containers are presentation only |
 | Loop | bullet list with a first code-span condition | `while cond ... end` |
 | Call | block quote containing a call, or a Strong expression | any carrier whose expression is a call |
-| Signature | first standalone code span `(n: Int)` after the H2 | `params(n: Int)` as the first direct payload |
+| Signature | first standalone code span `(n: Int)` after the H2 | `params(n: Int)` as the first function-wide direct payload |
 | Ordinary list | error inside a function | ordinary document structure, zero statements |
 | Ordinary quote | error inside a function | ordinary document structure, zero statements |
 | Knowledge | implied by position/inertness only | explicit `@knowledge` scope |

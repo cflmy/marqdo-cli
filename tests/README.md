@@ -29,7 +29,7 @@ tests/
 │   ├── ast/            160 × *.mq.md + sibling *.ast.json goldens
 │   └── semantics/       73 × *.mq.md + sibling *.expected.json goldens
 ├── negative/
-│   ├── *.mq.md          47 × compile-time hard-error fixtures + *.expected.json
+│   ├── *.mq.md          49 × compile-time hard-error fixtures + *.expected.json
 │   ├── warnings/         2 × warning-model/control fixtures + *.expected.json
 │   └── runtime/         21 × runtime-error fixtures + *.expected.json
 └── README.md           this file
@@ -79,7 +79,9 @@ The power/control-flow slice is pinned by:
   trailing colon, `end if`, empty `return`, multi-statement payload, bad
   `params` syntax); fixtures 24–29 and 46 pin control-stack pairing, including the
   heading boundary that reports `sem.unclosed_control` and `sem.unmatched_end`
-  independently and `else` under an open `while`;
+  independently, `else` under an open `while`, and a `params(...)` declaration
+  that appears after code in an earlier heading segment or is duplicated across
+  segments (48–49);
 * runtime negatives 11–12: negative integer exponent and exponent budget;
 * `crates/marqdo-frontend/src/payload.rs` span tests and
   `crates/cli/tests/integration_cli.rs` CLI span/E2E assertions.

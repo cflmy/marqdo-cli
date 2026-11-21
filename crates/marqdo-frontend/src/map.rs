@@ -34,6 +34,7 @@ pub fn map_function(
     let mut mapper = Mapper {
         diagnostics: Vec::new(),
         saw_params: None,
+        executed: false,
     };
     let mut stmts = Vec::new();
     let mut segment = Vec::new();
@@ -67,7 +68,13 @@ pub fn map_function(
 
 struct Mapper {
     diagnostics: Vec<Diagnostic>,
+    /// First direct `params(...)` payload of the **function** (not just the
+    /// current heading segment), used to reject duplicate declarations.
     saw_params: Option<Span>,
+    /// Whether any executable statement has already been lowered for this
+    /// function. `params(...)` is legal only before that point, even when the
+    /// earlier statements live in an earlier heading segment.
+    executed: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -243,6 +250,7 @@ impl Mapper {
                     return (out, Stop::End);
                 }
                 Payload::If(condition) => {
+                    self.executed = true;
                     let condition = condition.clone();
                     let span = raw.span;
                     *position += 1;
@@ -283,6 +291,7 @@ impl Mapper {
                     out.push(Stmt::Branch { arms, span });
                 }
                 Payload::While(condition) => {
+                    self.executed = true;
                     let condition = condition.clone();
                     let span = raw.span;
                     *position += 1;
@@ -304,6 +313,7 @@ impl Mapper {
                     });
                 }
                 Payload::Return(value) => {
+                    self.executed = true;
                     out.push(Stmt::Return {
                         value: value.clone(),
                         span: raw.span,
@@ -311,24 +321,23 @@ impl Mapper {
                     *position += 1;
                 }
                 Payload::Params => {
-                    let duplicate = self.saw_params.is_some();
                     if !raw.direct {
                         self.error(
                             codes::SEM_SIGNATURE_POSITION,
                             Some(raw.span),
                             "`params(...)` must be a direct payload, not inside a list or block quote",
                         );
-                    } else if *position != 0 {
-                        self.error(
-                            codes::SEM_SIGNATURE_POSITION,
-                            Some(raw.span),
-                            "`params(...)` must be the first payload of an Exec H2",
-                        );
-                    } else if duplicate {
+                    } else if self.saw_params.is_some() {
                         self.error(
                             codes::SEM_SIGNATURE_POSITION,
                             Some(raw.span),
                             "`params(...)` may be declared only once per function",
+                        );
+                    } else if self.executed || *position != 0 {
+                        self.error(
+                            codes::SEM_SIGNATURE_POSITION,
+                            Some(raw.span),
+                            "`params(...)` must be the first executable payload of the Exec H2,                              before any statement in any heading segment",
                         );
                     } else {
                         self.saw_params = Some(raw.span);
@@ -336,6 +345,7 @@ impl Mapper {
                     *position += 1;
                 }
                 Payload::Ordinary(statement) => {
+                    self.executed = true;
                     let mut statement = statement.clone();
                     raw.segments.rewrite_statement(&mut statement);
                     let span = raw.span;
