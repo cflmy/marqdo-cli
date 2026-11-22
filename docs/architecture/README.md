@@ -25,6 +25,7 @@ input and evidence. It is not a second running-status page.
 | [Compute machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) | **Proposed** | Opaque `Memory`, addressable regions, wire/host rejection. Compute semantics are unchanged by the syntax rewrite; its `.mq.md` examples are historical spelling. |
 | [Core and stdlib migration RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) | **Proposed** | Minimum core, `.mq.md` stdlib and system-capability migration. The stdlib source migration is complete; current status is recorded in ../STATUS.md. |
 | RFC-EXT-0003 core/extension boundary (issue #3) | **Adopted slices in ADR-0060–0063** | H-01/H-03/H-04/H-05/H-06/H-07/H-08/H-02 decisions; heading annotations are Step A (Proposed), foreign F-B deferred. See [`resource-operations.md`](resource-operations.md) and `spec/heading-annotations-v1.md`. |
+| [RFC-GPL-0004 stable core review](https://git.cflmy.cn/cflmy/marqdo-cli/issues/4) | **Boundary adopted; protocol proposals open** | ADR-0064 records core review and a mandatory external gate. ADR-0065 and ADR-0066 propose independent Resource Control and Task work. |
 
 The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 `../STATUS.md`; the RFC text itself never proves that code exists.
@@ -72,6 +73,9 @@ The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 | Detach domain math kernel | [0061](../adr/0061-detach-domain-math-kernel-from-core.md) | Accepted and implemented; `math.*` removed, pure package + ABI backend |
 | Resource operations and core kinds | [0062](../adr/0062-resource-operation-ownership-and-core-kinds.md) | Accepted and implemented; architecture gate pins the reviewed lists |
 | Foreign F-A transition | [0063](../adr/0063-foreign-kernel-transition-fa.md) | Accepted: retained F-A primitive; F-B deferred |
+| Stable core inventory and external gate | [0064](../adr/0064-stable-core-extension-boundary.md) | Accepted and wired into Linux CI |
+| Manifest-driven Resource Control | [0065](../adr/0065-resource-control-vnext.md) | Proposed |
+| Structured Tasks and Channels | [0066](../adr/0066-structured-tasks-v1.md) | Proposed |
 | Table physical storage (T1/T2/T3), strict stdin/stderr/file/network resources | — | **Not decided**; do not implement by implication |
 
 ## Evidence and status
