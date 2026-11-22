@@ -34,6 +34,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 BINARIES = ("marqdo", "marqdo-provider-worker")
+STDLIB = ROOT / "stdlib"
+EXAMPLES_WITH_BUILD = (
+    "plugin-demo",
+    "plugin-multi-export",
+    "provider-demo",
+    "math-backend",
+)
 
 
 def fail(message: str) -> "NoReturn":
@@ -55,6 +62,83 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def sha256_bytes(*chunks: bytes) -> str:
+    digest = hashlib.sha256()
+    for chunk in chunks:
+        digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
+
+
+def stdlib_tree_digest(root: Path = STDLIB) -> str:
+    """Canonical stdlib tree digest, byte-identical to
+    `marqdo_cli::stdlib::tree_digest`: sorted `*.mq.md` relative POSIX paths,
+    `path + NUL + bytes + NUL`."""
+    paths = sorted(
+        (path.relative_to(root).as_posix(), path)
+        for path in root.rglob("*.mq.md")
+        if path.is_file()
+    )
+    return sha256_bytes(
+        *(
+            chunk
+            for relative, path in paths
+            for chunk in (relative.encode(), b"\0", path.read_bytes(), b"\0")
+        )
+    )
+
+
+def stdlib_aliases_digest(manifest: dict) -> str:
+    """Canonical public-alias digest, byte-identical to the CLI loader."""
+    chunks: list[bytes] = []
+    aliases = sorted(
+        manifest.get("public_aliases", []),
+        key=lambda alias: (alias["target_module"], alias["target_function"]),
+    )
+    for alias in aliases:
+        chunks.append(alias["target_module"].encode())
+        chunks.append(b"\0")
+        chunks.append(alias["target_function"].encode())
+        chunks.append(b"\0")
+        for name in sorted(alias["public_names"]):
+            chunks.append(name.encode())
+            chunks.append(b"\0")
+    return sha256_bytes(*chunks)
+
+
+def verify_stdlib() -> dict:
+    """Validate the shipped stdlib tree and return the RELEASE_INFO record."""
+    manifest_path = STDLIB / "stdlib.json"
+    if not manifest_path.is_file():
+        fail(f"missing bundled stdlib manifest {manifest_path}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    tree = stdlib_tree_digest()
+    aliases = stdlib_aliases_digest(manifest)
+    if tree != manifest.get("digest"):
+        fail(f"stdlib tree digest {tree} does not match stdlib.json digest {manifest.get('digest')}")
+    if aliases != manifest.get("aliases_digest"):
+        fail(
+            f"stdlib alias digest {aliases} does not match stdlib.json "
+            f"aliases_digest {manifest.get('aliases_digest')}"
+        )
+    required = ["stdlib.json", "io.mq.md", "io/console.mq.md"]
+    files = sorted(
+        path.relative_to(STDLIB).as_posix()
+        for path in STDLIB.rglob("*")
+        if path.is_file()
+    )
+    for name in required:
+        if name not in files:
+            fail(f"bundled stdlib is missing required file {name}")
+    return {
+        "name": manifest.get("name"),
+        "version": manifest.get("version"),
+        "tree_digest": tree,
+        "aliases_digest": aliases,
+        "file_count": len(files),
+        "files": files,
+    }
 
 
 def host_target() -> str:
@@ -108,7 +192,7 @@ def check_clean(source_sha: str) -> None:
 
 def build_examples() -> dict:
     outputs = {}
-    for name in ("plugin-demo", "plugin-multi-export", "provider-demo"):
+    for name in EXAMPLES_WITH_BUILD:
         script = ROOT / "examples" / name / "build.sh"
         run(["bash", str(script)], cwd=ROOT)
         outputs[name] = ROOT / "examples" / name / "build"
@@ -141,12 +225,16 @@ def stage(stage_dir: Path, version: str, source_sha: str, target: str) -> dict:
     copy_tree(ROOT / "spec", stage_dir / "spec")
     copy_tree(ROOT / "docs" / "developers", stage_dir / "docs" / "developers")
 
+    # The bundled stdlib is a required runtime artifact, not a build-machine
+    # side effect: copy the verified tree next to the binary (ADR/SPEC H-08).
+    copy_tree(STDLIB, stage_dir / "stdlib")
+
     # Examples without local build output, then the freshly built extension
     # artifacts so a clean install can run every example without a compiler.
     copy_tree(ROOT / "examples", stage_dir / "examples")
     for build_dir in stage_dir.glob("examples/*/build"):
         shutil.rmtree(build_dir, ignore_errors=True)
-    for example in ("plugin-demo", "plugin-multi-export", "provider-demo"):
+    for example in EXAMPLES_WITH_BUILD:
         copy_tree(ROOT / "examples" / example / "build", stage_dir / "examples" / example / "build")
 
     copy_tree(ROOT / "tests" / "consumers", stage_dir / "tests" / "consumers")
@@ -155,6 +243,7 @@ def stage(stage_dir: Path, version: str, source_sha: str, target: str) -> dict:
     shutil.copy2(limitations, stage_dir / "KNOWN_LIMITATIONS.md")
 
     commit_time = int(git("show", "-s", "--format=%ct", "HEAD"))
+    stdlib_info = verify_stdlib()
     binaries = {
         name: {
             "sha256": sha256_file(stage_dir / name),
@@ -173,6 +262,7 @@ def stage(stage_dir: Path, version: str, source_sha: str, target: str) -> dict:
         "commit_time_utc": time_utc(commit_time),
         "toolchain": toolchain(),
         "binaries": binaries,
+        "stdlib": stdlib_info,
         "protocols": {
             "analysis": 2,
             "trace": 2,

@@ -163,3 +163,32 @@ Your external repository must pass with an unchanged CLI binary:
 The reference suite is
 [`marqdo-extension-conformance`](https://git.cflmy.cn/cflmy/marqdo-extension-conformance);
 the core's evidence generator is `tools/ci/verify_extension_contracts.py`.
+
+## 6. Optional math ABI backend (post core math removal)
+
+After the `math.*` builtins were removed (ADR-0061) an accelerated math function
+is just an ordinary callable plugin export. `examples/math-backend/` exports
+`math_backend.add` through the same frozen ABI v1 and requests the
+`math.compute` **capability category**; `math.compute` does not promise any
+core solver. Selection is not authorization:
+
+```bash
+./examples/math-backend/build.sh
+marqdo check examples/math-backend/demo.mq.md --plugin examples/math-backend/build
+marqdo run examples/math-backend/demo.mq.md \
+  --plugin examples/math-backend/build --trust-native-plugin --allow-plugin math.backend
+# 42 ; without the grant: permission.denied
+```
+
+A pure package is still preferred; see
+[`libraries.md`](libraries.md) §6. Domain operations must not be added to the
+core `resource_request` table (ADR-0062).
+
+## 7. Heading annotations are Proposed, not implemented
+
+`@exec`/`@knowledge` are the closed Core Modes and alone decide execution;
+third-party heading annotations are a **Proposed** metadata-only contract
+(ADR-0060, target `3.1.x`). This build still rejects an unknown leading `@foo`
+with `sem.invalid_mode_marker`; there is no annotation manifest,
+`annotation.unknown`, Analysis v3 or sidecar yet. Do not document annotations as
+available until Step B ships: [`../../spec/heading-annotations-v1.md`](../../spec/heading-annotations-v1.md).

@@ -1,0 +1,18 @@
+{
+  "args": {
+    "甲": {
+      "decimal": "48",
+      "type": "int"
+    },
+    "乙": {
+      "decimal": "18",
+      "type": "int"
+    }
+  },
+  "function": "最大公约数",
+  "stdout": "",
+  "value": {
+    "decimal": "6",
+    "type": "int"
+  }
+}

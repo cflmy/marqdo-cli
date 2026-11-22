@@ -65,7 +65,7 @@ In this exact order; the first applicable step decides:
    then unique local name). A missing function is `symbol.unknown`; it never
    falls back to a builtin or plugin with the same dotted spelling.
 3. **Builtin dotted namespace.** Otherwise, an exact builtin
-   `alias.f` (for example `math.eval`) binds `Builtin`.
+   `alias.f` (for example `resource.request`) binds `Builtin`.
 4. **Exact plugin export.** Otherwise, if a selected static plugin declares the
    complete name `alias.f`, the site binds that export. The manifest signature
    is validated here; no library is loaded.
@@ -207,42 +207,44 @@ is internal-only — the public wire code remains `capability.unavailable`.
 ```markdown
 ---
 import:
-  mymath: "./math.mq.md"
+  numerics: "./math.mq.md"
 ---
 
 ## @exec main
 
-`return mymath.eval(a=1)`
+`return numerics.最大公约数(甲=48, 乙=18)`
 ```
 
-Binds `Marqdo { function: <package instance>::math.mq.md::eval }` in both
-`check` and `run`.
+Binds `Marqdo { function: <package instance>::math.mq.md::最大公约数 }` in both
+`check` and `run`. The historical `math.*` builtin namespace was removed
+(ADR-0061), so a `math:` import alias no longer conflicts with a builtin.
 
 ### 8.2 Builtin without an import
 
 ```markdown
 ## @exec main
 
-`return math.eval(ref("#公式"), {"r": 2}, target="A")`
+`return resource.request("clock.now", [])`
 ```
 
-Binds `Builtin { canonical_name: "math.eval" }`.
+Binds `Builtin { canonical_name: "resource.request" }`.
 
 ### 8.3 Import namespace conflict
 
 ```markdown
 ---
 import:
-  math: "./math.mq.md"
+  resource: "./resource.mq.md"
 ---
 
 ## @exec main
 
-`return math.eval(a=1)`
+`return resource.request("clock.now", [])`
 ```
 
 `check` fails with `ext.import_namespace_conflict`; `run` refuses before
-executing anything. Rename the alias.
+executing anything. Rename the alias. Removed builtins such as `math.eval` are no
+longer reserved names: a conflicting alias is now impossible for that namespace.
 
 ### 8.4 Plugin export
 

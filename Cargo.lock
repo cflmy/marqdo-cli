@@ -422,7 +422,6 @@ dependencies = [
  "marqdo-host",
  "marqdo-ir",
  "marqdo-markdown",
- "marqdo-math",
  "marqdo-package",
  "marqdo-plugin-abi",
  "marqdo-runtime",
@@ -488,7 +487,6 @@ dependencies = [
  "glob",
  "libloading",
  "marqdo-foreign",
- "marqdo-math",
  "marqdo-plugin-abi",
  "marqdo-sandbox",
  "marqdo-span",
@@ -523,17 +521,6 @@ dependencies = [
  "serde",
  "serde_yaml",
  "unicode-normalization",
-]
-
-[[package]]
-name = "marqdo-math"
-version = "3.0.0-beta.1"
-dependencies = [
- "marqdo-value",
- "num-bigint",
- "num-rational",
- "num-traits",
- "serde",
 ]
 
 [[package]]

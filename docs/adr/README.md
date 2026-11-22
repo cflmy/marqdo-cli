@@ -46,4 +46,16 @@ Files: `0001`–`0050`, plus:
   print magic;
 * `0059-runtime-observability-and-execution-events.md` — typed host
   observation facade, Execution Events v1 JSONL boundary, frame identity and
-  selected-value policy.
+  selected-value policy;
+* `0060-heading-modes-and-extensible-annotations.md` — `@exec`/`@knowledge`
+  are the closed Core Modes; metadata-only Heading Annotations v1 is Proposed
+  (target 3.1), Analysis v2 unchanged;
+* `0061-detach-domain-math-kernel-from-core.md` — remove `math.*` builtins,
+  `HostOp` variants and `marqdo-math`; pure package + optional ABI backend take
+  over; `Formula`/`math.compute` boundaries;
+* `0062-resource-operation-ownership-and-core-kinds.md` — single
+  `CORE_RESOURCE_KINDS` registry, two `resource_request` operation classes and
+  the reviewed architecture gate;
+* `0063-foreign-kernel-transition-fa.md` — retain the permission-gated one-shot
+  foreign primitive as F-A; F-B removal requires a versioned generic
+  process/worker capability.

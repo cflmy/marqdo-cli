@@ -84,11 +84,18 @@ impl StdHost {
             ));
         }
         let name = provider.name().to_string();
-        if name.is_empty() || name == "stdio" || name == "file" {
+        if name.is_empty() {
             return Err(RuntimeError::new(
                 ErrorCategory::ResourceUnsupported,
                 None,
-                format!("resource provider name `{name}` is reserved or empty"),
+                "resource provider name is empty".to_string(),
+            ));
+        }
+        if is_core_resource_kind(&name) {
+            return Err(RuntimeError::new(
+                ErrorCategory::ResourceUnsupported,
+                None,
+                format!("resource provider name `{name}` is a reserved core resource kind"),
             ));
         }
         let kinds = provider.kind_strings();
@@ -100,11 +107,18 @@ impl StdHost {
             ));
         }
         for kind in &kinds {
-            if kind.is_empty() || kind == "stdio" || kind == "file" {
+            if kind.is_empty() {
                 return Err(RuntimeError::new(
                     ErrorCategory::ResourceUnsupported,
                     None,
-                    format!("resource provider `{name}` declares reserved kind `{kind}`"),
+                    format!("resource provider `{name}` declares an empty kind"),
+                ));
+            }
+            if is_core_resource_kind(kind) {
+                return Err(RuntimeError::new(
+                    ErrorCategory::ResourceUnsupported,
+                    None,
+                    format!("resource provider `{name}` declares reserved core kind `{kind}`"),
                 ));
             }
             if let Some((existing, _)) = self.resource_providers.get(kind) {

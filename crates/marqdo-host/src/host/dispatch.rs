@@ -72,11 +72,6 @@ pub(crate) fn dispatch(
     match op {
         HostOp::FsRead => host.op_fs_read(args, ctx),
         HostOp::FsWrite => host.op_fs_write(args, ctx),
-        HostOp::MathParse
-        | HostOp::MathEval
-        | HostOp::MathSubstitute
-        | HostOp::MathSimplify
-        | HostOp::MathDifferentiate => crate::kernels::math(host, op, args, ctx),
         HostOp::ForeignRun | HostOp::ForeignCall => crate::kernels::foreign(host, op, args, ctx),
         HostOp::PluginInvoke => host.op_plugin_invoke(args, ctx),
     }

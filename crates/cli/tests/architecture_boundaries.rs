@@ -30,7 +30,6 @@ const WORKSPACE_CRATES: &[&str] = &[
     "marqdo-markdown",
     "marqdo-ir",
     "marqdo-frontend",
-    "marqdo-math",
     "marqdo-foreign",
     "marqdo-plugin-abi",
     "marqdo-provider-worker",
@@ -383,6 +382,148 @@ fn official_stdlib_public_aliases_are_verified_metadata() {
         assert!(
             module.contains(&format!("## {target_function}")),
             "public alias target `{target_module}::{target_function}` must exist"
+        );
+    }
+}
+
+/// Reviewed ownership of every `Host::resource_request` operation
+/// (`docs/architecture/resource-operations.md`, ADR-0062).
+///
+/// The gate extracts the literal operation names dispatched inside
+/// `resource_request` and compares them with this reviewed allowlist. Adding a new
+/// domain operation requires updating the architecture doc, the ADR and this list —
+/// a bare source change cannot silently widen the core/resource boundary.
+#[test]
+fn resource_request_operation_allowlist_is_reviewed() {
+    use std::collections::BTreeSet;
+
+    const DOMAIN_OPERATIONS: &[&str] = &[
+        "process.run",
+        "regex.match",
+        "regex.captures",
+        "compress.gzip",
+        "compress.gunzip",
+        "random.bytes",
+        "env.get",
+        "clock.now",
+    ];
+    const FS_OPERATIONS: &[&str] = &[
+        "read_at", "append", "walk", "exists", "metadata", "list", "mkdir", "remove", "rename",
+    ];
+
+    let source = read(&repo_root().join("crates/marqdo-host/src/host.rs"));
+    let impl_start = source
+        .find("impl Host for StdHost {")
+        .expect("StdHost must implement Host");
+    let start = source[impl_start..]
+        .find("    fn resource_request(")
+        .expect("StdHost::resource_request must exist")
+        + impl_start;
+    let rest = &source[start + 1..];
+    let end = rest
+        .find("\n    fn consume_fuel(")
+        .expect("resource_request must end before consume_fuel");
+    let body = &rest[..end];
+
+    let mut domain = BTreeSet::new();
+    for line in body.lines() {
+        let mut cursor = line;
+        while let Some(index) = cursor.find("operation == \"") {
+            let text = &cursor[index + "operation == \"".len()..];
+            let name = text.split('"').next().expect("operation literal");
+            domain.insert(name.to_string());
+            cursor = &text[name.len()..];
+        }
+    }
+    let expected_domain: BTreeSet<String> = DOMAIN_OPERATIONS
+        .iter()
+        .map(|name| (*name).to_string())
+        .collect();
+    assert_eq!(
+        domain, expected_domain,
+        "new/changed resource_request domain operation; update docs/architecture/resource-operations.md, ADR-0062 and this allowlist"
+    );
+
+    assert!(
+        body.contains("strip_prefix(\"fs.\")"),
+        "the fs.* operation group must stay the only unprefixed dispatch path"
+    );
+    let mut fs = BTreeSet::new();
+    for line in body.lines() {
+        let mut cursor = line;
+        while let Some(index) = cursor.find("name == \"") {
+            let text = &cursor[index + "name == \"".len()..];
+            let name = text.split('"').next().expect("fs operation literal");
+            fs.insert(name.to_string());
+            cursor = &text[name.len()..];
+        }
+    }
+    // The remaining fs operations are grouped in the arity match block.
+    let arity_start = body
+        .find("let expected = match name {")
+        .expect("fs arity match block");
+    let arity_end = body[arity_start..]
+        .find("        };")
+        .expect("fs arity match block end");
+    for line in body[arity_start..arity_start + arity_end].lines() {
+        let Some(arrow) = line.find("=>") else {
+            continue;
+        };
+        let mut in_quote = false;
+        let mut name = String::new();
+        for ch in line[..arrow].chars() {
+            if ch == '"' {
+                if in_quote && !name.is_empty() {
+                    fs.insert(name.clone());
+                }
+                name.clear();
+                in_quote = !in_quote;
+            } else if in_quote {
+                name.push(ch);
+            }
+        }
+    }
+    let expected_fs: BTreeSet<String> = FS_OPERATIONS
+        .iter()
+        .map(|name| (*name).to_string())
+        .collect();
+    assert_eq!(
+        fs, expected_fs,
+        "new/changed fs.* resource operation; update docs/architecture/resource-operations.md, ADR-0062 and this allowlist"
+    );
+}
+
+/// RFC-EXT-0003 H-01: the CLI/host must not link the removed domain math
+/// kernel and `resource_request` must not dispatch a math.* domain operation.
+#[test]
+fn domain_math_kernel_is_not_part_of_the_core() {
+    let root = repo_root();
+    for manifest in [
+        "Cargo.toml",
+        "crates/marqdo-host/Cargo.toml",
+        "crates/cli/Cargo.toml",
+    ] {
+        let text = read(&root.join(manifest));
+        assert!(
+            !text.contains("marqdo-math"),
+            "{manifest} must not depend on the removed domain math kernel"
+        );
+    }
+    assert!(
+        !root.join("crates/marqdo-math").exists(),
+        "crates/marqdo-math was removed from the core repository"
+    );
+    let host = read(&root.join("crates/marqdo-host/src/host.rs"));
+    for removed in [
+        "MathEval",
+        "MathParse",
+        "MathSubstitute",
+        "MathSimplify",
+        "MathDifferentiate",
+    ] {
+        assert!(
+            !host.contains(removed),
+            "host.rs still dispatches {removed}"
         );
     }
 }

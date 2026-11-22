@@ -653,7 +653,7 @@ fn multi_module_imports_and_cycles() {
     let dir = TempDir::new("modules");
     dir.write(
         "geometry.mq.md",
-        "## @exec 圆面积\n\n`params(r: Number)`\n\n`return math.eval(ref(\"#公式\"), {\"r\": r}, target=\"A\")`\n\n### @knowledge 公式\n\n$$\nA = \\pi r^2\n$$\n",
+        "## @exec 圆面积\n\n`params(r: Number)`\n\n`return 3.141592653589793 * r * r`\n\n### @knowledge 公式\n\n$$\nA = \\pi r^2\n$$\n",
     );
     dir.write(
         "index.mq.md",

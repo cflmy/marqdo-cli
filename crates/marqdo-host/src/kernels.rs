@@ -1,147 +1,18 @@
-//! Math and foreign kernel adapters.
+//! Foreign-kernel adapters.
 //!
-//! These functions are the only bridge between the capability host and the
-//! native math / foreign crates. Every operation is capability-checked before
-//! the kernel is touched; kernel failures are converted to structured runtime
-//! errors, never panics.
+//! This module is the bridge between the capability host and the native foreign
+//! kernel crate. Every operation is capability-checked before the kernel is
+//! touched; kernel failures are converted to structured runtime errors, never
+//! panics. Domain math is not a host kernel (ADR-0061): it belongs to a pure
+//! `.mq.md` package or an explicitly selected ABI backend.
 
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-use marqdo_value::{to_wire, ErrorCategory, FormulaValue, RuntimeError, Value};
+use marqdo_value::{to_wire, ErrorCategory, RuntimeError, Value};
 
 use crate::context::ExecutionContext;
-use crate::host::{arity, expect_text, HostOp, StdHost};
-
-pub(crate) fn math(
-    host: &mut StdHost,
-    op: HostOp,
-    args: Vec<Value>,
-    ctx: &ExecutionContext,
-) -> Result<Value, RuntimeError> {
-    if !host.capabilities.math {
-        return Err(denied(ctx, "the math capability was not granted"));
-    }
-    let span = ctx.span;
-    match op {
-        HostOp::MathParse => {
-            let source = expect_text(&args, 0, "math.parse source", span)?;
-            let formula = marqdo_math::parse(&source).map_err(|error| math_error(error, span))?;
-            Ok(Value::Formula(FormulaValue {
-                latex: formula.source,
-                unit: None,
-                display: false,
-                span,
-            }))
-        }
-        HostOp::MathEval => {
-            if args.len() < 2 {
-                return Err(arity(span, "math.eval", 2, args.len()));
-            }
-            let formula = formula_source(&args[0], span)?;
-            let bindings = math_bindings(&args[1], span)?;
-            let target = match args.get(2) {
-                Some(Value::Text(target)) => Some(target.clone()),
-                Some(Value::None) | None => None,
-                Some(other) => {
-                    return Err(RuntimeError::type_error(
-                        span,
-                        format!("math.eval target must be Text, got {}", other.type_name()),
-                    ))
-                }
-            };
-            let parsed = marqdo_math::parse(&formula).map_err(|error| math_error(error, span))?;
-            marqdo_math::evaluate(&parsed, &bindings, target.as_deref())
-                .map_err(|error| math_error(error, span))
-        }
-        HostOp::MathSubstitute => {
-            if args.len() < 2 {
-                return Err(arity(span, "math.substitute", 2, args.len()));
-            }
-            let source = formula_source(&args[0], span)?;
-            let bindings = math_bindings(&args[1], span)?;
-            let parsed = marqdo_math::parse(&source).map_err(|error| math_error(error, span))?;
-            let substituted = marqdo_math::substitute(&parsed, &bindings)
-                .map_err(|error| math_error(error, span))?;
-            Ok(Value::Formula(FormulaValue {
-                latex: substituted.source,
-                unit: None,
-                display: false,
-                span,
-            }))
-        }
-        HostOp::MathSimplify | HostOp::MathDifferentiate => Err(RuntimeError::new(
-            ErrorCategory::MathUnsupported,
-            span,
-            format!(
-                "`{}` is not part of the supported math subset in this build",
-                op.name()
-            ),
-        )),
-        _ => Err(RuntimeError::new(
-            ErrorCategory::Internal,
-            span,
-            "unexpected math operation",
-        )),
-    }
-}
-
-fn formula_source(value: &Value, span: Option<marqdo_span::Span>) -> Result<String, RuntimeError> {
-    match value {
-        Value::Formula(formula) => Ok(formula.latex.clone()),
-        Value::Text(text) => Ok(text.clone()),
-        other => Err(RuntimeError::type_error(
-            span,
-            format!("expected Formula or Text, got {}", other.type_name()),
-        )),
-    }
-}
-
-fn math_bindings(
-    value: &Value,
-    span: Option<marqdo_span::Span>,
-) -> Result<BTreeMap<String, Value>, RuntimeError> {
-    match value {
-        Value::Map(map) => {
-            let mut bindings = BTreeMap::new();
-            for (name, value) in map {
-                match value {
-                    Value::Int(_) | Value::Float(_) => {
-                        bindings.insert(name.clone(), value.clone());
-                    }
-                    other => {
-                        return Err(RuntimeError::type_error(
-                            span,
-                            format!(
-                                "math binding `{name}` must be Int or Float, got {}",
-                                other.type_name()
-                            ),
-                        ))
-                    }
-                }
-            }
-            Ok(bindings)
-        }
-        other => Err(RuntimeError::type_error(
-            span,
-            format!("math bindings must be a Map, got {}", other.type_name()),
-        )),
-    }
-}
-
-fn math_error(error: marqdo_math::MathError, span: Option<marqdo_span::Span>) -> RuntimeError {
-    use marqdo_math::MathErrorKind;
-    let category = match error.kind {
-        MathErrorKind::Parse | MathErrorKind::Unsupported => ErrorCategory::MathUnsupported,
-        MathErrorKind::UndefinedVariable => ErrorCategory::UnknownSymbol,
-        MathErrorKind::Type => ErrorCategory::Type,
-    };
-    let mut message = error.message;
-    if let Some(position) = error.position {
-        message = format!("{message} (at byte {position} of the formula)");
-    }
-    RuntimeError::new(category, span, message)
-}
+use crate::host::{HostOp, StdHost};
 
 pub(crate) fn foreign(
     host: &mut StdHost,
@@ -294,10 +165,6 @@ fn foreign_error(
         ),
     };
     RuntimeError::new(category, span, message)
-}
-
-fn denied(ctx: &ExecutionContext, message: impl Into<String>) -> RuntimeError {
-    RuntimeError::new(ErrorCategory::PermissionDenied, ctx.span, message)
 }
 
 /// Default per-call foreign timeout used by the CLI.

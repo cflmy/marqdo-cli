@@ -123,7 +123,10 @@ that root, and the final target must be a regular file no larger than 256 MiB.
 `marqdo-host` before the provider registry is consulted. A provider may not
 declare them (nor use one as its `name`); registration can never shadow them.
 
-Reserved core kinds are rejected with `ext.manifest_invalid`.
+Reserved core kinds are rejected with `ext.manifest_invalid`. The list is the
+single host-owned constant `marqdo_host::CORE_RESOURCE_KINDS`; the CLI manifest
+validator and trusted `Host::register_resource_provider` both use it and reject the
+same six names before registration (ADR-0062).
 
 ### 2.3 Artifact selection
 

@@ -15,7 +15,6 @@ marqdo-expression = { workspace = true }
 marqdo-markdown = { workspace = true }
 marqdo-ir = { workspace = true }
 marqdo-frontend = { workspace = true }
-marqdo-math = { workspace = true }
 marqdo-foreign = { workspace = true }
 marqdo-plugin-abi = { workspace = true }
 marqdo-host = { workspace = true }

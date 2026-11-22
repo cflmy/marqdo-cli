@@ -49,11 +49,10 @@ pub const MAX_PROVIDER_ARTIFACT_BYTES: u64 = 256 * 1024 * 1024;
 /// Maximum manifest size (1 MiB); a manifest is metadata, not an artifact.
 pub const MAX_PROVIDER_MANIFEST_BYTES: u64 = 1024 * 1024;
 
-/// Core resource kinds owned by the host; third parties may never override
-/// them (RFC-EXT-0001 §5.3.1). `stdio`/`file`/`tcp`/`tls`/`udp`/`tcp-listener`
-/// are dispatched by `marqdo-host` before the provider registry is consulted.
-pub const RESERVED_RESOURCE_KINDS: &[&str] =
-    &["stdio", "file", "tcp", "tls", "udp", "tcp-listener"];
+/// Core resource kinds are owned by the host and may never be overridden by a
+/// provider (RFC-EXT-0001 §5.3.1, ADR-0062). The single source of truth is
+/// [`marqdo_host::CORE_RESOURCE_KINDS`]; this alias keeps the CLI wording.
+pub const RESERVED_RESOURCE_KINDS: &[&str] = marqdo_host::CORE_RESOURCE_KINDS;
 
 /// Raw `provider.json` schema version 2 document.
 #[derive(Debug, Deserialize)]
@@ -835,13 +834,26 @@ mod tests {
     }
 
     #[test]
-    fn reserved_kind_is_rejected() {
+    fn every_core_kind_is_rejected_as_name_and_as_kind() {
         let dir = tempdir("reserved");
         let (path, sha) = artifact(&dir, "libdemo.so", b"provider-bytes");
-        let manifest = write_manifest(&dir, &manifest_text("demo.sensor", &["file"], &path, &sha));
-        let error = read_provider_manifests(&[manifest]).unwrap_err();
-        assert_eq!(error.code, "ext.manifest_invalid");
-        assert!(error.message.contains("reserved"), "{}", error.message);
+        for core_kind in marqdo_host::CORE_RESOURCE_KINDS {
+            let as_kind = write_manifest(
+                &dir,
+                &manifest_text("demo.sensor", &[core_kind], &path, &sha),
+            );
+            let error = read_provider_manifests(&[as_kind]).unwrap_err();
+            assert_eq!(error.code, "ext.manifest_invalid");
+            assert!(error.message.contains("reserved"), "{}", error.message);
+
+            let as_name = write_manifest(
+                &dir,
+                &manifest_text(core_kind, &["demo.sensor"], &path, &sha),
+            );
+            let error = read_provider_manifests(&[as_name]).unwrap_err();
+            assert_eq!(error.code, "ext.manifest_invalid");
+            assert!(error.message.contains("reserved"), "{}", error.message);
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 

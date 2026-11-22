@@ -203,3 +203,22 @@ Analysis schema change; `schema_version` stays 2.
 * `analysis_v2_projects_addressable_formula_and_code_resources`
 * `failed_check_removes_stale_analysis`
 * `tests/consumers/analysis_consumer.py` (independent Python consumer)
+
+## 8. Versioning and future heading metadata
+
+`units[]` keeps its v2 fields and semantics: `id/kind/name/level/span/function`.
+The effective core mode and origin of a `section` unit are deliberately **not**
+added to v2, and neither are heading annotations.
+
+The language still has exactly two Core Modes (`@exec`/`@knowledge`); unmarked
+headings inherit from the nearest ancestor and the root default is Knowledge
+(`spec/mapping.md` §1.2, including the H-06 sibling fix). A future declarative,
+metadata-only Heading Annotation index is Proposed under
+[ADR-0060](../docs/adr/0060-heading-modes-and-extensible-annotations.md) and is
+**not implemented in this build**.
+
+When that work ships (target `3.1.x`), it must use a new protocol version
+(Analysis v3) or a separate `heading-annotations.v1` sidecar, bound to both the
+source digest and the exact Analysis bytes digest; it must not rewrite v2 `units[]`.
+Consumers that only know v2 must keep passing the existing schema/version contract,
+and must reject an unknown sidecar/v3 version rather than silently ignoring it.

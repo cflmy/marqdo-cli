@@ -18,6 +18,20 @@ use marqdo_value::{ErrorCategory, ResourceHandle, RuntimeError};
 
 static NEXT_RUN_ID: AtomicU64 = AtomicU64::new(1);
 
+/// Core resource kinds owned by the host itself.
+///
+/// A third-party [`ResourceProvider`] may neither use one of these names as its
+/// provider name nor declare one of them as a served kind: the host dispatches
+/// these kinds before consulting the provider table. This is the single source of
+/// truth used by both host registration and the CLI provider-manifest validator
+/// ([`spec/resource-provider-v2.md`], ADR-0033/0062).
+pub const CORE_RESOURCE_KINDS: &[&str] = &["stdio", "file", "tcp", "tls", "udp", "tcp-listener"];
+
+/// Whether `name` is a host-owned core resource kind.
+pub fn is_core_resource_kind(name: &str) -> bool {
+    CORE_RESOURCE_KINDS.contains(&name)
+}
+
 /// A versioned trusted provider of additional resource kinds (ADR-0033).
 ///
 /// In-process providers share the host address space and are **not** a

@@ -45,7 +45,7 @@ marqdo-cli/
 │   ├── security.md                modes, capabilities, budgets, trust
 │   ├── package-format.md          marqdo.yaml / marqdo.lock / init
 │   ├── plugin-abi.md              C ABI v1, SDK, host lifecycle
-│   ├── math.md                    Formula subset and math.* semantics
+│   ├── math.md                    removed core math outlook + migration (ADR-0061)
 │   ├── foreign.md                 Python/Node kernel protocol
 │   ├── tool-v1.md                 generic external Tool Protocol v1
 │   ├── analysis-v2.md             public Analysis v2 projection (v1 historical)
@@ -58,12 +58,11 @@ marqdo-cli/
 │   ├── marqdo-markdown/           comrak profile, canonical AST, front matter
 │   ├── marqdo-ir/                 Module/Unit/Function/Stmt IR, builtin table
 │   ├── marqdo-frontend/           units/modes, map, payloads, signature, infer, calls
-│   ├── marqdo-math/               Formula parser/evaluator (exact rationals)
 │   ├── marqdo-foreign/            Python/Node one-shot kernel supervisor
 │   ├── marqdo-sandbox/            modes + platform capability detection
 │   ├── marqdo-plugin-abi/         C ABI mirrors, manifest, artifact, loader, wire
 │   ├── marqdo-plugin-sdk/         Rust plugin SDK and `mq_plugin_entry!`
-│   ├── marqdo-host/               CapabilityHost, budgets, FS, math/foreign/plugin adapters
+│   ├── marqdo-host/               CapabilityHost, budgets, FS, foreign/plugin adapters, core resource kinds
 │   ├── marqdo-runtime/            tree-walk interpreter, value ops, builtins
 │   ├── marqdo-package/            marqdo.yaml / marqdo.lock types + discovery
 │   └── cli/                       composition root: flags, commands, loader, output
@@ -88,9 +87,8 @@ expression    -> span
 markdown      -> span, comrak           (no semantic crate!)
 ir            -> span, expression
 frontend      -> markdown, expression, ir, value
-host          -> value, math, foreign, sandbox
+host          -> value, foreign, sandbox
 runtime       -> ir, value, host, expression
-math          -> value
 foreign       -> value
 plugin-abi    -> value
 plugin-sdk    -> plugin-abi
@@ -209,8 +207,8 @@ counts, harness responsibilities and known observations.
 
 ## 5. Coding conventions
 
-* Rust edition 2021, `rust-version = 1.82`, workspace version `0.1.0`.
-* `unsafe` is forbidden in pure crates (`marqdo-math`, `marqdo-expression` use
+* Rust edition 2021, `rust-version = 1.82`, workspace version `3.0.0-beta.1`.
+* `unsafe` is forbidden in pure crates (for example `marqdo-expression` uses
   `#![forbid(unsafe_code)]`); the ABI/loader crates contain the only
   `unsafe` code and every block has a SAFETY comment explaining the contract.
 * No panics on untrusted input: Markdown, expressions, LaTeX, wire data,
@@ -261,7 +259,6 @@ Harness map (`crates/cli/tests/`):
 Crate-level tests worth knowing:
 
 * `marqdo-expression` — grammar/priority/nesting/limit tests;
-* `marqdo-math/tests/kernel.rs` — exact arithmetic, bounds, equations, unsupported constructs;
 * `marqdo-foreign/tests/kernels.rs` — real python3/node (skips if absent), timeout, output caps, env, wire protocol;
 * `marqdo-plugin-abi/tests/loader_unix.rs` — compiles the C demo with `cc`, loads it, ABI-mismatch/negative cases (skips without `cc`);
 * `marqdo-runtime/tests/interpreter.rs` — recursion, loops, returns, budgets, ambiguity;
@@ -281,8 +278,8 @@ $B call examples/factorial.mq.md 数学.阶乘 --arg n=5      # prints 120
 $B check examples/references.mq.md
 $B inspect examples/references.mq.md --refs
 $B inspect examples/hello.mq.md --ast --json
-$B run examples/math.mq.md                                # has no main: use call
-$B call examples/math.mq.md 数学.计算圆面积
+$B call examples/math.mq.md 数学.计算圆面积           # pure arithmetic, no math.* builtin
+$B call examples/math-library-demo.mq.md main           # imports a pure math library
 $B run examples/python-foreign.mq.md --allow-foreign        # needs python3
 $B run examples/multi-module/index.mq.md
 (cd examples/multi-module && ../../$B lock && ../../$B sync --locked)

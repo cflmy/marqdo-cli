@@ -121,44 +121,6 @@ pub(crate) fn dispatch(
             };
             resolve_ref(interpreter, &module, &target, span)
         }
-        "math.parse" => {
-            let formula = take(&bound, "formula", builtin, span)?;
-            let text = formula_text(formula, span)?;
-            interpreter.host_invoke(HostOp::MathParse, vec![Value::Text(text)], span, &module)
-        }
-        "math.eval" => {
-            let formula = take(&bound, "formula", builtin, span)?;
-            let bindings = take(&bound, "bindings", builtin, span)?;
-            let mut args = vec![formula, bindings];
-            if let Some(target) = bound.get("target") {
-                args.push(target.clone());
-            }
-            interpreter.host_invoke(HostOp::MathEval, args, span, &module)
-        }
-        "math.substitute" => {
-            let formula = take(&bound, "formula", builtin, span)?;
-            let bindings = take(&bound, "bindings", builtin, span)?;
-            interpreter.host_invoke(
-                HostOp::MathSubstitute,
-                vec![formula, bindings],
-                span,
-                &module,
-            )
-        }
-        "math.simplify" => {
-            let formula = take(&bound, "formula", builtin, span)?;
-            interpreter.host_invoke(HostOp::MathSimplify, vec![formula], span, &module)
-        }
-        "math.differentiate" => {
-            let formula = take(&bound, "formula", builtin, span)?;
-            let variable = take(&bound, "变量", builtin, span)?;
-            interpreter.host_invoke(
-                HostOp::MathDifferentiate,
-                vec![formula, variable],
-                span,
-                &module,
-            )
-        }
         "foreign.run" => {
             let code = take(&bound, "ref", builtin, span)?;
             let mut args = vec![code];
@@ -736,20 +698,6 @@ fn table_index(
         ));
     }
     Ok(position)
-}
-
-fn formula_text(value: Value, span: Option<Span>) -> Result<String, RuntimeError> {
-    match value {
-        Value::Formula(formula) => Ok(formula.latex),
-        Value::Text(text) => Ok(text),
-        other => Err(RuntimeError::type_error(
-            span,
-            format!(
-                "formula argument must be Formula or Text, got {}",
-                other.type_name()
-            ),
-        )),
-    }
 }
 
 fn table(header: Value, rows: Value, span: Option<Span>) -> Result<Value, RuntimeError> {

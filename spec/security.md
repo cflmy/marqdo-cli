@@ -263,12 +263,14 @@ CLI overrides (`run`/`call`): `--fuel`, `--stack`, `--max-output`,
   These are not configurable from the CLI in this build;
 * plugin wire: request ≤ 16 MiB, result ≤ 64 MiB, error ≤ 1 MiB, metadata
   ≤ 64 KiB (see `include/marqdo_plugin_abi_v1.h`);
-* math kernel: 1 MB source, 256 parse depth, 512 AST nodes, exponent ≤ 10,000,
-  exact-result ≤ 1,000,000 bits (`crates/marqdo-math`).
+* math: the core ships no math kernel (ADR-0061); a selected ABI math backend is a
+  plugin and is bounded by the plugin wire limits above, and a pure `.mq.md`
+  algorithm is bounded by the normal interpreter fuel/stack/output budgets.
 
 These are cooperative budgets in the interpreter and the supervisor. Only
-foreign child processes are terminated by the host (kill on timeout/output
-overflow). In-process math and native plugins are not OS-limited.
+foreign child processes and worker plugins are terminated by the host (kill on
+timeout/output overflow). Native plugins are not OS-limited; the core no longer
+hosts an in-process math kernel.
 
 ## 4. Effect tracing
 
@@ -280,8 +282,9 @@ overflow). In-process math and native plugins are not OS-limited.
  "duration_micros":3,"result":"ok"}
 ```
 
-* `op` is the stable `HostOp::name()` (`print`, `math.eval`, `foreign.call`,
-  `fs.write`, `plugin.invoke`, ...);
+* `op` is the stable `HostOp::name()` (`foreign.run`, `foreign.call`,
+  `fs.read`, `fs.write`, `plugin.invoke`, ...); `resource.request` traces the
+  operation name in its semantic metadata instead of a `HostOp` variant;
 * `module` is the initiating module id; `span` is the call site when known;
 * `result` is `"ok"` or the failure code (for example
   `permission.denied`);

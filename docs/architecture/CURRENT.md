@@ -34,6 +34,18 @@ replace `spec/` or a recorded test log.
 > Trace v2 are unchanged. This is locally tested on the post-baseline tree
 > ([`../STATUS.md`](../STATUS.md) §0.5) and is not part of the tagged beta
 > archive or its same-SHA evidence.
+>
+> **Post-baseline core/extension boundary (RFC-EXT-0003, ADR-0060–0063).** The
+> core call surface no longer owns the domain math kernel (`math.*` removed;
+> `crates/marqdo-math` deleted; ADR-0061), sibling heading mode inheritance is
+> fixed (H-06), the release archive must ship the verified `stdlib/` (H-08), one
+> `CORE_RESOURCE_KINDS` registry guards every provider registration path
+> (H-04), `resource_request` operation ownership is enforced by an architecture
+> gate (H-03), and the foreign one-shot primitive is explicitly retained as F-A
+> (ADR-0063). Heading Annotations v1 is **Proposed/not implemented** (ADR-0060,
+> target `3.1.x`) and must not be documented as available. Executed evidence:
+> [`../STATUS.md`](../STATUS.md) §0.6 and
+> [`../evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md`](../evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md).
 
 ## 1. Four state dimensions
 
@@ -43,8 +55,8 @@ platform".
 
 | Dimension | Current state | Source |
 |---|---|---|
-| Implemented | Rust workspace `3.0.0-beta.1`: RFC-LANG-0002 Markdown/frontend/IR, v2 statement parser, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, migrated bundled stdlib, CLI composition root; post-baseline Execution Events v1 observation (ADR-0059) | `Cargo.toml`, `crates/`, `stdlib/` |
-| Tested locally | `cargo test --workspace --locked`: **630 passed, 0 failed, 2 ignored** on the post-baseline observability tree (Linux x86_64); `cargo fmt --check` and `clippy -D warnings` clean. Historical baseline: 599 passed before Execution Events v1, 507 at `9c1723d`. | `docs/STATUS.md` §0.5, `docs/evidence/2026-11-22-ext-implementation.md` |
+| Implemented | Rust workspace `3.0.0-beta.1`: RFC-LANG-0002 Markdown/frontend/IR, v2 statement parser, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, migrated bundled stdlib, CLI composition root; post-baseline Execution Events v1 (ADR-0059), core/extension boundary RFC-EXT-0003 (ADR-0060–0063: math domain API removed, one core resource-kind registry, reviewed `resource_request`, F-A foreign retained), heading annotations only **Proposed** | `Cargo.toml`, `crates/`, `stdlib/` |
+| Tested locally | `cargo test --workspace --locked`, `cargo fmt --all -- --check`, `clippy -D warnings`, release archive smoke and an independent `ubuntu:24.04` cold-install run on the RFC-EXT-0003 tree (Linux x86_64); exact counts and logs are in `docs/STATUS.md` §0.6 and the RFC-EXT-0003 evidence file. Historical baselines stay in earlier sections. | `docs/STATUS.md` §0.6, `docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md` |
 | Bundled stdlib released | In-repo bundle `marqdo-stdlib@0.1.0`, SHA-256 digest verified before loading; it is **not** an external registry package | `stdlib/stdlib.json`, `stdlib/README.md` |
 | Multi-platform verified | Linux local gate is the only executed lane here; Windows/macOS native lanes are **UNVERIFIED**, and the GitHub security lane remains a **VM-only** gate | `docs/STATUS.md` §1, §4 |
 
@@ -54,9 +66,10 @@ platform".
 user .mq.md programs / agents / research workflows
                      |
 stdlib/*.mq.md (versioned and digest-checked in this repository)
-  core / collections / text / encoding / data / math
+  core / collections / text / encoding / data
   io / console / stream / fs / net / process
   memory / alloc + portable pure algorithms
+  (math algorithms are external: examples/math-library + ABI backend)
                      |
 language semantics: Markdown -> AST -> frontend -> IR
                      |
@@ -107,7 +120,7 @@ Current Rust dependency edges (documented, not proposed):
 marqdo-cli -> marqdo-runtime -> marqdo-host
 marqdo-cli -> marqdo-package, marqdo-sandbox, marqdo-frontend, ...
 marqdo-runtime -> marqdo-ir, marqdo-expression, marqdo-value
-marqdo-host   -> marqdo-plugin-abi, marqdo-foreign, marqdo-sandbox, marqdo-math
+marqdo-host   -> marqdo-plugin-abi, marqdo-foreign, marqdo-sandbox
 ```
 
 `marqdo-runtime -> marqdo-host` is the current direction. Do not add a second
@@ -124,7 +137,11 @@ review RFC, not a new crate per provider.
 | project file read | `resource.open("file", path, ["read"])`; path/grant checked; bounded | implemented, project mode | `resource_streams`, `stdlib_product` |
 | project file write | `resource.open("file", path, ["write"])`; buffers until `close`, never flush-on-drop | implemented, project mode | `resource_streams`, `stdlib_product` |
 | `std:fs/file` | `读文本/写文本/复制文件/存在/元数据/列出目录/创建目录/删除/重命名/追加文本/读取片段/遍历` over `resource.*`; bounded at 8 MiB | implemented; no watch/binary offset read | `stdlib_product` |
-| `resource.request` | `resource.request("fs.exists|metadata|list|mkdir|remove|rename", paths)`; project mode, grant-checked, recoverable fs Result | implemented `fs.*`; no seek/append/watch | `resource_streams`, `stdlib_product` |
+| `resource.request` | the reviewed operation allowlist (`process.run`, `regex.*`, `compress.*`, `random.bytes`, `env.get`, `clock.now`, `fs.*`) in `docs/architecture/resource-operations.md`; project mode + grants, ADR-0062 | implemented; **new domain operations forbidden**; architecture gate pins the list | `resource_streams`, `architecture_boundaries::resource_request_operation_allowlist_is_reviewed` |
+| core resource kinds | one `marqdo_host::CORE_RESOURCE_KINDS` registry used by CLI manifest validation and every host registration API | implemented; all six core kinds rejected as provider name/kind before registration (H-04) | `resource_streams`, `provider_manifest::every_core_kind_is_rejected_as_name_and_as_kind` |
+| `math.*` domain API | removed after `3.0.0-beta.1`; call is `symbol.unknown`; `Formula` stays inert; external pure package + optional ABI backend; `math.compute` stays a plugin capability category (H-01/H-11) | **removed** from `BUILTINS`/`HostOp`/host/runtime/workspace; `examples/math-library/`, `examples/math-backend/` | `math_library`, `conformance_semantics`, `architecture_boundaries::domain_math_kernel_is_not_part_of_the_core` |
+| Heading modes / annotations | `@exec`/`@knowledge` are the closed Core Modes; unmarked headings inherit the nearest ancestor (H-06); third-party heading annotations are **Proposed** metadata only, Analysis v2 unchanged (H-05/H-07) | core mode: implemented; annotations: Proposed/not implemented, target `3.1.x` | `heading_inheritance`, `units`, negative `sem.invalid_mode_marker`; future T-ANNO in `spec/heading-annotations-v1.md` |
+| Foreign F-A | permission-gated one-shot `foreign.run`/`foreign.call` + dynamic `KernelRegistry`; F-B removal deferred (H-02) | retained; no new language-specific builtin/HostOp; existing grants/digest/timeout/wire/output negatives unchanged | `marqdo-foreign/tests/kernels`, `smoke.py` foreign/kernel cases, `examples/kernel-mock` |
 | `std:data/json` | `json.解析/解析多个/格式化`; nested Value, 128-depth bound, recoverable errors | implemented (recursive, multi-value; no streaming) | `stdlib_product` |
 | `std:data/csv` | `csv.解析行/解析/格式化行/格式化`; quoted single/multi-row, CRLF, quoted newlines | implemented (no streaming) | `stdlib_product` |
 | `std:path` | `path.连接/文件名/目录名/扩展名/规范/是否绝对`; lexical only | implemented (no I/O) | `stdlib_product` |

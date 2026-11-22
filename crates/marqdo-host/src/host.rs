@@ -29,7 +29,9 @@ use crate::observe::{
 use crate::plugin_worker::WorkerPlugin;
 use crate::provider_c::{load_package, CResourceProvider};
 use crate::provider_worker::WorkerResourceProvider;
-use crate::resource::{ResourceProvider, ResourceRead, ResourceTable, SharedResourceProvider};
+use crate::resource::{
+    is_core_resource_kind, ResourceProvider, ResourceRead, ResourceTable, SharedResourceProvider,
+};
 use crate::trace::{EffectTrace, SemanticEvent, TraceBudget, TraceEntry, TraceState};
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
 
@@ -41,16 +43,6 @@ mod resource_ops;
 /// Host operations reachable from the language surface.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HostOp {
-    /// Parse a formula.
-    MathParse,
-    /// Evaluate a formula.
-    MathEval,
-    /// Substitute variables in a formula.
-    MathSubstitute,
-    /// Simplify a formula.
-    MathSimplify,
-    /// Differentiate a formula.
-    MathDifferentiate,
     /// One-shot foreign execution.
     ForeignRun,
     /// Typed foreign call.
@@ -67,11 +59,6 @@ impl HostOp {
     /// Stable operation name used in traces and diagnostics.
     pub const fn name(self) -> &'static str {
         match self {
-            HostOp::MathParse => "math.parse",
-            HostOp::MathEval => "math.eval",
-            HostOp::MathSubstitute => "math.substitute",
-            HostOp::MathSimplify => "math.simplify",
-            HostOp::MathDifferentiate => "math.differentiate",
             HostOp::ForeignRun => "foreign.run",
             HostOp::ForeignCall => "foreign.call",
             HostOp::FsRead => "fs.read",

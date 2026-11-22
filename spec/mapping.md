@@ -92,7 +92,12 @@ Inheritance is a structural calculation over heading levels, not inference from
 prose. A heading's scope ends at the next heading of the same or higher level
 (same or smaller number); deeper headings are inside it. Siblings never share a
 mode: an unmarked heading after a sibling that explicitly switched to Knowledge
-still inherits from the nearest **ancestor**, not from the sibling.
+still inherits from the nearest **ancestor**, not from the sibling. Mechanically,
+the ancestor stack is first reduced by removing the heading itself and every heading
+of the same or higher level; only then is `Mode(nearest ancestor)` read. A
+post-`3.0.0-beta.1` bugfix (RFC-EXT-0003 H-06) corrected an implementation
+that read the inherited mode before reducing the stack, which could leak a sibling's
+mode into an unmarked heading.
 
 Skipped levels (H1 directly followed by H3) still use the nearest valid
 ancestor heading.

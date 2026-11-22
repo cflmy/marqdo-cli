@@ -3,7 +3,7 @@
   "function": "main",
   "stdout": "",
   "value": {
-    "type": "float",
-    "value": 12.566370614359172
+    "decimal": "25",
+    "type": "int"
   }
 }

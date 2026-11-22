@@ -221,6 +221,16 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
                 continue;
             }
         }
+        // Resolve the ancestor scope before deriving the mode: remove every
+        // same-or-higher-level heading first so a heading can only inherit from
+        // its nearest *ancestor*, never from the previous sibling.
+        while let Some((parent_level, _, _)) = stack.last() {
+            if *parent_level >= level {
+                stack.pop();
+            } else {
+                break;
+            }
+        }
         let inherited = stack
             .last()
             .map(|(_, _, mode)| *mode)
@@ -242,13 +252,6 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
             continue;
         };
 
-        while let Some((parent_level, _, _)) = stack.last() {
-            if *parent_level >= level {
-                stack.pop();
-            } else {
-                break;
-            }
-        }
         let parent_path = stack
             .last()
             .map(|(_, path, _)| path.clone())
@@ -550,5 +553,89 @@ mod tests {
         let index = index_of("**x = 1**\n\n## @exec f\n\n`return y`\n");
         assert!(index.diagnostics.is_empty());
         assert_eq!(index.functions.len(), 1);
+    }
+
+    #[test]
+    fn unmarked_sibling_inherits_ancestor_not_previous_exec_sibling() {
+        // Regression for RFC-EXT-0003 H-06: the previous sibling is Exec but the
+        // nearest ancestor is Knowledge, so 普通说明 must stay Knowledge.
+        let index =
+            index_of("# @knowledge 数学\n\n## @exec 运行\n\n`return 1`\n\n## 普通说明\n\n叙述。\n");
+        assert_eq!(index.functions.len(), 1);
+        assert_eq!(index.functions[0].id.name, "数学.运行");
+        let sibling = index
+            .headings
+            .iter()
+            .find(|heading| heading.name == "普通说明")
+            .expect("sibling heading");
+        assert_eq!(sibling.kind, UnitKind::Knowledge);
+        assert_eq!(sibling.mode, SemanticMode::Knowledge);
+    }
+
+    #[test]
+    fn unmarked_sibling_inherits_exec_ancestor_not_previous_knowledge_sibling() {
+        let index =
+            index_of("# @exec 项目\n\n## @knowledge 解释\n\n叙述。\n\n## 计算\n\n`return 1`\n");
+        assert_eq!(index.diagnostics.len(), 0, "{:?}", index.diagnostics);
+        assert_eq!(index.functions.len(), 1);
+        assert_eq!(index.functions[0].id.name, "项目.计算");
+        let sibling = index
+            .headings
+            .iter()
+            .find(|heading| heading.name == "计算")
+            .expect("sibling heading");
+        assert_eq!(sibling.mode, SemanticMode::Exec);
+        assert_eq!(sibling.kind, UnitKind::Function);
+    }
+
+    #[test]
+    fn deep_sections_follow_their_own_ancestors() {
+        // H3 under an Exec H2 is an Exec section; H3 under a Knowledge H2 is not
+        // polluted by the earlier Exec chain.
+        let index = index_of(
+            "# @knowledge 数学\n\n## @exec 计算\n\n### 细节\n\n`return 1`\n\n## 说明\n\n### 例子\n\n叙述。\n",
+        );
+        let depth = |name: &str| {
+            index
+                .headings
+                .iter()
+                .find(|heading| heading.name == name)
+                .unwrap_or_else(|| panic!("missing heading {name}"))
+                .mode
+        };
+        assert_eq!(depth("细节"), SemanticMode::Exec);
+        assert_eq!(depth("说明"), SemanticMode::Knowledge);
+        assert_eq!(index.functions.len(), 1);
+    }
+
+    #[test]
+    fn invalid_marker_does_not_corrupt_later_siblings() {
+        let index = index_of("# @knowledge 数学\n\n## @Exec 坏标记\n\n## 正常\n\n`return 1`\n");
+        assert!(index
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "sem.invalid_mode_marker"));
+        let normal = index
+            .headings
+            .iter()
+            .find(|heading| heading.name == "正常")
+            .expect("valid sibling heading");
+        assert_eq!(normal.mode, SemanticMode::Knowledge);
+        assert_eq!(normal.kind, UnitKind::Knowledge);
+    }
+
+    #[test]
+    fn knowledge_scope_payloads_and_sections_stay_inert() {
+        let index = index_of(
+            "# @knowledge 数学\n\n$$\nA = \\pi r^2\n$$\n\n`数学表达式`\n\n## @knowledge 公式\n\n**不是函数**\n",
+        );
+        assert!(index.functions.is_empty(), "{:?}", index.functions);
+        for heading in &index.headings {
+            assert_eq!(heading.mode, SemanticMode::Knowledge);
+        }
+        assert!(index
+            .units
+            .iter()
+            .all(|unit| !matches!(unit.kind, UnitKind::Function)));
     }
 }

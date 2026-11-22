@@ -7,7 +7,6 @@ members = [
     "crates/marqdo-markdown",
     "crates/marqdo-ir",
     "crates/marqdo-frontend",
-    "crates/marqdo-math",
     "crates/marqdo-foreign",
     "crates/marqdo-plugin-abi",
     "crates/marqdo-provider-worker",
@@ -34,7 +33,6 @@ marqdo-expression = { path = "crates/marqdo-expression" }
 marqdo-markdown = { path = "crates/marqdo-markdown" }
 marqdo-ir = { path = "crates/marqdo-ir" }
 marqdo-frontend = { path = "crates/marqdo-frontend" }
-marqdo-math = { path = "crates/marqdo-math" }
 marqdo-foreign = { path = "crates/marqdo-foreign" }
 marqdo-plugin-abi = { path = "crates/marqdo-plugin-abi" }
 marqdo-host = { path = "crates/marqdo-host" }

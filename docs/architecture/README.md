@@ -24,6 +24,7 @@ input and evidence. It is not a second running-status page.
 | [Runtime observability RFC-OBS-0001](RFC-OBS-0001-runtime-observability.md) | **Adopted and implemented (P0/P1)** | Typed host observation, Execution Events v1 NDJSON, frame identity, selected bounded values; P2 memory metadata remains deferred. |
 | [Compute machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) | **Proposed** | Opaque `Memory`, addressable regions, wire/host rejection. Compute semantics are unchanged by the syntax rewrite; its `.mq.md` examples are historical spelling. |
 | [Core and stdlib migration RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) | **Proposed** | Minimum core, `.mq.md` stdlib and system-capability migration. The stdlib source migration is complete; current status is recorded in ../STATUS.md. |
+| RFC-EXT-0003 core/extension boundary (issue #3) | **Adopted slices in ADR-0060–0063** | H-01/H-03/H-04/H-05/H-06/H-07/H-08/H-02 decisions; heading annotations are Step A (Proposed), foreign F-B deferred. See [`resource-operations.md`](resource-operations.md) and `spec/heading-annotations-v1.md`. |
 
 The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 `../STATUS.md`; the RFC text itself never proves that code exists.
@@ -67,6 +68,10 @@ The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 | Host regex extension | [0050](../adr/0050-host-regex-extension.md) | Accepted (project-mode groups/alternation/captures) |
 | Byte-exact HTTP framing | [0051](../adr/0051-byte-exact-http-framing.md) | Accepted (byte-list HTTP/1.1) |
 | Runtime observability / Execution Events v1 | [0059](../adr/0059-runtime-observability-and-execution-events.md) | Accepted and implemented (P0/P1); memory metadata P2 deferred |
+| Core modes and heading annotations | [0060](../adr/0060-heading-modes-and-extensible-annotations.md) | Core modes implemented; Heading Annotations v1 **Proposed/not implemented** (target 3.1) |
+| Detach domain math kernel | [0061](../adr/0061-detach-domain-math-kernel-from-core.md) | Accepted and implemented; `math.*` removed, pure package + ABI backend |
+| Resource operations and core kinds | [0062](../adr/0062-resource-operation-ownership-and-core-kinds.md) | Accepted and implemented; architecture gate pins the reviewed lists |
+| Foreign F-A transition | [0063](../adr/0063-foreign-kernel-transition-fa.md) | Accepted: retained F-A primitive; F-B deferred |
 | Table physical storage (T1/T2/T3), strict stdin/stderr/file/network resources | — | **Not decided**; do not implement by implication |
 
 ## Evidence and status

@@ -17,6 +17,7 @@ examples/plugin-multi-export/solver.so
 examples/plugin-demo/build/
 examples/plugin-multi-export/build/
 examples/provider-demo/build/
+examples/math-backend/build/
 
 # Release artifacts
 dist/

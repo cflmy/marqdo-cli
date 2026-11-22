@@ -19,7 +19,6 @@ regex = { workspace = true }
 glob = { workspace = true }
 marqdo-span = { workspace = true }
 marqdo-value = { workspace = true }
-marqdo-math = { workspace = true }
 marqdo-foreign = { workspace = true }
 marqdo-sandbox = { workspace = true }
 serde = { workspace = true }

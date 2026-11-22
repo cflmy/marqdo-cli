@@ -38,6 +38,85 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_bytes(*chunks: bytes) -> str:
+    digest = hashlib.sha256()
+    for chunk in chunks:
+        digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
+
+
+def stdlib_tree_digest(root: Path) -> str:
+    files = sorted(
+        (path.relative_to(root).as_posix(), path)
+        for path in root.rglob("*.mq.md")
+        if path.is_file()
+    )
+    return sha256_bytes(
+        *(
+            chunk
+            for relative, path in files
+            for chunk in (relative.encode(), b"\0", path.read_bytes(), b"\0")
+        )
+    )
+
+
+def stdlib_aliases_digest(manifest: dict) -> str:
+    chunks: list[bytes] = []
+    aliases = sorted(
+        manifest.get("public_aliases", []),
+        key=lambda alias: (alias["target_module"], alias["target_function"]),
+    )
+    for alias in aliases:
+        chunks.append(alias["target_module"].encode())
+        chunks.append(b"\0")
+        chunks.append(alias["target_function"].encode())
+        chunks.append(b"\0")
+        for name in sorted(alias["public_names"]):
+            chunks.append(name.encode())
+            chunks.append(b"\0")
+    return sha256_bytes(*chunks)
+
+
+def verify_stdlib_bundle(install: Path, info: dict) -> None:
+    bundle = install / "stdlib"
+    manifest_path = bundle / "stdlib.json"
+    if not manifest_path.is_file():
+        fail("release archive is missing stdlib/stdlib.json")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    recorded = info.get("stdlib") or {}
+    for required in ("stdlib.json", "io.mq.md", "io/console.mq.md"):
+        if not (bundle / required).is_file():
+            fail(f"release archive stdlib is missing {required}")
+    tree = stdlib_tree_digest(bundle)
+    aliases = stdlib_aliases_digest(manifest)
+    if recorded.get("tree_digest") != tree or manifest.get("digest") != tree:
+        fail(
+            f"stdlib tree digest mismatch: RELEASE_INFO={recorded.get('tree_digest')} "
+            f"stdlib.json={manifest.get('digest')} actual={tree}"
+        )
+    if recorded.get("aliases_digest") != aliases or manifest.get("aliases_digest") != aliases:
+        fail(
+            f"stdlib alias digest mismatch: RELEASE_INFO={recorded.get('aliases_digest')} "
+            f"stdlib.json={manifest.get('aliases_digest')} actual={aliases}"
+        )
+    if recorded.get("name") != manifest.get("name") or recorded.get("version") != manifest.get("version"):
+        fail("RELEASE_INFO.stdlib name/version disagree with stdlib/stdlib.json")
+    files = [
+        path.relative_to(bundle).as_posix()
+        for path in bundle.rglob("*")
+        if path.is_file()
+    ]
+    if recorded.get("file_count") != len(files):
+        fail(
+            f"RELEASE_INFO.stdlib.file_count={recorded.get('file_count')} "
+            f"but archive has {len(files)} files"
+        )
+    print(
+        f"smoke: verified stdlib {recorded.get('version')} "
+        f"tree={tree} aliases={aliases} files={len(files)}"
+    )
+
+
 class Runner:
     def __init__(self, root: Path):
         self.root = root
@@ -128,6 +207,7 @@ def main(argv: list[str]) -> int:
             recorded = info["binaries"][name]["sha256"]
             if sha256_file(binary) != recorded:
                 fail(f"{name} sha256 does not match RELEASE_INFO.json")
+        verify_stdlib_bundle(install, info)
 
         runner = Runner(install)
         print(f"smoke: archive version {version}, source {source_sha}")
@@ -140,6 +220,21 @@ def main(argv: list[str]) -> int:
         hello = runner.run(["run", "examples/hello.mq.md"]).stdout
         if "你好" not in hello:
             fail(f"hello example printed {hello!r}")
+
+        # The archive must not fall back to a build-machine source tree: removing
+        # the shipped stdlib must fail closed (T-PKG-03).
+        hidden = install / "stdlib.hidden"
+        (install / "stdlib").rename(hidden)
+        try:
+            broken = runner.run(["run", "examples/hello.mq.md"])
+            if broken.returncode == 0:
+                fail("run succeeded after deleting the bundled stdlib (forbidden fallback)")
+            message = broken.stdout + broken.stderr
+            if "stdlib" not in message and "打印" not in message and "symbol.unknown" not in message:
+                fail(f"missing-stdlib failure is not explicit: {message!r}")
+            print("smoke: bundled stdlib missing -> fail-closed OK")
+        finally:
+            hidden.rename(install / "stdlib")
         factor = runner.run(
             ["call", "examples/factorial.mq.md", "阶乘", "--arg", "n=5"]
         ).stdout.strip()
@@ -351,6 +446,44 @@ def main(argv: list[str]) -> int:
             )
         finally:
             shutil.move(str(worker_binary.with_suffix(".hidden")), str(worker_binary))
+
+        # RFC-EXT-0003: math algorithms are external. The pure package and the
+        # optional ABI backend are exercised by the frozen archive only; the core
+        # has no math.* builtin.
+        gcd = runner.run(["call", "examples/math-library-demo.mq.md", "main"]).stdout.strip()
+        if gcd != "6":
+            fail(f"pure math library printed {gcd!r}, expected 6")
+        runner.run(["check", "examples/math-library/index.mq.md"])
+        math_backend = runner.run(
+            [
+                "run",
+                "examples/math-backend/demo.mq.md",
+                "--plugin",
+                "examples/math-backend/build",
+                "--trust-native-plugin",
+                "--allow-plugin",
+                "math.backend",
+            ]
+        ).stdout.strip()
+        if math_backend != "42":
+            fail(f"math ABI backend printed {math_backend!r}, expected 42")
+        runner.run(
+            [
+                "run",
+                "examples/math-backend/demo.mq.md",
+                "--plugin",
+                "examples/math-backend/build",
+                "--trust-native-plugin",
+            ],
+            expect=1,
+            contains="permission.denied",
+        )
+        removed = install / "removed-math.mq.md"
+        removed.write_text(
+            "## @exec main\n\n`return math.eval(ref(\"#公式\"), {})`\n",
+            encoding="utf-8",
+        )
+        runner.run(["check", str(removed)], expect=1, contains="symbol.unknown")
 
         # pure mode: language execution without project grants.
         runner.run(["run", "examples/hello.mq.md", "--mode", "pure"])

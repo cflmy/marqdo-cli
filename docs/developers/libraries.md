@@ -126,3 +126,23 @@ diagnostics. For negative cases expect hard errors, never prose fallback:
 - State that the package is pure `.mq.md` and needs no plugin/provider/kernel.
 - Version the package independently of the CLI (`0.1.0` here is the package
   version, not the product version).
+
+## 6. Math libraries after the core math removal
+
+The core `math.*` builtins (`math.parse/eval/substitute/simplify/differentiate`)
+were removed after `3.0.0-beta.1` by
+[ADR-0061](../adr/0061-detach-domain-math-kernel-from-core.md); a call is now
+a static `symbol.unknown` and `crates/marqdo-math` is gone. Pure `.mq.md` is the
+preferred replacement and the historical `math` import alias is available again:
+
+```bash
+# examples/math-library/index.mq.md + ../math-library-demo.mq.md
+marqdo call examples/math-library-demo.mq.md main    # 6
+```
+
+Keep signatures/behaviour in your own library contract; the core promises no
+arithmetic beyond `Int`/`Float`, comparison and control flow, and no formula
+evaluator (`Formula` Markdown stays inert). For a hot path, an explicitly selected
+Plugin ABI export may request the `math.compute` capability
+(`examples/math-backend/`); grants and trust flags are unchanged
+(`docs/developers/extensions.md`). Migration: [`../../spec/math.md`](../../spec/math.md).

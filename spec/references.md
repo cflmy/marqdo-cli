@@ -292,14 +292,15 @@ $$
 
 ## @exec 计算圆面积
 
-`params(r: Number)`
+`面积 = ref("#圆面积公式")`
 
-`面积 = math.eval(ref("#圆面积公式"), {"r": r}, target="A")`
 `return 面积`
 ```
 
-`ref("#圆面积公式")` resolves the single formula under that heading; the
-formula is still inert until `math.eval` consumes it.
+`ref("#圆面积公式")` resolves the single formula under that heading and returns
+an inert `Formula` value. The core has no math evaluator (ADR-0061): a pure
+`.mq.md` function or an explicitly selected ABI backend consumes the formula when
+the program asks for it; `ref` itself never evaluates it.
 
 ### 5.1 Error model of `ref`
 
@@ -325,7 +326,7 @@ Inside a function body, `CallExpr` nodes call:
 * a local function (same module, namespace-aware resolution: current namespace
   first, then canonical name, then a unique local name);
 * an imported function through its alias: `geometry.圆面积(r=2)`;
-* a builtin (`打印`, `math.eval`, ...) by canonical name or alias;
+* a builtin (`打印`, `resource.request`, ...) by canonical name or alias;
 * a `FunctionRef` value obtained earlier (for example from `ref`).
 
 Static validation (`crates/marqdo-frontend/src/calls.rs`) checks arity,

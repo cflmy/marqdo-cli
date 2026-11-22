@@ -44,6 +44,22 @@ Consequences for compatibility:
   [`docs/STATUS.md`](docs/STATUS.md) and
   [`docs/evidence/2026-11-21-semantics-v2-green.md`](docs/evidence/2026-11-21-semantics-v2-green.md).
 
+## Post-`3.0.0-beta.1` boundary changes (RFC-EXT-0003)
+
+These land after the beta tag and **before any next beta/stable tag**; they are
+intentional beta-line incompatibilities. Frozen decisions: ADR-0060..0063; executed
+evidence: [`docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md`](docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md).
+
+| Change | Compatibility rule |
+|---|---|
+| `math.parse/eval/substitute/simplify/differentiate` removed from the core | **Breaking.** A call is a static `symbol.unknown`; there is no old-name parser, no `math.unsupported` runtime fallback and no ABI/Builtin shim. `Formula` stays an inert Markdown resource. Migrate to a pure `.mq.md` package or an explicitly selected ABI backend; `spec/math.md`. The `math` import namespace is released (no builtin conflict). |
+| Sibling heading mode inheritance corrected (H-06) | **Behaviour fix.** Unmarked headings inherit the nearest ancestor, never the previous sibling. Documents that relied on the buggy sibling leak change: a former accidental Exec sibling can become inert Knowledge (or vice versa). Covered by conformance/black-box/`check --emit` tests; no syntax/version change. |
+| Release archive must ship the verified `stdlib/` | **Delivery requirement.** Archive contains `stdlib.json` + all modules and `RELEASE_INFO.json` carries its name/version/tree/alias digests/count/files. Removing or tampering with it fails closed; release builds do not fall back to the build-machine source path. |
+| Core resource kinds enforced on every registration path (H-04) | Provider name or declared kind equal to `stdio/file/tcp/tls/udp/tcp-listener` is rejected with `ext.manifest_invalid` (CLI) / `ResourceUnsupported` (host) before registration. No provider may shadow a core kind. |
+| `resource_request` operation ownership (H-03) | New domain/business operations are forbidden in the core: ship a pure `.mq.md` package, ABI export or Provider. The exact reviewed allowlist is pinned by `architecture_boundaries.rs`; see `docs/architecture/resource-operations.md`. |
+| Heading Annotations v1 (H-05/H-07) | **Proposed, not implemented.** This build still rejects unknown `@foo` with `sem.invalid_mode_marker`; no annotation manifest, `annotation.unknown`, Analysis v3 or sidecar exists yet. Target `3.1.x`; ADR-0060 and `spec/heading-annotations-v1.md`. |
+| Foreign removal F-B (H-02) | **Deferred, not claimed.** The one-shot permission-gated `foreign.*` primitive remains (F-A); its grants/digest/timeout/wire/output negatives are unchanged and must not be skipped. ADR-0063 and `spec/foreign.md` §8. |
+
 ## Public protocol versions
 
 | Surface | Version | Compatibility rule |
@@ -56,8 +72,8 @@ Consequences for compatibility:
 | Execution Events | v1 | Live NDJSON for `run/call --event-stream jsonl`; independent version axis. Values are opt-in and bounded; unknown majors rejected. Not yet part of the tagged beta archive (post-beta addition). |
 | CLI Tool | v1 | Manifest schema, SemVer negotiation and whole-bundle digest are stable for v1. |
 | Plugin ABI | v1 | Struct layout/version negotiation frozen; `--trust-native-plugin` is required for in-process loading. The static manifest signature is authoritative; `run` reconciles loaded exports/signatures/owners/artifact digests exactly (`ext.plugin_binding_mismatch`); ABI v1 defaults are rejected. |
-| Resource Provider manifest | v2 | `schema_version: 2`, `abi: c-abi-1`, `transport: worker`; v1 is rejected (`ext.unsupported_provider_schema`), no silent migration. CLI `--provider`/`--allow-provider`; trusted worker, not an OS sandbox. |
-| Callable resolution | ADR-0054 | One registry + one binding pass; `check` and `run` bind the same `CallSiteKey`; no runtime name fallback. Import aliases colliding with builtin/plugin dotted namespaces are rejected. |
+| Resource Provider manifest | v2 | `schema_version: 2`, `abi: c-abi-1`, `transport: worker`; v1 is rejected (`ext.unsupported_provider_schema`), no silent migration. CLI `--provider`/`--allow-provider`; trusted worker, not an OS sandbox. The six core kinds come from one `marqdo_host::CORE_RESOURCE_KINDS` registry and are rejected as a provider name or kind (ADR-0062). |
+| Callable resolution | ADR-0054 | One registry + one binding pass; `check` and `run` bind the same `CallSiteKey`; no runtime name fallback. Import aliases colliding with builtin/plugin dotted namespaces are rejected. The `math` namespace is no longer a builtin namespace (ADR-0061). |
 | Analysis `calls[].state/target` | v2 (projection) | Now projected from the unique binding; official stdlib aliases appear as `function`. Schema/version unchanged; private binding table not serialized. |
 | Extension selection | lock v4 | `marqdo.yaml.extensions` only `./path` or `@alias/path`; declaration is not a grant; declared identity must match the lock (`ext.extension_lock_mismatch`). |
 | Foreign wire | v1 | One-shot request envelope; provider descriptors are explicit. |

@@ -46,25 +46,39 @@ impl StdlibBundle {
     /// Discover the bundle.
     ///
     /// Order: `MARQDO_STDLIB_DIR` (explicit, fail if invalid), a `stdlib`
-    /// directory next to the executable, then the development tree.
+    /// directory next to the executable, and finally — **debug builds only** — the
+    /// compile-time source tree. A release binary never falls back to a build
+    /// machine path: the release archive must ship a verified `stdlib/` next to
+    /// the binary (RFC-EXT-0003 H-08, ADR).
     pub fn discover() -> Result<Option<Self>, String> {
         if let Some(dir) = std::env::var_os(STDLIB_DIR_ENV) {
             return Self::load(PathBuf::from(dir)).map(Some);
         }
-        if let Ok(exe) = std::env::current_exe() {
-            if let Some(parent) = exe.parent() {
-                let candidate = parent.join("stdlib");
-                if candidate.is_dir() {
-                    return Self::load(candidate).map(Some);
-                }
+        Self::discover_from_exe_dir(
+            std::env::current_exe()
+                .ok()
+                .and_then(|exe| exe.parent().map(Path::to_path_buf)),
+        )
+    }
+
+    /// Discover from the directory that holds the executable, without the explicit
+    /// environment override. Release builds do not read the source tree.
+    fn discover_from_exe_dir(exe_dir: Option<PathBuf>) -> Result<Option<Self>, String> {
+        if let Some(parent) = exe_dir {
+            let candidate = parent.join("stdlib");
+            if candidate.is_dir() {
+                return Self::load(candidate).map(Some);
             }
         }
-        let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("..")
-            .join("stdlib");
-        if dev.is_dir() {
-            return Self::load(dev).map(Some);
+        #[cfg(debug_assertions)]
+        {
+            let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("..")
+                .join("stdlib");
+            if dev.is_dir() {
+                return Self::load(dev).map(Some);
+            }
         }
         Ok(None)
     }
@@ -455,6 +469,39 @@ mod tests {
         assert_eq!(io.relative_path, "io.mq.md");
         assert!(io.package.instance_id.starts_with("std:marqdo-stdlib@"));
         assert!(bundle.resolve("../escape").is_err());
+    }
+
+    #[test]
+    fn sibling_stdlib_is_found_without_environment_override() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("stdlib");
+        std::fs::create_dir_all(&bundle).unwrap();
+        for entry in std::fs::read_dir(dev_bundle()).unwrap() {
+            let entry = entry.unwrap();
+            let target = bundle.join(entry.file_name());
+            if entry.path().is_dir() {
+                copy_dir(&entry.path(), &target);
+            } else {
+                std::fs::copy(entry.path(), target).unwrap();
+            }
+        }
+        let found = StdlibBundle::discover_from_exe_dir(Some(dir.path().to_path_buf()))
+            .unwrap()
+            .expect("sibling stdlib");
+        assert_eq!(found.root, bundle.canonicalize().unwrap());
+    }
+
+    fn copy_dir(source: &std::path::Path, target: &std::path::Path) {
+        std::fs::create_dir_all(target).unwrap();
+        for entry in std::fs::read_dir(source).unwrap() {
+            let entry = entry.unwrap();
+            let destination = target.join(entry.file_name());
+            if entry.path().is_dir() {
+                copy_dir(&entry.path(), &destination);
+            } else {
+                std::fs::copy(entry.path(), destination).unwrap();
+            }
+        }
     }
 
     #[test]

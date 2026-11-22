@@ -219,11 +219,13 @@ rules are [`RFC-LANG-0002`](docs/architecture/RFC-LANG-0002-unified-semantics.md
   capability dropping, rlimits, a wall-clock supervisor and child
   self-verification (ADR-0021). It is probe-gated and verified in a disposable
   Ubuntu VM; unsupported hosts fail closed.
-* **P5 Math/Foreign** — native `Formula` value from `$$...$$`; `math.parse/
-  eval/substitute` over a documented exact-rational subset; one-shot Python/
-  Node kernels via `foreign.run/call` with typed wire protocol, timeout and
-  output limits; pinned provider/environment digests and ADR-0020 environment
-  binding.
+* **P5 Math/Foreign** — native inert `Formula` value from `$$...$$`; the host
+  `math.*` builtin API was removed after `3.0.0-beta.1` (ADR-0061) and math
+  algorithms now live in pure `.mq.md` packages or an explicitly selected ABI
+  backend with the `math.compute` capability; one-shot Python/Node kernels via
+  `foreign.run/call` (controlled F-A OS boundary, ADR-0063) with typed wire
+  protocol, timeout and output limits; pinned provider/environment digests and
+  ADR-0020 environment binding.
 * **P6 plugin ABI** — frozen C ABI v1 header (`include/marqdo_plugin_abi_v1.h`),
   host bindings, Rust SDK (`mq_plugin_entry!`), `plugin.yaml` validation,
   target-triple + sha256 artifact verification, native and isolated worker
@@ -248,7 +250,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 
 * **Strict is Linux-only and L1-only.** `--mode strict` enables the
   Bubblewrap supervisor only when its runtime probe passes; otherwise it exits
-  1. It supports pure Marqdo + Math and rejects Foreign, plugins, kernels,
+  1. It supports pure Marqdo arithmetic and rejects Foreign, plugins, kernels,
   external grants and trace files (exit 2). Worker plugins provide
   crash/address-space isolation, not an OS sandbox, and are not allowed in
   strict.
@@ -268,8 +270,10 @@ cargo clippy --workspace --all-targets -- -D warnings
   the first.
 * **`fmt` is minimal** (line endings/trailing newlines), not AST-preserving
   reformatting.
-* **Math is a limited calculator**, not a CAS/prover: no `simplify`/
-  `differentiate`/matrices/series; equation solving is affine-only.
+* **Math is not a core API.** `math.*` builtins were removed after
+  `3.0.0-beta.1` (ADR-0061); `Formula` Markdown stays inert, and math
+  algorithms come from explicit pure `.mq.md` imports or a trusted ABI backend.
+  The core promises no CAS/prover, solver or evaluator.
 * **Foreign kernels are unsandboxed one-shot child processes** (no sessions,
   no state bridge); they run with the host user's filesystem/network access.
 * Finite floats are IEEE-754 binary64; the typed wire round-trip is exact
@@ -285,12 +289,11 @@ crates/marqdo-expression      strict expression/statement parser
 crates/marqdo-markdown        frozen comrak profile, canonical AST, front matter
 crates/marqdo-ir              module/unit/function/statement IR, builtin table
 crates/marqdo-frontend        heading scopes, mapping, inference, static calls
-crates/marqdo-math            exact-rational Formula subset
 crates/marqdo-foreign         Python/Node one-shot kernel supervisor
 crates/marqdo-sandbox         mode parsing + platform isolation detection
 crates/marqdo-plugin-abi      C ABI v1 mirrors, manifest, artifacts, loader
 crates/marqdo-plugin-sdk      Rust plugin SDK and entry macro
-crates/marqdo-host            CapabilityHost, budgets, FS, math/foreign/plugin adapters
+crates/marqdo-host            CapabilityHost, budgets, FS, foreign/plugin adapters, core resource kinds
 crates/marqdo-runtime         tree-walk interpreter
 crates/marqdo-package         marqdo.yaml / marqdo.lock / root discovery
 crates/cli                    CLI composition root (binary `marqdo`)
@@ -446,7 +449,9 @@ details in [`spec/callable-resolution.md`](spec/callable-resolution.md)):
 `check` and `run` consume the same binding; an unknown export, wrong arguments
 or a duplicate export fails before execution. An import alias that collides
 with a builtin/plugin dotted namespace (for example importing a module as
-`math`) is rejected with `ext.import_namespace_conflict`; rename it. A plugin
+`resource`) is rejected with `ext.import_namespace_conflict`; rename it. The
+historical `math` namespace was released when the `math.*` builtins were removed
+(ADR-0061), so a `math:` import alias is now accepted. A plugin
 manifest is the static contract: `run` verifies the loaded artifact and its
 exports/signatures match the manifest exactly
 (`ext.plugin_binding_mismatch` otherwise) and never synthesises a signature.

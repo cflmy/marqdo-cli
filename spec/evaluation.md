@@ -369,7 +369,7 @@ host boundary. Names are stable; adding one requires a spec update.
 | `resource.close` | `(handle) -> Result` | releases the host slot |
 | `resource.accept` | `(listener) -> Result` | accepts one TCP connection from a `tcp-listener` handle (ADR-0047) |
 | `resource.request` | `(operation: Text, arguments: List) -> Result` | non-streaming `fs.*` operations (ADR-0041) `clock.now` (ADR-0042), `env.get` (ADR-0043), `process.run` (ADR-0044) and `random.bytes` (ADR-0046); project-mode and grant-checked |
-| `math.parse/eval/substitute` | see `spec/math.md` | P5; `math.simplify`/`math.differentiate` are declared but return `math.unsupported` in this build |
+| ~~`math.*`~~ | see `spec/math.md` | **removed after `3.0.0-beta.1`** (ADR-0061): a call is a static `symbol.unknown`; algorithms live in pure `.mq.md` packages or an explicitly selected ABI backend. `Formula` resources stay inert. |
 | `foreign.run/call` | see `spec/foreign.md` | P5, capability-gated |
 | `fs.read/write` | see `spec/security.md` | capability-gated |
 

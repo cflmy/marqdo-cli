@@ -140,12 +140,12 @@ fn stdout(output: &Output) -> String {
 fn import_alias_conflicting_with_builtin_namespace_is_rejected() {
     let dir = TempDir::new("call01");
     write(
-        &dir.path().join("math.mq.md"),
-        "## @exec eval\n\n`params(a: Int)`\n\n`return a + 100`\n",
+        &dir.path().join("resource.mq.md"),
+        "## @exec select\n\n`params(a: Int)`\n\n`return a + 100`\n",
     );
     write(
         &dir.path().join("index.mq.md"),
-        "---\nimport:\n  math: \"./math.mq.md\"\n---\n\n## @exec main\n\n`return math.eval(a=1)`\n",
+        "---\nimport:\n  resource: \"./resource.mq.md\"\n---\n\n## @exec main\n\n`return resource.select(a=1)`\n",
     );
     let check = cli(&["check", "index.mq.md"], dir.path());
     assert_eq!(check.status.code(), Some(1), "{}", stderr(&check));

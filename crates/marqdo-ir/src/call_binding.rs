@@ -65,7 +65,7 @@ impl fmt::Display for CallSiteKey {
 pub enum BoundTarget {
     /// A fixed language builtin, by canonical builtin name.
     Builtin {
-        /// Canonical name (for example `math.eval`), not a user alias.
+        /// Canonical name (for example `foreign.run`), not a user alias.
         canonical_name: String,
     },
     /// A function defined by a Markdown heading.

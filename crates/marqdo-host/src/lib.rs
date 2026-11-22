@@ -35,5 +35,8 @@ pub use observe::{
     ValueState, DEFAULT_MAX_OBSERVATION_BYTES, DEFAULT_MAX_OBSERVATION_EVENTS,
     DEFAULT_MAX_VALUE_BYTES, MAX_STREAM_CHUNK_BYTES,
 };
-pub use resource::{ResourceProvider, ResourceRead, ResourceTable, SharedResourceProvider};
+pub use resource::{
+    is_core_resource_kind, ResourceProvider, ResourceRead, ResourceTable, SharedResourceProvider,
+    CORE_RESOURCE_KINDS,
+};
 pub use trace::{EffectTrace, SemanticEvent, TraceBudget, TraceEntry, TraceState, TraceTruncation};

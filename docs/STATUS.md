@@ -139,6 +139,83 @@ fixture test when `python3` + `jsonschema` are available (the Woodpecker test
 lane installs `python3-jsonschema` and also runs the consumer against a real
 `--event-stream jsonl` invocation).
 
+## 0.6 Post-beta core/extension boundary — RFC-EXT-0003 (unreleased)
+
+This section records work **after** the `v3.0.0-beta.1` tag. It is not part of the
+tagged beta archive and no new tag or stable release has been created. Design
+input: issue `#3` (RFC-EXT-0003). Frozen decisions: ADR-0060 (Core Modes /
+Heading Annotations), ADR-0061 (math detach), ADR-0062 (`resource_request`
+ownership / core resource kinds), ADR-0063 (foreign F-A). Executed evidence:
+[`evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md`](evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md).
+
+### 0.6.1 Implemented / fixed
+
+- **H-06 sibling heading inheritance:** `build_units` now removes the current and
+  all same-or-higher-level headings from the ancestor stack before deriving the
+  inherited mode. An unmarked heading inherits the nearest **ancestor**, never the
+  previous sibling. Reproduced with the two audit documents first, then covered by
+  the `units` matrix, conformance fixtures 22/23 and black-box
+  `heading_inheritance` (`check --emit`, `run`, `call`).
+- **H-08 release archive stdlib:** the deterministic archive now contains the
+  complete `stdlib/` tree; `RELEASE_INFO.json.stdlib` records name, version,
+  tree/alias digests, file count and file list. `package.py` and `smoke.py`
+  recompute both digests with the runtime algorithm and fail on mismatch; smoke
+  removes the bundle and requires a fail-closed run (no source fallback). Release
+  discovery only falls back to the compile-time source tree in debug builds.
+- **H-04 core resource kinds:** `marqdo_host::CORE_RESOURCE_KINDS` is the single
+  registry used by the CLI manifest validator and every trusted host registration
+  path; all six core kinds are rejected as a provider name and as a declared kind
+  before registration.
+- **H-01 math domain API removed (breaking):** the five `math.*` builtins,
+  `HostOp` variants, runtime arms and `crates/marqdo-math` are deleted. A call is a
+  static `symbol.unknown`; `Formula` stays inert. Math algorithms are a pure
+  `.mq.md` package (`examples/math-library/`) and an optional explicitly selected
+  ABI backend that requests the `math.compute` capability
+  (`examples/math-backend/`). The historical `math` import namespace is released.
+  `math.compute` stays a capability category, not a core solver.
+- **H-03 `resource_request` ownership:** the reviewed operation table and policy
+  are in [`architecture/resource-operations.md`](architecture/resource-operations.md);
+  `architecture_boundaries::resource_request_operation_allowlist_is_reviewed` extracts
+  the literals and fails on an unreviewed operation. New domain operations are
+  forbidden in the core.
+
+### 0.6.2 Proposed / deferred (not implemented, not claimed)
+
+- **H-05/H-07/H-13 Heading Annotations v1:** `@exec`/`@knowledge` are frozen as
+  the only Core Modes and alone decide execution. A declarative, metadata-only
+  heading annotation layer is **Proposed** (ADR-0060,
+  [`spec/heading-annotations-v1.md`](../spec/heading-annotations-v1.md), target
+  `3.1.x`). This build still rejects an unknown `@foo` with
+  `sem.invalid_mode_marker`; no annotation manifest, `annotation.unknown`,
+  Analysis v3 or sidecar exists yet. Not advertised as available.
+- **H-02/F-B foreign:** the one-shot permission-gated `foreign.run/call` and the
+  dynamic `KernelRegistry` remain the controlled OS-boundary primitive (F-A);
+  removal (F-B) needs a versioned generic process/worker capability and the same
+  security negatives. ADR-0063, [`spec/foreign.md`](../spec/foreign.md) §8.
+- Still deferred: full Math CAS/solver, persistent Foreign sessions, notebook
+  execution, Analysis v3/sidecar, Windows/macOS native gates, strict L2.
+
+### 0.6.3 Executed gate (Linux x86_64, Rust 1.100.0)
+
+```text
+cargo fmt --all -- --check                            PASS
+cargo clippy --workspace --all-targets -- -D warnings  PASS
+cargo test --workspace --locked                        PASS: 586 passed, 0 failed, 2 ignored
+python3 -m unittest discover -s tools/ci -p 'test_*.py' PASS: 28 passed
+cargo test -p marqdo-cli --test heading_inheritance      PASS: 4 passed
+cargo test -p marqdo-cli --test math_library               PASS: 2 passed
+cargo test -p marqdo-host --test resource_streams           PASS: 34 passed
+cargo test -p marqdo-cli provider_manifest                 PASS: 9 passed
+cargo test -p marqdo-cli --test conformance_semantics       PASS: 22/23/74/75 goldens
+```
+
+The archive/stdlib digests, cold-install smoke, independent `ubuntu:24.04`
+container and external frozen-binary conformance are executed on the implementation
+commit and recorded with exact hashes in
+[`evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md`](evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md)
+§5–§7. This is local evidence, not a same-SHA CI pipeline or a tagged release;
+platform claim remains Linux x86_64.
+
 ## 1. Historical: pre-beta remote baseline and evidence
 
 > **Historical record.** Everything in §1 onward was executed before the

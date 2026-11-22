@@ -140,7 +140,7 @@ impl<'a> Analyzer<'a> {
             }
             Expr::Call { callee, args, .. } => {
                 // A callee identifier names a function; a `ns.name` callee is a
-                // builtin namespace (math.eval) or an imported module alias.
+                // builtin namespace (resource.request) or an imported module alias.
                 // Neither is a variable read.
                 match callee.as_ref() {
                     Expr::Ident(_) => {}

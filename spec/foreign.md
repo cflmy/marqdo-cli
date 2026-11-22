@@ -274,3 +274,26 @@ text preserved; a successful process whose stdout is not a typed value is also
 * Sessions, shared state, persistent kernels and automatic environment
   management (uv/venv) are not implemented. Python/Node are optional foreign
   kernels, never the official execution backend.
+
+## 8. F-A transition status (ADR-0063)
+
+The permission-gated one-shot `foreign.run`/`foreign.call` and the dynamic
+`KernelRegistry` are the **controlled OS-boundary primitive** retained by the core
+(F-A). Removing them (F-B) is deferred until a versioned generic
+process/worker-capability contract exists with program/argv, controlled stdio,
+isolation level, timeout/process-tree reaping, output budget, environment identity,
+lifecycle and cancellation semantics, plus frozen-binary equivalence and the same
+security negatives.
+
+- No new language-specific builtin or `HostOp` may be added; new languages
+  register through `KernelRegistry::register`. Built-in Python/Node descriptors are
+  defaults, not the only extension channel.
+- High-level sequencing/batching/validation/error normalization belongs in a
+  `.mq.md` package that composes explicit `foreign.*` calls, never in the host.
+- The existing authorization model is unchanged: without `--allow-foreign` the call
+  is `permission.denied`; `pure`/`strict` fail closed; the file/digest/target/
+  timeout/wire/output-limit/environment negatives in this spec and the test suites
+  remain authoritative and must not be skipped for a refactor.
+- Forbidden in both phases: persistent Python/Node sessions, Notebook-cell
+  execution, `@python` heading auto-execution, and a second foreign runtime in View.
+  Streaming stays in Execution Events v1, not a second foreign network protocol.

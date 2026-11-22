@@ -12,6 +12,65 @@ do not follow the product version. Dates use ISO 8601.
 
 ## Unreleased (post `3.0.0-beta.1`)
 
+### Core/extension boundary — RFC-EXT-0003 (issue #3)
+
+Executed evidence: [`docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md`](docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md).
+Frozen decisions: ADR-0060 (heading modes/annotations), ADR-0061 (math
+detach), ADR-0062 (resource-operation ownership/core kinds), ADR-0063
+(foreign F-A transition).
+
+#### Breaking changes (beta line; migrate before the next beta/stable)
+
+- **`math.*` core builtins removed.** `math.parse`, `math.eval`,
+  `math.substitute`, `math.simplify` and `math.differentiate` no longer exist in
+  `BUILTINS`, `HostOp`, the runtime or the host. A document that calls one now
+  fails statically with `symbol.unknown`; there is no `math.unsupported` runtime
+  fallback and no old-name compatibility parser. `crates/marqdo-math` is removed
+  from the workspace and host dependency graph. `Int`/`Float` arithmetic and the
+  inert Markdown `Formula` value stay. Math algorithms move to pure `.mq.md`
+  packages (`examples/math-library/`) or an explicitly selected ABI backend with
+  the `math.compute` capability (`examples/math-backend/`). The historical
+  `math` import namespace is released, so `import: { math: ... }` is accepted
+  again. Migration: [`spec/math.md`](spec/math.md).
+- **Sibling heading inheritance bug fixed (H-06).** `build_units` now removes the
+  current and same-or-higher-level headings from the ancestor stack *before*
+  deriving the inherited mode. An unmarked heading can no longer inherit the
+  previous sibling's mode: under `# @knowledge` a `## @exec` sibling followed by an
+  unmarked `##` leaves the latter Knowledge/inert; under `# @exec` a `## @knowledge`
+  sibling followed by an unmarked `##` makes the latter Exec/callable. This is a
+  correctness fix with new conformance/black-box/`check --emit` coverage.
+- **Release archive now ships the verified `stdlib/`.** The archive contains
+  `stdlib.json` and every `.mq.md` module; `RELEASE_INFO.json` records name,
+  version, tree digest, alias digest, count and file list. `package.py` recomputes
+  both digests and refuses a mismatch; `smoke.py` re-verifies them and fails
+  closed when the bundle is removed. Release builds no longer fall back to the
+  compile-time source tree (debug builds keep a development-only fallback). An
+  independent `ubuntu:24.04` cold-install container check is recorded in the
+  evidence.
+- **Core resource kinds are one registry (H-04).** `marqdo_host::CORE_RESOURCE_KINDS`
+  (`stdio`, `file`, `tcp`, `tls`, `udp`, `tcp-listener`) is now used by both the
+  CLI provider-manifest validator and every trusted host registration path; a provider
+  name or declared kind equal to a core kind is rejected before registration.
+- `resource_request` operation ownership is reviewed and enforced by an
+  architecture gate. New domain operations are forbidden in the core; see
+  [`docs/architecture/resource-operations.md`](docs/architecture/resource-operations.md)
+  and ADR-0062.
+
+#### Proposed, not implemented
+
+- **Heading Annotations v1 (H-05/H-07/H-13).** `@exec`/`@knowledge` are frozen
+  as the only Core Modes and alone decide execution; a declarative,
+  metadata-only `@namespace.identifier` annotation layer is specified as
+  **Proposed** with target `3.1.x`. The current parser still rejects any other
+  leading `@foo` with `sem.invalid_mode_marker`; no `annotation.unknown` code,
+  manifest loader, Analysis v3 or sidecar exists in this build. Contracts:
+  ADR-0060 and [`spec/heading-annotations-v1.md`](spec/heading-annotations-v1.md).
+- **Foreign F-B removal is deferred (H-02).** The permission-gated one-shot
+  `foreign.run`/`foreign.call` + `KernelRegistry` stay as the controlled
+  OS-boundary primitive (F-A); removal needs a versioned generic process/worker
+  capability and the existing security negatives. ADR-0063 and
+  [`spec/foreign.md`](spec/foreign.md) §8.
+
 ### Runtime observability — Execution Events v1 (RFC-OBS-0001, ADR-0059)
 
 - `marqdo run` and `marqdo call` accept `--event-stream jsonl`: the CLI stdout

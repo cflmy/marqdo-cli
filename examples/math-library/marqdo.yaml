@@ -1,0 +1,5 @@
+project:
+  name: marqdo-math-library
+  version: 0.1.0
+  marqdo: ">=3.0.0-beta.1,<4.0.0"
+dependencies: {}

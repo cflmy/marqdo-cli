@@ -27,11 +27,11 @@ no test commits, copies or rewrites files outside a throw-away temp directory.
 tests/
 ├── conformance/
 │   ├── ast/            160 × *.mq.md + sibling *.ast.json goldens
-│   └── semantics/       73 × *.mq.md + sibling *.expected.json goldens
+│   └── semantics/       75 × *.mq.md + sibling *.expected.json goldens
 ├── negative/
 │   ├── *.mq.md          49 × compile-time hard-error fixtures + *.expected.json
 │   ├── warnings/         2 × warning-model/control fixtures + *.expected.json
-│   └── runtime/         21 × runtime-error fixtures + *.expected.json
+│   └── runtime/         20 × runtime-error fixtures + *.expected.json
 └── README.md           this file
 ```
 

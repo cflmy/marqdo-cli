@@ -279,6 +279,7 @@ struct MockProvider {
     written: Vec<u8>,
     version: u32,
     kinds: Vec<&'static str>,
+    provider_name: &'static str,
 }
 
 impl MockProvider {
@@ -289,13 +290,19 @@ impl MockProvider {
             written: Vec::new(),
             version,
             kinds,
+            provider_name: "mock",
         }
+    }
+
+    fn with_name(mut self, name: &'static str) -> Self {
+        self.provider_name = name;
+        self
     }
 }
 
 impl marqdo_host::ResourceProvider for MockProvider {
     fn name(&self) -> &str {
-        "mock"
+        self.provider_name
     }
     fn protocol_version(&self) -> u32 {
         self.version
@@ -421,10 +428,30 @@ fn provider_registration_rejects_versions_reserved_names_and_conflicts() {
         .register_resource_provider(Box::new(MockProvider::new(b"x", 2, vec!["mock.sensor"])))
         .unwrap_err();
     assert_eq!(bad_version.category, ErrorCategory::ResourceUnsupported);
-    let reserved = host
-        .register_resource_provider(Box::new(MockProvider::new(b"x", 1, vec!["stdio"])))
-        .unwrap_err();
-    assert_eq!(reserved.category, ErrorCategory::ResourceUnsupported);
+    for core_kind in marqdo_host::CORE_RESOURCE_KINDS {
+        let reserved_kind = host
+            .register_resource_provider(Box::new(MockProvider::new(b"x", 1, vec![core_kind])))
+            .unwrap_err();
+        assert_eq!(reserved_kind.category, ErrorCategory::ResourceUnsupported);
+        assert!(
+            reserved_kind.message.contains("reserved core kind"),
+            "{core_kind}: {}",
+            reserved_kind.message
+        );
+        let reserved_name = host
+            .register_resource_provider(Box::new(
+                MockProvider::new(b"x", 1, vec!["mock.sensor"]).with_name(core_kind),
+            ))
+            .unwrap_err();
+        assert_eq!(reserved_name.category, ErrorCategory::ResourceUnsupported);
+        assert!(
+            reserved_name
+                .message
+                .contains("reserved core resource kind"),
+            "{core_kind}: {}",
+            reserved_name.message
+        );
+    }
     host.register_resource_provider(Box::new(MockProvider::new(b"x", 1, vec!["mock.sensor"])))
         .unwrap();
     let conflict = host

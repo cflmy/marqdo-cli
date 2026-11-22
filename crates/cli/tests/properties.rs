@@ -65,7 +65,7 @@ const BASES: &[Base] = &[
 
 半径叙述。
 
-`return math.eval(ref("#公式"), {"r": r}, target="A")`
+`return 3.141592653589793 * r * r`
 
 ### @knowledge 公式
 

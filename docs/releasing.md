@@ -91,10 +91,18 @@ python3 tools/release/package.py --version "$version" --source-sha "$sha"
 ```
 
 Contents: `marqdo` **and** `marqdo-provider-worker` in the same directory,
-`LICENSE-*`, `README.md`, `CHANGELOG.md`, `COMPATIBILITY.md`,
+the **complete verified `stdlib/` bundle** (`stdlib.json`, every `.mq.md` module
+and self-test), `LICENSE-*`, `README.md`, `CHANGELOG.md`, `COMPATIBILITY.md`,
 `RELEASE_INFO.json`, `SOURCE_SHA`, `KNOWN_LIMITATIONS.md`, `spec/`,
-`docs/developers/`, `examples/` (with host-built plugin/provider artifacts so
-the examples run without a compiler) and `tests/consumers/`.
+`docs/developers/`, `examples/` (with host-built plugin/provider/math-backend
+artifacts so the examples run without a compiler) and `tests/consumers/`.
+
+`RELEASE_INFO.json` records the stdlib `name`, `version`, `tree_digest`,
+`aliases_digest`, `file_count` and `files`. `package.py` recomputes both digests
+with the same canonical algorithm as the runtime and refuses to package a mismatch
+with `stdlib/stdlib.json` (RFC-EXT-0003 H-08 / T-PKG-04). The bundled stdlib is a
+runtime requirement, not a build-machine side effect: a release binary must never
+fall back to the compile-time source path.
 
 Do not publish an archive with only the CLI, with a mismatched worker target, or
 with a checksum that does not match the bytes.
@@ -109,12 +117,42 @@ python3 tools/release/smoke.py \
   --archive dist/marqdo-*.tar.gz
 ```
 
-It verifies the `.sha256`, `RELEASE_INFO.json`/`SOURCE_SHA`, offline
+It verifies the `.sha256`, `RELEASE_INFO.json`/`SOURCE_SHA`, both stdlib
+digests against `stdlib/stdlib.json` and the staged tree, offline
 `--version`/`--help`, `check`/`run`/`call`, lock/sync, Analysis v2 and Trace v2
 consumers, Tool install/dispatch, native + worker plugin transports, a foreign
 kernel, Resource Provider v2 through the shipped worker (positive,
-unauthorized and missing-helper fail-closed), and strict mode when the host
-actually supports it. A failure is a release blocker.
+unauthorized and missing-helper fail-closed), the pure math package and optional
+math ABI backend, the removed `math.*` → `symbol.unknown` path, and strict mode
+when the host actually supports it.
+
+It also moves the bundled `stdlib/` aside and requires `run examples/hello.mq.md`
+to fail closed with an explicit stdlib/print/symbol diagnostic: passing with a
+compile-machine source fallback is a release blocker (T-PKG-03).
+
+### Independent runtime container (required, T-PKG-01/02)
+
+The cold-install gate must run in a container that receives **only the archive
+bytes** — no source directory, no `/build`, no Cargo — and extracts them itself:
+
+```bash
+docker run --rm -v "$PWD/dist:/dist:ro" ubuntu:24.04 sh -c '
+  set -eu
+  mkdir -p /opt/marqdo
+  tar -xzf /dist/marqdo-<version>-x86_64-unknown-linux-gnu.tar.gz -C /opt/marqdo
+  cd /opt/marqdo/marqdo-<version>-x86_64-unknown-linux-gnu
+  ./marqdo --version
+  ./marqdo --help >/dev/null
+  ./marqdo run examples/hello.mq.md
+  ./marqdo check examples/multi-module/index.mq.md --emit /tmp/analysis.json
+  ./marqdo call examples/math-library-demo.mq.md main
+  ./marqdo call examples/factorial.mq.md 阶乘 --arg n=5
+'
+```
+
+Run this on the same Linux x86_64 glibc baseline as the release support
+matrix. If the binary needs a newer GLIBC than the runtime image, that is a real
+release defect, not a stdlib failure; do not report the ABI error as a stdlib PASS.
 
 ## 5. Release evidence manifest
 

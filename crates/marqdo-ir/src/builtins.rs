@@ -28,7 +28,7 @@ const fn opt(name: &'static str) -> BuiltinParam {
 /// A builtin function or host operation.
 #[derive(Debug, Clone, Copy)]
 pub struct Builtin {
-    /// Canonical call name (may be namespaced, e.g. `math.eval`).
+    /// Canonical call name (may be namespaced, e.g. `foreign.run`).
     pub name: &'static str,
     /// Alternative names (Chinese/English aliases).
     pub aliases: &'static [&'static str],
@@ -101,41 +101,6 @@ const REF: Builtin = Builtin {
     name: "ref",
     aliases: &[],
     params: &[req("目标")],
-    named_only: false,
-    effectful: false,
-};
-const MATH_PARSE: Builtin = Builtin {
-    name: "math.parse",
-    aliases: &[],
-    params: &[req("formula")],
-    named_only: false,
-    effectful: false,
-};
-const MATH_EVAL: Builtin = Builtin {
-    name: "math.eval",
-    aliases: &[],
-    params: &[req("formula"), req("bindings"), opt("target")],
-    named_only: false,
-    effectful: false,
-};
-const MATH_SUBSTITUTE: Builtin = Builtin {
-    name: "math.substitute",
-    aliases: &[],
-    params: &[req("formula"), req("bindings")],
-    named_only: false,
-    effectful: false,
-};
-const MATH_SIMPLIFY: Builtin = Builtin {
-    name: "math.simplify",
-    aliases: &[],
-    params: &[req("formula")],
-    named_only: false,
-    effectful: false,
-};
-const MATH_DIFFERENTIATE: Builtin = Builtin {
-    name: "math.differentiate",
-    aliases: &[],
-    params: &[req("formula"), req("变量")],
     named_only: false,
     effectful: false,
 };
@@ -331,11 +296,6 @@ pub const BUILTINS: &[Builtin] = &[
     FLOAT,
     TABLE,
     REF,
-    MATH_PARSE,
-    MATH_EVAL,
-    MATH_SUBSTITUTE,
-    MATH_SIMPLIFY,
-    MATH_DIFFERENTIATE,
     FOREIGN_RUN,
     FOREIGN_CALL,
     FS_READ,
@@ -427,7 +387,8 @@ mod tests {
     fn lookup_aliases() {
         assert_eq!(find("print").unwrap().name, "打印");
         assert_eq!(find("打印").unwrap().name, "打印");
-        assert!(!find("math.eval").unwrap().named_only);
+        assert!(find("table").is_some());
+        assert!(find("math.eval").is_none());
         assert!(find("nope").is_none());
     }
 
@@ -437,15 +398,11 @@ mod tests {
         let print = find("打印").unwrap();
         assert!(validate_args(print, &parse_arguments("(1)").unwrap()).is_ok());
         assert!(validate_args(print, &parse_arguments("()").unwrap()).is_err());
-        let eval = find("math.eval").unwrap();
-        assert!(validate_args(
-            eval,
-            &parse_arguments("(formula=ref(\"#x\"), bindings={}, target=\"A\")").unwrap()
-        )
-        .is_ok());
-        // math.eval accepts positional arguments followed by named ones.
-        assert!(validate_args(eval, &parse_arguments("(ref(\"#x\"), {})").unwrap()).is_ok());
-        assert!(validate_args(eval, &parse_arguments("(formula=1, nope=2)").unwrap()).is_err());
-        assert!(validate_args(eval, &parse_arguments("(1, 2, 3, 4)").unwrap()).is_err());
+        let table = find("table").unwrap();
+        assert!(validate_args(table, &parse_arguments("(表头=[1], 行=[])").unwrap()).is_ok());
+        // Builtins accept positional arguments followed by named ones.
+        assert!(validate_args(table, &parse_arguments("([1], [])").unwrap()).is_ok());
+        assert!(validate_args(table, &parse_arguments("(表头=[1], nope=[])").unwrap()).is_err());
+        assert!(validate_args(table, &parse_arguments("(1, 2, 3)").unwrap()).is_err());
     }
 }
