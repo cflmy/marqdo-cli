@@ -1,5 +1,8 @@
 import importlib.util
+import io
+import json
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 MODULE = Path(__file__).with_name("release_evidence.py")
@@ -18,70 +21,79 @@ def gate(name: str, state: str, sha: str = SHA, url: str = "https://example.test
 class ReleaseEvidenceTests(unittest.TestCase):
     def test_all_required_pass_is_candidate(self) -> None:
         manifest = release_evidence.build_manifest(
-            SHA,
-            [
-                gate("linux", "PASS"),
-                gate("windows", "PASS"),
-                gate("macos", "PASS"),
-                gate("strict_vm", "PASS"),
-                gate("performance", "WARN"),
-            ],
+            SHA, [gate(name, "PASS") for name in release_evidence.GATES]
         )
         self.assertEqual(manifest["release_decision"], "RELEASE_CANDIDATE")
         self.assertEqual(manifest["reasons"], [])
 
-    def test_missing_strict_vm_is_not_release(self) -> None:
-        manifest = release_evidence.build_manifest(
-            SHA,
-            [
-                gate("linux", "PASS"),
-                gate("windows", "PASS"),
-                gate("macos", "PASS"),
-                gate("performance", "PASS"),
-            ],
-        )
-        self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
-        self.assertTrue(any("strict_vm" in reason for reason in manifest["reasons"]))
+    def test_complete_linux_rc_is_candidate(self) -> None:
+        manifest = release_evidence.build_manifest(SHA, self.rc_gates(), profile="rc")
+        self.assertEqual(manifest["release_decision"], "RC_RELEASE_CANDIDATE")
+        self.assertEqual(manifest["reasons"], [])
 
-    def test_sha_mismatch_is_not_release(self) -> None:
-        manifest = release_evidence.build_manifest(
-            SHA,
-            [
-                gate("linux", "PASS"),
-                gate("windows", "PASS", OTHER),
-                gate("macos", "PASS"),
-                gate("strict_vm", "PASS"),
-                gate("performance", "PASS"),
-            ],
-        )
-        self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
-        self.assertTrue(any("windows" in reason for reason in manifest["reasons"]))
+    @staticmethod
+    def rc_gates() -> list[str]:
+        return [
+            gate(name, "UNSUPPORTED" if name in {"windows", "macos"} else "PASS")
+            for name in release_evidence.GATES
+        ]
 
-    def test_failure_is_not_release(self) -> None:
-        manifest = release_evidence.build_manifest(
-            SHA,
-            [
-                gate("linux", "FAIL"),
-                gate("windows", "PASS"),
-                gate("macos", "PASS"),
-                gate("strict_vm", "PASS"),
-                gate("performance", "PASS"),
-            ],
-        )
-        self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+    def test_rc_requires_same_sha_evidence_for_every_gate(self) -> None:
+        for original in self.rc_gates():
+            name, details = original.split("=", 1)
+            state = details.split(":", 1)[0]
+            for replacement, reason in [
+                ([], "missing gate"),
+                ([gate(name, state, OTHER)], "!= target_sha"),
+                ([gate(name, state, url="")], "missing evidence reference"),
+                ([gate(name, "FAIL")], "FAIL"),
+                ([gate(name, "UNVERIFIED")], "UNVERIFIED"),
+            ]:
+                with self.subTest(gate=name, reason=reason):
+                    inputs = [spec for spec in self.rc_gates() if spec != original]
+                    manifest = release_evidence.build_manifest(
+                        SHA, inputs + replacement, profile="rc"
+                    )
+                    self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+                    self.assertEqual(len(manifest["reasons"]), 1)
+                    self.assertIn(reason, manifest["reasons"][0])
 
-    def test_unverified_performance_is_not_release(self) -> None:
-        manifest = release_evidence.build_manifest(
-            SHA,
-            [
-                gate("linux", "PASS"),
-                gate("windows", "PASS"),
-                gate("macos", "PASS"),
-                gate("strict_vm", "PASS"),
-                gate("performance", "UNVERIFIED"),
-            ],
-        )
+    def test_rc_rejects_beta_exceptions_and_platform_scope_changes(self) -> None:
+        for name, state in [
+            ("strict_vm", "UNSUPPORTED"),
+            ("performance", "WARN"),
+            ("windows", "PASS"),
+            ("macos", "PASS"),
+        ]:
+            with self.subTest(gate=name, state=state):
+                inputs = [spec for spec in self.rc_gates() if not spec.startswith(f"{name}=")]
+                manifest = release_evidence.build_manifest(
+                    SHA, inputs + [gate(name, state)], profile="rc"
+                )
+                self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+                self.assertTrue(manifest["reasons"][0].startswith(f"{name}:"))
+
+    def test_stable_requires_extension_install_version_and_performance(self) -> None:
+        names = ("extension", "clean_install", "version_compat", "performance")
+        for name in names:
+            with self.subTest(gate=name):
+                inputs = [gate(key, "PASS") for key in release_evidence.GATES if key != name]
+                manifest = release_evidence.build_manifest(SHA, inputs)
+                self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+                self.assertEqual(manifest["reasons"], [f"{name}: missing gate"])
+        inputs = [gate(key, "WARN" if key == "performance" else "PASS") for key in release_evidence.GATES]
+        manifest = release_evidence.build_manifest(SHA, inputs)
         self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+        self.assertIn("performance: WARN", manifest["reasons"][0])
+
+    def test_require_release_returns_failure_and_preserves_manifest(self) -> None:
+        output = io.StringIO()
+        with redirect_stdout(output):
+            status = release_evidence.main(
+                ["--target-sha", SHA, "--profile", "rc", "--require-release"]
+            )
+        self.assertEqual(status, 1)
+        self.assertEqual(json.loads(output.getvalue())["release_decision"], "DO_NOT_RELEASE")
 
     def test_beta_profile_accepts_declared_linux_scope_with_warn_performance(self) -> None:
         manifest = release_evidence.build_manifest(
@@ -119,7 +131,7 @@ class ReleaseEvidenceTests(unittest.TestCase):
         )
         self.assertEqual(manifest["release_decision"], "BETA_RELEASE_CANDIDATE")
 
-    def test_beta_profile_requires_explicit_platform_and_extension_gates(self) -> None:
+    def test_beta_profile_requires_extension_but_retains_optional_platforms(self) -> None:
         manifest = release_evidence.build_manifest(
             SHA,
             [

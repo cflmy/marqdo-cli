@@ -5,16 +5,11 @@ Schema: `marqdo.release-gates.v1`. A missing, skipped, timed-out, failed or
 SHA-mismatched gate is never PASS. The tool only records supplied facts; it
 does not query CI and cannot turn an UNVERIFIED gate into a release.
 
-Two profiles exist and both are explicit in the output:
-
-* `stable` — every required platform gate must PASS on the target SHA.
-* `beta`   — the supported platform set is the one declared in
-  `COMPATIBILITY.md` (Linux x86_64 for `3.0.0-beta.1`). `windows`/`macos` must
-  be explicitly `UNSUPPORTED` (not silently omitted). `strict_vm` may be PASS
-  with same-SHA disposable-VM evidence, or `UNSUPPORTED` when the tested policy
-  is an explicit fail-closed refusal; `extension`, `clean_install` and
-  `version_compat` must PASS. `performance` may be `WARN` only in beta and is
-  recorded with its reason.
+The `rc` profile requires every gate on the target SHA. For a Linux-only RC,
+Windows and macOS must be explicitly UNSUPPORTED; the stable profile requires
+both to PASS. Strict VM, extension, clean install, version compatibility and
+performance all require PASS in both profiles. The historical beta profile
+retains its scoped exceptions, including a documented performance WARN.
 
 Gate spec: `name=STATE:tested_sha:run_url` (url may contain colons).
 
@@ -29,7 +24,7 @@ Usage:
         --gate windows=UNSUPPORTED:$SHA:supported-platforms-exclude \
         --gate macos=UNSUPPORTED:$SHA:supported-platforms-exclude \
         --gate performance=WARN:$SHA:docs/evidence/... \
-        --out/docs/evidence/ci/$SHA/manifest.json
+        --out docs/evidence/ci/$SHA/manifest.json
 """
 
 import argparse
@@ -40,22 +35,6 @@ import sys
 from pathlib import Path
 
 SCHEMA = "marqdo.release-gates.v1"
-PROFILES = {
-    "stable": {
-        "required": ("linux", "windows", "macos", "strict_vm"),
-        "optional": ("performance",),
-        "windows_macos_unsupported_allowed": False,
-        "strict_unsupported_allowed": False,
-        "decision": "RELEASE_CANDIDATE",
-    },
-    "beta": {
-        "required": ("linux", "strict_vm", "extension", "clean_install", "version_compat"),
-        "optional": ("windows", "macos", "performance"),
-        "windows_macos_unsupported_allowed": True,
-        "strict_unsupported_allowed": True,
-        "decision": "BETA_RELEASE_CANDIDATE",
-    },
-}
 GATES = (
     "linux",
     "windows",
@@ -66,6 +45,22 @@ GATES = (
     "version_compat",
     "performance",
 )
+RC_PLATFORM_STATES = {"windows": {"UNSUPPORTED"}, "macos": {"UNSUPPORTED"}}
+BETA_OPTIONAL = ("windows", "macos", "performance")
+PROFILES = {
+    "stable": ("RELEASE_CANDIDATE", {}, ()),
+    "rc": ("RC_RELEASE_CANDIDATE", RC_PLATFORM_STATES, ()),
+    "beta": (
+        "BETA_RELEASE_CANDIDATE",
+        {
+            "windows": {"PASS", "UNSUPPORTED"},
+            "macos": {"PASS", "UNSUPPORTED"},
+            "strict_vm": {"PASS", "UNSUPPORTED"},
+            "performance": {"PASS", "WARN"},
+        },
+        BETA_OPTIONAL,
+    ),
+}
 STATES = {
     "linux": {"PASS", "FAIL", "UNVERIFIED"},
     "windows": {"PASS", "FAIL", "UNVERIFIED", "UNSUPPORTED"},
@@ -109,7 +104,7 @@ def build_manifest(target_sha: str, gates: list[str], profile: str = "stable") -
     if not SHA_RE.fullmatch(target_sha):
         raise ValueError(f"target SHA must be 40 lowercase hex characters: {target_sha!r}")
     try:
-        rules = PROFILES[profile]
+        release_decision, accepted_states, optional = PROFILES[profile]
     except KeyError:
         raise ValueError(f"unknown profile {profile!r}; expected {sorted(PROFILES)}") from None
     parsed = {}
@@ -120,11 +115,11 @@ def build_manifest(target_sha: str, gates: list[str], profile: str = "stable") -
         parsed[name] = gate
 
     reasons = []
-    for name in rules["required"] + rules["optional"]:
+    for name in GATES:
         gate = parsed.get(name)
         if gate is None:
             parsed[name] = {"state": "UNVERIFIED", "tested_sha": "", "run_url": ""}
-            if name in rules["required"]:
+            if name not in optional:
                 reasons.append(f"{name}: missing gate")
             continue
         if gate["tested_sha"] != target_sha:
@@ -132,25 +127,15 @@ def build_manifest(target_sha: str, gates: list[str], profile: str = "stable") -
                 f"{name}: tested_sha {gate['tested_sha'] or '(missing)'} != target_sha {target_sha}"
             )
             continue
-        if gate["state"] == "FAIL":
-            reasons.append(f"{name}: FAIL")
-        elif gate["state"] == "UNVERIFIED":
-            reasons.append(f"{name}: UNVERIFIED")
-        elif gate["state"] == "UNSUPPORTED":
-            allowed = False
-            if name in {"windows", "macos"}:
-                allowed = rules["windows_macos_unsupported_allowed"]
-            elif name == "strict_vm":
-                allowed = rules["strict_unsupported_allowed"]
-            if not allowed:
-                reasons.append(f"{name}: UNSUPPORTED is not allowed in the {profile} profile")
-        elif name == "performance":
-            if gate["state"] not in {"PASS", "WARN"}:
-                reasons.append(f"{name}: {gate['state']} is not PASS/WARN")
-        elif gate["state"] != "PASS":
-            reasons.append(f"{name}: {gate['state']} is not PASS")
+        allowed = accepted_states.get(name, {"PASS"})
+        if gate["state"] not in allowed:
+            reasons.append(
+                f"{name}: {gate['state']} is not accepted; expected {' or '.join(sorted(allowed))}"
+            )
+        elif not gate["run_url"].strip():
+            reasons.append(f"{name}: missing evidence reference")
 
-    decision = rules["decision"] if not reasons else "DO_NOT_RELEASE"
+    decision = release_decision if not reasons else "DO_NOT_RELEASE"
     recorded = utc_now()
     return {
         "schema": SCHEMA,
@@ -175,6 +160,11 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--profile", choices=sorted(PROFILES), default="stable")
     parser.add_argument("--gate", action="append", default=[])
     parser.add_argument("--out", default="")
+    parser.add_argument(
+        "--require-release",
+        action="store_true",
+        help="exit 1 when the recorded decision blocks publication",
+    )
     args = parser.parse_args(argv)
     try:
         manifest = build_manifest(args.target_sha, args.gate, args.profile)
@@ -187,7 +177,7 @@ def main(argv: list[str]) -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text)
     sys.stdout.write(text)
-    return 0
+    return int(args.require_release and manifest["release_decision"] == "DO_NOT_RELEASE")
 
 
 if __name__ == "__main__":

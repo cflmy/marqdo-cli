@@ -4,12 +4,16 @@ This document is the release-candidate procedure. It does **not** grant
 permission to tag or publish: a tag requires the gates below to be green on the
 exact commit and an explicit maintainer sign-off recorded in the release notes.
 
-Two profiles are deliberately separate (see
+Three profiles apply (see
 [`MARQDO_3_0_PRERELEASE_PLAN.md`](MARQDO_3_0_PRERELEASE_PLAN.md) §3):
 
 * **beta** — a prerelease (`-beta.N`) on the platform(s) the project can really
   test and fix. Known non-security gaps are allowed only when explicitly
   recorded. `3.0.0-beta.1` claims **Linux x86_64 (glibc)** only.
+* **rc** — `-rc.N`. The current target is Linux x86_64 (glibc).
+  Record Windows and macOS as UNSUPPORTED for this scope. Require same-SHA
+  Linux CI, frozen extensions, clean install, version compatibility, strict
+  VM and fixed-node performance PASS.
 * **stable** — `3.0.0`/LTS. Not covered by beta exceptions; see
   [`STABLE_RELEASE_IMPLEMENTATION.md`](STABLE_RELEASE_IMPLEMENTATION.md)
   (historical roadmap input) and the public support matrix.
@@ -63,6 +67,24 @@ Windows/macOS native lanes, strict L2, uv/npm environment creation, registry,
 JIT and built-in Knowledge/Proof/View are **not** beta gates; they are listed as
 unsupported/experimental in
 [`developers/release-limits.md`](developers/release-limits.md).
+
+### Linux RC preconditions
+
+Use the frozen-SHA build and archive checks above. Additionally:
+
+- Strict L1 requires a same-SHA PASS on a disposable VM as a non-root user.
+  Record the strict evidence and verify the archived binary on that guest.
+- Measure the packaged CLI on a dedicated fixed node with 5 warmups and
+  20 samples or more for each of the nine workloads. Compare against a
+  correctness-verified baseline on the same node, CPU affinity, governor,
+  kernel and toolchain. Record investigation and resolution for any p50
+  increase of at least 15% or median peak RSS increase of at least 20%.
+  Shared-host or unapproved measurements do not satisfy the RC gate.
+- Version compatibility covers the locked Rust minimum, CLI and Analysis
+  product identity, Tool/project prerelease ranges, and beta migration.
+- Use Ubuntu 24.04 (glibc 2.39) for the independent archive-only runtime
+  check. Task/Channel, Resource Control and native macOS/Windows remain
+  outside this candidate's support scope.
 
 ## 2. Build and local gate
 
@@ -172,8 +194,11 @@ python3 tools/ci/release_evidence.py --profile beta --target-sha "$sha" \
 
 `BETA_RELEASE_CANDIDATE` is the only acceptable decision for a beta tag. A
 missing, skipped, failed or SHA-mismatched gate is `DO_NOT_RELEASE`; never
-hand-edit a manifest to PASS. Stable releases use the default `--profile
-stable` and additionally require Windows/macOS PASS and a strict PASS.
+hand-edit a manifest to PASS. For a Linux RC, replace the profile with `--profile rc --require-release`,
+declare both excluded platforms, and supply PASS for all six Linux and contract gates. Use the generated
+`RC_RELEASE_CANDIDATE` decision before running the tagging commands.
+Stable releases use `--profile stable --require-release` and require native
+Windows and macOS PASS in addition to the Linux and contract gates.
 
 ## 6. Tagging and publication (owner approval required)
 
@@ -189,10 +214,10 @@ git push origin "v${version}"
 Then create the Gitea release for the tag with `prerelease: true`, attach the
 tarball and its `.sha256`, and include the release notes. The notes must state:
 
-* beta / non-LTS status and the Linux x86_64-only support claim;
+* prerelease status, support lifetime and the Linux x86_64 platform scope;
 * the breaking RFC-LANG-0002 language change and no legacy path;
 * the strict policy (same-SHA evidence, or `strict: unsupported` fail-closed);
-* the G4 Beta-only WARN environment and limits when applicable;
+* the G4 result and its fixed-node comparison, or the documented exception for beta;
 * independently versioned protocols and stdlib/package versions;
 * the checksum-integrity-not-signature caveat and the known-limitations file;
 * the exact source SHA and links to the evidence manifest.
