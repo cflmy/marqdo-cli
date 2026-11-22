@@ -1,14 +1,14 @@
-# Marqdo 3.0.0-beta.1 — known limitations
+# Marqdo 3.0.0-rc.1 — known limitations
 
 This file ships in the release archive as `KNOWN_LIMITATIONS.md`. It is part of
-the release record: the beta support claim is exactly what is written here.
+the release record: it defines the platform and feature scope for the release candidate.
 Items marked **unsupported** must fail closed, not be silently emulated.
 
 ## Platform support
 
-| Platform | Beta status | Notes |
+| Platform | RC scope | Notes |
 |---|---|---|
-| Linux x86_64 (glibc) | **Supported release platform** | The archived `marqdo` and `marqdo-provider-worker` binaries target `x86_64-unknown-linux-gnu` and are the only binaries this release claims. |
+| Linux x86_64 (glibc 2.39 baseline) | **Supported release platform** | The archived `marqdo` and `marqdo-provider-worker` binaries target `x86_64-unknown-linux-gnu` and are the only binaries this release claims. |
 | Linux aarch64 | Not built | No release artifact; source may build. |
 | macOS (arm64/x86_64) | Experimental, not claimed | Core CLI may work, but no macOS provider worker, no native plugin ABI claim and no macOS release artifact. |
 | Windows x86_64 | Experimental, not claimed | Core CLI may compile/run; the plugin/provider C ABI and provider worker are not claimed. |
@@ -19,14 +19,13 @@ user and is not a security boundary against hostile code.
 
 ## `strict` isolation
 
-`strict` is Linux-only and probe-gated. The beta release claims it only when the
-same-SHA G3 evidence recorded in `docs/evidence/` is present; otherwise this file
-and the release notes must say **strict: unsupported** and the runtime must fail
-closed (no project code executes).
+`strict` is Linux-only and probe-gated. The RC release requires same-SHA
+G3 evidence from a non-root disposable VM. The CLI fails closed when the
+runtime probe is unavailable.
 
 Even when available:
 
-* strict L1 covers the pure language plus native Math;
+* strict L1 covers the interpreter, console and read-only bundled stdlib;
 * strict L2 (Worker/Foreign/Provider inside strict) is **unsupported** and every
   such flag is refused with exit 2;
 * rlimits are used for resource limits, not cgroup-v2 accounting;
@@ -58,18 +57,14 @@ Even when available:
 
 ## Compatibility and versioning
 
-* `3.0.0-beta.1` is a **prerelease**, not stable and not LTS. Breaking changes
-  inside the 3.0 beta series are allowed and announced in the changelog.
+* `3.0.0-rc.1` is a **prerelease**. The changelog lists changes from the beta.
 * The product version is independent of protocol versions: Analysis v2, Trace
   v2, Execution Events v1, Tool v1, Plugin ABI v1, Foreign wire v1, Provider
-  manifest v2 and lock v4 keep their own major numbers. Do not infer them from
-  `3.0.0-beta.1`. Execution Events v1 is a post-beta addition and is not in the
-  tagged beta archive.
+  manifest v2 and lock v4 keep their own major numbers.
 * The official bundled stdlib keeps its independent package version `0.1.0`.
   A plugin `.mq.md` package version such as `0.1.0` is also independent.
 * `project.marqdo` in `marqdo.yaml` is enforced in this release. SemVer
-  prerelease rules apply: `>=3.0.0,<4.0.0` does **not** accept a beta core;
-  beta users must declare a prerelease range such as
+  prerelease rules apply: `>=3.0.0,<4.0.0` does **not** accept a prerelease core. Packages and Tools can use a prerelease range such as
   `>=3.0.0-beta.1,<4.0.0`.
 * Old `cflmy/marqdo` source syntax, package format and plugin ABI v2 are not
   compatible. There is no `--legacy` or downgrade path; migration is a separate
@@ -82,7 +77,7 @@ Archives are accompanied by SHA256 checksums and `RELEASE_INFO.json`
 integrity only; they are **not** a publisher signature. A digest obtained from
 an untrusted Git URL does not make the code trustworthy.
 
-## Execution Events v1 (post-beta addition)
+## Execution Events v1
 
 * Implemented: live stdout/stderr chunks, lifecycle/terminal events, call
   instance ids, branch/loop/effect events, explicit bounded value observation.
@@ -92,7 +87,7 @@ an untrusted Git URL does not make the code trustworthy.
 * `--mode strict` currently rejects `--event-stream` explicitly; there is no
   silent fallback to `project`.
 * The live lane is tested on Linux x86_64; macOS/Windows are unverified for
-  this option like the rest of the beta CLI.
+  this option for this candidate.
 * In-process native plugins are rejected in event mode
   (`ext.event_stream_unsupported_native_plugin`) because they share the process
   and can write the protocol fd directly; worker plugins remain usable.
@@ -106,3 +101,10 @@ environment creation, a distributed package registry, JIT execution, built-in
 Knowledge/Proof/View commands, a mature async/concurrency model, and platform
 installers. The planned direction is external Tool repositories consuming the
 public protocols, not new core commands.
+
+## Beta migration
+
+The former core `math.*` calls fail static validation with `symbol.unknown`.
+Use a pure `.mq.md` library or an explicitly selected ABI backend. See
+[the math library migration](libraries.md).
+Task/Channel and Resource Control are outside this RC's protocol scope.

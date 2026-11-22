@@ -1,7 +1,6 @@
 # Marqdo Security Model (implemented status)
 
-Status: **describes the `3.0.0-beta.1` implementation, including honest gaps.** This is
-not a security audit; it documents what the code actually enforces.
+Status: describes enforcement in the `3.0.0-rc.1` candidate.
 
 Normative implementation:
 
@@ -14,7 +13,7 @@ Normative implementation:
 | Project-rooted filesystem | `crates/marqdo-host/src/fs.rs` |
 | Budgets | `crates/marqdo-host/src/budget.rs` |
 | Effect tracing | `crates/marqdo-host/src/trace.rs` |
-| Math/foreign adapters | `crates/marqdo-host/src/kernels.rs` |
+| Foreign adapter | `crates/marqdo-host/src/kernels.rs` |
 | Foreign child processes | `crates/marqdo-foreign/src/lib.rs` |
 | Plugin loading / in-process plugin calls | `crates/marqdo-host/src/host.rs` (`load_plugin`, `op_plugin_invoke`), `crates/marqdo-plugin-abi/src/loader.rs` |
 | CLI flags and capability construction | `crates/cli/src/main.rs`, `crates/cli/src/commands.rs` |
@@ -29,7 +28,7 @@ Normative implementation:
 |---|---|---|
 | `pure` | No external I/O; memory computation and budgets only. | **Enforced.** `Capabilities::pure()` = `console`, `math` only; every FS/foreign/plugin grant flag makes the CLI exit 2 with "pure mode prohibits external I/O grants". |
 | `project` | Operator-approved project resources under `CapabilityHost` + bounded resources. | **Enforced for the implemented operations.** Defaults equal `pure`; `--allow-read`, `--allow-write`, `--allow-net`, `--allow-env`, `--allow-process`, `--allow-random`, `--allow-foreign`, `--allow-plugin` add grants. `resource.open` supports stdin read, separate stdout/stderr write, granted project-file read/write (ADR-0025/0026/0040), granted in-process provider kinds (ADR-0033) and granted TCP/UDP/listener/TLS streams, including DNS names after an exact host grant (ADR-0034/0047/0048); process/device remain unsupported. Sandboxing is cooperative (in-process checks), not OS isolation; in-process providers are trusted, not sandboxed. |
-| `strict` | Untrusted documents under real OS isolation. | **Linux: enforced when the runtime probe passes (ADR-0021).** `resource.open` is **refused** in strict except for the existing `stdio/stdout` console channel (console grant); stdin/stderr, file/TCP/provider/process resources remain refused until a provider passes the isolation lane (CM-A11, ADR-0030/0034/0040). `PlatformCapabilities::detect()` runs a real Bubblewrap smoke test; success reports `Available { mechanism }`, failure reports `Unavailable { reason }`. Strict L1 supports the interpreter, console, native Math and the read-only bundled stdlib (published at `/run/marqdo-stdlib` for the Compat-C print chain); `--allow-read/--allow-write/--allow-net/--allow-env/--allow-process/--allow-random/--allow-foreign/--allow-plugin/--plugin/--trust-native-plugin/--kernel/--trace-file` are rejected with exit 2. macOS/Windows and Linux hosts without the mechanisms remain `Unavailable`; there is **no fallback** to an unrestricted process. |
+| `strict` | Untrusted documents under real OS isolation. | **Linux: enforced when the runtime probe passes (ADR-0021).** `resource.open` is **refused** in strict except for the existing `stdio/stdout` console channel (console grant); stdin/stderr, file/TCP/provider/process resources remain refused until a provider passes the isolation lane (CM-A11, ADR-0030/0034/0040). `PlatformCapabilities::detect()` runs a real Bubblewrap smoke test; success reports `Available { mechanism }`, failure reports `Unavailable { reason }`. Strict L1 supports the interpreter, console and the read-only bundled stdlib (published at `/run/marqdo-stdlib` for the Compat-C print chain); `--allow-read/--allow-write/--allow-net/--allow-env/--allow-process/--allow-random/--allow-foreign/--allow-plugin/--plugin/--trust-native-plugin/--kernel/--trace-file` are rejected with exit 2. macOS/Windows and Linux hosts without the mechanisms remain `Unavailable`; there is **no fallback** to an unrestricted process. |
 
 `marqdo inspect <file> --platform` prints the detection report, for example:
 
@@ -92,7 +91,7 @@ set for one run:
 | Field | Default (`pure`/`project`) | Used by |
 |---|---|---|
 | `console: bool` | `true` | `resource.open("stdio","stdin",["read"])`, `resource.open("stdio","stdout"/"stderr",["write"])` and the stdlib console chain; a missing grant is `permission.denied` and stdout/stderr are also bounded by the output budget |
-| `math: bool` | `true` | `math.*` host ops |
+| `math: bool` | `true` | Grant ceiling for the `math.compute` plugin capability, subject to package, policy and installed handler checks |
 | `fs_read: Vec<String>` | empty | `fs.read` and project `resource.open("file", path, ["read"])` |
 | `fs_write: Vec<String>` | empty | `fs.write` and project `resource.open("file", path, ["write"])` |
 | `net_hosts: Vec<String>` | empty | exact host/IP grants for `resource.open("tcp"|"udp"|"tcp-listener"|"tls", "host:port", ...)`; DNS is resolved only after the host grant; TLS still validates certificates; `--allow-net <HOST>` adds a grant (ADR-0034/0047/0048) |
@@ -171,7 +170,6 @@ before reading. Full symlink/race hardening is an open P4 item.
 * `resource.request("random.bytes")` → `capabilities.check_random` before
   `getrandom::fill`;
 * `fs.write` → `check_write` then `ProjectFs::write`;
-* math ops → `capabilities.math` (in `crates/marqdo-host/src/kernels.rs`);
 * foreign ops → `capabilities.check_foreign` (requires `foreign && process`);
 * plugin invoke → the **complete export name** must be registered, then
   `capabilities.check_plugin(package)` on **every call**; loading also checks

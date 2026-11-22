@@ -6,9 +6,9 @@ This page summarizes the public support policy. The authoritative matrix is
 
 ## Version axes (do not conflate)
 
-| Axis | `3.0.0-beta.1` value | Change rule |
+| Axis | `3.0.0-rc.1` value | Change rule |
 |---|---|---|
-| Product / CLI | `3.0.0-beta.1` | SemVer prerelease; breaking changes inside the 3.0 beta line are allowed and appear in `CHANGELOG.md`. |
+| Product / CLI | `3.0.0-rc.1` | SemVer prerelease. See `CHANGELOG.md` for changes from the beta. |
 | Analysis | v2 | New major for incompatible changes; consumers reject unknown majors. |
 | Trace | v2 | New major for incompatible changes; binds to exact Analysis bytes. |
 | Execution Events | v1 | One-line NDJSON stream; new major for incompatible required-field/ordering/redaction changes. Consumers reject unknown majors. |
@@ -22,14 +22,14 @@ This page summarizes the public support policy. The authoritative matrix is
 | Plugin/tool/example packages | their own | Independent SemVer. |
 
 `project.marqdo` and a tool's `compatibility.marqdo` are **enforced product
-ranges**. Beta cores require a prerelease range such as
-`>=3.0.0-beta.1,<4.0.0`; `>=3.0.0,<4.0.0` does not match a beta core.
+ranges**. Prerelease cores require a prerelease range such as
+`>=3.0.0-beta.1,<4.0.0`; `>=3.0.0,<4.0.0` does not match the RC.
 
-## Platform support (`3.0.0-beta.1`)
+## Candidate platform scope
 
 | Platform | Release status | Notes |
 |---|---|---|
-| Linux x86_64 (glibc) | **Supported** | Only release archive: CLI + provider worker, same target triple. |
+| Linux x86_64 (glibc 2.39 baseline) | **RC target** | Only release archive: CLI + provider worker, same target triple. |
 | Linux aarch64 | Not built | No artifact; source may build. |
 | macOS arm64/x86_64 | Experimental, not claimed | Core may run; no macOS provider worker, no plugin ABI claim, no archive. |
 | Windows x86_64 | Experimental, not claimed | Compile gate only; C ABI/plugin/provider/worker not claimed/fail-closed. |
@@ -42,7 +42,7 @@ grant, values are off by default, and `--mode strict` currently refuses
 
 ## Language compatibility
 
-`3.0.0-beta.1` implements RFC-LANG-0002 only. Pre-RFC `.mq.md` source
+`3.0.0-rc.1` implements RFC-LANG-0002 only. Pre-RFC `.mq.md` source
 (Strong-execute / Emph-return / ordered-list branch / bullet-list loop /
 block-quote call / first code-span signature) is **not executable**; there is no
 `--legacy`, syntax switch or downgrade path. Migration is a rewrite task
@@ -52,15 +52,8 @@ The earlier `cflmy/marqdo` product line is a different architecture; its source
 syntax, package format and plugin ABI v2 are not compatible and no hidden
 compatibility layer is provided.
 
-## Beta policy
+## RC policy
 
-- Beta may break behavior with a changelog note; protocols are versioned
-  separately and only change with a new major.
-- No LTS is announced. LTS is a later, evidence-based decision (see the
-  prerelease plan §3.2/§5), not a calendar promise.
-- Known non-security gaps are listed in [release-limits.md](release-limits.md)
-  and in the release notes; unsupported requests must fail closed.
-- G4 performance is a Beta-only `WARN` on the fixed Woodpecker agent for this
-  release; it is not a general performance guarantee.
-- Every archive is checksummed and records its source SHA and toolchain.
-  Checksums prove integrity only, not publisher identity.
+- See [release gates](../releasing.md) for the Linux RC acceptance procedure.
+- [Known limitations](release-limits.md) ship with the archive.
+- Every archive records its checksum, source SHA and toolchain.

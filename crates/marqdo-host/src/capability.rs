@@ -620,7 +620,7 @@ fn validate_handler_name(name: &str) -> Result<(), PluginError> {
 pub struct Capabilities {
     /// Write to program standard output (`打印`).
     pub console: bool,
-    /// Use the native math kernel.
+    /// Grant ceiling for the `math.compute` plugin capability.
     pub math: bool,
     /// Readable project-relative path patterns.
     pub fs_read: Vec<String>,

@@ -24,6 +24,14 @@ command, log or source path is a defect, not a state. Historical snapshots
 [`history/`](history/README.md) and [`evidence/`](evidence/) and must not be read
 as current status.
 
+## RC candidate
+
+The workspace reports `3.0.0-rc.1` and declares Rust 1.89 as its locked
+minimum. Linux x86_64 on glibc 2.39 is the candidate platform. The
+[release procedure](releasing.md) requires a green manifest bound to the
+candidate SHA before publication. The release record below refers to the
+published beta.
+
 ## 0. Beta release record — `3.0.0-beta.1`
 
 ### 0.1 Product, version axes and scope

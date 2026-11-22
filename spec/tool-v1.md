@@ -1,6 +1,6 @@
 # Marqdo CLI Tool Protocol v1 — 通用外部工具协议
 
-> 状态：**Implemented / frozen protocol v1**（产品 `3.0.0-beta.1`）。核心根命令同样优先；任何官方/第三方工具一视同仁；该协议**不是** C ABI 插件协议。安装、校验、分发与协议协商均已实现并由 `crates/cli/tests/tool_protocol.rs` 覆盖。
+> 状态：**Implemented / frozen protocol v1**（独立于产品版本）。核心根命令同样优先；任何官方/第三方工具一视同仁；该协议**不是** C ABI 插件协议。安装、校验、分发与协议协商均已实现并由 `crates/cli/tests/tool_protocol.rs` 覆盖。
 
 ## 1. 范围与不变量
 

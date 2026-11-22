@@ -20,7 +20,7 @@ marqdo-view/
   examples/
 ```
 
-`tool.json` for the `3.0.0-beta.1` product line:
+`tool.json` for the `3.0.0-rc.1` candidate:
 
 ```json
 {
