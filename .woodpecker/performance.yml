@@ -1,11 +1,5 @@
-# G4 fixed performance node.
-#
-# Manual only: this workflow never runs on push or pull_request and therefore
-# never executes untrusted PR code on the designated performance agent. The
-# repository currently has one Woodpecker agent (agent_id 1), so it is the
-# fixed node; the CPU affinity and hardware/toolchain manifest are recorded in
-# every report. Do not compare its timings with another machine or with
-# QEMU/TCG.
+# Manual performance comparison on the shared Woodpecker runner.
+# G4 release evidence is measured separately on the approved dedicated node.
 when:
   event: [manual]
   branch: [master]
@@ -15,18 +9,29 @@ steps:
     image: rust:1.100-bookworm
     commands:
       - apt-get update
-      - apt-get install -y --no-install-recommends python3 util-linux ca-certificates
+      - apt-get install -y --no-install-recommends python3 util-linux ca-certificates git build-essential
       - cargo build --release --locked -p marqdo-cli
       - |
         set -eu
+        baseline_sha=2c7c4f31e7a388d3fcfa717a77067e696ed13854
+        git fetch --no-tags origin refs/tags/v3.0.0-beta.1
+        test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "$baseline_sha"
+        perf_dir="$(mktemp -d)"
+        git worktree add --detach "$perf_dir/beta" "$baseline_sha"
+        trap 'git worktree remove --force "$perf_dir/beta"; rm -rf "$perf_dir"' EXIT
+        (cd "$perf_dir/beta" && cargo build --release --locked -p marqdo-cli)
+
         allowed="$(awk '/^Cpus_allowed_list:/ {print $2}' /proc/self/status)"
         cpu_list="${MARQDO_PERF_CPU_LIST:-$(printf '%s' "$allowed" | cut -d, -f1 | cut -d- -f1)}"
         echo "G4_NODE host=$(uname -n) kernel=$(uname -r) arch=$(uname -m) allowed_cpus=$allowed pin=$cpu_list"
         echo "G4_CPU $(awk -F: '/model name/ {print $2; exit}' /proc/cpuinfo | xargs)"
         echo "G4_GOVERNOR $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo unavailable)"
+        (cd "$perf_dir/beta" && python3 tools/perf/runner.py --no-build \
+          --warmups 5 --samples 20 --platform-id woodpecker-agent-1 \
+          --cpu-list "$cpu_list" --out "$perf_dir/beta.json" > /dev/null)
         python3 tools/perf/runner.py --no-build --warmups 5 --samples 20 \
-          --approved-node --platform-id woodpecker-agent-1 \
-          --cpu-list "$cpu_list" --out perf.json
+          --platform-id woodpecker-agent-1 --cpu-list "$cpu_list" \
+          --baseline "$perf_dir/beta.json" --out perf.json > /dev/null
         python3 - <<'PY'
         import json
 
@@ -47,6 +52,9 @@ steps:
                 f"rss={workload.get('max_rss_kb_median')}"
             )
         PY
+        echo "G4_BASELINE_REPORT_BEGIN"
+        cat "$perf_dir/beta.json"
+        echo "G4_BASELINE_REPORT_END"
         echo "G4_REPORT_BEGIN"
         cat perf.json
         echo "G4_REPORT_END"

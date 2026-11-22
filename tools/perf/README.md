@@ -13,9 +13,10 @@ workload whose wire output did not match the committed expected digest.
 * Release evidence needs at least 5 warmups and 20 samples per workload with
   `--approved-node` on a dedicated, stable performance node. Shorter runs are
   `SMOKE` and must not be cited as a release gate.
-* Do not compare timings across different `platform_id`s, CPU models, kernels,
-  toolchains or load conditions. `--baseline` refuses a different
-  `platform_id`/profile.
+* `--baseline` checks platform ID, build profile, CPU model, kernel,
+  governor, CPU affinity and toolchain. For an approved-node comparison
+  it also requires an approved, correctness-verified MEASURED baseline.
+  Record competing load and investigate differences before sign-off.
 * Avoid TCG/QEMU for final performance numbers; use native or KVM with fixed
   CPU affinity (`--cpu-list`) and an administrator-approved governor.
 * The suggested investigation thresholds are p50 +15% and peak RSS +20%; they
@@ -43,3 +44,14 @@ source. Running `--record-expected` rewrites them: inspect the diff and commit
 it only when the output change is the intended one.
 
 `bench.py` remains only as a compatibility shim.
+
+## RC comparison
+
+On the approved dedicated node, run the beta benchmark from a checkout
+pinned to `v3.0.0-beta.1` and the candidate benchmark from the frozen
+candidate checkout. Use the same toolchain, CPU list and platform ID in both
+commands. Pass the extracted, verified candidate CLI via `--no-build --binary`
+and add `--baseline /path/to/beta.json` to the candidate command. Keep both
+reports and confirm all nine comparisons are present and correctness-verified.
+The shared Woodpecker manual workflow runs the same comparison as a diagnostic
+and produces SMOKE reports.

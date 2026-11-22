@@ -339,6 +339,18 @@ def compare_baseline(report: dict, baseline: dict) -> list[dict]:
         )
     if baseline.get("binary", {}).get("profile") != report.get("binary", {}).get("profile"):
         raise SystemExit("baseline profile differs")
+    for field in ("kernel", "machine", "cpu_model", "governor", "cpu_list"):
+        if baseline["environment"].get(field) != report["environment"].get(field):
+            raise SystemExit(f"baseline environment.{field} differs")
+    for field in ("rustc", "cargo"):
+        if baseline["binary"].get(field) != report["binary"].get(field):
+            raise SystemExit(f"baseline binary.{field} differs")
+    if report["environment_approved"] and (
+        not baseline.get("environment_approved")
+        or baseline.get("status") != "MEASURED"
+        or baseline.get("correctness") != "VERIFIED"
+    ):
+        raise SystemExit("approved-node comparison requires an approved, verified MEASURED baseline")
     previous = {item["name"]: item for item in baseline.get("workloads", [])}
     comparisons = []
     for current in report["workloads"]:
@@ -415,6 +427,7 @@ def main(argv: list[str]) -> int:
     order_seed = hashlib.sha256(source_sha.encode()).hexdigest()[:16]
     order = list(workloads)
     random.Random(order_seed).shuffle(order)
+    start_load = loadavg()
     results = []
     for workload in order:
         result = run_workload(
@@ -461,7 +474,7 @@ def main(argv: list[str]) -> int:
             "machine": platform.machine(),
             "cpu_model": cpu_model(),
             "governor": governor(),
-            "loadavg_start": loadavg(),
+            "loadavg_start": start_load,
             "cpu_list": args.cpu_list or "unbound",
             "python": platform.python_version(),
         },
