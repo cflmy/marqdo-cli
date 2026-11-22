@@ -59,3 +59,9 @@ Files: `0001`–`0050`, plus:
 * `0063-foreign-kernel-transition-fa.md` — retain the permission-gated one-shot
   foreign primitive as F-A; F-B removal requires a versioned generic
   process/worker capability.
+* [0064](0064-stable-core-extension-boundary.md) — core surface review and
+  frozen external conformance;
+* [0065](0065-resource-control-vnext.md) — proposed manifest-driven stateful
+  operations and child resources;
+* [0066](0066-structured-tasks-v1.md) — proposed task isolation, bounded
+  communication and cancellation.

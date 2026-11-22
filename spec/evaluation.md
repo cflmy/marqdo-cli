@@ -208,8 +208,13 @@ resource.request(operation: Text, arguments: List) -> Result
 
 ### 3.4 Resource operations (ADR-0041)
 
-`resource.request(operation, arguments)` is the non-streaming control plane for
-operations that are not byte streams. This build registers only `fs.*`:
+`resource.request(operation, arguments)` is a closed compatibility catalogue
+of non-streaming operations. The [reviewed operation table](../docs/architecture/resource-operations.md)
+lists every operation. New domain operations live in explicit packages, Callable
+Plugins or Resource Providers. Add a core primitive only through the review
+recorded in [ADR-0064](../docs/adr/0064-stable-core-extension-boundary.md).
+
+File operations:
 
 ```text
 resource.request("fs.exists",   [path])        -> {ok:true, value:Bool}
