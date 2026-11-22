@@ -247,6 +247,15 @@ not a same-SHA CI pipeline or a tagged release; platform claim remains Linux x86
   of repeated container updates, resource I/O and Worker wire copies.
   The post-beta work does not qualify a new tag or stable release.
 
+Local Linux x86_64 evidence for implementation commit `3bc7267` passed
+formatting, Clippy with warnings denied, the workspace (587 passed, 2 ignored),
+the CLI suite (215 passed), and the CI tool tests (30 passed). The release archive
+passed its installation smoke test. The [frozen archive manifest](evidence/extension/3bc726790fdcee3694fc0b56adbcfd0c6c645275/manifest.json)
+records 7/7 conformance groups and 6/6 reference cases with both executable
+digests. The external lane ran from a temporary fixture checkout with Cargo
+absent from PATH. Archive SHA-256 is
+`8934bfc25c7b5526071eae6f24143ca3805ad3d7cc484626a4345b1deed430b2`.
+
 ## 1. Historical: pre-beta remote baseline and evidence
 
 > **Historical record.** Everything in §1 onward was executed before the
