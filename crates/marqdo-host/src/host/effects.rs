@@ -37,5 +37,8 @@ impl StdHost {
             started.elapsed(),
             summary.to_string(),
         );
+        // Executed regardless of Trace v2 being enabled: the two writers are
+        // independent observation outputs (RFC-OBS-0001 §4.6).
+        self.observe_effect(op, summary, ctx);
     }
 }

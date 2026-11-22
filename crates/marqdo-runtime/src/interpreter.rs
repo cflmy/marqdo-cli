@@ -3,7 +3,9 @@
 use std::collections::BTreeMap;
 
 use marqdo_expression::{BinaryOp, Expr, RecordEntry};
-use marqdo_host::{ExecutionContext, Host, HostOp, ResourceRead};
+use marqdo_host::{
+    ExecutionContext, FrameId, Host, HostOp, ParameterSource, ResourceRead, RuntimeObservation,
+};
 use marqdo_ir::{builtins, Function, FunctionId, ModuleId, PlaceTarget, Program, Stmt};
 use marqdo_span::Span;
 use marqdo_value::{ErrorCategory, ResourceHandle, RuntimeError, Value};
@@ -55,6 +57,14 @@ pub struct RunOutcome {
 struct Frame {
     function: FunctionId,
     locals: BTreeMap<String, Value>,
+    /// Run-unique call-instance identity; `None` when observation is off.
+    id: Option<FrameId>,
+}
+
+/// Locals plus where each parameter's value came from.
+struct BoundArgs {
+    locals: BTreeMap<String, Value>,
+    provenance: BTreeMap<String, (ParameterSource, Span)>,
 }
 
 /// Flow of one statement list.
@@ -69,6 +79,9 @@ pub struct Interpreter<'a> {
     host: &'a mut dyn Host,
     depth: usize,
     memory: MemoryStore,
+    /// Cached `Host::observation_enabled()`: the default path skips building
+    /// observation events entirely.
+    observe: bool,
 }
 
 /// Run a named function with already-evaluated arguments.
@@ -98,11 +111,13 @@ pub fn run_with_limits(
     args: Vec<EvaluatedArg>,
     limits: MemoryLimits,
 ) -> Result<RunOutcome, RuntimeError> {
+    let observe = host.observation_enabled();
     let mut interpreter = Interpreter {
         program,
         host,
         depth: 0,
         memory: MemoryStore::new(limits),
+        observe,
     };
     let value = interpreter.call_by_name(module, function, args, None)?;
     Ok(RunOutcome { value })
@@ -167,8 +182,8 @@ impl<'a> Interpreter<'a> {
             call_span,
             None,
         );
-        let locals = match self.bind_args(function, args, call_span) {
-            Ok(locals) => locals,
+        let bound = match self.bind_args(function, args, call_span) {
+            Ok(bound) => bound,
             Err(mut error) => {
                 if let Some(module) = caller_module {
                     error.attribute_module(module.canonical());
@@ -176,9 +191,38 @@ impl<'a> Interpreter<'a> {
                 return Err(error);
             }
         };
+        // A frame is announced only after argument binding succeeded, so a
+        // binding failure can never leave a dangling call frame.
+        let frame_id = if self.observe {
+            self.host
+                .observation_begin_frame(&trace_id, &trace_module, call_span)?
+        } else {
+            None
+        };
+        if let Some(frame_id) = frame_id {
+            let parameter_module = function.id.module.canonical();
+            for param in &function.params {
+                let Some((source, span)) = bound.provenance.get(&param.name).copied() else {
+                    continue;
+                };
+                let Some(value) = bound.locals.get(&param.name) else {
+                    continue;
+                };
+                self.host
+                    .observe_runtime(RuntimeObservation::ParameterBound {
+                        frame_id: Some(frame_id),
+                        name: &param.name,
+                        source,
+                        value,
+                        module_id: &parameter_module,
+                        span: Some(span),
+                    })?;
+            }
+        }
         let mut frame = Frame {
             function: function.id.clone(),
-            locals,
+            locals: bound.locals,
+            id: frame_id,
         };
         self.depth += 1;
         let result = self.exec_stmts(program, &function.body, &mut frame);
@@ -195,6 +239,12 @@ impl<'a> Interpreter<'a> {
             call_span,
             Some(status),
         );
+        let close = self
+            .host
+            .observation_end_frame(frame_id, status, &trace_module, call_span);
+        if result.is_ok() {
+            close?;
+        }
         match result {
             Ok(Flow::Next) => Ok(Value::Unit),
             Ok(Flow::Return(value)) => Ok(value),
@@ -215,7 +265,7 @@ impl<'a> Interpreter<'a> {
         function: &Function,
         args: Vec<EvaluatedArg>,
         call_span: Option<Span>,
-    ) -> Result<BTreeMap<String, Value>, RuntimeError> {
+    ) -> Result<BoundArgs, RuntimeError> {
         let mut provided: BTreeMap<String, Value> = BTreeMap::new();
         let mut positional = 0usize;
         for arg in args {
@@ -264,11 +314,10 @@ impl<'a> Interpreter<'a> {
             }
         }
         let mut locals = BTreeMap::new();
+        let mut provenance = BTreeMap::new();
         for param in &function.params {
-            match provided.remove(&param.name) {
-                Some(value) => {
-                    locals.insert(param.name.clone(), value);
-                }
+            let (value, source) = match provided.remove(&param.name) {
+                Some(value) => (value, ParameterSource::Provided),
                 None => {
                     if let Some(default) = &param.default {
                         // Defaults are compile-time constants; evaluate them in
@@ -276,9 +325,10 @@ impl<'a> Interpreter<'a> {
                         let mut empty = Frame {
                             function: function.id.clone(),
                             locals: BTreeMap::new(),
+                            id: None,
                         };
                         let value = self.eval_expr(default, &mut empty)?;
-                        locals.insert(param.name.clone(), value);
+                        (value, ParameterSource::Default)
                     } else {
                         return Err(RuntimeError::new(
                             ErrorCategory::Arity,
@@ -290,9 +340,11 @@ impl<'a> Interpreter<'a> {
                         ));
                     }
                 }
-            }
+            };
+            provenance.insert(param.name.clone(), (source, param.span));
+            locals.insert(param.name.clone(), value);
         }
-        Ok(locals)
+        Ok(BoundArgs { locals, provenance })
     }
 
     fn exec_stmts(
@@ -323,6 +375,20 @@ impl<'a> Interpreter<'a> {
                     PlaceTarget::Local { name, .. } => {
                         let value = self.eval_expr(value, frame)?;
                         frame.locals.insert(name.clone(), value);
+                        if self.observe {
+                            if let Some(committed) = frame.locals.get(name) {
+                                let module = frame.function.module.canonical();
+                                self.host.observe_runtime(
+                                    RuntimeObservation::VariableAssigned {
+                                        frame_id: frame.id,
+                                        name,
+                                        value: committed,
+                                        module_id: &module,
+                                        span: Some(stmt.span()),
+                                    },
+                                )?;
+                            }
+                        }
                     }
                     PlaceTarget::Index { base, index, span } => {
                         // Frozen order (ADR-0022): base, index, then RHS.
@@ -351,6 +417,14 @@ impl<'a> Interpreter<'a> {
                         Some(*span),
                         Some(value.type_name()),
                     );
+                    if self.observe {
+                        self.host.observe_runtime(RuntimeObservation::Return {
+                            frame_id: frame.id,
+                            value_type: value.type_name(),
+                            module_id: &module,
+                            span: Some(*span),
+                        })?;
+                    }
                     return Ok(Flow::Return(value));
                 }
                 Stmt::Branch { arms, .. } => {
@@ -374,6 +448,14 @@ impl<'a> Interpreter<'a> {
                             Some(arm.condition_span),
                             Some(if condition { "true" } else { "false" }),
                         );
+                        if self.observe {
+                            self.host.observe_runtime(RuntimeObservation::BranchEval {
+                                frame_id: frame.id,
+                                result: condition,
+                                module_id: &module,
+                                span: Some(arm.condition_span),
+                            })?;
+                        }
                         if condition {
                             match self.exec_stmts(program, &arm.body, frame)? {
                                 Flow::Next => break,
@@ -405,6 +487,15 @@ impl<'a> Interpreter<'a> {
                         Some(*condition_span),
                         Some(if value { "continue" } else { "exit" }),
                     );
+                    if self.observe {
+                        self.host
+                            .observe_runtime(RuntimeObservation::LoopIteration {
+                                frame_id: frame.id,
+                                decision: if value { "continue" } else { "exit" },
+                                module_id: &module,
+                                span: Some(*condition_span),
+                            })?;
+                    }
                     if !value {
                         break;
                     }

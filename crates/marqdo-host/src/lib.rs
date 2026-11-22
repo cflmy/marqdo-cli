@@ -11,6 +11,7 @@ pub mod fs;
 pub mod handles;
 pub mod host;
 pub mod kernels;
+pub mod observe;
 mod plugin_worker;
 mod process;
 mod provider_c;
@@ -28,5 +29,11 @@ pub use fs::ProjectFs;
 pub use handles::{contains_plugin_handle, PluginHandleTable};
 pub use host::{arity, expect_text, Host, HostOp, StdHost};
 pub use marqdo_sandbox::{PlatformCapabilities, SandboxMode, StrictIsolation};
+pub use observe::{
+    encode_value, estimate_event_bytes, FrameId, ObservationConfig, ObservationError,
+    ObservationEvent, ObservationSink, ObservedValue, ParameterSource, RuntimeObservation,
+    ValueState, DEFAULT_MAX_OBSERVATION_BYTES, DEFAULT_MAX_OBSERVATION_EVENTS,
+    DEFAULT_MAX_VALUE_BYTES, MAX_STREAM_CHUNK_BYTES,
+};
 pub use resource::{ResourceProvider, ResourceRead, ResourceTable, SharedResourceProvider};
 pub use trace::{EffectTrace, SemanticEvent, TraceBudget, TraceEntry, TraceState, TraceTruncation};

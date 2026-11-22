@@ -55,6 +55,11 @@ pub enum ErrorCategory {
     ForeignFailure,
     /// A host operation failed for an environmental reason.
     HostError,
+    /// The observation event transport failed (broken pipe/write error).
+    ///
+    /// This aborts the run rather than letting a program with side effects
+    /// continue after its event channel died (RFC-OBS-0001 §5.3).
+    Observation,
     /// Internal invariant violation.
     Internal,
 }
@@ -84,6 +89,7 @@ impl ErrorCategory {
             ErrorCategory::PluginFailure => "plugin.failure",
             ErrorCategory::ForeignFailure => "foreign.failure",
             ErrorCategory::HostError => "host.error",
+            ErrorCategory::Observation => "observe.transport_failed",
             ErrorCategory::Internal => codes::INTERNAL,
         }
     }

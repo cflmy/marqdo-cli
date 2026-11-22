@@ -22,6 +22,10 @@ use crate::capability::{Capabilities, CapabilityAudit, CapabilityBroker};
 use crate::context::ExecutionContext;
 use crate::fs::ProjectFs;
 use crate::handles::{contains_plugin_handle, PluginHandleTable};
+use crate::observe::{
+    encode_value, estimate_event_bytes, FrameId, ObservationConfig, ObservationError,
+    ObservationEvent, ObservationSink, ObservationState, RuntimeObservation,
+};
 use crate::plugin_worker::WorkerPlugin;
 use crate::provider_c::{load_package, CResourceProvider};
 use crate::provider_worker::WorkerResourceProvider;
@@ -209,6 +213,44 @@ pub trait Host {
     fn semantic_events(&self) -> &[SemanticEvent] {
         &[]
     }
+
+    /// Whether the host has an installed observation sink.
+    ///
+    /// The default host is inert; the interpreter uses this to skip building
+    /// any observation event when the run has no `--event-stream`.
+    fn observation_enabled(&self) -> bool {
+        false
+    }
+
+    /// Announce a successfully bound call frame.
+    ///
+    /// Returns the run-unique frame identity, or `None` when observation is
+    /// disabled. Argument binding must have completed before this is called;
+    /// a binding failure never produces a frame.
+    fn observation_begin_frame(
+        &mut self,
+        _function_id: &str,
+        _module_id: &str,
+        _span: Option<Span>,
+    ) -> Result<Option<FrameId>, RuntimeError> {
+        Ok(None)
+    }
+
+    /// Close a previously announced frame, including failure paths.
+    fn observation_end_frame(
+        &mut self,
+        _frame_id: Option<FrameId>,
+        _status: &str,
+        _module_id: &str,
+        _span: Option<Span>,
+    ) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
+    /// Emit one borrowed runtime observation event. Default: ignored.
+    fn observe_runtime(&mut self, _event: RuntimeObservation<'_>) -> Result<(), RuntimeError> {
+        Ok(())
+    }
 }
 
 /// Default capability host implementation.
@@ -254,6 +296,8 @@ pub struct StdHost {
     semantic_events: Vec<SemanticEvent>,
     next_event_seq: u64,
     trace_state: TraceState,
+    observation: Option<ObservationState>,
+    observation_error: Option<String>,
 }
 
 struct PluginSlot {
@@ -318,6 +362,8 @@ impl StdHost {
             semantic_events: Vec::new(),
             next_event_seq: 0,
             trace_state: TraceState::default(),
+            observation: None,
+            observation_error: None,
         }
     }
 
@@ -508,6 +554,95 @@ impl StdHost {
         self.trace = EffectTrace::enabled();
         self.trace_state.enabled = true;
         self
+    }
+
+    /// Install the typed observation sink and policy (RFC-OBS-0001).
+    ///
+    /// Without this call the host has no observation state: it does not
+    /// allocate events, clone values or serialize anything.
+    pub fn with_observation(
+        mut self,
+        config: ObservationConfig,
+        sink: Box<dyn ObservationSink>,
+    ) -> Self {
+        self.observation = Some(ObservationState::new(config, sink));
+        self
+    }
+
+    /// The installed observation policy, when event mode is active.
+    pub fn observation_config(&self) -> Option<&ObservationConfig> {
+        self.observation.as_ref().map(|state| &state.config)
+    }
+
+    /// A saved observation transport failure (if any).
+    ///
+    /// The interpreter surfaces this at the next budget boundary; the CLI also
+    /// checks it after the run so a successful return cannot mask a dead
+    /// event pipe.
+    pub fn observation_failure(&self) -> Option<&str> {
+        self.observation_error.as_deref()
+    }
+
+    fn emit_observation(
+        &mut self,
+        event: ObservationEvent<'_>,
+        critical: bool,
+    ) -> Result<(), RuntimeError> {
+        let Some(state) = self.observation.as_mut() else {
+            return Ok(());
+        };
+        let mut pending = Some(event);
+        if !critical {
+            if state.is_truncated() {
+                return Ok(());
+            }
+            let estimate = estimate_event_bytes(pending.as_ref().expect("event present"));
+            if !state.admit(estimate) {
+                let reason = state.truncation_reason(estimate);
+                let limit = state.limit_for(reason);
+                let written = state.written();
+                pending = Some(ObservationEvent::ObservationTruncated {
+                    reason,
+                    limit,
+                    written,
+                    dropped: None,
+                });
+            }
+        }
+        let result = match pending {
+            Some(event) => state.sink.emit(event),
+            None => Ok(()),
+        };
+        match result {
+            Ok(()) => Ok(()),
+            Err(error) => Err(self.record_observation_error(error)),
+        }
+    }
+
+    fn record_observation_error(&mut self, error: ObservationError) -> RuntimeError {
+        self.observation_error = Some(error.message.clone());
+        error.into_runtime_error()
+    }
+
+    pub(crate) fn observe_effect(
+        &mut self,
+        operation: &str,
+        result_code: &str,
+        ctx: &ExecutionContext,
+    ) {
+        let result = self.emit_observation(
+            ObservationEvent::Effect {
+                operation,
+                result_code,
+                module_id: &ctx.module_id,
+                span: ctx.span,
+            },
+            false,
+        );
+        // Effect recording is an existing infallible path. The failure is
+        // stored and surfaced by the next fuel/deadline boundary and by the
+        // CLI after the run; it is never silently forgotten.
+        let _ = result;
     }
 
     /// Override the budget.
@@ -702,6 +837,17 @@ impl Host for StdHost {
                 self.stderr.extend_from_slice(&bytes[..count]);
             } else {
                 self.output.extend_from_slice(&bytes[..count]);
+            }
+            // Real-time boundary: emit exactly the bytes the host just
+            // committed, at this write, never by splitting the final buffer.
+            let committed = &bytes[..count];
+            for chunk in committed.chunks(crate::observe::MAX_STREAM_CHUNK_BYTES) {
+                let event = if stdio == Some("stderr") {
+                    ObservationEvent::StderrChunk { data: chunk }
+                } else {
+                    ObservationEvent::StdoutChunk { data: chunk }
+                };
+                self.emit_observation(event, true)?;
             }
         }
         self.record_semantic(
@@ -1384,6 +1530,13 @@ impl Host for StdHost {
     }
 
     fn consume_fuel(&mut self, amount: u64, span: Option<Span>) -> Result<(), RuntimeError> {
+        if let Some(message) = &self.observation_error {
+            return Err(RuntimeError::new(
+                ErrorCategory::Observation,
+                span,
+                format!("observe.transport_failed: {message}"),
+            ));
+        }
         self.budget.consume_fuel(amount, span)
     }
 
@@ -1392,7 +1545,190 @@ impl Host for StdHost {
     }
 
     fn check_deadline(&self, span: Option<Span>) -> Result<(), RuntimeError> {
+        if let Some(message) = &self.observation_error {
+            return Err(RuntimeError::new(
+                ErrorCategory::Observation,
+                span,
+                format!("observe.transport_failed: {message}"),
+            ));
+        }
         self.budget.check_deadline(span)
+    }
+
+    fn observation_enabled(&self) -> bool {
+        self.observation.is_some()
+    }
+
+    fn observation_begin_frame(
+        &mut self,
+        function_id: &str,
+        module_id: &str,
+        span: Option<Span>,
+    ) -> Result<Option<FrameId>, RuntimeError> {
+        let Some(state) = self.observation.as_mut() else {
+            return Ok(None);
+        };
+        let frame_id = state.begin_frame();
+        let parent_frame_id = state.parent_frame();
+        state.push_frame(frame_id);
+        self.emit_observation(
+            ObservationEvent::CallEnter {
+                frame_id,
+                parent_frame_id,
+                function_id,
+                module_id,
+                span,
+            },
+            false,
+        )?;
+        Ok(Some(frame_id))
+    }
+
+    fn observation_end_frame(
+        &mut self,
+        frame_id: Option<FrameId>,
+        status: &str,
+        module_id: &str,
+        span: Option<Span>,
+    ) -> Result<(), RuntimeError> {
+        let Some(frame_id) = frame_id else {
+            return Ok(());
+        };
+        if let Some(state) = self.observation.as_mut() {
+            state.pop_frame(frame_id);
+        }
+        self.emit_observation(
+            ObservationEvent::CallExit {
+                frame_id,
+                status,
+                module_id,
+                span,
+            },
+            false,
+        )
+    }
+
+    fn observe_runtime(&mut self, event: RuntimeObservation<'_>) -> Result<(), RuntimeError> {
+        if self.observation.is_none() {
+            return Ok(());
+        }
+        match event {
+            RuntimeObservation::Return {
+                frame_id,
+                value_type,
+                module_id,
+                span,
+            } => {
+                let Some(frame_id) = frame_id else {
+                    return Ok(());
+                };
+                self.emit_observation(
+                    ObservationEvent::Return {
+                        frame_id,
+                        value_type,
+                        module_id,
+                        span,
+                    },
+                    false,
+                )
+            }
+            RuntimeObservation::BranchEval {
+                frame_id,
+                result,
+                module_id,
+                span,
+            } => {
+                let Some(frame_id) = frame_id else {
+                    return Ok(());
+                };
+                self.emit_observation(
+                    ObservationEvent::BranchEval {
+                        frame_id,
+                        result,
+                        module_id,
+                        span,
+                    },
+                    false,
+                )
+            }
+            RuntimeObservation::LoopIteration {
+                frame_id,
+                decision,
+                module_id,
+                span,
+            } => {
+                let Some(frame_id) = frame_id else {
+                    return Ok(());
+                };
+                self.emit_observation(
+                    ObservationEvent::LoopIteration {
+                        frame_id,
+                        decision,
+                        module_id,
+                        span,
+                    },
+                    false,
+                )
+            }
+            RuntimeObservation::VariableAssigned {
+                frame_id,
+                name,
+                value,
+                module_id,
+                span,
+            } => {
+                let Some(frame_id) = frame_id else {
+                    return Ok(());
+                };
+                let Some(config) = self.observation.as_ref().map(|state| &state.config) else {
+                    return Ok(());
+                };
+                let selected = config.selected_variables.contains(name);
+                let (value_state, observed) = encode_value(config, selected, value);
+                self.emit_observation(
+                    ObservationEvent::VariableAssigned {
+                        frame_id,
+                        name,
+                        value_type: value.type_name(),
+                        module_id,
+                        span,
+                        value_state,
+                        value: observed,
+                    },
+                    false,
+                )
+            }
+            RuntimeObservation::ParameterBound {
+                frame_id,
+                name,
+                source,
+                value,
+                module_id,
+                span,
+            } => {
+                let Some(frame_id) = frame_id else {
+                    return Ok(());
+                };
+                let Some(config) = self.observation.as_ref().map(|state| &state.config) else {
+                    return Ok(());
+                };
+                let selected = config.selected_parameters.contains(name);
+                let (value_state, observed) = encode_value(config, selected, value);
+                self.emit_observation(
+                    ObservationEvent::ParameterObserved {
+                        frame_id,
+                        name,
+                        source,
+                        value_type: value.type_name(),
+                        module_id,
+                        span,
+                        value_state,
+                        value: observed,
+                    },
+                    false,
+                )
+            }
+        }
     }
 
     fn take_output(&mut self) -> Vec<u8> {
