@@ -13,7 +13,8 @@ Three profiles apply (see
 * **rc** — `-rc.N`. The current target is Linux x86_64 (glibc).
   Record Windows and macOS as UNSUPPORTED for this scope. Require same-SHA
   Linux CI, frozen extensions, clean install, version compatibility, strict
-  VM and fixed-node performance PASS.
+  VM PASS. Performance requires fixed-node PASS or the specific shared-node
+  exception documented below.
 * **stable** — `3.0.0`/LTS. Not covered by beta exceptions; see
   [`STABLE_RELEASE_IMPLEMENTATION.md`](STABLE_RELEASE_IMPLEMENTATION.md)
   (historical roadmap input) and the public support matrix.
@@ -79,7 +80,12 @@ Use the frozen-SHA build and archive checks above. Additionally:
   correctness-verified baseline on the same node, CPU affinity, governor,
   kernel and toolchain. Record investigation and resolution for any p50
   increase of at least 15% or median peak RSS increase of at least 20%.
-  Shared-host or unapproved measurements do not satisfy the RC gate.
+  A dedicated node is the default. For a prerelease approved by the
+  maintainer to use a shared node, take at least three paired beta/RC runs
+  under the same measured conditions and keep all reports. Verify all nine
+  workloads and investigate threshold breaches or unstable samples before
+  accepting a `WARN`. Record the approval, runner environment and limits in
+  the release notes. This exception applies to the named RC only.
 - Version compatibility covers the locked Rust minimum, CLI and Analysis
   product identity, Tool/project prerelease ranges, and beta migration.
 - Use Ubuntu 24.04 (glibc 2.39) for the independent archive-only runtime
@@ -183,8 +189,11 @@ python3 tools/ci/release_evidence.py --profile beta --target-sha "$sha" \
 
 `BETA_RELEASE_CANDIDATE` is the only acceptable decision for a beta tag. A
 missing, skipped, failed or SHA-mismatched gate is `DO_NOT_RELEASE`; never
-hand-edit a manifest to PASS. For a Linux RC, replace the profile with `--profile rc --require-release`,
-declare both excluded platforms, and supply PASS for all six Linux and contract gates. Use the generated
+hand-edit a manifest to PASS. For a Linux RC, use
+`--profile rc --require-release` and declare both excluded platforms. If
+the shared-node exception applies, pass
+`--rc-shared-performance-approval <release-notes-reference>` and supply
+`performance=WARN:<candidate-sha>:<comparison-evidence>`. Use the generated
 `RC_RELEASE_CANDIDATE` decision before running the tagging commands.
 Stable releases use `--profile stable --require-release` and require native
 Windows and macOS PASS in addition to the Linux and contract gates.
@@ -206,7 +215,7 @@ tarball and its `.sha256`, and include the release notes. The notes must state:
 * prerelease status, support lifetime and the Linux x86_64 platform scope;
 * the breaking RFC-LANG-0002 language change and no legacy path;
 * the strict policy (same-SHA evidence, or `strict: unsupported` fail-closed);
-* the G4 result and its fixed-node comparison, or the documented exception for beta;
+* the G4 result and its comparison, including any approved shared-node exception;
 * independently versioned protocols and stdlib/package versions;
 * the checksum-integrity-not-signature caveat and the known-limitations file;
 * the exact source SHA and links to the evidence manifest.

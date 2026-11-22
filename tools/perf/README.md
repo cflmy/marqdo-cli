@@ -10,9 +10,11 @@ workload whose wire output did not match the committed expected digest.
   `Cargo.lock` digest, `rustc -vV`, source SHA and profile.
 * Correctness comes first: every warmup run is parsed and hashed. A mismatch
   is `CORRECTNESS_FAIL`; its faster wall time is never reported.
-* Release evidence needs at least 5 warmups and 20 samples per workload with
-  `--approved-node` on a dedicated, stable performance node. Shorter runs are
-  `SMOKE` and must not be cited as a release gate.
+* Approved-node release evidence needs at least 5 warmups and 20 samples per
+  workload on a dedicated, stable node. A maintainer-approved shared-node
+  RC comparison needs the same sample counts in at least three paired runs.
+  Shared-node reports stay `SMOKE` and are eligible only for the RC
+  `WARN` exception described in [releasing.md](../../docs/releasing.md).
 * `--baseline` checks platform ID, build profile, CPU model, kernel,
   governor, CPU affinity and toolchain. For an approved-node comparison
   it also requires an approved, correctness-verified MEASURED baseline.
@@ -47,11 +49,11 @@ it only when the output change is the intended one.
 
 ## RC comparison
 
-On the approved dedicated node, run the beta benchmark from a checkout
+On the designated node, run the beta benchmark from a checkout
 pinned to `v3.0.0-beta.1` and the candidate benchmark from the frozen
 candidate checkout. Use the same toolchain, CPU list and platform ID in both
 commands. Pass the extracted, verified candidate CLI via `--no-build --binary`
 and add `--baseline /path/to/beta.json` to the candidate command. Keep both
 reports and confirm all nine comparisons are present and correctness-verified.
-The shared Woodpecker manual workflow runs the same comparison as a diagnostic
-and produces SMOKE reports.
+The shared Woodpecker manual workflow can reproduce the comparison and
+produces SMOKE reports.

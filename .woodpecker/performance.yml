@@ -1,5 +1,5 @@
 # Manual performance comparison on the shared Woodpecker runner.
-# G4 release evidence is measured separately on the approved dedicated node.
+# Shared-node measurements may support an explicitly approved RC WARN.
 when:
   event: [manual]
   branch: [master]

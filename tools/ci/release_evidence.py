@@ -8,8 +8,9 @@ does not query CI and cannot turn an UNVERIFIED gate into a release.
 The `rc` profile requires every gate on the target SHA. For a Linux-only RC,
 Windows and macOS must be explicitly UNSUPPORTED; the stable profile requires
 both to PASS. Strict VM, extension, clean install, version compatibility and
-performance all require PASS in both profiles. The historical beta profile
-retains its scoped exceptions, including a documented performance WARN.
+performance require PASS. RC can record a shared-node performance WARN only
+with an explicit maintainer approval reference. The historical beta profile
+retains its own scoped exceptions.
 
 Gate spec: `name=STATE:tested_sha:run_url` (url may contain colons).
 
@@ -100,13 +101,23 @@ def parse_gate(text: str) -> tuple[str, dict]:
     return name, {"state": state, "tested_sha": tested_sha, "run_url": run_url}
 
 
-def build_manifest(target_sha: str, gates: list[str], profile: str = "stable") -> dict:
+def build_manifest(
+    target_sha: str,
+    gates: list[str],
+    profile: str = "stable",
+    rc_shared_performance_approval: str = "",
+) -> dict:
     if not SHA_RE.fullmatch(target_sha):
         raise ValueError(f"target SHA must be 40 lowercase hex characters: {target_sha!r}")
     try:
         release_decision, accepted_states, optional = PROFILES[profile]
     except KeyError:
         raise ValueError(f"unknown profile {profile!r}; expected {sorted(PROFILES)}") from None
+    approval = rc_shared_performance_approval.strip()
+    if approval and profile != "rc":
+        raise ValueError("shared-node approval is supported only by the rc profile")
+    if approval:
+        accepted_states = {**accepted_states, "performance": {"PASS", "WARN"}}
     parsed = {}
     for spec in gates:
         name, gate = parse_gate(spec)
@@ -137,6 +148,8 @@ def build_manifest(target_sha: str, gates: list[str], profile: str = "stable") -
 
     decision = release_decision if not reasons else "DO_NOT_RELEASE"
     recorded = utc_now()
+    if approval and parsed["performance"]["state"] == "WARN":
+        parsed["performance"]["rc_shared_node_approval"] = approval
     return {
         "schema": SCHEMA,
         "profile": profile,
@@ -161,13 +174,20 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--gate", action="append", default=[])
     parser.add_argument("--out", default="")
     parser.add_argument(
+        "--rc-shared-performance-approval",
+        default="",
+        help="maintainer approval reference for the measured shared-node RC performance WARN",
+    )
+    parser.add_argument(
         "--require-release",
         action="store_true",
         help="exit 1 when the recorded decision blocks publication",
     )
     args = parser.parse_args(argv)
     try:
-        manifest = build_manifest(args.target_sha, args.gate, args.profile)
+        manifest = build_manifest(
+            args.target_sha, args.gate, args.profile, args.rc_shared_performance_approval
+        )
     except ValueError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2

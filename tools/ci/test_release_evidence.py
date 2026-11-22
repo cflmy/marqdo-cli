@@ -73,6 +73,28 @@ class ReleaseEvidenceTests(unittest.TestCase):
                 self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
                 self.assertTrue(manifest["reasons"][0].startswith(f"{name}:"))
 
+    def test_rc_shared_performance_requires_explicit_approval_and_evidence(self) -> None:
+        approval = "release notes: maintainer approved the shared node for this RC"
+        inputs = [spec for spec in self.rc_gates() if not spec.startswith("performance=")]
+        inputs.append(gate("performance", "WARN"))
+        manifest = release_evidence.build_manifest(SHA, inputs, "rc", approval)
+        self.assertEqual(manifest["release_decision"], "RC_RELEASE_CANDIDATE")
+        self.assertEqual(manifest["gates"]["performance"]["rc_shared_node_approval"], approval)
+        manifest = release_evidence.build_manifest(
+            SHA, inputs[:-1] + [gate("performance", "WARN", OTHER)], "rc", approval
+        )
+        self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+        manifest = release_evidence.build_manifest(
+            SHA, inputs[:-1] + [gate("performance", "WARN", url="")], "rc", approval
+        )
+        self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+        manifest = release_evidence.build_manifest(
+            SHA, inputs[:-1] + [gate("performance", "FAIL")], "rc", approval
+        )
+        self.assertEqual(manifest["release_decision"], "DO_NOT_RELEASE")
+        with self.assertRaises(ValueError):
+            release_evidence.build_manifest(SHA, inputs, "stable", approval)
+
     def test_stable_requires_extension_install_version_and_performance(self) -> None:
         names = ("extension", "clean_install", "version_compat", "performance")
         for name in names:
