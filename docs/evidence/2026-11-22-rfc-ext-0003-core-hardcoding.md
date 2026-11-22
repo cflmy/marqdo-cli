@@ -88,17 +88,33 @@ python3 tools/release/package.py --source-sha <SHA> --version 3.0.0-beta.1
 python3 tools/release/smoke.py --archive dist/marqdo-3.0.0-beta.1-x86_64-unknown-linux-gnu.tar.gz
 ```
 
-`RELEASE_INFO.json` records: `source_sha=<SHA>`,
-`binaries.marqdo.sha256=<BIN_SHA>`,
-`binaries.marqdo-provider-worker.sha256=<WORKER_SHA>`,
-`stdlib.tree_digest=<TREE_DIGEST>`, `stdlib.aliases_digest=<ALIAS_DIGEST>`,
-`stdlib.file_count=<N>`; archive `.sha256=<ARCHIVE_SHA>`.
+`RELEASE_INFO.json` records:
 
-Smoke results: stdlib digests verified; `stdlib.hidden` negative fails closed;
-`examples/math-library-demo.mq.md main` → `6`;
-`examples/math-backend` → `42` with grant and `permission.denied` without;
-removed `math.eval` → `symbol.unknown`; all pre-existing archive checks PASS.
-Full stdout is appended in the follow-up evidence commit.
+```text
+source_sha                               a67f344b6b022ad2c4caefbc62258fa49e7af105
+binaries.marqdo.sha256                   e684ed266494ec15db9163aaecbc88e02b4dd5002bf340fbf1ad91ecfc197e18
+binaries.marqdo-provider-worker.sha256    7266db75f52e2954b29f8f018d957e1cae3110a239f98dfe1f34b73c90c96ba2
+stdlib.name / version                    marqdo-stdlib / 0.1.0
+stdlib.tree_digest                       sha256:5407d3665ba2fe105820d0f1af5efaafa10c277a69eb819c3225719813c8c713
+stdlib.aliases_digest                    sha256:5f513c0fdbb3c1e9829be3c9fa23a2d1e89cb8510073fb5eb1e8e2f5265a83bb
+stdlib.file_count                        42
+archive sha256                            f52ace5463b90c9ce32462239bfc20aec282968ee3007a9fd5099610df204d88
+```
+
+Smoke stdout (executed from the workspace tooling after the archive was built):
+
+```text
+smoke: verified stdlib 0.1.0 tree=sha256:5407d3665ba2fe105820d0f1af5efaafa10c277a69eb819c3225719813c8c713 aliases=sha256:5f513c0fdbb3c1e9829be3c9fa23a2d1e89cb8510073fb5eb1e8e2f5265a83bb files=42
+smoke: archive version 3.0.0-beta.1, source a67f344b6b022ad2c4caefbc62258fa49e7af105
+smoke: bundled stdlib missing -> fail-closed OK
+smoke: strict unsupported on this host; fail-closed refused
+smoke: PASS
+```
+
+The missing-stdlib negative intentionally moves `stdlib/` aside; the run exits 1
+with `打印 requires the bundled stdlib print module` and never falls back to the
+source tree. Math library call printed `6`, ABI backend printed `42` with the grant
+and `permission.denied` without it, and removed `math.eval` was `symbol.unknown`.
 
 ## 6. Independent runtime container (executed)
 
@@ -115,9 +131,24 @@ and runs:
 ./marqdo call examples/factorial.mq.md 阶乘 --arg n=5
 ```
 
-Result: **CONTAINER_RESULT** (exact output appended in the follow-up evidence
-commit). The binary's required GLIBC symbols are ≤ 2.39, so this is a real stdlib
-test, not a dynamic-linker artefact.
+Result: **PASS**. Output:
+
+```text
+marqdo 3.0.0-beta.1
+你好，Marqdo
+checked 2 module(s): ok
+6                       # examples/math-library-demo.mq.md main (pure package)
+120                     # examples/factorial.mq.md 阶乘 --arg n=5
+checked 1 module(s): ok  # examples/stdlib-bundle.mq.md (std:io)
+sha256:5407d3665ba2fe105820d0f1af5efaafa10c277a69eb819c3225719813c8c713  # project.stdlib.digest in Analysis
+no-build-dir
+```
+
+Warnings in that run were the pre-existing `sem.inferred_signature` warnings
+for examples without `params(...)`; they are not stdlib errors. The container has
+no Python, Cargo, C compiler, source checkout or `/build` directory and the archive
+binary (GLIBC symbols ≤ 2.39) ran on Ubuntu 24.04 / glibc 2.39, so this is a real
+archive-only stdlib test, not a dynamic-linker artefact.
 
 ## 7. External frozen-binary conformance (executed)
 

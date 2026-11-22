@@ -226,7 +226,7 @@ def main(argv: list[str]) -> int:
         hidden = install / "stdlib.hidden"
         (install / "stdlib").rename(hidden)
         try:
-            broken = runner.run(["run", "examples/hello.mq.md"])
+            broken = runner.run(["run", "examples/hello.mq.md"], expect=1)
             if broken.returncode == 0:
                 fail("run succeeded after deleting the bundled stdlib (forbidden fallback)")
             message = broken.stdout + broken.stderr
