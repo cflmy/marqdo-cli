@@ -65,6 +65,24 @@ class ValidateManifestTests(unittest.TestCase):
         problems = evidence.validate_manifest(manifest)
         self.assertTrue(any("commands" in item for item in problems), problems)
 
+    def test_reference_failure_is_rejected(self) -> None:
+        manifest = valid_manifest()
+        manifest["reference_applications"] = {"live SSE": "FAIL"}
+        self.assertTrue(evidence.validate_manifest(manifest))
+        manifest["reference_applications"] = {"live SSE": "PASS"}
+        self.assertEqual(evidence.validate_manifest(manifest), [])
+
+    def test_report_identity_must_match_binaries_and_fixture_commit(self) -> None:
+        report = {
+            "schema": "marqdo.ext-fixture-results",
+            "schema_version": 1,
+            "tool_sha": "a" * 40,
+            "cli_binary_sha256": "b" * 64,
+            "provider_worker_sha256": "c" * 64,
+        }
+        self.assertEqual(evidence.verify_report_identity(report, "a" * 40, "b" * 64, "c" * 64), [])
+        self.assertEqual(len(evidence.verify_report_identity(report, "f" * 40, "f" * 64, "f" * 64)), 3)
+
     def test_documented_schema_is_valid_json(self) -> None:
         schema_path = (
             evidence.REPO

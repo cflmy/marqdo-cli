@@ -30,6 +30,15 @@
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     },
+    "provider_worker_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "reference_applications": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "const": "PASS" }
+    },
     "fixture_repo_sha": {
       "type": "string",
       "pattern": "^[0-9a-f]{40}$"
