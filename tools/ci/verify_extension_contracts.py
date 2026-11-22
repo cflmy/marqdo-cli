@@ -97,6 +97,14 @@ def validate_manifest(manifest: dict) -> list[str]:
     cli = manifest.get("cli_binary_sha256", "")
     if not (isinstance(cli, str) and len(cli) == 64 and all(c in "0123456789abcdef" for c in cli)):
         problems.append("cli_binary_sha256 must be a 64-character lowercase sha256")
+    if "provider_worker_sha256" in manifest:
+        worker = manifest["provider_worker_sha256"]
+        if not (isinstance(worker, str) and len(worker) == 64 and all(c in "0123456789abcdef" for c in worker)):
+            problems.append("provider_worker_sha256 must be a 64-character lowercase sha256")
+    if "reference_applications" in manifest:
+        references = manifest["reference_applications"]
+        if not isinstance(references, dict) or not references or any(value != "PASS" for value in references.values()):
+            problems.append("reference_applications must be a non-empty object with all cases PASS")
     if manifest.get("os") not in {"linux", "macos", "windows"}:
         problems.append("os must be linux, macos or windows")
     results = manifest.get("results")
@@ -125,37 +133,52 @@ def validate_manifest(manifest: dict) -> list[str]:
 
 
 def run_suite(fixtures: Path, cli: Path) -> tuple[bool, dict, list[str]]:
-    """Run the external suite and return (ok, results, commands)."""
-    results: dict[str, str] = {}
-    commands: list[str] = []
+    """Run the external suite and return its fresh raw report."""
     env = dict(os.environ)
     env["MARQDO_BIN"] = str(cli)
     env["MARQDO_FROZEN_CLI"] = str(cli)
     runner = fixtures / "tests" / "run_all.py"
     if not runner.is_file():
-        return False, results, commands
-    commands.append(f"python3 {runner} (cwd={fixtures})")
+        return False, {}, []
+    commands = [f"python3 {runner} (cwd={fixtures})"]
+    results_path = fixtures / "evidence" / "results.json"
+    results_path.unlink(missing_ok=True)
     completed = subprocess.run(
         [sys.executable, str(runner)],
         cwd=fixtures,
         env=env,
         capture_output=True,
         text=True,
+        timeout=180,
     )
     print(completed.stdout, end="")
     print(completed.stderr, end="", file=sys.stderr)
-    results_path = fixtures / "evidence" / "results.json"
-    if results_path.is_file():
-        with results_path.open("r", encoding="utf-8") as handle:
-            payload = json.load(handle)
-        for key, value in (payload.get("results") or {}).items():
-            results[key] = str(value).upper()
-    return completed.returncode == 0, results, commands
+    payload = json.loads(results_path.read_text(encoding="utf-8")) if results_path.is_file() else {}
+    return completed.returncode == 0, payload, commands
+
+
+def verify_report_identity(
+    payload: dict, fixture_sha: str, cli_hash: str, worker_hash: str | None
+) -> list[str]:
+    problems = []
+    if payload.get("schema") != "marqdo.ext-fixture-results" or payload.get("schema_version") != 1:
+        problems.append("external suite did not produce a supported results report")
+    if payload.get("tool_sha") != fixture_sha:
+        problems.append("external report fixture SHA does not match the checked-out commit")
+    if payload.get("cli_binary_sha256") != cli_hash:
+        problems.append("external report CLI hash does not match the tested executable")
+    if "provider_worker_sha256" in payload and payload["provider_worker_sha256"] != worker_hash:
+        problems.append("external report provider worker hash does not match the tested executable")
+    return problems
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cli", type=Path, help="Absolute/relative frozen marqdo binary")
+    parser.add_argument(
+        "--release-info", type=Path,
+        help="Verify the installed archive's source and binary digests and require reference results",
+    )
     parser.add_argument("--fixtures", type=Path, help="External fixture repository root")
     parser.add_argument("--source-repo", type=Path, default=REPO, help="marqdo-cli checkout")
     parser.add_argument("--out", type=Path, help="Evidence manifest output path")
@@ -217,6 +240,8 @@ def main() -> int:
             )
             return 2
     cli_before = sha256_file(cli)
+    worker = cli.with_name("marqdo-provider-worker")
+    worker_before = sha256_file(worker) if worker.is_file() else None
     tested_sha = git_sha(source_repo)
     if args.tested_sha and args.tested_sha != tested_sha:
         print(
@@ -224,11 +249,36 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+    if args.release_info:
+        info = json.loads(args.release_info.read_text(encoding="utf-8"))
+        binaries = info.get("binaries", {})
+        if (
+            info.get("source_sha") != tested_sha
+            or binaries.get("marqdo", {}).get("sha256") != cli_before
+            or worker_before is None
+            or binaries.get(worker.name, {}).get("sha256") != worker_before
+        ):
+            print("error: installed archive source or binary digest mismatch", file=sys.stderr)
+            return 1
     fixture_sha = git_sha(fixtures)
-    ok, results, commands = run_suite(fixtures, cli)
-    cli_after = sha256_file(cli)
-    if cli_before != cli_after:
+    try:
+        ok, payload, commands = run_suite(fixtures, cli)
+    except (ValueError, subprocess.TimeoutExpired) as error:
+        print(f"error: invalid or incomplete external suite report: {error}", file=sys.stderr)
+        return 1
+    if not cli.is_file() or cli_before != sha256_file(cli):
         print("error: frozen CLI hash changed during the external suite", file=sys.stderr)
+        return 1
+    if (sha256_file(worker) if worker.is_file() else None) != worker_before:
+        print("error: frozen provider worker hash changed during the external suite", file=sys.stderr)
+        return 1
+    if git_sha(fixtures) != fixture_sha or git_sha(source_repo) != tested_sha:
+        print("error: a checkout changed during the external suite", file=sys.stderr)
+        return 1
+
+    results = payload.get("results", {})
+    if not isinstance(results, dict):
+        print("error: external suite results must be an object", file=sys.stderr)
         return 1
 
     failures = [name for name, value in results.items() if value == "FAIL"]
@@ -251,13 +301,24 @@ def main() -> int:
         "failures": failures,
         "unverified": unverified,
     }
+    if worker_before is not None:
+        manifest["provider_worker_sha256"] = worker_before
+    if "reference_applications" in payload:
+        manifest["reference_applications"] = payload["reference_applications"]
     problems = validate_manifest(manifest)
+    problems.extend(verify_report_identity(payload, fixture_sha, cli_before, worker_before))
+    if args.release_info:
+        if "reference_applications" not in payload:
+            problems.append("frozen archive gate requires reference application results")
+        if "provider_worker_sha256" not in payload:
+            problems.append("frozen archive gate requires the provider worker digest")
+    if missing:
+        problems.append(f"missing external results: {', '.join(missing)}")
     if unverified and not args.allow_unverified:
         problems.append(
             "UNSUPPORTED/SKIPPED results require --allow-unverified and an explicit report entry"
         )
-    if not ok and not failures:
-        failures.append("external suite exited non-zero without structured results")
+    if not ok:
         problems.append("external suite failed")
     if problems:
         for problem in problems:

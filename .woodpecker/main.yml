@@ -36,6 +36,8 @@ steps:
     image: rust:1.100-bookworm
     depends_on: [test]
     commands:
+      - apt-get update
+      - apt-get install -y --no-install-recommends ca-certificates git openssl python3 build-essential
       # Release archives must ship both binaries: the provider worker is the
       # only supported transport and resolution is a sibling-of-CLI lookup.
       - cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
@@ -48,3 +50,5 @@ steps:
           | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"]=="marqdo-cli"))')"
         python3 tools/release/package.py --source-sha "$CI_COMMIT_SHA" --version "$version"
         python3 tools/release/smoke.py --archive dist/marqdo-*.tar.gz
+        tools/ci/run_frozen_extensions.sh dist/marqdo-*.tar.gz "$CI_COMMIT_SHA" dist/frozen-extension-evidence.json
+        cat dist/frozen-extension-evidence.json

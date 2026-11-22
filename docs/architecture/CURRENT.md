@@ -47,6 +47,14 @@ replace `spec/` or a recorded test log.
 > [`../STATUS.md`](../STATUS.md) §0.6 and
 > [`../evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md`](../evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md).
 
+> **Stable core review (RFC-GPL-0004).** [ADR-0064](../adr/0064-stable-core-extension-boundary.md)
+> sets the review rule for builtins, HostOp, Value and top-level commands.
+> Linux CI builds a release archive and exercises its installed executables
+> against a fixed commit in the external conformance repository. The
+> [Resource Control](../adr/0065-resource-control-vnext.md) and
+> [Task v1](../adr/0066-structured-tasks-v1.md) designs are Proposed.
+> See [STATUS §0.7](../STATUS.md#07-post-beta-stable-core-review--rfc-gpl-0004-unreleased).
+
 ## 1. Four state dimensions
 
 A claim is stated in exactly one of these dimensions. "Exists in the tree" is not

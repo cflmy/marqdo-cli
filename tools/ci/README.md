@@ -35,3 +35,14 @@ A missing gate becomes `UNVERIFIED`. Any non-PASS required gate, a
 SHA forces `DO_NOT_RELEASE`. `performance` may be `PASS` or `WARN`.
 
 Unit tests: `python3 -m unittest discover -s tools/ci -p 'test_*.py'`.
+
+
+## Frozen external extension lane
+
+`run_frozen_extensions.sh ARCHIVE SOURCE_SHA OUTPUT_MANIFEST` fetches the
+fixture revision pinned in the script and checks it out detached in a
+temporary directory. It extracts the Linux archive there and uses the
+release metadata to verify the source SHA and both executable digests.
+The external fixture runs against that installation and the verifier checks
+fresh results, all seven extension groups and the reference application cases.
+GitHub CI uploads the manifest. Woodpecker prints it in the build step.

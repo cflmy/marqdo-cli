@@ -183,9 +183,33 @@ jobs:
           assert document["code"] == "strict.probe_unavailable", document
           PY
 
+  frozen-extensions:
+    name: frozen Linux archive and external extensions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build and check the frozen archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
+          version="$(cargo metadata --no-deps --format-version 1 --offline \
+            | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"]=="marqdo-cli"))')"
+          python3 tools/release/package.py --source-sha "$GITHUB_SHA" --version "$version"
+          tools/ci/run_frozen_extensions.sh dist/marqdo-*.tar.gz "$GITHUB_SHA" dist/frozen-extension-evidence.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frozen-extension-evidence-${{ github.sha }}
+          path: dist/frozen-extension-evidence.json
+          if-no-files-found: error
+
   release-evidence:
     name: release evidence manifest
-    needs: [test, schema, cross-platform]
+    needs: [test, schema, cross-platform, frozen-extensions]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -197,6 +221,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           LINUX_RESULT: ${{ needs.test.result }}
           SCHEMA_RESULT: ${{ needs.schema.result }}
+          EXTENSIONS_RESULT: ${{ needs.frozen-extensions.result }}
           PORTABLE_RESULT: ${{ needs.cross-platform.result }}
         run: |
           set -euo pipefail
@@ -209,7 +234,7 @@ jobs:
           }
           linux="$(state "$LINUX_RESULT")"
           portable="$(state "$PORTABLE_RESULT")"
-          if [ "$(state "$SCHEMA_RESULT")" != "PASS" ]; then
+          if [ "$(state "$SCHEMA_RESULT")" != "PASS" ] || [ "$(state "$EXTENSIONS_RESULT")" != "PASS" ]; then
             linux="FAIL"
           fi
           python3 tools/ci/release_evidence.py             --target-sha "$TARGET_SHA"             --out "docs/evidence/ci/$TARGET_SHA/manifest.json"             --gate "linux=$linux:$TARGET_SHA:$RUN_URL"             --gate "windows=$portable:$TARGET_SHA:$RUN_URL"             --gate "macos=$portable:$TARGET_SHA:$RUN_URL"             --gate "strict_vm=UNVERIFIED::${{ github.server_url }}/${{ github.repository }}/actions/workflows/security-linux.yml"             --gate "performance=UNVERIFIED::"
@@ -235,7 +260,7 @@ jobs:
 
   release-candidate:
     name: release candidate artifact (${{ matrix.os }})
-    needs: [test, schema, cross-platform]
+    needs: [test, schema, cross-platform, frozen-extensions]
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
