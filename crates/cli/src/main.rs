@@ -569,3 +569,35 @@ fn dispatch() -> i32 {
         }
     }
 }
+
+#[cfg(test)]
+#[test]
+fn top_level_commands_are_reviewed() {
+    use clap::CommandFactory;
+
+    let cli = Cli::command();
+    let mut names: Vec<_> = cli
+        .get_subcommands()
+        .map(|command| command.get_name())
+        .collect();
+    names.sort_unstable();
+    assert_eq!(
+        names,
+        [
+            "__plugin-worker",
+            "add",
+            "call",
+            "check",
+            "fmt",
+            "init",
+            "inspect",
+            "lock",
+            "plugin",
+            "remove",
+            "run",
+            "sync",
+            "tool"
+        ],
+        "review changes under ADR-0064"
+    );
+}

@@ -314,25 +314,89 @@ fn callable_binding_is_the_only_static_resolution_path() {
     );
 }
 
-/// RFC-EXT-0001 §14.2/S4: no business-domain builtin or host-op branch may be
-/// added for an ecosystem feature. These must be implemented as `.mq.md`,
-/// plugin exports or provider streams.
+/// ADR-0064 freezes the core catalogue until a new language primitive is reviewed.
 #[test]
-fn no_business_domain_builtins_or_host_ops() {
-    let root = repo_root();
-    let builtins = read(&root.join("crates/marqdo-ir/src/builtins.rs"));
-    let host = read(&root.join("crates/marqdo-host/src/host.rs"));
-    for forbidden in ["quantum.", "ai.chat", "vendor.", "demo.sensor", "marqdo."] {
-        assert!(
-            !builtins.contains(forbidden),
-            "business builtin namespace `{forbidden}` must not exist"
-        );
-    }
-    assert!(
-        !host.contains("\"demo.sensor\""),
-        "provider kinds must be data, not host-op string branches"
+fn builtin_names_and_aliases_are_reviewed() {
+    let builtins = marqdo_ir::builtins::BUILTINS;
+    let mut names: Vec<_> = builtins
+        .iter()
+        .flat_map(|builtin| std::iter::once(builtin.name).chain(builtin.aliases.iter().copied()))
+        .collect();
+    names.sort_unstable();
+    assert_eq!(
+        names,
+        [
+            "float",
+            "foreign.call",
+            "foreign.run",
+            "fs.read",
+            "fs.write",
+            "int",
+            "len",
+            "list.append",
+            "list.concat",
+            "map.get",
+            "map.has",
+            "map.keys",
+            "map.remove",
+            "map.set",
+            "memory.grow",
+            "memory.new",
+            "memory.size",
+            "print",
+            "ref",
+            "resource.accept",
+            "resource.close",
+            "resource.open",
+            "resource.read",
+            "resource.request",
+            "resource.write",
+            "str",
+            "table",
+            "table.cell",
+            "table.columns",
+            "table.row",
+            "text.codepoints",
+            "text.from_codepoint",
+            "type",
+            "小数",
+            "打印",
+            "整数",
+            "文本",
+            "类型",
+            "表",
+            "长度",
+        ],
+        "review changes under ADR-0064"
     );
 }
+
+// Exhaustive matches make a new HostOp or Value variant require review under ADR-0064.
+const _: fn(marqdo_host::HostOp) = |operation| match operation {
+    marqdo_host::HostOp::ForeignRun
+    | marqdo_host::HostOp::ForeignCall
+    | marqdo_host::HostOp::FsRead
+    | marqdo_host::HostOp::FsWrite
+    | marqdo_host::HostOp::PluginInvoke => (),
+};
+
+const _: fn(marqdo_value::Value) = |value| match value {
+    marqdo_value::Value::Unit
+    | marqdo_value::Value::None
+    | marqdo_value::Value::Bool(_)
+    | marqdo_value::Value::Int(_)
+    | marqdo_value::Value::Float(_)
+    | marqdo_value::Value::Text(_)
+    | marqdo_value::Value::List(_)
+    | marqdo_value::Value::Map(_)
+    | marqdo_value::Value::Table(_)
+    | marqdo_value::Value::Formula(_)
+    | marqdo_value::Value::Code(_)
+    | marqdo_value::Value::FunctionRef(_)
+    | marqdo_value::Value::PluginHandle(_)
+    | marqdo_value::Value::Memory(_)
+    | marqdo_value::Value::Resource(_) => (),
+};
 
 /// RFC-EXT-0001 §8: official stdlib public aliases are verified metadata, not
 /// hard-coded runtime names. Recompute the canonical metadata digest.
@@ -386,110 +450,46 @@ fn official_stdlib_public_aliases_are_verified_metadata() {
     }
 }
 
-/// Reviewed ownership of every `Host::resource_request` operation
-/// (`docs/architecture/resource-operations.md`, ADR-0062).
-///
-/// The gate extracts the literal operation names dispatched inside
-/// `resource_request` and compares them with this reviewed allowlist. Adding a new
-/// domain operation requires updating the architecture doc, the ADR and this list —
-/// a bare source change cannot silently widen the core/resource boundary.
+/// The outer match in the compatibility dispatcher is the operation catalogue.
 #[test]
 fn resource_request_operation_allowlist_is_reviewed() {
-    use std::collections::BTreeSet;
-
-    const DOMAIN_OPERATIONS: &[&str] = &[
-        "process.run",
-        "regex.match",
-        "regex.captures",
-        "compress.gzip",
-        "compress.gunzip",
-        "random.bytes",
-        "env.get",
-        "clock.now",
-    ];
-    const FS_OPERATIONS: &[&str] = &[
-        "read_at", "append", "walk", "exists", "metadata", "list", "mkdir", "remove", "rename",
-    ];
-
-    let source = read(&repo_root().join("crates/marqdo-host/src/host.rs"));
-    let impl_start = source
-        .find("impl Host for StdHost {")
-        .expect("StdHost must implement Host");
-    let start = source[impl_start..]
-        .find("    fn resource_request(")
-        .expect("StdHost::resource_request must exist")
-        + impl_start;
-    let rest = &source[start + 1..];
-    let end = rest
-        .find("\n    fn consume_fuel(")
-        .expect("resource_request must end before consume_fuel");
-    let body = &rest[..end];
-
-    let mut domain = BTreeSet::new();
-    for line in body.lines() {
-        let mut cursor = line;
-        while let Some(index) = cursor.find("operation == \"") {
-            let text = &cursor[index + "operation == \"".len()..];
-            let name = text.split('"').next().expect("operation literal");
-            domain.insert(name.to_string());
-            cursor = &text[name.len()..];
-        }
-    }
-    let expected_domain: BTreeSet<String> = DOMAIN_OPERATIONS
-        .iter()
-        .map(|name| (*name).to_string())
+    let source = read(&repo_root().join("crates/marqdo-host/src/host/resource_requests.rs"));
+    let dispatch = source
+        .split_once("        match operation {\n")
+        .expect("closed operation dispatch")
+        .1
+        .split_once("\n            _ =>")
+        .expect("unknown operations must reach a rejection arm")
+        .0;
+    let mut names: Vec<_> = dispatch
+        .lines()
+        .filter_map(|line| line.strip_prefix("            "))
+        .filter(|line| line.starts_with('"') || line.starts_with('|'))
+        .flat_map(|line| line.split('"').skip(1).step_by(2))
         .collect();
+    names.sort_unstable();
     assert_eq!(
-        domain, expected_domain,
-        "new/changed resource_request domain operation; update docs/architecture/resource-operations.md, ADR-0062 and this allowlist"
-    );
-
-    assert!(
-        body.contains("strip_prefix(\"fs.\")"),
-        "the fs.* operation group must stay the only unprefixed dispatch path"
-    );
-    let mut fs = BTreeSet::new();
-    for line in body.lines() {
-        let mut cursor = line;
-        while let Some(index) = cursor.find("name == \"") {
-            let text = &cursor[index + "name == \"".len()..];
-            let name = text.split('"').next().expect("fs operation literal");
-            fs.insert(name.to_string());
-            cursor = &text[name.len()..];
-        }
-    }
-    // The remaining fs operations are grouped in the arity match block.
-    let arity_start = body
-        .find("let expected = match name {")
-        .expect("fs arity match block");
-    let arity_end = body[arity_start..]
-        .find("        };")
-        .expect("fs arity match block end");
-    for line in body[arity_start..arity_start + arity_end].lines() {
-        let Some(arrow) = line.find("=>") else {
-            continue;
-        };
-        let mut in_quote = false;
-        let mut name = String::new();
-        for ch in line[..arrow].chars() {
-            if ch == '"' {
-                if in_quote && !name.is_empty() {
-                    fs.insert(name.clone());
-                }
-                name.clear();
-                in_quote = !in_quote;
-            } else if in_quote {
-                name.push(ch);
-            }
-        }
-    }
-    let expected_fs: BTreeSet<String> = FS_OPERATIONS
-        .iter()
-        .map(|name| (*name).to_string())
-        .collect();
-    assert_eq!(
-        fs, expected_fs,
-        "new/changed fs.* resource operation; update docs/architecture/resource-operations.md, ADR-0062 and this allowlist"
+        names,
+        [
+            "clock.now",
+            "compress.gunzip",
+            "compress.gzip",
+            "env.get",
+            "fs.append",
+            "fs.exists",
+            "fs.list",
+            "fs.metadata",
+            "fs.mkdir",
+            "fs.read_at",
+            "fs.remove",
+            "fs.rename",
+            "fs.walk",
+            "process.run",
+            "random.bytes",
+            "regex.captures",
+            "regex.match",
+        ],
+        "review changes under ADR-0062 and ADR-0064"
     );
 }
 

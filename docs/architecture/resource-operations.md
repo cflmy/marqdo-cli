@@ -14,8 +14,9 @@ extracts the literals from the host source and fails on any unreviewed change.
 - `Memory`/resource handles never cross this API; path arguments are `Text`.
 - Operation-level grants are checked before any host action (`check_process`,
   `check_read`, `check_write`, `check_entropy`, `check_env`, network grants).
-- The `fs.*` family is the only prefix-dispatched group; its sub-operations are
-  listed explicitly below.
+- The compatibility dispatcher matches exact names in
+  `crates/marqdo-host/src/host/resource_requests.rs`. The `fs.` prefix only
+  distinguishes unknown-operation diagnostics.
 
 ## Reviewed operation table
 
