@@ -133,12 +133,7 @@ fn unknown_tool_name_installs_and_dispatches() {
 
 #[test]
 fn public_schemas_are_valid_json_and_versioned() {
-    for name in [
-        "analysis-v1",
-        "trace-v1",
-        "tool-v1",
-        "execution-events-v1",
-    ] {
+    for name in ["analysis-v1", "trace-v1", "tool-v1", "execution-events-v1"] {
         let path = repo()
             .join("spec/schemas")
             .join(format!("{name}.schema.json"));

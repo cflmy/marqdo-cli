@@ -7,6 +7,7 @@
 mod analysis;
 mod args;
 mod commands;
+mod execution_events;
 mod extension_descriptors;
 mod extension_selection;
 mod loader;
@@ -32,6 +33,83 @@ use clap::{Args, Parser, Subcommand};
 struct Cli {
     #[command(subcommand)]
     command: Command,
+}
+
+/// Execution Events v1 options (RFC-OBS-0001).
+///
+/// `--event-stream jsonl` makes the CLI stdout a dedicated NDJSON channel;
+/// program stdout/stderr become events. It is mutually exclusive with
+/// `--json` and is not accepted by static commands.
+#[derive(Args, Clone)]
+struct ObserveArgs {
+    /// Stream Execution Events v1 as JSON Lines on stdout (only `jsonl`).
+    #[arg(
+        long = "event-stream",
+        value_name = "FORMAT",
+        value_parser = [execution_events::FORMAT_JSONL],
+        conflicts_with = "json"
+    )]
+    event_stream: Option<String>,
+    /// Publish the value of one exactly named local variable (repeatable).
+    #[arg(
+        long = "observe-variable",
+        value_name = "NAME",
+        requires = "event_stream"
+    )]
+    observe_variable: Vec<String>,
+    /// Publish the value of one exactly named parameter (repeatable).
+    #[arg(
+        long = "observe-parameter",
+        value_name = "NAME",
+        requires = "event_stream"
+    )]
+    observe_parameter: Vec<String>,
+    /// Allow selected Text values to be published (second explicit consent).
+    #[arg(long = "observe-text-values", requires = "event_stream")]
+    observe_text_values: bool,
+    /// Maximum encoded source bytes for one observed value (0 = unlimited).
+    #[arg(
+        long = "observe-max-value-bytes",
+        value_name = "BYTES",
+        requires = "event_stream"
+    )]
+    observe_max_value_bytes: Option<usize>,
+    /// Override the structural/value event budget (0 = unlimited).
+    #[arg(
+        long = "observe-max-events",
+        value_name = "COUNT",
+        requires = "event_stream"
+    )]
+    observe_max_events: Option<u64>,
+    /// Override the approximate structural/value byte budget (0 = unlimited).
+    #[arg(
+        long = "observe-max-bytes",
+        value_name = "BYTES",
+        requires = "event_stream"
+    )]
+    observe_max_bytes: Option<u64>,
+}
+
+impl ObserveArgs {
+    fn options(&self) -> Option<execution_events::ObservationOptions> {
+        self.event_stream.as_ref()?;
+        let mut options = execution_events::ObservationOptions {
+            variables: self.observe_variable.clone(),
+            parameters: self.observe_parameter.clone(),
+            allow_text_values: self.observe_text_values,
+            ..execution_events::ObservationOptions::default()
+        };
+        if let Some(bytes) = self.observe_max_value_bytes {
+            options.max_value_bytes = bytes;
+        }
+        if let Some(events) = self.observe_max_events {
+            options.max_events = events;
+        }
+        if let Some(bytes) = self.observe_max_bytes {
+            options.max_bytes = bytes;
+        }
+        Some(options)
+    }
 }
 
 #[derive(Subcommand)]
@@ -201,6 +279,8 @@ struct RunArgs {
     /// Include the host effect trace.
     #[arg(long)]
     trace: bool,
+    #[command(flatten)]
+    observe: ObserveArgs,
 }
 
 #[derive(Args)]
@@ -220,6 +300,8 @@ struct CallArgs {
     /// Include the host effect trace.
     #[arg(long)]
     trace: bool,
+    #[command(flatten)]
+    observe: ObserveArgs,
 }
 
 #[derive(Args)]
@@ -432,23 +514,31 @@ fn dispatch() -> i32 {
             };
             commands::inspect(args.file.as_deref(), &flags, args.json, &args.plugin)
         }
-        Command::Run(args) => commands::execute(
-            args.file.as_deref(),
-            None,
-            &[],
-            &args.sandbox.settings(),
-            args.json,
-            args.trace,
-        ),
-        Command::Call(args) => match commands::parse_named_args(&args.args) {
-            Ok(named) => commands::execute(
-                Some(&args.file),
-                Some(&args.function),
-                &named,
+        Command::Run(args) => {
+            let observation = args.observe.options();
+            commands::execute(
+                args.file.as_deref(),
+                None,
+                &[],
                 &args.sandbox.settings(),
                 args.json,
                 args.trace,
-            ),
+                observation.as_ref(),
+            )
+        }
+        Command::Call(args) => match commands::parse_named_args(&args.args) {
+            Ok(named) => {
+                let observation = args.observe.options();
+                commands::execute(
+                    Some(&args.file),
+                    Some(&args.function),
+                    &named,
+                    &args.sandbox.settings(),
+                    args.json,
+                    args.trace,
+                    observation.as_ref(),
+                )
+            }
             Err(error) => {
                 eprintln!("error: {error}");
                 2

@@ -21,15 +21,20 @@ pub fn write(
     entry: &str,
     status: &str,
     path: &Path,
+    run_id: Option<&str>,
 ) -> Result<(), String> {
-    let run_id = format!(
-        "{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|duration| duration.as_nanos())
-            .unwrap_or(0)
-    );
+    // A combined `--event-stream` run shares the CLI-generated opaque run id
+    // with Execution Events v1; Trace v2 keeps its schema and field types.
+    let run_id = run_id.map(str::to_string).unwrap_or_else(|| {
+        format!(
+            "{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or(0)
+        )
+    });
     let analysis_digest = crate::analysis::digest(project);
     let root_id = project.identity.root_id();
     let state = host.trace_state();

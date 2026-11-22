@@ -4,6 +4,7 @@
 //! runtime helpers, but keeps the run session out of the command table.
 
 use super::*;
+use crate::execution_events::{EventStream, ObservationOptions};
 use crate::provider_manifest;
 use marqdo_sandbox::StrictChildState;
 
@@ -14,16 +15,55 @@ pub fn execute(
     settings: &SandboxSettings,
     json: bool,
     trace: bool,
+    observation: Option<&ObservationOptions>,
 ) -> i32 {
     let command_name = if function.is_some() { "call" } else { "run" };
-    let prepared = match prepare_project(file, json, &settings.plugins) {
-        Ok(prepared) => prepared,
-        Err(code) => return code,
+    // Open the dedicated protocol channel before any project work so prepare
+    // and authorization failures can still produce `run.rejected`.
+    let events = match observation {
+        Some(options) => match EventStream::open(options) {
+            Ok(stream) => Some(stream),
+            Err(error) => {
+                eprintln!("error[observe.transport_failed]: {error}");
+                return 1;
+            }
+        },
+        None => None,
+    };
+    let stream = events.as_ref();
+    let prepared = if stream.is_some() {
+        let options = PrepareOptions {
+            plugins: settings.plugins.clone(),
+        };
+        match project_prepare::prepare(file, &options) {
+            Ok(prepared) => prepared,
+            Err(error) => return fail_prepare(stream, json, command_name, "prepare", &error),
+        }
+    } else {
+        match prepare_project(file, json, &settings.plugins) {
+            Ok(prepared) => prepared,
+            Err(code) => return code,
+        }
     };
     let extension_sources = prepared.loaded.extension_sources.clone();
     let project = prepared.loaded;
     let static_plugins = prepared.plugins;
     if project.has_errors() {
+        if let Some(stream) = stream {
+            let code = project
+                .diagnostics
+                .iter()
+                .find(|item| item.diagnostic.is_error())
+                .map(|item| item.diagnostic.code.clone())
+                .unwrap_or_else(|| "cli.compile_error".to_string());
+            if let Err(error) = stream.rejected(
+                "compile",
+                &code,
+                "refusing to run a project with compile errors",
+            ) {
+                return transport_failure(&error);
+            }
+        }
         if json {
             output::print_json(&json!({
                 "command": command_name,
@@ -48,8 +88,15 @@ pub fn execute(
     let mode = match settings.sandbox_mode() {
         Ok(mode) => mode,
         Err(error) => {
-            emit_error(json, command_name, "cli.invalid_mode", &error);
-            return 2;
+            return fail(
+                stream,
+                json,
+                command_name,
+                "authorization",
+                "cli.invalid_mode",
+                &error,
+                2,
+            );
         }
     };
     // A project-declared extension is activation, not authorization, but it is
@@ -68,8 +115,15 @@ pub fn execute(
             marqdo_package::MANIFEST_FILE,
             settings.mode
         );
-        emit_error(json, command_name, code, &message);
-        return 2;
+        return fail(
+            stream,
+            json,
+            command_name,
+            "authorization",
+            code,
+            &message,
+            2,
+        );
     }
     let mut kernel_paths = settings.kernels.clone();
     kernel_paths.extend(
@@ -90,9 +144,28 @@ pub fn execute(
     provider_paths.sort();
     provider_paths.dedup();
     if mode == SandboxMode::Strict {
+        if stream.is_some() {
+            return fail(
+                stream,
+                json,
+                command_name,
+                "strict",
+                "strict.unsupported_grant",
+                "--event-stream jsonl is not supported under --mode strict; strict refuses \
+                 trace/event artifacts and never downgrades to project mode",
+                2,
+            );
+        }
         if let Err(error) = settings.strict_preflight() {
-            emit_error(json, command_name, "strict.unsupported_grant", &error);
-            return 2;
+            return fail(
+                stream,
+                json,
+                command_name,
+                "strict",
+                "strict.unsupported_grant",
+                &error,
+                2,
+            );
         }
         match marqdo_sandbox::inspect_strict_child() {
             // A verified supervisor child may run project code.
@@ -101,8 +174,15 @@ pub fn execute(
             Ok(StrictChildState::NotChild) => {
                 let platform = PlatformCapabilities::detect();
                 if let Err(error) = marqdo_sandbox::enforce(mode, &platform) {
-                    emit_error(json, command_name, error.code(), &error.to_string());
-                    return 1;
+                    return fail(
+                        stream,
+                        json,
+                        command_name,
+                        "strict",
+                        error.code(),
+                        &error.to_string(),
+                        1,
+                    );
                 }
                 return launch_strict_process(&project.root, file, settings, json, command_name);
             }
@@ -111,30 +191,49 @@ pub fn execute(
             // module so macOS/Windows builds compile.
             Err(reason) => {
                 let message = format!("strict isolation verification failed: {reason}");
-                emit_error(json, command_name, "strict.identity_invalid", &message);
-                return 1;
+                return fail(
+                    stream,
+                    json,
+                    command_name,
+                    "strict",
+                    "strict.identity_invalid",
+                    &message,
+                    1,
+                );
             }
         }
     }
     let platform = PlatformCapabilities::detect();
     if let Err(error) = marqdo_sandbox::enforce(mode, &platform) {
-        emit_error(
+        return fail(
+            stream,
             json,
             command_name,
+            "authorization",
             "sandbox.unavailable",
             &error.to_string(),
+            1,
         );
-        return 1;
     }
     let capabilities = match settings.capabilities() {
         Ok(capabilities) => capabilities,
         Err(error) => {
-            emit_error(json, command_name, "cli.invalid_grants", &error);
-            return 2;
+            return fail(
+                stream,
+                json,
+                command_name,
+                "authorization",
+                "cli.invalid_grants",
+                &error,
+                2,
+            );
         }
     };
     let stdin = read_stdin();
     let mut host = StdHost::new(mode, capabilities, project.root.clone()).with_stdin(stdin);
+    if let Some(stream) = stream {
+        host = host.with_observation(stream.config(), Box::new(stream.host_sink()));
+    }
     if trace || json || settings.trace_file.is_some() {
         host = host
             .with_trace()
@@ -161,12 +260,15 @@ pub fn execute(
     }
     for kernel_path in &kernel_paths {
         if let Err(error) = load_kernel_descriptor(&mut host, kernel_path) {
-            if json {
-                output::print_json(&json!({"success": false, "error": error}));
-            } else {
-                eprintln!("error: {error}");
-            }
-            return 2;
+            return fail(
+                stream,
+                json,
+                command_name,
+                "prepare",
+                "ext.kernel_load_failed",
+                &error,
+                2,
+            );
         }
     }
     // T6: verify every selected artifact/path/hash before starting a worker or
@@ -180,8 +282,7 @@ pub fn execute(
     let providers = match provider_manifest::read_provider_manifests(&provider_paths) {
         Ok(providers) => providers,
         Err(error) => {
-            emit_prepare_error(json, command_name, &error);
-            return error.exit_code;
+            return fail_prepare(stream, json, command_name, "prepare", &error);
         }
     };
     // `--provider` alone never authorizes; the exact `--allow-provider NAME`
@@ -201,8 +302,7 @@ pub fn execute(
                     provider.name, provider.name
                 ),
             );
-            emit_prepare_error(json, command_name, &error);
-            return error.exit_code;
+            return fail_prepare(stream, json, command_name, "authorization", &error);
         }
     }
     // A grant that matches no selected provider is a deterministic option
@@ -217,8 +317,7 @@ pub fn execute(
                      providers are never discovered automatically"
                 ),
             );
-            emit_prepare_error(json, command_name, &error);
-            return error.exit_code;
+            return fail_prepare(stream, json, command_name, "authorization", &error);
         }
     }
     for plugin in &static_plugins.plugins {
@@ -226,14 +325,12 @@ pub fn execute(
             &plugin.base_dir,
             &plugin.artifact_relative,
         ) {
-            emit_prepare_error(json, command_name, &error);
-            return error.exit_code;
+            return fail_prepare(stream, json, command_name, "authorization", &error);
         }
         let artifact = plugin.artifact_path();
         if let Err(error) = extension_descriptors::verify_sha256(&artifact, &plugin.artifact_sha256)
         {
-            emit_prepare_error(json, command_name, &error);
-            return error.exit_code;
+            return fail_prepare(stream, json, command_name, "authorization", &error);
         }
     }
     // T7: start only selected, granted and verified extensions.
@@ -243,19 +340,29 @@ pub fn execute(
             &plugin.manifest_path,
             settings.trust_native_plugin,
         ) {
-            if json {
-                output::print_json(&json!({"success": false, "error": message}));
-            } else {
-                eprintln!("error: {message}");
-            }
-            return 1;
+            return fail(
+                stream,
+                json,
+                command_name,
+                "authorization",
+                "ext.plugin_load_failed",
+                &message,
+                1,
+            );
         }
     }
     // T8: exact one-to-one reconciliation with the static descriptors. Never
     // synthesise a missing signature (`params: Vec::new()`) or guess an export.
     if let Err(message) = reconcile_plugin_exports(&static_plugins, &host) {
-        emit_error(json, command_name, "ext.plugin_binding_mismatch", &message);
-        return 1;
+        return fail(
+            stream,
+            json,
+            command_name,
+            "authorization",
+            "ext.plugin_binding_mismatch",
+            &message,
+            1,
+        );
     }
     // T7b: start only granted and verified provider helpers. Every manifest,
     // artifact, target, grant and duplicate-kind check above already passed, so
@@ -266,8 +373,7 @@ pub fn execute(
             provider,
             &settings.allow_provider,
         ) {
-            emit_prepare_error(json, command_name, &error);
-            return error.exit_code;
+            return fail_prepare(stream, json, command_name, "prepare", &error);
         }
     }
     let function_name = function.unwrap_or("main").to_string();
@@ -285,12 +391,15 @@ pub fn execute(
                 project.entry_file().path.display()
             )
         };
-        if json {
-            emit_error(true, command_name, "sem.no_entry_function", &message);
-        } else {
-            eprintln!("error[sem.no_entry_function]: {message}");
-        }
-        return 1;
+        return fail(
+            stream,
+            json,
+            command_name,
+            "compile",
+            "sem.no_entry_function",
+            &message,
+            1,
+        );
     }
     let runtime_args: Vec<EvaluatedArg> = named_args
         .iter()
@@ -304,7 +413,19 @@ pub fn execute(
             .max_region_memory
             .unwrap_or(marqdo_runtime::DEFAULT_MAX_REGION_BYTES),
     };
-    let result = run_with_limits(
+    if let Some(stream) = stream {
+        let entry = format!("{}::{}", project.entry, function_name);
+        let analysis_digest = format!("sha256:{}", crate::analysis::digest(&project));
+        if let Err(error) = stream.started(
+            &entry,
+            mode.as_str(),
+            &project.identity.root_id(),
+            &analysis_digest,
+        ) {
+            return transport_failure(&error);
+        }
+    }
+    let mut result = run_with_limits(
         &project.program,
         &mut host,
         &project.entry,
@@ -312,16 +433,57 @@ pub fn execute(
         runtime_args,
         memory_limits,
     );
+    // A dead event pipe is a run failure even if the program itself returned.
+    if result.is_ok() {
+        if let Some(message) = host.observation_failure() {
+            result = Err(RuntimeError::new(
+                marqdo_value::ErrorCategory::Observation,
+                None,
+                format!("observe.transport_failed: {message}"),
+            ));
+        }
+    }
+    let trace_run_id = stream.map(EventStream::run_id);
     if let Some(path) = &settings.trace_file {
         let status = match &result {
             Ok(_) => "ok",
             Err(error) => error.code(),
         };
         let entry = format!("{}::{}", project.entry, function_name);
-        if let Err(error) = crate::trace::write(&project, &host, &entry, status, path) {
-            emit_error(json, command_name, "cli.trace_failed", &error);
+        if let Err(error) = crate::trace::write(
+            &project,
+            &host,
+            &entry,
+            status,
+            path,
+            trace_run_id.as_deref(),
+        ) {
+            if let Some(stream) = stream {
+                let _ = stream.failed_error("cli.trace_failed", &error);
+            } else {
+                emit_error(json, command_name, "cli.trace_failed", &error);
+            }
             return 1;
         }
+    }
+    if let Some(stream) = stream {
+        // The program's stdout/stderr were already emitted as chunk events at
+        // their real host commit points; never replay them on this channel.
+        match &result {
+            Ok(outcome) => {
+                if let Err(error) = stream.completed(&outcome.value) {
+                    return transport_failure(&error);
+                }
+            }
+            Err(error) => {
+                if let Err(write_error) = stream.failed(error) {
+                    eprintln!("error[observe.transport_failed]: {write_error}");
+                }
+                eprint!("{}", render_runtime_error(error, &project));
+                return 1;
+            }
+        }
+        return 0;
     }
     let stdout = host.take_output();
     let stdout_text = String::from_utf8_lossy(&stdout).to_string();
@@ -381,6 +543,53 @@ pub fn execute(
             1
         }
     }
+}
+
+fn transport_failure(error: &str) -> i32 {
+    eprintln!("error[observe.transport_failed]: {error}");
+    1
+}
+
+/// Emit one pre-execution rejection (or the legacy non-event error form).
+fn fail(
+    stream: Option<&EventStream>,
+    json: bool,
+    command_name: &str,
+    phase: &str,
+    code: &str,
+    message: &str,
+    exit: i32,
+) -> i32 {
+    if let Some(stream) = stream {
+        if let Err(error) = stream.rejected(phase, code, message) {
+            return transport_failure(&error);
+        }
+    }
+    if json && stream.is_none() {
+        emit_error(json, command_name, code, message);
+    } else {
+        eprintln!("error[{code}]: {message}");
+    }
+    exit
+}
+
+/// Emit one prepare/authorization rejection using a `PrepareError`.
+fn fail_prepare(
+    stream: Option<&EventStream>,
+    json: bool,
+    command_name: &str,
+    phase: &str,
+    error: &crate::extension_descriptors::PrepareError,
+) -> i32 {
+    if let Some(stream) = stream {
+        if let Err(write_error) = stream.rejected(phase, &error.code, &error.message) {
+            return transport_failure(&write_error);
+        }
+        eprintln!("error[{}]: {}", error.code, error.message);
+    } else {
+        emit_prepare_error(json, command_name, error);
+    }
+    error.exit_code
 }
 
 fn emit_prepare_error(
