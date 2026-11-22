@@ -10,7 +10,12 @@ Foreign wire v1, Provider manifest v2, lock v4) and independent package
 versions (including the bundled stdlib `0.1.0`) are versioned separately and
 do not follow the product version. Dates use ISO 8601.
 
-## Unreleased (post `3.0.0-beta.1`)
+## 3.0.0-rc.1 (candidate)
+
+- The Rust workspace, CLI version output and protocol producers report
+  `3.0.0-rc.1`. The locked workspace requires Rust 1.89.
+- The candidate targets Linux x86_64 with glibc. See
+  [release gates](docs/releasing.md) for the evidence required for publication.
 
 ### Core/extension boundary — RFC-EXT-0003 (issue #3)
 

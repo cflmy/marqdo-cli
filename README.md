@@ -10,7 +10,7 @@ The official implementation is a Rust workspace; Python/Node are optional
 foreign kernels, never the compiler target.
 
 This repository is the new, independent Marqdo toolchain, now at product
-version **`3.0.0-beta.1`**. It is **not** a compatibility rewrite of
+version **`3.0.0-rc.1`** in this checkout. It is **not** a compatibility rewrite of
 `cflmy/marqdo`; the old syntax, package format and plugin ABI v2 are not
 claimed to work here. See [docs/developers/](docs/developers/README.md) for the
 third-party entry point and `docs/MARQDO_3_0_PRERELEASE_PLAN.md` for the beta
@@ -27,7 +27,7 @@ release policy.
 > [`docs/STATUS.md`](docs/STATUS.md) and
 > [`docs/migration/README.md`](docs/migration/README.md).
 
-> **Status: `3.0.0-beta.1` prerelease** —
+> **Published baseline: `3.0.0-beta.1` prerelease** —
 > [release](https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-beta.1),
 > source `2c7c4f31e7a388d3fcfa717a77067e696ed13854`. The public beta target is **Linux x86_64 (glibc)**; macOS and Windows are experimental and not claimed, and the
 > C ABI plugin/provider paths are Linux-only in this beta. The language
@@ -53,7 +53,7 @@ mirror is not used as the authoritative lane for this beta.
 
 ## Build
 
-Requires Rust 1.82+.
+Requires Rust 1.89 or newer for the locked workspace.
 
 ```bash
 cargo build -p marqdo-cli

@@ -451,35 +451,39 @@ fn a_root_record_json_in_the_source_package_is_rejected() {
 }
 
 #[test]
-fn beta_core_requires_an_explicit_prerelease_compatible_range() {
+fn prerelease_core_requires_an_explicit_prerelease_compatible_range() {
     let dir = TempDir::new("prerelease-range");
     let home = dir.path().join("home");
     let core = env!("CARGO_PKG_VERSION");
 
-    // The shipped example range opt-in must install on this real core.
-    let manifest = write_tool(dir.path(), "prerelease", "#!/bin/sh\nexit 0\n");
-    let install = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
-    assert_eq!(install.status.code(), Some(0), "{}", stderr(&install));
-
-    if core.contains('-') {
-        // SemVer: a stable-only requirement must not silently accept a
-        // prerelease core. The operator has to opt in with a prerelease range.
-        let manifest = write_tool(dir.path(), "stableonly", "#!/bin/sh\nexit 0\n");
+    for (range, compatible) in [
+        (">=3.0.0-beta.1,<4.0.0".to_string(), true),
+        (format!("={core}"), true),
+        (">=3.0.0,<4.0.0".to_string(), !core.contains('-')),
+        (">=0.1,<1".to_string(), false),
+    ] {
+        let manifest = write_tool(dir.path(), "prerelease", "#!/bin/sh\nexit 0\n");
         let text = std::fs::read_to_string(&manifest)
             .unwrap()
-            .replace(">=3.0.0-beta.1,<4.0.0", ">=3.0.0,<4.0.0");
+            .replace(">=3.0.0-beta.1,<4.0.0", &range);
         std::fs::write(&manifest, text).unwrap();
         let output = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
         assert_eq!(
-            output.status.code(),
-            Some(1),
-            "a stable-only range must reject prerelease core {core}: {}",
+            output.status.success(),
+            compatible,
+            "{range} on {core}: {}",
             stderr(&output)
         );
-        assert!(
-            stderr(&output).contains("requires marqdo"),
-            "{}",
-            stderr(&output)
-        );
+        if compatible {
+            assert!(cli(&home, &["tool", "remove", "prerelease"])
+                .status
+                .success());
+        } else {
+            assert!(
+                stderr(&output).contains("requires marqdo"),
+                "{}",
+                stderr(&output)
+            );
+        }
     }
 }

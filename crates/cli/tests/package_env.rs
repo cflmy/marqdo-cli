@@ -436,30 +436,37 @@ fn tampered_path_dependency_content_is_rejected_by_locked_sync() {
 }
 
 #[test]
-fn incompatible_project_marqdo_range_fails_closed_before_program_load() {
+fn project_marqdo_range_applies_to_the_running_core() {
     let dir = TempDir::new("runtime-range");
     let root = dir.path();
-    write(
-        &root.join("marqdo.yaml"),
-        "project:\n  name: stale\n  version: 0.1.0\n  marqdo: \">=0.1,<1\"\n",
-    );
+    let core = env!("CARGO_PKG_VERSION");
     write(&root.join("index.mq.md"), "## @exec main\n\n`return 1`\n");
-    for command in [["check", "index.mq.md"], ["run", "index.mq.md"]] {
-        let output = cli(root, &command);
-        assert!(
-            !output.status.success(),
-            "{} must fail closed: {}",
-            command[0],
-            String::from_utf8_lossy(&output.stderr)
+
+    for (range, compatible) in [
+        (">=3.0.0-beta.1,<4.0.0".to_string(), true),
+        (format!("={core}"), true),
+        (">=3.0.0,<4.0.0".to_string(), !core.contains('-')),
+        (">=0.1,<1".to_string(), false),
+    ] {
+        write(
+            &root.join("marqdo.yaml"),
+            &format!("project:\n  name: runtime-range\n  version: 0.1.0\n  marqdo: \"{range}\"\n"),
         );
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            stderr.contains("package.marqdo_incompatible"),
-            "unexpected stderr: {stderr}"
-        );
-        assert!(
-            stderr.contains(env!("CARGO_PKG_VERSION")),
-            "diagnostic must name the running core: {stderr}"
-        );
+        for command in ["check", "run"] {
+            let output = cli(root, &[command, "index.mq.md"]);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert_eq!(
+                output.status.success(),
+                compatible,
+                "{command}: {range} on {core}: {stderr}"
+            );
+            if !compatible {
+                assert!(stderr.contains("package.marqdo_incompatible"), "{stderr}");
+                assert!(
+                    stderr.contains(core),
+                    "diagnostic must name the running core: {stderr}"
+                );
+            }
+        }
     }
 }
