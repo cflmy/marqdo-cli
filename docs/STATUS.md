@@ -94,6 +94,49 @@ exports reconcile exactly with the static manifest. The independent
 frozen-binary suite is the beta gate above; the older `6a7bb98` manifest is
 historical and superseded by the release-SHA manifest.
 
+## 0.5 Post-beta addition — Execution Events v1 (unreleased)
+
+This section records work **after** the `v3.0.0-beta.1` tag. It is not part of
+the tagged beta archive and no new release tag has been created. The design
+input is RFC-OBS-0001 (issue `#1`), the frozen decision is ADR-0059 and the
+normative contract is [`spec/execution-events-v1.md`](../spec/execution-events-v1.md).
+
+- **Implemented (P0/P1):** `run/call --event-stream jsonl` writes a pure NDJSON
+  `marqdo.execution-events` v1 stream; lifecycle/terminal events; byte-exact
+  base64 stdout/stderr chunks emitted at the Host commit point; run-unique
+  `frame_id`/`parent_frame_id`; `return`/`branch.eval`/`loop.iteration`/`effect`
+  attribution; exact-name, bounded value observation with a separate
+  `--observe-text-values` consent; structural/value budget with one
+  `observation.truncated`; broken-pipe failure via `observe.transport_failed`;
+  Trace v2 coexistence with a shared run id and unchanged Trace schema.
+- **Unchanged:** Analysis v2 and Trace v2 schemas/versions, `--json` envelope,
+  default stdout/stderr/exit codes, language semantics and capability
+  authorization.
+- **Deferred:** OBS-06 memory metadata (P2), debugger/stepping/time travel,
+  bidirectional debug protocol, SSE/HTTP in the CLI (View implements that).
+- **Explicitly unsupported combination:** `--mode strict` rejects
+  `--event-stream` with a structured `run.rejected`; there is no downgrade.
+
+Executed local gate on this tree (Linux x86_64, Rust 1.100.0):
+
+```text
+cargo fmt --all -- --check                            PASS
+cargo clippy --workspace --all-targets -- -D warnings PASS
+cargo test --workspace --locked                       PASS: 628 passed, 0 failed, 2 ignored
+cargo test -p marqdo-cli --test execution_events      PASS: 12 passed
+cargo test -p marqdo-host --test observation          PASS: 8 passed
+cargo test -p marqdo-runtime --test observation       PASS: 4 passed
+python3 tests/consumers/execution_events_consumer.py  PASS on a live real-binary stream (schema, seq, terminal, byte_count)
+```
+
+The Python consumer is an independent black-box parser using only the checked-in
+JSON Schema; it was run against the local binary's stream and the checked-in
+valid/invalid fixtures. This is local evidence, not a frozen release-archive or
+same-SHA CI gate. `cargo test --workspace --locked` includes the new schema
+fixture test when `python3` + `jsonschema` are available (the Woodpecker test
+lane installs `python3-jsonschema` and also runs the consumer against a real
+`--event-stream jsonl` invocation).
+
 ## 1. Historical: pre-beta remote baseline and evidence
 
 > **Historical record.** Everything in §1 onward was executed before the

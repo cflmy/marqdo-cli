@@ -53,6 +53,7 @@ Consequences for compatibility:
 | `marqdo.lock` | v4 | v3 is rejected with an explicit `marqdo lock` migration error; v1/v2 are rejected with a relock instruction; `run`/`call`/`check` never rewrite or fetch the lock. `extensions:` records manifest/artifact identity (integrity, not publisher auth). |
 | Analysis | v2 | Consumers reject unknown majors; incompatible field changes require v3. |
 | Trace | v2 | Binds to the exact Analysis bytes; unknown majors rejected. |
+| Execution Events | v1 | Live NDJSON for `run/call --event-stream jsonl`; independent version axis. Values are opt-in and bounded; unknown majors rejected. Not yet part of the tagged beta archive (post-beta addition). |
 | CLI Tool | v1 | Manifest schema, SemVer negotiation and whole-bundle digest are stable for v1. |
 | Plugin ABI | v1 | Struct layout/version negotiation frozen; `--trust-native-plugin` is required for in-process loading. The static manifest signature is authoritative; `run` reconciles loaded exports/signatures/owners/artifact digests exactly (`ext.plugin_binding_mismatch`); ABI v1 defaults are rejected. |
 | Resource Provider manifest | v2 | `schema_version: 2`, `abi: c-abi-1`, `transport: worker`; v1 is rejected (`ext.unsupported_provider_schema`), no silent migration. CLI `--provider`/`--allow-provider`; trusted worker, not an OS sandbox. |
@@ -82,6 +83,7 @@ portable/tested locally but the native platform lane has not run here;
 | Capability handler registry (`fs.read` handler, audit, unavailable) | PASS | UNVERIFIED | UNVERIFIED |
 | External conformance repository (`marqdo-extension-conformance`, frozen CLI) | PASS (`--release` binary sha256 `28e3776d…`, fixture repo `e4b7352c…`; see `docs/evidence/extension/6a7bb983.../manifest.json`) | UNVERIFIED | UNVERIFIED |
 | Analysis v2 / Trace v2 + Python consumers | PASS | UNVERIFIED | UNVERIFIED |
+| Execution Events v1 (`--event-stream jsonl`, P0/P1) | PASS locally (12 CLI contract tests + 8 host + 4 runtime; independent Python schema consumer); post-beta, not in the tagged archive | UNVERIFIED | UNVERIFIED |
 | Tool Protocol v1 + 3 independent consumers | PASS | UNVERIFIED | UNVERIFIED |
 | Native ABI (`plugin inspect`, trusted call) | PASS (C fixture) | UNVERIFIED (host-native fixture) | **UNSUPPORTED** |
 | Worker ABI + `fs.read` bridge | PASS (Unix) | UNVERIFIED | **UNSUPPORTED** (Unix-gated) |

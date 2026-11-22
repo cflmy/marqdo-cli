@@ -91,6 +91,20 @@ Dynamic input:
 "$MARQDO_BIN" run index.mq.md --trace-file ./trace.json
 ```
 
+Live dynamic input (Execution Events v1):
+
+```bash
+"$MARQDO_BIN" run index.mq.md --event-stream jsonl
+"$MARQDO_BIN" call index.mq.md main --arg n=5 --event-stream jsonl
+```
+
+Consume the stdout line stream as NDJSON; do not pass `--json` in the same
+invocation. Negotiate by reading `stream.opened` (`marqdo.execution-events`,
+`schema_version: 1`) and reject unknown majors. A tool server may convert the
+stream to its own SSE/websocket transport; the CLI never implements HTTP/SSE.
+This option is unavailable under `--mode strict` in the current tree and the
+tool must surface that refusal instead of pretending real-time support.
+
 See [analysis-trace.md](analysis-trace.md) for fields and digest rules. Do not
 depend on `inspect --ir`: that JSON is not a frozen cross-repository protocol.
 The `view` tool renders the **original Markdown**, not the Analysis JSON; the

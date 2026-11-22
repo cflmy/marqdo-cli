@@ -60,6 +60,51 @@ marqdo run index.mq.md --trace-file ./trace.json
   `spec/schemas/trace-v2.schema.json`; consumer:
   `tests/consumers/trace_consumer.py`.
 
+## Execution Events v1 (live)
+
+```bash
+marqdo run index.mq.md --event-stream jsonl
+marqdo call index.mq.md main --arg n=5 --event-stream jsonl
+marqdo run index.mq.md --event-stream jsonl --trace-file ./trace.json
+```
+
+- `schema: "marqdo.execution-events"`, `schema_version: 1`. This is a separate
+  protocol from Analysis/Trace and has its own version axis.
+- While active, the CLI stdout is a **pure NDJSON channel**: one JSON object per
+  line, `seq` starts at 0 and is strictly increasing. Program stdout/stderr are
+  only `stdout.chunk`/`stderr.chunk` events with `encoding: "base64"`,
+  `data_base64` and a matching `byte_count`. Concatenated decoded bytes equal a
+  normal run's output; invalid UTF-8/NUL/binary bytes are preserved.
+- `stream.opened` is always seq 0. A run then has at most one `run.started` and
+  exactly one terminal event (`run.completed`, `run.failed`, `run.rejected`) on
+  a complete stream. An EOF without a terminal event is `incomplete`
+  (SIGKILL/crash/broken pipe); never synthesize success.
+- `run.started.source` contains `root_id` and the `sha256:` digest of the exact
+  Analysis v2 bytes. `--trace-file` may be combined; both writers share one
+  opaque run id, and Trace v2 remains atomic and value-free.
+- Structural events: `call.enter`/`call.exit` (`frame_id`, `parent_frame_id`),
+  `return`, `branch.eval`, `loop.iteration`, `effect`. Frames identify call
+  instances, not functions; a failed argument binding creates no frame.
+- Values are off by default (`value_state: not_requested`).
+  `--observe-variable NAME` and `--observe-parameter NAME` are exact-name
+  selections. `Int`/`Float`/`Bool` are bounded by
+  `--observe-max-value-bytes` (default 256); selected `Text` is `redacted` until
+  `--observe-text-values` is also passed. Containers, `Memory`, resources and
+  plugin handles are `unsupported`; handles are never serialized.
+- Structural/value events have a separate budget
+  (`--observe-max-events`, `--observe-max-bytes`; defaults 100 000 / 16 MiB).
+  Exhaustion emits one `observation.truncated` and still delivers stdout/stderr
+  and the terminal event. A broken output pipe fails the run with
+  `observe.transport_failed`; it never keeps executing side effects silently.
+- `--event-stream` is mutually exclusive with `--json`, rejected by
+  `check`/`inspect`/`fmt`/`tool`, and currently rejected by `--mode strict`
+  (fail-closed, no downgrade). It is not a capability grant.
+- Contract: [`../../spec/execution-events-v1.md`](../../spec/execution-events-v1.md);
+  schema: `spec/schemas/execution-events-v1.schema.json`; consumer:
+  `tests/consumers/execution_events_consumer.py`; fixtures and Rust gate:
+  `tests/consumers/fixtures/execution-events/` and
+  `crates/cli/tests/execution_events.rs`.
+
 ## Consumer rules
 
 1. Reject unknown schema majors; there is no silent "use latest" fallback.

@@ -11,6 +11,7 @@ This page summarizes the public support policy. The authoritative matrix is
 | Product / CLI | `3.0.0-beta.1` | SemVer prerelease; breaking changes inside the 3.0 beta line are allowed and appear in `CHANGELOG.md`. |
 | Analysis | v2 | New major for incompatible changes; consumers reject unknown majors. |
 | Trace | v2 | New major for incompatible changes; binds to exact Analysis bytes. |
+| Execution Events | v1 | One-line NDJSON stream; new major for incompatible required-field/ordering/redaction changes. Consumers reject unknown majors. |
 | CLI Tool | v1 | Frozen manifest/negotiation/bundle contract for v1. |
 | Plugin ABI | v1 (`1.0`) | Frozen C layout and version negotiation. |
 | Foreign wire | v1 | One-shot request envelope. |
@@ -35,6 +36,9 @@ ranges**. Beta cores require a prerelease range such as
 
 Strict is Linux-only and probe-gated. Plugin/provider worker transports are not
 OS sandboxes. `pure`/`project` are execution modes, not security boundaries.
+Execution Events v1 is a live observation protocol: it is not a capability
+grant, values are off by default, and `--mode strict` currently refuses
+`--event-stream` explicitly (no downgrade).
 
 ## Language compatibility
 

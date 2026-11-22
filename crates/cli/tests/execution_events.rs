@@ -149,6 +149,123 @@ fn assert_envelope(events: &[Value]) {
     assert!(events_of(events, "run.started").len() <= 1);
 }
 
+fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf()
+}
+
+fn python_consumer_available() -> bool {
+    Command::new("python3")
+        .args(["-c", "import jsonschema"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+#[test]
+fn checked_in_fixtures_validate_against_the_public_schema() {
+    if !python_consumer_available() {
+        eprintln!("python3 + jsonschema unavailable; schema consumer skipped");
+        return;
+    }
+    let fixtures = repo_root().join("tests/consumers/fixtures/execution-events");
+    let consumer = repo_root().join("tests/consumers/execution_events_consumer.py");
+    for name in ["minimal.jsonl", "full.jsonl"] {
+        let path = fixtures.join("valid").join(name);
+        let output = Command::new("python3")
+            .arg(&consumer)
+            .arg(&path)
+            .output()
+            .expect("run execution events consumer");
+        assert!(
+            output.status.success(),
+            "valid fixture {name} rejected: {}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+    }
+    for entry in fs::read_dir(fixtures.join("invalid")).unwrap() {
+        let path = entry.unwrap().path();
+        let output = Command::new("python3")
+            .arg(&consumer)
+            .arg(&path)
+            .output()
+            .expect("run execution events consumer");
+        assert!(
+            !output.status.success(),
+            "invalid fixture {} was accepted",
+            path.display()
+        );
+    }
+}
+
+#[test]
+fn structure_fixture_attributes_repeated_recursive_frames() {
+    let dir = TempDir::new("structure");
+    let source = fs::read_to_string(
+        repo_root().join("tests/consumers/fixtures/execution-events/structure.mq.md"),
+    )
+    .unwrap();
+    dir.write("index.mq.md", &source);
+    let output = cli(
+        dir.path(),
+        &[
+            "run",
+            "index.mq.md",
+            "--event-stream",
+            "jsonl",
+            "--observe-max-events",
+            "1000",
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let events = parse_events(&output.stdout);
+    assert_envelope(&events);
+    assert_eq!(events.last().unwrap()["payload"]["value"]["decimal"], "3");
+
+    let enters = events_of(&events, "call.enter");
+    assert_eq!(enters.len(), 4, "main + f(2) + g(2) + f(0)");
+    let frames: Vec<&str> = enters
+        .iter()
+        .map(|event| event["payload"]["frame_id"].as_str().unwrap())
+        .collect();
+    let unique: std::collections::BTreeSet<&str> = frames.iter().copied().collect();
+    assert_eq!(unique.len(), 4, "frame identities are run-unique");
+    let main = enters[0]["payload"]["frame_id"].as_str().unwrap();
+    assert!(enters[0]["payload"]["parent_frame_id"].is_null());
+    let f2 = enters[1]["payload"]["frame_id"].as_str().unwrap();
+    let g2 = enters[2]["payload"]["frame_id"].as_str().unwrap();
+    let f0 = enters[3]["payload"]["frame_id"].as_str().unwrap();
+    assert_eq!(enters[1]["payload"]["parent_frame_id"], main);
+    assert_eq!(enters[2]["payload"]["parent_frame_id"], f2);
+    assert_eq!(enters[3]["payload"]["parent_frame_id"], main);
+    let exit_frames: Vec<&str> = events_of(&events, "call.exit")
+        .iter()
+        .map(|event| event["payload"]["frame_id"].as_str().unwrap())
+        .collect();
+    for frame in [main, f2, g2, f0] {
+        assert!(exit_frames.contains(&frame), "frame {frame} must close");
+    }
+    assert_eq!(events_of(&events, "branch.eval").len(), 2);
+    assert_eq!(
+        events_of(&events, "loop.iteration")
+            .iter()
+            .map(|event| event["payload"]["decision"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        vec!["continue", "continue", "exit"]
+    );
+}
+
 #[test]
 fn basic_stream_is_pure_jsonl_and_reconstructs_program_output() {
     let dir = TempDir::new("basic");

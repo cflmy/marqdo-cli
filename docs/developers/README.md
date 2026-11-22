@@ -7,9 +7,9 @@ core checkout, or host memory layout. Adding a new domain function must not
 require a core commit.
 
 Product version for these docs: **`3.0.0-beta.1`** (Linux x86_64 beta).
-Protocol versions are independent: Analysis v2, Trace v2, Tool v1, Plugin ABI
-v1, Foreign wire v1, Provider manifest v2, lock v4, markdown profile
-`marqdo.md.v1`.
+Protocol versions are independent: Analysis v2, Trace v2, Execution Events v1,
+Tool v1, Plugin ABI v1, Foreign wire v1, Provider manifest v2, lock v4,
+markdown profile `marqdo.md.v1`.
 
 ## Pick your entry point
 
@@ -33,7 +33,7 @@ v1, Foreign wire v1, Provider manifest v2, lock v4, markdown profile
 4. [extensions.md](extensions.md) — plugins, foreign kernels, resource
    providers, extension selection and lock v4.
 5. [analysis-trace.md](analysis-trace.md) — the public static/dynamic data
-   contracts and digest binding.
+   contracts, Execution Events v1 and digest binding.
 6. [compatibility.md](compatibility.md) — version axes, platform matrix and the
    prerelease policy.
 7. [release-limits.md](release-limits.md) — the honest beta limitations (this

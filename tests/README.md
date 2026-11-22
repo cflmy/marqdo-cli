@@ -51,6 +51,7 @@ Rust harnesses (all in `crates/cli/tests/`):
 | `negative.rs` | Current-syntax diagnostics are **hard errors** (never prose fallbacks): exact sorted `sem.*`/`symbol.*`/`call.*`/`frontmatter.*` code lists, the `sem.inferred_signature` warning model with inert-knowledge controls, and runtime error codes — each asserted in its own suite. |
 | `properties.rs` | Blueprint §14.2 prose invariance: inserting/removing pure narration paragraphs never changes the executable function IR (modulo source spans) and diagnostics stay error-free. |
 | `integration_cli.rs` | Real CLI contract: `init`, `check`, `run`, `call`, `inspect`, `fmt`, multi-module imports/cycles, `lock`/`sync --locked`, plugin inspection and explicitly trusted plugin invocation. |
+| `execution_events.rs` | Execution Events v1 black-box contract: pure JSONL, seq/terminal ordering, byte-exact base64 chunks, live delivery before exit, value redaction/selection, trace coexistence, truncation, output budget and broken-pipe failure. |
 
 ## Running
 
@@ -74,6 +75,21 @@ cargo test -p marqdo-cli --test negative
 cargo test -p marqdo-cli --test properties
 cargo test -p marqdo-cli --test integration_cli
 ```
+
+Execution Events v1 (RFC-OBS-0001, ADR-0059) is pinned by:
+
+* `crates/cli/tests/execution_events.rs` — real-binary NDJSON contract, the
+  checked-in JSON Schema fixtures, the structure fixture, live output, values,
+  trace coexistence and a broken pipe;
+* `crates/marqdo-host/tests/observation.rs` — real commit-point chunks, frame
+  pairing, budget truncation and the broken-sink failure boundary;
+* `crates/marqdo-runtime/tests/observation.rs` — recursive/repeated call frames,
+  branch/loop/assignment attribution and exact value selection;
+* `tests/consumers/execution_events_consumer.py` and
+  `tests/consumers/fixtures/execution-events/` — the independent Python consumer
+  and the RFC §13 fixtures. `python3` + `jsonschema` enable the schema test and
+  the Woodpecker lane runs the consumer against a real `--event-stream jsonl`
+  invocation.
 
 The power/control-flow slice is pinned by:
 

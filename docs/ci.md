@@ -16,14 +16,25 @@ The default Docker pipeline runs on push and pull request:
 ```text
 test:
   rustup component add clippy rustfmt
-  apt install curl/ca-certificates/python3 + Node.js 22
+  apt install curl/ca-certificates/python3/python3-jsonschema + Node.js 22
   cargo fmt --all -- --check
   cargo clippy --workspace --all-targets -- -D warnings
+  cargo build --locked -p marqdo-provider-worker
   cargo test --workspace --locked
+  cargo run --locked -p marqdo-cli -- run \
+    tests/consumers/fixtures/execution-events/basic.mq.md --event-stream jsonl \
+    > /tmp/execution-events.jsonl
+  python3 tests/consumers/execution_events_consumer.py /tmp/execution-events.jsonl
+  cargo test -p marqdo-cli --test docs_consistency
+  cargo test -p marqdo-cli --test architecture_boundaries
+  cargo test -p marqdo-cli --test stdlib_product
   python3 -m unittest discover -s tools/ci -p "test_*.py"
+  rustup target add x86_64-pc-windows-gnu
+  cargo check --workspace --all-targets --target x86_64-pc-windows-gnu
 
 build (depends on test):
-  cargo build --release --locked -p marqdo-cli
+  cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
+  package + cold-install smoke (which now validates live Execution Events v1)
 ```
 
 Node.js 22 is required because the optional foreign-kernel tests use ES-module

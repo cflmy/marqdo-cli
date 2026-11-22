@@ -67,6 +67,7 @@ marqdo init demo
 cd demo
 marqdo check index.mq.md
 marqdo run index.mq.md            # executes ## @exec main
+marqdo run index.mq.md --event-stream jsonl   # live Execution Events v1 NDJSON
 marqdo inspect index.mq.md --ast
 marqdo inspect index.mq.md --signature
 marqdo call index.mq.md main
@@ -230,7 +231,9 @@ rules are [`RFC-LANG-0002`](docs/architecture/RFC-LANG-0002-unified-semantics.md
   (`--plugin --trust-native-plugin --allow-plugin`). A C ABI is not a sandbox.
 * **Public protocols** — Analysis v2 and Trace v2 with JSON Schemas and
   independent Python consumers; Tool Protocol v1 with arbitrary command names,
-  SemVer negotiation and whole-bundle digest verification.
+  SemVer negotiation and whole-bundle digest verification; **Execution Events
+  v1** (`run/call --event-stream jsonl`) for live stdout/stderr, call frames and
+  explicitly selected, bounded values (post-beta addition, ADR-0059).
 
 Run everything:
 

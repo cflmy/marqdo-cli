@@ -26,6 +26,14 @@ replace `spec/` or a recorded test log.
 > Normative boundaries: [`spec/callable-resolution.md`](../../spec/callable-resolution.md),
 > [`spec/extension-selection.md`](../../spec/extension-selection.md),
 > [`spec/resource-provider-v2.md`](../../spec/resource-provider-v2.md).
+>
+> **Post-baseline observability (ADR-0059, RFC-OBS-0001).** After the tagged
+> baseline the tree adds Execution Events v1: a typed host observation facade,
+> real-commit stdout/stderr chunks, run-unique call frames and explicitly
+> selected bounded values over `run/call --event-stream jsonl`. Analysis v2 and
+> Trace v2 are unchanged. This is locally tested on the post-baseline tree
+> ([`../STATUS.md`](../STATUS.md) §0.5) and is not part of the tagged beta
+> archive or its same-SHA evidence.
 
 ## 1. Four state dimensions
 
@@ -35,8 +43,8 @@ platform".
 
 | Dimension | Current state | Source |
 |---|---|---|
-| Implemented | Rust workspace `3.0.0-beta.1`: RFC-LANG-0002 Markdown/frontend/IR, v2 statement parser, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, migrated bundled stdlib, CLI composition root | `Cargo.toml`, `crates/`, `stdlib/` |
-| Tested locally | `cargo test --workspace --locked`: **599 passed, 0 failed** across 67 targets on Linux x86_64 in the RFC-EXT-0001 tree; fmt and clippy clean. Historical baseline: 507 passed at `9c1723d`. | `docs/STATUS.md`, `docs/evidence/2026-11-22-ext-implementation.md` |
+| Implemented | Rust workspace `3.0.0-beta.1`: RFC-LANG-0002 Markdown/frontend/IR, v2 statement parser, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, migrated bundled stdlib, CLI composition root; post-baseline Execution Events v1 observation (ADR-0059) | `Cargo.toml`, `crates/`, `stdlib/` |
+| Tested locally | `cargo test --workspace --locked`: **628 passed, 0 failed, 2 ignored** on the post-baseline observability tree (Linux x86_64); `cargo fmt --check` and `clippy -D warnings` clean. Historical baseline: 599 passed before Execution Events v1, 507 at `9c1723d`. | `docs/STATUS.md` §0.5, `docs/evidence/2026-11-22-ext-implementation.md` |
 | Bundled stdlib released | In-repo bundle `marqdo-stdlib@0.1.0`, SHA-256 digest verified before loading; it is **not** an external registry package | `stdlib/stdlib.json`, `stdlib/README.md` |
 | Multi-platform verified | Linux local gate is the only executed lane here; Windows/macOS native lanes are **UNVERIFIED**, and the GitHub security lane remains a **VM-only** gate | `docs/STATUS.md` §1, §4 |
 
@@ -110,6 +118,7 @@ review RFC, not a new crate per provider.
 | Public contract | API (`.mq.md`) | State | Tests |
 |---|---|---|---|
 | stdio stdin | `resource.open("stdio","stdin",["read"])`, `resource.read`, `resource.close`; one run-scoped cursor | implemented, read-only | `resource_streams`, `p2_closure`, `tests/conformance` |
+| Execution Events v1 | `run/call --event-stream jsonl`; `--observe-variable`, `--observe-parameter`, `--observe-text-values` | implemented P0/P1 (post-beta); P2 memory metadata deferred; strict refuses the option | `execution_events` CLI, `observation` host/runtime, `execution_events_consumer.py` |
 | stdio stdout | `resource.open("stdio","stdout",["write"])`, `resource.write`, `resource.close`; separate output budget | implemented | `stdlib_bundle`, `print_routing`, `resource_streams` |
 | stdio stderr | `resource.open("stdio","stderr",["write"])`; separate from stdout and CLI diagnostics | implemented | `resource_streams`, `stdlib_product` |
 | project file read | `resource.open("file", path, ["read"])`; path/grant checked; bounded | implemented, project mode | `resource_streams`, `stdlib_product` |

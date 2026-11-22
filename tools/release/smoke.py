@@ -185,6 +185,48 @@ def main(argv: list[str]) -> int:
             result = subprocess.run(command, capture_output=True, text=True)
             if result.returncode != 0:
                 fail(f"{consumer} failed:\n{result.stdout}\n{result.stderr}")
+        # Execution Events v1: the released binary's live NDJSON stream,
+        # validated by the independent consumer shipped in the archive.
+        run_help = runner.run(["run", "--help"]).stdout
+        if "--event-stream" not in run_help or "--observe-variable" not in run_help:
+            fail("run --help does not advertise Execution Events v1 options")
+        live = runner.run(
+            [
+                "run",
+                "tests/consumers/fixtures/execution-events/basic.mq.md",
+                "--event-stream",
+                "jsonl",
+            ]
+        )
+        events_path = install / "execution-events.jsonl"
+        events_path.write_text(live.stdout, encoding="utf-8")
+        events = [
+            json.loads(line)
+            for line in live.stdout.splitlines()
+            if line.strip()
+        ]
+        if not events or events[0].get("kind") != "stream.opened":
+            fail("Execution Events stream does not start with stream.opened")
+        if events[-1].get("kind") != "run.completed":
+            fail("Execution Events stream has no successful terminal event")
+        validate_events = subprocess.run(
+            [
+                sys.executable,
+                str(install / "tests" / "consumers" / "execution_events_consumer.py"),
+                str(events_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if validate_events.returncode != 0:
+            if "jsonschema" in validate_events.stderr and "ModuleNotFoundError" in validate_events.stderr:
+                print("smoke: note: jsonschema is not installed; Execution Events schema validation skipped")
+            else:
+                fail(
+                    "execution_events_consumer.py failed:\n"
+                    f"{validate_events.stdout}\n{validate_events.stderr}"
+                )
+
         validate = subprocess.run(
             [
                 sys.executable,

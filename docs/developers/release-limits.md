@@ -61,8 +61,10 @@ Even when available:
 * `3.0.0-beta.1` is a **prerelease**, not stable and not LTS. Breaking changes
   inside the 3.0 beta series are allowed and announced in the changelog.
 * The product version is independent of protocol versions: Analysis v2, Trace
-  v2, Tool v1, Plugin ABI v1, Foreign wire v1, Provider manifest v2 and lock v4
-  keep their own major numbers. Do not infer them from `3.0.0-beta.1`.
+  v2, Execution Events v1, Tool v1, Plugin ABI v1, Foreign wire v1, Provider
+  manifest v2 and lock v4 keep their own major numbers. Do not infer them from
+  `3.0.0-beta.1`. Execution Events v1 is a post-beta addition and is not in the
+  tagged beta archive.
 * The official bundled stdlib keeps its independent package version `0.1.0`.
   A plugin `.mq.md` package version such as `0.1.0` is also independent.
 * `project.marqdo` in `marqdo.yaml` is enforced in this release. SemVer
@@ -79,6 +81,20 @@ Archives are accompanied by SHA256 checksums and `RELEASE_INFO.json`
 (`source_sha`, target triple, toolchain, binary hashes). Checksums prove content
 integrity only; they are **not** a publisher signature. A digest obtained from
 an untrusted Git URL does not make the code trustworthy.
+
+## Execution Events v1 (post-beta addition)
+
+* Implemented: live stdout/stderr chunks, lifecycle/terminal events, call
+  instance ids, branch/loop/effect events, explicit bounded value observation.
+* Not implemented: memory region/budget metadata (OBS-06/P2), raw memory
+  content, breakpoints/stepping/time travel, and a bidirectional debug
+  protocol. Do not infer a debugger from this protocol.
+* `--mode strict` currently rejects `--event-stream` explicitly; there is no
+  silent fallback to `project`.
+* The live lane is tested on Linux x86_64; macOS/Windows are unverified for
+  this option like the rest of the beta CLI.
+* Observation lowers confidentiality when values are explicitly enabled. Text
+  needs a second opt-in; View/agents must not enable these flags by default.
 
 ## Deliberately deferred
 

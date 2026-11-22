@@ -10,6 +10,36 @@ Foreign wire v1, Provider manifest v2, lock v4) and independent package
 versions (including the bundled stdlib `0.1.0`) are versioned separately and
 do not follow the product version. Dates use ISO 8601.
 
+## Unreleased (post `3.0.0-beta.1`)
+
+### Runtime observability — Execution Events v1 (RFC-OBS-0001, ADR-0059)
+
+- `marqdo run` and `marqdo call` accept `--event-stream jsonl`: the CLI stdout
+  becomes a pure NDJSON `marqdo.execution-events` v1 channel. Program
+  stdout/stderr are carried as byte-exact base64 chunk events emitted at the
+  Host commit point, not by splitting the final buffer.
+- Lifecycle and terminal events (`stream.opened`, `run.started`,
+  `run.completed`, `run.failed`, `run.rejected`) have defined ordering and exit
+  codes. `--event-stream` is mutually exclusive with `--json`, is rejected by
+  static commands and by `--mode strict`, and may be combined with
+  `--trace-file`; the two writers share one run id and Analysis digest.
+- Call instances get run-unique `frame_id`/`parent_frame_id`; `call.enter`,
+  `call.exit`, `return`, `branch.eval`, `loop.iteration`, `effect` and
+  `variable.assigned` events are bounded by a structural budget with a single
+  `observation.truncated` marker.
+- Values are off by default. `--observe-variable` / `--observe-parameter` are
+  exact-name selections; `Int`/`Float`/`Bool` are bounded and `Text` requires
+  the separate `--observe-text-values` consent. Unselected, redacted,
+  truncated and unsupported states are distinct.
+- New public contract
+  [`spec/execution-events-v1.md`](spec/execution-events-v1.md) and
+  [`spec/schemas/execution-events-v1.schema.json`](spec/schemas/execution-events-v1.schema.json),
+  with fixtures and an independent Python consumer. Analysis v2 and Trace v2
+  schemas/versions are unchanged.
+- Limitations: memory metadata events (OBS-06/P2), a bidirectional debug
+  protocol and SSE/HTTP remain out of scope; strict mode refuses event mode
+  explicitly.
+
 ## 3.0.0-beta.1 (2026-11-22)
 
 First public prerelease of the independent Marqdo toolchain. This is a

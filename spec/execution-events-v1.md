@@ -18,6 +18,9 @@ design input is [RFC-OBS-0001](../docs/architecture/RFC-OBS-0001-runtime-observa
 * `--event-stream jsonl` is available only on `run` and `call`. It is
   mutually exclusive with `--json`; `check`, `inspect`, `fmt`, `tool` and the
   other static commands reject the option. `--trace-file` may be combined.
+* `--mode strict` currently rejects `--event-stream` with a structured
+  `run.rejected` (`strict.unsupported_grant`); there is no silent downgrade to
+  `project`.
 * The consumer checks the negotiated protocol from `stream.opened`
   (`schema` + `schema_version`). Consumers **must reject unknown major
   versions**, and must not silently treat another major as v1.
@@ -204,7 +207,9 @@ truncated text the object also carries `"truncated": true` and
 Lists, maps, tables, formulas, code, memory, resources and plugin handles are
 `unsupported`; they are never recursed into and handles are never serialized.
 A text value is never published without the explicit
-`--observe-text-values` consent, even when the name was selected.
+`--observe-text-values` consent, even when the name was selected. A
+`--observe-max-value-bytes` value of `0` means unlimited; otherwise text is
+cut only at a UTF-8 scalar boundary and marked `truncated`.
 
 `variable.assigned` is emitted only after the assignment was actually
 committed. It never re-evaluates the right-hand side and never back-fills the
