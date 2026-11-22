@@ -3,7 +3,7 @@
 - **Date:** 2026-11-22
 - **Scope:** RFC-OBS-0001 P0 (OBS-00..03) and P1 (OBS-04..05); OBS-06/P2
   memory metadata deliberately deferred.
-- **Source SHA:** `2d51f0834090aa8a78f081dc176a0463bf53d51c` (post-beta tree;
+- **Source SHA:** `1d3dca7c1832eb9468e96384d9805a3812a303e4` (post-beta tree;
   the tagged beta is `2c7c4f31e7a388d3fcfa717a77067e696ed13854` and does **not**
   contain this feature).
 - **Normative contract:** [`spec/execution-events-v1.md`](../../spec/execution-events-v1.md),
@@ -42,9 +42,9 @@ Python consumer was run against the extracted binary's live stream:
 
 ```text
 archive: dist/marqdo-3.0.0-beta.1-x86_64-unknown-linux-gnu.tar.gz
-archive sha256: e000fc4afd7d68c3aaed3a28393f1f2301ee61e692c7d471b6f0b9cde1ff5994
-extracted marqdo sha256 before: c45ba7fd81c171dd349ba2250b5af0434152cd9ffa39f37dfec31a435b2b730e
-extracted marqdo sha256 after:  c45ba7fd81c171dd349ba2250b5af0434152cd9ffa39f37dfec31a435b2b730e (unchanged)
+archive sha256: d55dd4b3cc3be6d2fec394e870af07fac0dd30bf5eb29f91a73a565ea6381088
+extracted marqdo sha256 before: ce0da79024b5677edb04328e56e9d873732b870fd0c3cbd74340c5de6efb073d
+extracted marqdo sha256 after:  ce0da79024b5677edb04328e56e9d873732b870fd0c3cbd74340c5de6efb073d (unchanged)
 run: marqdo run tests/consumers/fixtures/execution-events/basic.mq.md --event-stream jsonl
 run exit: 0
 consumer: execution events consumer: ok: 297 events, terminal=run.completed, stdout+stderr bytes=11
