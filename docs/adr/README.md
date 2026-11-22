@@ -43,4 +43,7 @@ Files: `0001`–`0050`, plus:
 * `0057-capability-handler-registration.md` — declared capability vs installed
   handler vs audit;
 * `0058-stdlib-public-alias.md` — verified stdlib `public_aliases` replace
-  print magic.
+  print magic;
+* `0059-runtime-observability-and-execution-events.md` — typed host
+  observation facade, Execution Events v1 JSONL boundary, frame identity and
+  selected-value policy.

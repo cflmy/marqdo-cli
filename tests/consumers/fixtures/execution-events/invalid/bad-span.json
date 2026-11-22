@@ -1,0 +1,1 @@
+{"schema":"marqdo.execution-events","schema_version":1,"run_id":"run-fixture-1","seq":4,"kind":"call.exit","payload":{"frame_id":"f1","status":"return","module_id":"m","span":{"start":1}}}
