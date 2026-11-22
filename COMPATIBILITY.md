@@ -83,7 +83,7 @@ portable/tested locally but the native platform lane has not run here;
 | Capability handler registry (`fs.read` handler, audit, unavailable) | PASS | UNVERIFIED | UNVERIFIED |
 | External conformance repository (`marqdo-extension-conformance`, frozen CLI) | PASS (`--release` binary sha256 `28e3776d…`, fixture repo `e4b7352c…`; see `docs/evidence/extension/6a7bb983.../manifest.json`) | UNVERIFIED | UNVERIFIED |
 | Analysis v2 / Trace v2 + Python consumers | PASS | UNVERIFIED | UNVERIFIED |
-| Execution Events v1 (`--event-stream jsonl`, P0/P1) | PASS locally (12 CLI contract tests + 8 host + 4 runtime; independent Python schema consumer); post-beta, not in the tagged archive | UNVERIFIED | UNVERIFIED |
+| Execution Events v1 (`--event-stream jsonl`, P0/P1) | PASS locally (14 CLI contract tests + 8 host + 4 runtime; independent Python schema consumer); post-beta, not in the tagged archive | UNVERIFIED | UNVERIFIED |
 | Tool Protocol v1 + 3 independent consumers | PASS | UNVERIFIED | UNVERIFIED |
 | Native ABI (`plugin inspect`, trusted call) | PASS (C fixture) | UNVERIFIED (host-native fixture) | **UNSUPPORTED** |
 | Worker ABI + `fs.read` bridge | PASS (Unix) | UNVERIFIED | **UNSUPPORTED** (Unix-gated) |

@@ -333,6 +333,26 @@ pub fn execute(
             return fail_prepare(stream, json, command_name, "authorization", &error);
         }
     }
+    // A native plugin shares this process and can write fd 1 directly, so it
+    // can pollute the JSONL channel. Fail closed rather than presenting
+    // untrusted raw bytes as program stdout (RFC-OBS-0001 §4.4/§9.2, T26).
+    if stream.is_some()
+        && static_plugins
+            .plugins
+            .iter()
+            .any(|plugin| plugin.kind == marqdo_plugin_abi::PluginKind::Native)
+    {
+        return fail(
+            stream,
+            json,
+            command_name,
+            "authorization",
+            "ext.event_stream_unsupported_native_plugin",
+            "--event-stream jsonl cannot guarantee a clean channel with an in-process native \
+             plugin; use a worker plugin or disable event mode",
+            2,
+        );
+    }
     // T7: start only selected, granted and verified extensions.
     for plugin in &static_plugins.plugins {
         if let Err(message) = load_plugin_into_host(

@@ -341,7 +341,9 @@ impl<'a> Interpreter<'a> {
                     }
                 }
             };
-            provenance.insert(param.name.clone(), (source, param.span));
+            if self.observe {
+                provenance.insert(param.name.clone(), (source, param.span));
+            }
             locals.insert(param.name.clone(), value);
         }
         Ok(BoundArgs { locals, provenance })

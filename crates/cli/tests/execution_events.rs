@@ -267,6 +267,87 @@ fn structure_fixture_attributes_repeated_recursive_frames() {
 }
 
 #[test]
+fn native_plugin_is_fail_closed_in_event_mode() {
+    use sha2::Digest;
+    let dir = TempDir::new("native-plugin");
+    dir.write("index.mq.md", "## @exec main\n\n`return 1`\n");
+    let plugin_dir = dir.path().join("plugin");
+    fs::create_dir_all(&plugin_dir).unwrap();
+    let artifact = plugin_dir.join("solver.so");
+    fs::write(&artifact, b"not-a-real-library").unwrap();
+    let digest = hex::encode(sha2::Sha256::digest(fs::read(&artifact).unwrap()));
+    let manifest = format!(
+        "plugin:\n  name: demo.solver\n  version: 0.1.0\n  abi: \"^1.0\"\n  kind: native\n  exports:\n    - name: solver.add\n      signature: \"($a: Int, $b: Int) -> Int\"\n  requires:\n    - math.compute\n  artifacts:\n    - target: {}\n      file: solver.so\n      sha256: \"{}\"\n",
+        marqdo_plugin_abi::HostTarget::current().triple(),
+        digest
+    );
+    fs::write(plugin_dir.join("plugin.yaml"), manifest).unwrap();
+    let output = cli(
+        dir.path(),
+        &[
+            "run",
+            "index.mq.md",
+            "--event-stream",
+            "jsonl",
+            "--plugin",
+            plugin_dir.join("plugin.yaml").to_str().unwrap(),
+            "--allow-plugin",
+            "demo.solver",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(2));
+    let events = parse_events(&output.stdout);
+    assert_envelope(&events);
+    let terminal = events.last().unwrap();
+    assert_eq!(terminal["kind"], "run.rejected");
+    assert_eq!(
+        terminal["payload"]["error"]["code"],
+        "ext.event_stream_unsupported_native_plugin"
+    );
+    assert!(
+        events_of(&events, "run.started").is_empty(),
+        "the native plugin is rejected before execution"
+    );
+}
+
+#[test]
+fn observed_values_never_enter_trace_v2() {
+    let dir = TempDir::new("trace-redaction");
+    dir.write(
+        "index.mq.md",
+        "## @exec main\n\n`secret_token = \"DO_NOT_LEAK_SENTINEL_1\"`\n\n`visible_count = 42`\n\n`return visible_count`\n",
+    );
+    let trace_path = dir.path().join("trace.json");
+    let output = cli(
+        dir.path(),
+        &[
+            "run",
+            "index.mq.md",
+            "--event-stream",
+            "jsonl",
+            "--observe-variable",
+            "secret_token",
+            "--observe-text-values",
+            "--trace-file",
+            trace_path.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(output.status.code(), Some(0));
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("DO_NOT_LEAK_SENTINEL_1"),
+        "the explicit event consent publishes the selected value in the stream"
+    );
+    let trace = fs::read(&trace_path).unwrap();
+    assert!(
+        !String::from_utf8_lossy(&trace).contains("DO_NOT_LEAK_SENTINEL_1"),
+        "Trace v2 must not gain observed values"
+    );
+    let trace: Value = serde_json::from_slice(&trace).unwrap();
+    assert_eq!(trace["schema"], "marqdo.trace");
+    assert_eq!(trace["schema_version"], 2);
+}
+
+#[test]
 fn basic_stream_is_pure_jsonl_and_reconstructs_program_output() {
     let dir = TempDir::new("basic");
     dir.write("index.mq.md", BASIC);

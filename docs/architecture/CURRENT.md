@@ -44,7 +44,7 @@ platform".
 | Dimension | Current state | Source |
 |---|---|---|
 | Implemented | Rust workspace `3.0.0-beta.1`: RFC-LANG-0002 Markdown/frontend/IR, v2 statement parser, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, migrated bundled stdlib, CLI composition root; post-baseline Execution Events v1 observation (ADR-0059) | `Cargo.toml`, `crates/`, `stdlib/` |
-| Tested locally | `cargo test --workspace --locked`: **628 passed, 0 failed, 2 ignored** on the post-baseline observability tree (Linux x86_64); `cargo fmt --check` and `clippy -D warnings` clean. Historical baseline: 599 passed before Execution Events v1, 507 at `9c1723d`. | `docs/STATUS.md` §0.5, `docs/evidence/2026-11-22-ext-implementation.md` |
+| Tested locally | `cargo test --workspace --locked`: **630 passed, 0 failed, 2 ignored** on the post-baseline observability tree (Linux x86_64); `cargo fmt --check` and `clippy -D warnings` clean. Historical baseline: 599 passed before Execution Events v1, 507 at `9c1723d`. | `docs/STATUS.md` §0.5, `docs/evidence/2026-11-22-ext-implementation.md` |
 | Bundled stdlib released | In-repo bundle `marqdo-stdlib@0.1.0`, SHA-256 digest verified before loading; it is **not** an external registry package | `stdlib/stdlib.json`, `stdlib/README.md` |
 | Multi-platform verified | Linux local gate is the only executed lane here; Windows/macOS native lanes are **UNVERIFIED**, and the GitHub security lane remains a **VM-only** gate | `docs/STATUS.md` §1, §4 |
 

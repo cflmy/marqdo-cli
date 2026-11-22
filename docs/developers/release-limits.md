@@ -93,6 +93,9 @@ an untrusted Git URL does not make the code trustworthy.
   silent fallback to `project`.
 * The live lane is tested on Linux x86_64; macOS/Windows are unverified for
   this option like the rest of the beta CLI.
+* In-process native plugins are rejected in event mode
+  (`ext.event_stream_unsupported_native_plugin`) because they share the process
+  and can write the protocol fd directly; worker plugins remain usable.
 * Observation lowers confidentiality when values are explicitly enabled. Text
   needs a second opt-in; View/agents must not enable these flags by default.
 

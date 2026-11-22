@@ -296,6 +296,10 @@ authorization are unchanged.
 * A third-party extension's raw OS stdout/stderr must not pollute the JSONL
   channel. Such output remains external process data: it is either captured by
   the controlled host transport or the combination is unsupported/fail-closed.
+  In particular, an in-process **native plugin** can write fd 1 directly, so an
+  event-mode run that selects one is rejected with
+  `ext.event_stream_unsupported_native_plugin` before loading; use a worker
+  plugin or disable event mode.
 * Tests use synthetic sentinel values and assert that unselected values never
   appear in the stream, Trace or `--json`.
 

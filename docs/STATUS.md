@@ -100,6 +100,8 @@ This section records work **after** the `v3.0.0-beta.1` tag. It is not part of
 the tagged beta archive and no new release tag has been created. The design
 input is RFC-OBS-0001 (issue `#1`), the frozen decision is ADR-0059 and the
 normative contract is [`spec/execution-events-v1.md`](../spec/execution-events-v1.md).
+Executed evidence for this section is
+[`evidence/2026-11-22-execution-events-v1.md`](evidence/2026-11-22-execution-events-v1.md).
 
 - **Implemented (P0/P1):** `run/call --event-stream jsonl` writes a pure NDJSON
   `marqdo.execution-events` v1 stream; lifecycle/terminal events; byte-exact
@@ -122,8 +124,8 @@ Executed local gate on this tree (Linux x86_64, Rust 1.100.0):
 ```text
 cargo fmt --all -- --check                            PASS
 cargo clippy --workspace --all-targets -- -D warnings PASS
-cargo test --workspace --locked                       PASS: 628 passed, 0 failed, 2 ignored
-cargo test -p marqdo-cli --test execution_events      PASS: 12 passed
+cargo test --workspace --locked                       PASS: 630 passed, 0 failed, 2 ignored
+cargo test -p marqdo-cli --test execution_events      PASS: 14 passed
 cargo test -p marqdo-host --test observation          PASS: 8 passed
 cargo test -p marqdo-runtime --test observation       PASS: 4 passed
 python3 tests/consumers/execution_events_consumer.py  PASS on a live real-binary stream (schema, seq, terminal, byte_count)
