@@ -213,8 +213,10 @@ The archive/stdlib digests, cold-install smoke, independent `ubuntu:24.04`
 container and external frozen-binary conformance are executed on the implementation
 commit and recorded with exact hashes in
 [`evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md`](evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md)
-§5–§7. This is local evidence, not a same-SHA CI pipeline or a tagged release;
-platform claim remains Linux x86_64.
+§5–§7; the external frozen-binary manifest is
+[`evidence/extension/b9c41564aeeadd2b7b202256b866bc13f995cb36/manifest.json`](evidence/extension/b9c41564aeeadd2b7b202256b866bc13f995cb36/manifest.json)
+(7/7 PASS, CLI sha256 `e684ed26…` matching the archive). This is local evidence,
+not a same-SHA CI pipeline or a tagged release; platform claim remains Linux x86_64.
 
 ## 1. Historical: pre-beta remote baseline and evidence
 

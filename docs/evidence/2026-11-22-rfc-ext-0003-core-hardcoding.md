@@ -161,10 +161,28 @@ python3 tools/ci/verify_extension_contracts.py --cli <release-marqdo> \
   --tested-sha <SHA> --out docs/evidence/extension/<SHA>/manifest.json
 ```
 
-Result: **EXT_RESULTS** — the manifest records `cli_binary_sha256`,
-`fixture_repo_sha`, 7/7 categories and no failures; the CLI hash did not change
-during the suite. Exact JSON is committed at
-`docs/evidence/extension/<SHA>/manifest.json` in the follow-up evidence commit.
+Result: **PASS 7/7 categories, zero failures, zero unverified.**
+Manifest: [`extension/b9c41564aeeadd2b7b202256b866bc13f995cb36/manifest.json`](extension/b9c41564aeeadd2b7b202256b866bc13f995cb36/manifest.json).
+
+```text
+tested_sha            b9c41564aeeadd2b7b202256b866bc13f995cb36
+cli_binary_sha256     e684ed266494ec15db9163aaecbc88e02b4dd5002bf340fbf1ad91ecfc197e18
+fixture_repo_sha      e22ec95b097477ae9c19d3bfe19048af5337b806
+results               callable_registry, plugin_worker, foreign_kernel,
+                      resource_provider_cli, package_pinned_git,
+                      tool_analysis_consumer, negative_security = PASS
+failures              []
+unverified            []
+```
+
+The CLI binary hash equals `RELEASE_INFO.json.binaries.marqdo.sha256` from the
+release archive (§5), i.e. the frozen binary exercised by the independent
+repository is the shipped one; the verifier also hashes it before and after the
+suite and fails if it changes. `tested_sha` is the evidence/tooling commit after the
+implementation commit `a67f344`; the two commits differ only in smoke-tooling and
+documentation files, not in any Rust crate or example that contributes to the
+binary/archive. The suite's own source tree was clean and the fixture repository
+was at `e22ec95…`; generated fixture artifacts were restored after the run.
 
 ## 8. Explicit deferrals / not claimed
 
