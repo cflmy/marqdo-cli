@@ -9,7 +9,7 @@ Provider v2 worker (positive, unauthorized and missing-helper fail-closed), and
 strict mode when the host genuinely supports it.
 
 Usage:
-    python3 tools/release/smoke.py --archive dist/marqdo-3.0.0-beta.1-x86_64-unknown-linux-gnu.tar.gz
+    python3 tools/release/smoke.py --archive dist/marqdo-3.0.0-rc.1-x86_64-unknown-linux-gnu.tar.gz
 """
 
 from __future__ import annotations
@@ -302,6 +302,10 @@ def main(argv: list[str]) -> int:
         ]
         if not events or events[0].get("kind") != "stream.opened":
             fail("Execution Events stream does not start with stream.opened")
+        if events[0].get("payload", {}).get("producer", {}).get("version") != version:
+            fail("Execution Events producer.version does not match the product version")
+        if events[0].get("schema_version") != info["protocols"].get("execution_events"):
+            fail("Execution Events schema_version does not match RELEASE_INFO.json")
         if events[-1].get("kind") != "run.completed":
             fail("Execution Events stream has no successful terminal event")
         validate_events = subprocess.run(

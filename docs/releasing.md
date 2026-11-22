@@ -158,18 +158,7 @@ The cold-install gate must run in a container that receives **only the archive
 bytes** — no source directory, no `/build`, no Cargo — and extracts them itself:
 
 ```bash
-docker run --rm -v "$PWD/dist:/dist:ro" ubuntu:24.04 sh -c '
-  set -eu
-  mkdir -p /opt/marqdo
-  tar -xzf /dist/marqdo-<version>-x86_64-unknown-linux-gnu.tar.gz -C /opt/marqdo
-  cd /opt/marqdo/marqdo-<version>-x86_64-unknown-linux-gnu
-  ./marqdo --version
-  ./marqdo --help >/dev/null
-  ./marqdo run examples/hello.mq.md
-  ./marqdo check examples/multi-module/index.mq.md --emit /tmp/analysis.json
-  ./marqdo call examples/math-library-demo.mq.md main
-  ./marqdo call examples/factorial.mq.md 阶乘 --arg n=5
-'
+bash tools/release/cold-install.sh dist/marqdo-*.tar.gz "$(git rev-parse HEAD)"
 ```
 
 Run this on the same Linux x86_64 glibc baseline as the release support
