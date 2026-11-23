@@ -7,17 +7,18 @@
    it lives; this grammar decides what that payload means. No second parser
    and no per-file syntax selector exists.
 
-   Implementation state: the Rust expression parser still implements the
-   previous, control-free grammar; this file is the target contract. See
-   docs/STATUS.md.
+   See docs/STATUS.md for implementation and release status.
 *)
 
 (* One payload is exactly one statement and must consume the whole payload. *)
 payload        = statement , EOF ;
 
 statement      = if_stmt
+               | else_if_stmt
                | else_stmt
                | while_stmt
+               | break_stmt
+               | continue_stmt
                | end_stmt
                | return_stmt
                | params_stmt
@@ -25,28 +26,27 @@ statement      = if_stmt
                | expression ;
 
 if_stmt        = "if" , space_required , expression ;
+else_if_stmt   = "else" , space_required , "if" , space_required , expression ;
 else_stmt      = "else" ;
 while_stmt     = "while" , space_required , expression ;
+break_stmt     = "break" ;
+continue_stmt  = "continue" ;
 end_stmt       = "end" ;
 return_stmt    = "return" , space_required , expression ;
 params_stmt    = "params" , "(" , [ parameter_list ] , ")" ;
 
-(* `if`, `else`, `while`, `end`, `return` and `params` are reserved statement
-   words only when they are the complete first token of a payload.
-   `ifdef(x)` and `returning(x)` are ordinary identifiers; a bare `if` used as
-   an identifier is a reserved-word error. `else`/`end` take no additional
-   tokens: `else x` and `end if` are syntax errors. No trailing colon:
-   `if x > 0:` is a syntax error. No `elif`, `for`, `break`, `continue`,
-   `try`, empty `return`, `end if`, or semicolon-separated multi-statement
-   payload exists in this revision.
+(* `if`, `else`, `while`, `end`, `return` and `params` are reserved words.
+   `break` and `continue` are contextual: a complete payload of exactly that
+   identifier takes precedence over the ordinary expression production.
+   Calls, assignments and uses inside expressions retain their identifier
+   meaning. Neither loop-control statement takes operands or a label.
+   No trailing colon, `elif`, `for`, `try`, empty `return`, `end if`, or
+   semicolon-separated multi-statement payload is supported.
 
-   Control pairing is not part of this grammar; it is a separate compile-time
-   stack in the frontend:
-     - every `if` has exactly one closing `end`;
-     - `else` is optional and at most one per `if`;
-     - every `while` has exactly one closing `end`;
-     - `else` must bind the top-of-stack `if`; `end` closes the top frame;
-     - a frame must close inside the same heading's direct body.
+   The frontend pairs statements inside each heading execution segment.
+   Each `if` takes zero or more `else if` arms and at most one final `else`.
+   Each `if` and `while` takes one closing `end`. A loop control statement
+   requires an open `while` in the same segment. See mapping.md.
 *)
 
 (* Function parameter declaration. It is legal only as the first direct

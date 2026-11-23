@@ -604,7 +604,7 @@ import:
 `return x`
 ````
 
-规范语义：条件计算一次，必须是 Bool；为真执行 `if` 和 `else` 之间的载荷，否则执行 `else` 和 `end` 之间的载荷。**不能两个分支都执行。** `else` 可以省略；但 `end` 不能省略。
+各条件必须返回 Bool，每个条件在轮到该臂时求值一次。执行第一个为真的臂，或在所有条件为假时执行末尾的 `else`。没有匹配臂也没有 `else` 时直接继续。每组需要一个 `end`。
 
 **将它排成有序列表也完全合法**：
 
@@ -675,7 +675,9 @@ import:
 
 匹配规则：每个 `else` 只作用于**栈顶尚未结束的 `if`**；每个 `end` 关闭最近的 `if` 或 `while`。这是一套确定的编译期配对规则，不靠缩进/列表种类/解释器猜测。
 
-**不支持 `else if` 专用写法（本期）**：若需要多路判断，可在 `else` 内另写一个嵌套 `if ... end`，按上述栈规则执行。若未来证明有显著可读性需求，再独立讨论 `elif`，不能开发者自行在 Parser 中宽容接受。
+多臂条件采用同一载荷内的 `else if <expr>`，允许零至多个条件臂和一个末尾
+`else`。整组由一个 `end` 闭合，各条件从左到右按需求值。两个独立载荷
+`else` 与 `if` 仍表示嵌套分支。详见 [RFC-CTRL-0005 的采纳记录](../adr/0067-structured-control-flow.md)。
 
 ## 4.5 `while` / `end`：不依赖 bullet List 的循环
 
@@ -720,9 +722,10 @@ import:
 
 严格规则：
 
-- 每一个 `if` 恰有一个匹配的 `end`；`else` 可选且最多一个。
+- 每一个 `if` 恰有一个匹配的 `end`。可有多个 `else if` 和一个末尾 `else`。
 - 每一个 `while` 恰有一个匹配的 `end`。
-- `else` 不能独立出现；不能对应 `while`；一个 `if` 不能有两个 `else`。
+- `else if` 和 `else` 只能配对栈顶的 `if`。
+- 独占载荷的 `break` 结束同一标题执行段中的最近循环，`continue` 跳至该循环的下一次条件检查。
 - `end` 不能独立出现；语义片段末尾若仍有未闭合控制块则报错。
 - 不允许控制块跨越**标题边界**（见第 6 章），也不能跨 H2 函数、不同 `@exec` 章节或知识区域。
 - `if x > 0:` 带尾冒号首版不合法；规范语句不使用冒号，因为 Markdown 控制不由缩进决定。
@@ -755,7 +758,7 @@ V2 推荐显式声明：
 | `return`（无表达式） | 语法错误 | `return None`（如果确实要返回 None） |
 | `end if` | 语法错误 | `end` |
 | `for x in xs` | 未纳入首版语法 | 标准库算法或 `while` |
-| `break`、`continue`、`try` | 未纳入首版语法 | 首版不承诺 |
+| `try` | 不属于当前语法 | — |
 | `a.b = 1` | 保留现有赋值能力限制 | 使用相应数据操作 API |
 | `x = 1; return x` 单个载荷 | 语法错误 | 两个独立闭合载荷 |
 | 直接写 `> print(x)` | 文档引用，不执行 | `> **print(x)**` |
@@ -784,7 +787,10 @@ V2 推荐显式声明：
 ```ebnf
 (* 每一个独立 Markdown 载荷对应且只对应一条 statement。 *)
 carrier_statement  = "if", required_space, expr, EOF
+                   | "else", whitespace, "if", whitespace, Expr, EOF
                    | "else", EOF
+                   | "break", EOF
+                   | "continue", EOF
                    | "while", required_space, expr, EOF
                    | "end", EOF
                    | "return", required_space, expr, EOF
@@ -799,7 +805,7 @@ carrier_statement  = "if", required_space, expr, EOF
 **词法必须考虑完整单词边界**：`ifdef()`、`returning()` 不是 `if`、`return` 控制语句；反之，单独的 `if`、`else` 等当作标识符使用应明确报保留字错误。为了避免自相矛盾，Tokeniser 和 Parser 均应对关键字使用同一套保留字定义。
 
 - `if`、`while` 后必须为可完整消费的表达式；表达式运行结果必须 Bool。现有条件纯度限制仍适用。
-- `else`、`end` 后不允许额外词元，`end if`、`else x` 均硬错误。
+- `else if` 后必须有条件；独立的 `else` 和 `end` 后无额外词元。
 - `return` 后必须是表达式；其作用范围是当前 H2 函数，不是当前段落/列表项。
 - `params` 仅允许声明位置；作为普通表达式调用不得偷偷生效。
 - 首版**没有**冒号、缩进结束、自动括号、换行分号语法糖。

@@ -23,8 +23,8 @@ Markdown→program mapping changes.
 3. **Closed carriers carry one statement each.** In an Exec scope, `Strong`,
    `Emph` and inline `Code` are interchangeable carriers of one payload. They
    no longer mean execute/return/lazy respectively.
-4. **Keywords inside the payload decide the operation.** `if`, `else`, `while`,
-   `end`, `return`, `params(...)`, assignment and expression statements. Lists,
+4. **Keywords inside the payload decide the operation.** `if`, `else if`, `else`, `while`, `break`,
+   `continue`, `end`, `return`, `params(...)`, assignment and expression statements. Lists,
    block quotes and paragraphs are document containers only.
 5. **Errors never fall back to prose.** Once a payload is extracted from an
    Exec scope it must parse fully; a failure is a diagnostic.
@@ -217,8 +217,9 @@ Each extracted payload is exactly one statement, defined by
 `spec/expression.ebnf`:
 
 ```text
-if <expr>       else       while <expr>       end
-return <expr>   params(...) assignment       expression
+if <expr>       else if <expr>   else       end
+while <expr>    break            continue
+return <expr>   params(...)      assignment expression
 ```
 
 Lexical details:
@@ -226,13 +227,16 @@ Lexical details:
 * Keywords are recognized only as complete first tokens: `ifdef(...)` and
   `returning` are ordinary identifiers; a bare `if`/`else` used as an
   identifier is a reserved-keyword error.
-* `if`, `while` and `return` require a non-empty expression that consumes the
-  whole payload (to EOF). Trailing characters are errors.
-* `else` and `end` accept no additional tokens; `else x` and `end if` are
-  `sem.syntax`.
-* No trailing colon: `if x > 0:` is `sem.syntax`. No `elif`, `for`, `break`,
-  `continue`, `try`, `end if` or semicolon-separated statements in this
-  version.
+* `if`, `else if`, `while` and `return` require whitespace followed by an
+  expression that consumes the whole payload. Trailing colons are
+  `sem.syntax`. `else` and `end` take no arguments.
+* `break` and `continue` are loop control only when the complete payload is
+  the single identifier. `break 2` and `continue label` are syntax errors.
+  `break(1)`, `continue = 1` and `return break` retain their ordinary call,
+  assignment and expression meanings. To read a variable named `break` or
+  `continue` as an expression statement, parenthesize the identifier.
+* `elif`, `for`, `try` and semicolon-separated statements are outside this
+  grammar.
 * `return` always requires an expression; falling off the end of a function
   still returns `Unit`. Explicit `return None` is available when `None` is the
   intended value.
@@ -244,33 +248,29 @@ Lexical details:
 
 ## 5. Control-stack lowering
 
-Within one execution segment, payloads form a token stream. Lower it with one
-explicit stack:
+Within one execution segment, payloads form an ordered statement stream.
+The innermost open control block owns its body.
 
-```text
-open_if(cond)   -> push IfFrame(cond, then=[], else=None)
-statement       -> append to the innermost active body
-else            -> require top is IfFrame with else=None; switch to else body
-open_while(cond)-> push WhileFrame(cond, body=[])
-end             -> require a non-empty stack; pop the top frame and lower it
-at_segment_end  -> require the stack to be empty
-```
-
-Rules:
-
-* `else` pairs with the top-of-stack `IfFrame` only. It may not skip an open
-  `while` or an inner `if`.
-* At most one `else` per `if`; `else` with no open `if` is
-  `sem.unmatched_else`; a second `else` is `sem.duplicate_else`.
-* `end` closes exactly the most recent open `if`/`while`; no match is
-  `sem.unmatched_end`.
-* Reaching a segment boundary with an open frame is `sem.unclosed_control`,
-  with a related span on the opener. The compiler must not synthesize an `end`.
-* `if` lower to the existing `Branch` IR; the optional `else` may lower to a
-  final unconditional arm while preserving left-to-right short-circuit
-  evaluation and executing at most one arm. `while` lowers to `Loop`; `return`
-  lowers to `Return` and unwinds the whole H2 function. `else`/`end` generate no
-  runtime instruction of their own.
+* `if` opens a branch with zero or more subsequent `else if` arms and one
+  optional final `else`. Each arm starts in its own carrier. Two carriers
+  containing `else` and `if` still open a nested branch and require separate
+  closing `end` statements. An empty arm is legal.
+* `else if` and `else` must bind the innermost open block, which must be an
+  `if`. A second `else` or an `else if` after `else` is a hard error.
+* `end` closes the innermost open `if` or `while`. Reaching a segment
+  boundary with an open block is a hard error on the opener.
+* All conditional arms lower to one ordered `Branch`. Evaluate conditions
+  left to right and execute only the first matching arm. If all are false,
+  execute the optional `else` body or proceed to the next statement.
+  Each conditional arm has its own source span.
+* `while` lowers to `Loop`. `break` exits the nearest open loop and
+  `continue` skips the rest of its body and rechecks its condition. Both
+  require a loop in the same function and heading execution segment.
+  `return` exits the whole function, including from inside a loop.
+* Definite-assignment inference merges reachable fallthrough paths. Loop
+  exits include condition-failure and `break` paths. `continue` and
+  ordinary body fallthrough lead back to the condition. An abrupt transfer
+  stops inference from its remaining sequence.
 
 ## 6. Functions, signatures and calls
 
@@ -333,6 +333,10 @@ Stable machine-readable codes (the human `message`/`hint` text may change):
 | `sem.empty_payload` | an empty carrier in an Exec scope |
 | `sem.syntax` | malformed statement, missing condition/value, trailing tokens, colon, unsupported keyword |
 | `sem.unmatched_else` | `else` with no open `if` at the top of the stack |
+| `sem.unmatched_else_if` | `else if` with no open `if` at the top of the stack |
+| `sem.else_if_after_else` | `else if` after the final `else` of the same `if` |
+| `sem.break_outside_loop` | `break` with no open loop in this heading segment |
+| `sem.continue_outside_loop` | `continue` with no open loop in this heading segment |
 | `sem.duplicate_else` | a second `else` for the same `if` |
 | `sem.unmatched_end` | `end` with no open control frame |
 | `sem.unclosed_control` | an open `if`/`while` at a heading/function/file boundary |
