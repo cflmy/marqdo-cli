@@ -3,7 +3,7 @@
 
 Extracts the archive into a fresh temporary directory and exercises the shipped
 binaries only (never the development source tree): version/help, check/run/call,
-lock/sync for a path dependency, Analysis v2 + Trace v2 consumers, Tool
+lock/sync for a path dependency, Analysis v2/v3 and Trace v2 consumers, Tool
 install/dispatch, native and worker plugin transports, foreign kernel, the
 Provider v2 worker (positive, unauthorized and missing-helper fail-closed), and
 strict mode when the host genuinely supports it.
@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import shutil
@@ -166,6 +167,53 @@ class Runner:
             fail(f"`marqdo {' '.join(args)} --json` is not JSON: {error}\n{result.stdout}")
 
 
+ANALYSIS_CASES = {
+    2: ("examples/multi-module/index.mq.md", "analysis_consumer.py"),
+    3: ("examples/control-flow.mq.md", "analysis_v3_consumer.py"),
+}
+
+
+def verify_analysis_metadata(protocols: dict) -> None:
+    if protocols.get("analysis") != min(ANALYSIS_CASES):
+        fail("RELEASE_INFO.json does not identify the default Analysis version")
+    if protocols.get("analysis_versions") != sorted(ANALYSIS_CASES):
+        fail("RELEASE_INFO.json Analysis versions do not match the archive smoke cases")
+
+
+def run_consumer(install: Path, consumer: str, *paths: Path) -> None:
+    result = subprocess.run(
+        [sys.executable, str(install / "tests" / "consumers" / consumer), *map(str, paths)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        fail(f"{consumer} failed:\n{result.stdout}\n{result.stderr}")
+
+
+def verify_analysis_protocols(runner: Runner, install: Path, info: dict) -> None:
+    protocols = info["protocols"]
+    verify_analysis_metadata(protocols)
+    for schema_version, (source, consumer) in ANALYSIS_CASES.items():
+        analysis = install / f"analysis-v{schema_version}.json"
+        trace = install / f"trace-for-analysis-v{schema_version}.json"
+        runner.run(["check", source, "--emit", str(analysis)])
+        document = json.loads(analysis.read_text(encoding="utf-8"))
+        if document.get("schema") != "marqdo.analysis" or document.get("schema_version") != schema_version:
+            fail(f"{source} did not produce Analysis v{schema_version}")
+        if document.get("producer", {}).get("version") != info["product_version"]:
+            fail("Analysis producer.version does not match the released product version")
+        runner.run(["run", source, "--trace-file", str(trace)])
+        run_consumer(install, consumer, analysis)
+        run_consumer(install, "trace_consumer.py", analysis, trace)
+
+        # CI installs jsonschema. The standalone smoke can use stdlib Python.
+        if importlib.util.find_spec("jsonschema") is not None:
+            run_consumer(
+                install, "validate_protocols.py", analysis, trace,
+                install / "examples" / "tool-unknown-name" / "tool.json",
+            )
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive", required=True)
@@ -241,45 +289,8 @@ def main(argv: list[str]) -> int:
         if factor != "120":
             fail(f"factorial call printed {factor!r}, expected 120")
 
-        # Static Analysis v2 + Trace v2 through the public consumers.
-        analysis = install / "analysis.json"
-        trace = install / "trace.json"
-        runner.run(
-            [
-                "check",
-                "examples/multi-module/index.mq.md",
-                "--emit",
-                str(analysis),
-            ]
-        )
+        verify_analysis_protocols(runner, install, info)
         runner.run(["check", "examples/multi-module/index.mq.md", "--refs"])
-        document = json.loads(analysis.read_text(encoding="utf-8"))
-        if document.get("schema") != "marqdo.analysis" or document.get("schema_version") != 2:
-            fail("--emit did not write Analysis v2")
-        if document.get("producer", {}).get("version") != version:
-            fail("Analysis producer.version does not match the released product version")
-        runner.run(
-            [
-                "run",
-                "examples/multi-module/index.mq.md",
-                "--trace-file",
-                str(trace),
-            ]
-        )
-        run_trace = json.loads(trace.read_text(encoding="utf-8"))
-        if run_trace.get("schema") != "marqdo.trace" or run_trace.get("schema_version") != 2:
-            fail("--trace-file did not write Trace v2")
-        for consumer in ("analysis_consumer.py", "trace_consumer.py"):
-            command = [
-                sys.executable,
-                str(install / "tests" / "consumers" / consumer),
-                str(analysis),
-            ]
-            if consumer == "trace_consumer.py":
-                command.append(str(trace))
-            result = subprocess.run(command, capture_output=True, text=True)
-            if result.returncode != 0:
-                fail(f"{consumer} failed:\n{result.stdout}\n{result.stderr}")
         # Execution Events v1: the released binary's live NDJSON stream,
         # validated by the independent consumer shipped in the archive.
         run_help = runner.run(["run", "--help"]).stdout
@@ -325,23 +336,6 @@ def main(argv: list[str]) -> int:
                     "execution_events_consumer.py failed:\n"
                     f"{validate_events.stdout}\n{validate_events.stderr}"
                 )
-
-        validate = subprocess.run(
-            [
-                sys.executable,
-                str(install / "tests" / "consumers" / "validate_protocols.py"),
-                str(analysis),
-                str(trace),
-                str(install / "examples" / "tool-unknown-name" / "tool.json"),
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if validate.returncode != 0:
-            if "jsonschema" in validate.stderr and "ModuleNotFoundError" in validate.stderr:
-                print("smoke: note: jsonschema is not installed; schema validation skipped")
-            else:
-                fail(f"validate_protocols.py failed:\n{validate.stdout}\n{validate.stderr}")
 
         # Tool Protocol v1: install and dispatch an independent process.
         runner.run(["tool", "install", "examples/tool-unknown-name/tool.json"])

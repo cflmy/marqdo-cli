@@ -36,6 +36,9 @@ docker run --rm --network none --user 65534:65534 \
     test -x ./marqdo-provider-worker
     ./marqdo run examples/hello.mq.md | grep -F "你好，Marqdo"
     ./marqdo check examples/multi-module/index.mq.md --emit /tmp/analysis.json
+    ./marqdo check examples/control-flow.mq.md --emit /tmp/control-analysis.json
+    grep -Eq "\"schema_version\"[[:space:]]*:[[:space:]]*3" /tmp/control-analysis.json
+    test "$(./marqdo call examples/control-flow.mq.md main)" = 5
     ./marqdo call examples/math-library-demo.mq.md main
     test "$(./marqdo call examples/factorial.mq.md 阶乘 --arg n=5)" = 120
     ./marqdo run tests/consumers/fixtures/execution-events/basic.mq.md \

@@ -8,7 +8,9 @@ compile-time source path.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
 import unittest
 from pathlib import Path
@@ -65,6 +67,18 @@ class ReleaseArchiveContractTest(unittest.TestCase):
         self.assertIn('"math-backend"', source.replace("math_backend", "math-backend"))
         self.assertIn('"stdlib": stdlib_info', source)
         self.assertIn("verify_stdlib()", source)
+
+    def test_archive_analysis_metadata_preserves_default_and_declares_each_major(self) -> None:
+        self.smoke.verify_analysis_metadata({"analysis": 2, "analysis_versions": [2, 3]})
+        for malformed in (
+            {"analysis": 3, "analysis_versions": [2, 3]},
+            {"analysis": 2, "analysis_versions": [2]},
+            {"analysis": 2, "analysis_versions": [2, 3, 4]},
+            {"analysis": 2},
+        ):
+            with self.subTest(protocols=malformed), contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    self.smoke.verify_analysis_metadata(malformed)
 
     def test_release_discovery_does_not_fall_back_to_the_source_tree(self) -> None:
         source = (ROOT / "crates/cli/src/stdlib.rs").read_text(encoding="utf-8")

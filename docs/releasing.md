@@ -128,7 +128,10 @@ artifacts so the examples run without a compiler) and `tests/consumers/`.
 `RELEASE_INFO.json` records the stdlib `name`, `version`, `tree_digest`,
 `aliases_digest`, `file_count` and `files`. `package.py` recomputes both digests
 with the same canonical algorithm as the runtime and refuses to package a mismatch
-with `stdlib/stdlib.json` (RFC-EXT-0003 H-08 / T-PKG-04). The bundled stdlib is a
+with `stdlib/stdlib.json` (RFC-EXT-0003 H-08 / T-PKG-04).
+The `protocols.analysis` field identifies the default Analysis major.
+`protocols.analysis_versions` lists all majors the archive can emit.
+The archive smoke exercises a published example and a consumer for each major. The bundled stdlib is a
 runtime requirement, not a build-machine side effect: a release binary must never
 fall back to the compile-time source path.
 
@@ -147,7 +150,7 @@ python3 tools/release/smoke.py \
 
 It verifies the `.sha256`, `RELEASE_INFO.json`/`SOURCE_SHA`, both stdlib
 digests against `stdlib/stdlib.json` and the staged tree, offline
-`--version`/`--help`, `check`/`run`/`call`, lock/sync, Analysis v2 and Trace v2
+`--version`/`--help`, `check`/`run`/`call`, lock/sync, Analysis v2/v3 and Trace v2
 consumers, Tool install/dispatch, native + worker plugin transports, a foreign
 kernel, Resource Provider v2 through the shipped worker (positive,
 unauthorized and missing-helper fail-closed), the pure math package and optional
