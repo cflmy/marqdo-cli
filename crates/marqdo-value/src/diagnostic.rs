@@ -31,6 +31,10 @@ pub mod codes {
     pub const SEM_SYNTAX: &str = "sem.syntax";
     /// `else` does not bind an open `if`.
     pub const SEM_UNMATCHED_ELSE: &str = "sem.unmatched_else";
+    /// `else if` has no matching open `if`.
+    pub const SEM_UNMATCHED_ELSE_IF: &str = "sem.unmatched_else_if";
+    /// `else if` follows the final `else`.
+    pub const SEM_ELSE_IF_AFTER_ELSE: &str = "sem.else_if_after_else";
     /// A second `else` appears for one `if`.
     pub const SEM_DUPLICATE_ELSE: &str = "sem.duplicate_else";
     /// `end` closes no open frame.

@@ -393,3 +393,70 @@ fn trace_records_calls_effects_and_status_without_secrets() {
         serde_json::from_slice(&std::fs::read(&error_trace).unwrap()).unwrap();
     assert_eq!(trace["run"]["status"], "runtime.division_by_zero");
 }
+
+#[test]
+fn multi_arm_branch_preserves_analysis_v2_and_carrier_positions() {
+    let dir = TempDir::new("else-if");
+    let source = r#"## @exec 分类
+
+`params(数值: Int)`
+
+1. `if 数值 < 0`
+
+   `return -1`
+
+2. **else if 数值 == 0**
+
+   `return 0`
+
+> *else if 数值 == 1*
+>
+> `return 1`
+
+`else`
+
+`return 2`
+
+`end`
+"#;
+    write(dir.path(), "index.mq.md", source);
+    let output = cli(
+        dir.path(),
+        &["check", "index.mq.md", "--emit", "analysis.json"],
+    );
+    assert!(output.status.success(), "{output:?}");
+    let analysis: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(dir.path().join("analysis.json")).unwrap()).unwrap();
+    assert_eq!(analysis["schema_version"], 2);
+    assert_eq!(analysis["producer"]["markdown_profile"], "marqdo.md.v1");
+    let branch = &analysis["modules"][0]["functions"][0]["body"][0];
+    assert_eq!(branch["kind"], "branch");
+    let arms = branch["arms"].as_array().unwrap();
+    assert_eq!(arms.len(), 4);
+    for (arm, carrier) in arms.iter().zip([
+        "`if 数值 < 0`",
+        "**else if 数值 == 0**",
+        "*else if 数值 == 1*",
+    ]) {
+        let start = source.find(carrier).unwrap();
+        let expected = serde_json::json!({"start": start, "end": start + carrier.len()});
+        assert_eq!(arm["span"], expected);
+        assert_eq!(arm["condition_span"], expected);
+    }
+    for (input, expected) in [("-3", "-1"), ("0", "0"), ("1", "1"), ("9", "2")] {
+        let output = cli(
+            dir.path(),
+            &[
+                "call",
+                "index.mq.md",
+                "分类",
+                "--arg",
+                &format!("数值={input}"),
+                "--json",
+            ],
+        );
+        assert!(output.status.success(), "{output:?}");
+        let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(result["value"]["decimal"], expected);
+    }
+}

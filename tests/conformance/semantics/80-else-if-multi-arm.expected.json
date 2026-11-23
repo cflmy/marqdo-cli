@@ -1,0 +1,14 @@
+{
+  "args": {
+    "数值": {
+      "decimal": "2",
+      "type": "int"
+    }
+  },
+  "function": "分类",
+  "stdout": "",
+  "value": {
+    "decimal": "2",
+    "type": "int"
+  }
+}

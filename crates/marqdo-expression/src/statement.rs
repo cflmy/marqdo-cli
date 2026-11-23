@@ -2,7 +2,7 @@
 //!
 //! One Markdown carrier holds exactly one payload. This module is the only
 //! place that decides whether that payload is a control statement
-//! (`if`/`else`/`while`/`end`/`return`), a `params(...)` declaration, or an
+//! (`if`/`else if`/`else`/`while`/`end`/`return`), a `params(...)` declaration, or an
 //! ordinary assignment/expression. The frontend still owns pairing the control
 //! words into blocks; this module owns their lexical recognition and the
 //! expression grammar they embed.
@@ -22,6 +22,8 @@ use marqdo_span::Span;
 pub enum PayloadStatement {
     /// `if <expr>`
     If(Expr),
+    /// `else if <expr>`
+    ElseIf(Expr),
     /// `else` (no expression)
     Else,
     /// `while <expr>`
@@ -79,6 +81,11 @@ pub fn parse_payload_statement(source: &str) -> Result<PayloadStatement, ParseEr
             Ok(PayloadStatement::Return(expr))
         }
         TokenKind::Else => {
+            if matches!(tokens[1].kind, TokenKind::If) {
+                let keyword = Span::new(first.span.start, tokens[1].span.end);
+                let expr = control_expression(trimmed, keyword, "else if")?;
+                return Ok(PayloadStatement::ElseIf(expr));
+            }
             require_only_keyword(&tokens, "else")?;
             Ok(PayloadStatement::Else)
         }
@@ -128,6 +135,7 @@ mod tests {
     fn expr_of(source: &str) -> Expr {
         match parse_payload_statement(source).expect("valid payload") {
             PayloadStatement::If(expr)
+            | PayloadStatement::ElseIf(expr)
             | PayloadStatement::While(expr)
             | PayloadStatement::Return(expr) => expr,
             other => panic!("unexpected payload: {other:?}"),
@@ -136,7 +144,7 @@ mod tests {
 
     #[test]
     fn parses_control_statements_with_payload_relative_spans() {
-        for keyword in ["if", "while", "return"] {
+        for keyword in ["if", "else if", "while", "return"] {
             let source = format!("{keyword} x > 0");
             let expr = expr_of(&source);
             assert_eq!(expr.span().start, keyword.len() + 1);
@@ -159,7 +167,16 @@ mod tests {
 
     #[test]
     fn keywords_require_whitespace_and_an_expression() {
-        for source in ["if", "while", "return", "if(x)", "while(1)", "return(x)"] {
+        for source in [
+            "if",
+            "else if",
+            "while",
+            "return",
+            "if(x)",
+            "else if(x)",
+            "while(1)",
+            "return(x)",
+        ] {
             assert!(
                 parse_payload_statement(source).is_err(),
                 "{source} must be rejected"
@@ -170,6 +187,7 @@ mod tests {
     #[test]
     fn control_expressions_must_consume_the_payload() {
         assert!(parse_payload_statement("if x > 0:").is_err());
+        assert!(parse_payload_statement("else if x > 0:").is_err());
         assert!(parse_payload_statement("if x y").is_err());
     }
 

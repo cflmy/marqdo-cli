@@ -8,7 +8,7 @@
 use marqdo_expression::{
     parse_payload_statement, AssignTarget, Expr, PayloadStatement as Payload, StatementKind,
 };
-use marqdo_ir::{PlaceTarget, Stmt};
+use marqdo_ir::{BranchArm, PlaceTarget, Stmt};
 use marqdo_markdown::{MarkdownDocument, MdKind, MdNode};
 use marqdo_span::Span;
 use marqdo_value::{codes, Diagnostic};
@@ -100,10 +100,10 @@ struct Mapper {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Stop {
-    End,
-    Else,
-    Eof,
+enum ArmContext {
+    Outside,
+    Conditional,
+    Default,
 }
 
 struct RawPayload {
@@ -139,14 +139,12 @@ impl Mapper {
             self.extract(block, &mut raw, true);
         }
         let mut position = 0;
-        let (stmts, stop) = self.sequence(&raw, &mut position, false, false);
-        if stop != Stop::Eof {
-            // `sequence` leaves `position` on the stray `end` payload, so the
-            // diagnostic points at the keyword instead of the previous
-            // statement. A control frame may never close across a heading.
+        let stmts = self.sequence(&raw, &mut position, ArmContext::Outside);
+        if let Some(node) = raw.get(position) {
+            // The only delimiter that can stop the segment is a stray `end`.
             self.error(
                 codes::SEM_UNMATCHED_END,
-                raw.get(position).map(|node| node.span),
+                Some(node.span),
                 "`end` has no open `if`/`while` in this heading segment",
             );
         }
@@ -215,7 +213,11 @@ impl Mapper {
             return;
         }
         if let Some(mut payload) = self.parse_payload(&text, &segments) {
-            if let Payload::If(expr) | Payload::While(expr) | Payload::Return(expr) = &mut payload {
+            if let Payload::If(expr)
+            | Payload::ElseIf(expr)
+            | Payload::While(expr)
+            | Payload::Return(expr) = &mut payload
+            {
                 segments.rewrite_expr(expr);
             }
             out.push(RawPayload {
@@ -243,100 +245,51 @@ impl Mapper {
         }
     }
 
+    /// Read a body up to its next delimiter without consuming that delimiter.
     fn sequence(
         &mut self,
         nodes: &[RawPayload],
         position: &mut usize,
-        stop_on_else: bool,
-        in_else_body: bool,
-    ) -> (Vec<Stmt>, Stop) {
+        arm: ArmContext,
+    ) -> Vec<Stmt> {
         let mut out = Vec::new();
-        while *position < nodes.len() {
-            let raw = &nodes[*position];
+        while let Some(raw) = nodes.get(*position) {
             match &raw.payload {
-                Payload::Else => {
-                    if stop_on_else {
-                        return (out, Stop::Else);
+                Payload::Else | Payload::ElseIf(_) => {
+                    if arm == ArmContext::Conditional {
+                        break;
                     }
-                    self.error(
-                        if in_else_body {
-                            codes::SEM_DUPLICATE_ELSE
-                        } else {
-                            codes::SEM_UNMATCHED_ELSE
-                        },
-                        Some(raw.span),
-                        if in_else_body {
-                            "`if` has more than one `else`"
-                        } else {
-                            "`else` has no open `if`"
-                        },
-                    );
-                    *position += 1;
-                }
-                Payload::End => {
-                    return (out, Stop::End);
-                }
-                Payload::If(condition) => {
-                    self.executed = true;
-                    let condition = condition.clone();
-                    let span = raw.span;
-                    *position += 1;
-                    let (then_body, stop) = self.sequence(nodes, position, true, false);
-                    let mut else_body = Vec::new();
-                    let finish = match stop {
-                        Stop::Else => {
-                            *position += 1;
-                            let (body, stop) = self.sequence(nodes, position, false, true);
-                            else_body = body;
-                            stop
+                    let (code, message) = match (&raw.payload, arm) {
+                        (Payload::Else, ArmContext::Default) => {
+                            (codes::SEM_DUPLICATE_ELSE, "`if` has more than one `else`")
                         }
-                        other => other,
+                        (Payload::Else, _) => {
+                            (codes::SEM_UNMATCHED_ELSE, "`else` has no open `if`")
+                        }
+                        (_, ArmContext::Default) => (
+                            codes::SEM_ELSE_IF_AFTER_ELSE,
+                            "`else if` cannot follow the final `else`",
+                        ),
+                        (_, _) => (codes::SEM_UNMATCHED_ELSE_IF, "`else if` has no open `if`"),
                     };
-                    if finish != Stop::End {
-                        self.error(
-                            codes::SEM_UNCLOSED_CONTROL,
-                            Some(span),
-                            "`if` is not closed by `end`",
-                        );
-                    } else {
-                        *position += 1;
-                    }
-                    let mut arms = vec![marqdo_ir::BranchArm {
-                        condition,
-                        condition_span: span,
-                        body: then_body,
-                        span,
-                    }];
-                    if !else_body.is_empty() {
-                        arms.push(marqdo_ir::BranchArm {
-                            condition: Expr::Bool(true),
-                            condition_span: span,
-                            body: else_body,
-                            span,
-                        });
-                    }
-                    out.push(Stmt::Branch { arms, span });
+                    self.error(code, Some(raw.span), message);
+                    *position += 1;
+                }
+                Payload::End => break,
+                Payload::If(_) => {
+                    self.executed = true;
+                    out.push(self.branch(nodes, position));
                 }
                 Payload::While(condition) => {
                     self.executed = true;
-                    let condition = condition.clone();
-                    let span = raw.span;
                     *position += 1;
-                    let (body, stop) = self.sequence(nodes, position, false, false);
-                    if stop != Stop::End {
-                        self.error(
-                            codes::SEM_UNCLOSED_CONTROL,
-                            Some(span),
-                            "`while` is not closed by `end`",
-                        );
-                    } else {
-                        *position += 1;
-                    }
+                    let body = self.sequence(nodes, position, ArmContext::Outside);
+                    self.close_block(nodes, position, raw.span, "while");
                     out.push(Stmt::Loop {
-                        condition,
-                        condition_span: span,
+                        condition: condition.clone(),
+                        condition_span: raw.span,
                         body,
-                        span,
+                        span: raw.span,
                     });
                 }
                 Payload::Return(value) => {
@@ -406,6 +359,65 @@ impl Mapper {
                 }
             }
         }
-        (out, Stop::Eof)
+        out
+    }
+
+    fn branch(&mut self, nodes: &[RawPayload], position: &mut usize) -> Stmt {
+        let span = nodes[*position].span;
+        let mut arms = Vec::new();
+        while let Some(raw) = nodes.get(*position) {
+            let condition = match &raw.payload {
+                Payload::If(condition) | Payload::ElseIf(condition) => condition,
+                _ => break,
+            };
+            *position += 1;
+            let body = self.sequence(nodes, position, ArmContext::Conditional);
+            arms.push(BranchArm {
+                condition: condition.clone(),
+                condition_span: raw.span,
+                body,
+                span: raw.span,
+            });
+        }
+        if matches!(
+            nodes.get(*position).map(|raw| &raw.payload),
+            Some(Payload::Else)
+        ) {
+            *position += 1;
+            let body = self.sequence(nodes, position, ArmContext::Default);
+            // Preserve the v2 projection and observation of the fallback arm.
+            // An empty fallback has the same effect as ordinary fallthrough.
+            if !body.is_empty() {
+                arms.push(BranchArm {
+                    condition: Expr::Bool(true),
+                    condition_span: span,
+                    body,
+                    span,
+                });
+            }
+        }
+        self.close_block(nodes, position, span, "if");
+        Stmt::Branch { arms, span }
+    }
+
+    fn close_block(
+        &mut self,
+        nodes: &[RawPayload],
+        position: &mut usize,
+        opener: Span,
+        keyword: &str,
+    ) {
+        if matches!(
+            nodes.get(*position).map(|raw| &raw.payload),
+            Some(Payload::End)
+        ) {
+            *position += 1;
+        } else {
+            self.error(
+                codes::SEM_UNCLOSED_CONTROL,
+                Some(opener),
+                format!("`{keyword}` is not closed by `end`"),
+            );
+        }
     }
 }
