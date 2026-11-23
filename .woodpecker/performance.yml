@@ -2,15 +2,15 @@
 # Shared-node measurements may support an explicitly approved RC WARN.
 when:
   event: [manual]
-  branch: [master]
+  branch: [master, "release/*"]
 
 steps:
   measure:
     image: rust:1.100-bookworm
     commands:
       - apt-get update
-      - apt-get install -y --no-install-recommends python3 util-linux ca-certificates git build-essential
-      - cargo build --release --locked -p marqdo-cli
+      - apt-get install -y --no-install-recommends python3 util-linux ca-certificates git openssl build-essential
+      - cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
       - |
         set -eu
         baseline_sha=2c7c4f31e7a388d3fcfa717a77067e696ed13854
@@ -21,6 +21,14 @@ steps:
         trap 'git worktree remove --force "$perf_dir/beta"; rm -rf "$perf_dir"' EXIT
         (cd "$perf_dir/beta" && cargo build --release --locked -p marqdo-cli)
 
+        version="$(target/release/marqdo --version | cut -d ' ' -f 2)"
+        python3 tools/release/package.py --version "$version" --source-sha "$CI_COMMIT_SHA" --out-dir "$perf_dir"
+        archive="$perf_dir/marqdo-$version-x86_64-unknown-linux-gnu.tar.gz"
+        (cd "$perf_dir" && sha256sum -c "$(basename "$archive.sha256")")
+        tar -xzf "$archive" -C "$perf_dir"
+        candidate="$perf_dir/marqdo-$version-x86_64-unknown-linux-gnu"
+        test "$(cat "$candidate/SOURCE_SHA")" = "$CI_COMMIT_SHA"
+
         allowed="$(awk '/^Cpus_allowed_list:/ {print $2}' /proc/self/status)"
         cpu_list="${MARQDO_PERF_CPU_LIST:-$(printf '%s' "$allowed" | cut -d, -f1 | cut -d- -f1)}"
         echo "G4_NODE host=$(uname -n) kernel=$(uname -r) arch=$(uname -m) allowed_cpus=$allowed pin=$cpu_list"
@@ -29,7 +37,7 @@ steps:
         (cd "$perf_dir/beta" && python3 tools/perf/runner.py --no-build \
           --warmups 5 --samples 20 --platform-id woodpecker-agent-1 \
           --cpu-list "$cpu_list" --out "$perf_dir/beta.json" > /dev/null)
-        python3 tools/perf/runner.py --no-build --warmups 5 --samples 20 \
+        python3 tools/perf/runner.py --no-build --binary "$candidate/marqdo" --warmups 5 --samples 20 \
           --platform-id woodpecker-agent-1 --cpu-list "$cpu_list" \
           --baseline "$perf_dir/beta.json" --out perf.json > /dev/null
         python3 - <<'PY'

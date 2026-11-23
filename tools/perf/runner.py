@@ -244,7 +244,9 @@ def run_workload(
         prefix = [shutil.which("taskset") or "taskset", "-c", cpu_list]
     argv = prefix + [str(binary)] + workload["argv"]
     env = dict(os.environ)
-    env["MARQDO_STDLIB_DIR"] = str(ROOT / "stdlib")
+    env.pop("MARQDO_STDLIB_DIR", None)
+    if not (binary.parent / "stdlib" / "stdlib.json").is_file():
+        env["MARQDO_STDLIB_DIR"] = str(ROOT / "stdlib")
     env.setdefault("NO_COLOR", "1")
     expected = load_expected(name)
     result = {

@@ -55,5 +55,7 @@ candidate checkout. Use the same toolchain, CPU list and platform ID in both
 commands. Pass the extracted, verified candidate CLI via `--no-build --binary`
 and add `--baseline /path/to/beta.json` to the candidate command. Keep both
 reports and confirm all nine comparisons are present and correctness-verified.
-The shared Woodpecker manual workflow can reproduce the comparison and
-produces SMOKE reports.
+The shared Woodpecker manual workflow runs on master and release branches.
+It packages the candidate, checks its checksum and source SHA, then measures
+the extracted binary with the shipped stdlib. Shared-node runs produce SMOKE
+reports for review under the release policy.
