@@ -277,7 +277,8 @@ list containers.
 Other documents continue to emit v2. Trace v2 and Execution Events v1 expose
 the new control events. The published beta evidence applies to its original
 SHA. Maintainers decide when to include phase A in a release. List iteration
-is a follow-up design.
+is a follow-up design. The [local verification record](evidence/2026-11-23-rfc-ctrl-0005.md)
+identifies the tested commit, commands, archive digest and consumer results.
 
 ## 1. Historical: pre-beta remote baseline and evidence
 
