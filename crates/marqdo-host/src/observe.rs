@@ -193,6 +193,13 @@ pub enum ObservationEvent<'a> {
         module_id: &'a str,
         span: Option<Span>,
     },
+    /// An explicit loop control statement executed.
+    LoopTransfer {
+        frame_id: FrameId,
+        transfer: LoopTransfer,
+        module_id: &'a str,
+        span: Span,
+    },
     /// The host completed a controlled effect attempt.
     Effect {
         operation: &'a str,
@@ -230,6 +237,25 @@ pub enum ObservationEvent<'a> {
     },
 }
 
+/// The action carried by a structured loop transfer observation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LoopTransfer {
+    /// Exit the enclosing loop.
+    Break,
+    /// Proceed to the enclosing loop's next condition check.
+    Continue,
+}
+
+impl LoopTransfer {
+    /// The event kind in Trace and Execution Events.
+    pub fn event_kind(self) -> &'static str {
+        match self {
+            Self::Break => "control.break",
+            Self::Continue => "control.continue",
+        }
+    }
+}
+
 /// Borrowed runtime notification accepted by [`crate::Host::observe_runtime`].
 ///
 /// Every variant carries an `Option<FrameId>`; observation of values and
@@ -256,6 +282,13 @@ pub enum RuntimeObservation<'a> {
         decision: &'a str,
         module_id: &'a str,
         span: Option<Span>,
+    },
+    /// An explicit loop control statement executed.
+    LoopTransfer {
+        frame_id: Option<FrameId>,
+        transfer: LoopTransfer,
+        module_id: &'a str,
+        span: Span,
     },
     /// A local variable assignment committed.
     VariableAssigned {
@@ -498,6 +531,7 @@ pub fn estimate_event_bytes(event: &ObservationEvent<'_>) -> u64 {
         }
         ObservationEvent::BranchEval { module_id, .. }
         | ObservationEvent::LoopIteration { module_id, .. }
+        | ObservationEvent::LoopTransfer { module_id, .. }
         | ObservationEvent::Effect { module_id, .. } => {
             add_text(module_id);
             if let ObservationEvent::LoopIteration { decision, .. } = event {

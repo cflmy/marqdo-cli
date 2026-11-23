@@ -8,7 +8,7 @@ Supersedes Trace v1; v1 was never released and is kept as history.
 * Tracing is observation, not execution. Only `run`/`call` produce a trace;
   `check`, `inspect` and `tool list` never execute a document.
 * Events come from the interpreter (`call.*`, `branch.eval`,
-  `loop.iteration`, `return`) and the host (`effect`). Both share one sequence.
+  `loop.iteration`, `control.break`, `control.continue`, `return`) and the host (`effect`). Both share one sequence.
 * The writer is atomic; an error run still records its terminal status.
 * No argument values, secrets, handles or file contents are recorded.
 * Trace capacity is a bounded observation budget. Reaching it truncates the
@@ -41,10 +41,11 @@ code. Every span-bearing event has a `module_id`; the span is a UTF-8 byte
 offset range in that module. `source` only carries project identity and the
 Analysis digest; it does not identify the span owner.
 
-`source.root_id` is the Analysis v2 `project.root_id`
+`source.root_id` is the emitted Analysis `project.root_id`
 (`root:<name>@<version>` or `sha256:<workspace snapshot>`).
 `source.analysis_digest` is `sha256:` plus the SHA-256 of the exact Analysis
-v2 bytes produced for the same project with the same projection configuration.
+bytes produced for the same project with the same projection configuration.
+The [Analysis writer](analysis-v3.md) selects v2 or v3 from the project.
 A consumer verifies it by hashing the Analysis file.
 
 `truncated` is `null` or:
@@ -66,8 +67,14 @@ event is `{"kind":"trace.truncated","detail":<reason>,"module_id":null,
 | `return` | value type name | current function’s module |
 | `branch.eval` | `true` / `false` | current function’s module |
 | `loop.iteration` | `continue` / `exit` | current function’s module |
+| `control.break` | null | current function’s module |
+| `control.continue` | null | current function’s module |
 | `effect` | result summary | module from `ExecutionContext` |
 | `trace.truncated` | `event_budget` / `byte_budget` | null |
+
+The explicit transfer events carry the keyword carrier span. `control.continue`
+precedes the next evaluation of the enclosing loop condition. `control.break`
+leaves that loop without a further condition evaluation.
 
 `function_id` is always the canonical callee function id. Future kinds are
 additive; consumers must ignore unknown kinds. `effect.operation` names the

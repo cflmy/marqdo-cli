@@ -460,3 +460,78 @@ fn multi_arm_branch_preserves_analysis_v2_and_carrier_positions() {
         assert_eq!(result["value"]["decimal"], expected);
     }
 }
+
+#[test]
+fn an_imported_loop_transfer_selects_v3_and_keeps_the_else_if_call_edge() {
+    let dir = TempDir::new("imported-loop");
+    write(
+        dir.path(),
+        "gate.mq.md",
+        "## @exec enabled\n\n`while true`\n\n`break`\n\n`end`\n\n`return true`\n",
+    );
+    write(
+        dir.path(),
+        "index.mq.md",
+        r#"---
+import:
+  gate: "./gate.mq.md"
+---
+
+## @exec main
+
+`if false`
+
+`return 0`
+
+`else if gate.enabled()`
+
+`return 1`
+
+`end`
+"#,
+    );
+    let result = cli(
+        dir.path(),
+        &["check", "index.mq.md", "--emit", "analysis.json"],
+    );
+    assert!(result.status.success(), "{result:?}");
+    let analysis: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(dir.path().join("analysis.json")).unwrap()).unwrap();
+    assert_eq!(analysis["schema_version"], 3);
+    let root = analysis["modules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|module| module["relative_path"] == "index.mq.md")
+        .unwrap();
+    let calls = root["calls"].as_array().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0]["state"], "function");
+    assert!(calls[0]["target"]
+        .as_str()
+        .unwrap()
+        .ends_with("::gate.mq.md::enabled"));
+}
+
+#[test]
+fn invalid_loop_control_rejects_check_and_does_not_execute_the_function() {
+    let dir = TempDir::new("invalid-loop");
+    write(
+        dir.path(),
+        "index.mq.md",
+        "## @exec main\n\n`打印(\"unreachable output\")`\n\n`break`\n",
+    );
+    write(dir.path(), "stale.json", "previous output");
+    let checked = cli(
+        dir.path(),
+        &["check", "index.mq.md", "--emit", "stale.json", "--json"],
+    );
+    assert_eq!(checked.status.code(), Some(1), "{checked:?}");
+    assert!(String::from_utf8_lossy(&checked.stdout).contains("sem.break_outside_loop"));
+    assert!(!String::from_utf8_lossy(&checked.stdout).contains("unreachable output"));
+    assert!(!dir.path().join("stale.json").exists());
+
+    let run = cli(dir.path(), &["run", "index.mq.md"]);
+    assert_eq!(run.status.code(), Some(1), "{run:?}");
+    assert!(run.stdout.is_empty());
+}

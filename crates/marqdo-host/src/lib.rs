@@ -30,7 +30,7 @@ pub use handles::{contains_plugin_handle, PluginHandleTable};
 pub use host::{arity, expect_text, Host, HostOp, StdHost};
 pub use marqdo_sandbox::{PlatformCapabilities, SandboxMode, StrictIsolation};
 pub use observe::{
-    encode_value, estimate_event_bytes, FrameId, ObservationConfig, ObservationError,
+    encode_value, estimate_event_bytes, FrameId, LoopTransfer, ObservationConfig, ObservationError,
     ObservationEvent, ObservationSink, ObservedValue, ParameterSource, RuntimeObservation,
     ValueState, DEFAULT_MAX_OBSERVATION_BYTES, DEFAULT_MAX_OBSERVATION_EVENTS,
     DEFAULT_MAX_VALUE_BYTES, MAX_STREAM_CHUNK_BYTES,

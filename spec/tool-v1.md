@@ -29,7 +29,7 @@
 }
 ```
 
-类型：`schema` 固定字符串，`schema_version` 正整数（首版仅 1），`name`/`version`/`command`/`entrypoint` 非空字符串，`version` 必须是合法 SemVer，`compatibility.marqdo` 必须是可解析的 SemVer 范围，`analysis`、`trace` 为可选的非空正整数数组；仅当工具使用该数据协议时声明。当前核心提供 Analysis v2 与 Trace v2，因此声明 `[1]`（或与 `[2]` 无交集）会在安装/分发时被拒绝。未来可以增加可选字段，但不得改变现有字段含义。
+类型：`schema` 固定字符串，`schema_version` 正整数（首版仅 1），`name`/`version`/`command`/`entrypoint` 非空字符串，`version` 必须是合法 SemVer，`compatibility.marqdo` 必须是可解析的 SemVer 范围，`analysis`、`trace` 为可选的非空正整数数组；仅当工具使用该数据协议时声明。当前开发分支提供 Analysis v2/v3 与 Trace v2。声明与对应版本集合无交集时，安装和分发会拒绝。未来可以增加可选字段，但不得改变现有字段含义。
 
 `command`：建议 `^[a-z][a-z0-9-]*$`，不得与任何内置命令或保留参数冲突；同一注册表中命令唯一，名字冲突拒绝且不覆盖。`entrypoint`：包内受控相对路径，不能是绝对路径、`.`/`..` 跳出根目录、符号链接逃逸或可直接解释的任意 shell 片段。真实文件应可执行并与目标平台匹配；若扩展名或平台格式与 OS 不兼容应显式失败。
 
@@ -47,7 +47,8 @@
 
 工具负责自己的命令层级与帮助，如 `marqdo benchmark run .`、`marqdo benchmark --help`。CLI 不读取或修改工具业务选项。Rust `clap` 可通过单一 `external_subcommand` 捕获未知子命令，但必须保留 `OsString` 原样传参；不能让工具要求 CLI 添加 `Command::View` 等专门枚举项。不要求工具在处理 `--help` 时调用核心。未知命令时报错；即使 PATH 中存在 `marqdo-<first>`，**没有显式注册也不能执行它**。
 
-可选辅助环境：`MARQDO_BIN`（当前核心 CLI 的绝对路径），`MARQDO_TOOL_PROTOCOL=1`；仅当工具声明并协商了对应协议时，额外设置 `MARQDO_PROTOCOL_ANALYSIS=2` 与/或 `MARQDO_PROTOCOL_TRACE=2`。工具通过此路径运行 `marqdo check ... --emit ...` 和 `marqdo run ... --trace-file ...`，不拥有额外宿主内部 API。不得自动将密钥、项目能力授予记录、ABI 插件加载句柄或用户外联会话传给工具。
+可选辅助环境：`MARQDO_BIN`（当前核心 CLI 的绝对路径），`MARQDO_TOOL_PROTOCOL=1`；仅当工具声明并协商了对应协议时，额外设置 `MARQDO_PROTOCOL_ANALYSIS` 与/或 `MARQDO_PROTOCOL_TRACE`，值是双方支持的最高版本。
+Analysis 写入器按项目内容选择版本。工具应先检查输出的 `schema_version`，支持两版的工具声明 `analysis: [2, 3]`。工具通过此路径运行 `marqdo check ... --emit ...` 和 `marqdo run ... --trace-file ...`，不拥有额外宿主内部 API。不得自动将密钥、项目能力授予记录、ABI 插件加载句柄或用户外联会话传给工具。
 
 ## 5. 三个独立安全域
 
@@ -57,7 +58,7 @@
 
 ## 6. 向后兼容
 
-`schema_version` 不支持、`marqdo` 范围不匹配、工具版本不是合法 SemVer，或声明的 Analysis/Trace 列表与核心支持集（当前 `analysis: [2]`、`trace: [2]`）无交集时，安装与分发都必须以稳定错误拒绝；错误信息包含 `tool.protocol_incompatible`。可忽略的未知扩展字段允许透传，但不能被视为隐含授权。没有声明数据协议的工具不受该检查约束，也不会收到协议环境变量。
+`schema_version` 不支持、`marqdo` 范围不匹配、工具版本不是合法 SemVer，或声明的 Analysis/Trace 列表与核心支持集（当前 `analysis: [2, 3]`、`trace: [2]`）无交集时，安装与分发都必须以稳定错误拒绝；错误信息包含 `tool.protocol_incompatible`。可忽略的未知扩展字段允许透传，但不能被视为隐含授权。没有声明数据协议的工具不受该检查约束，也不会收到协议环境变量。
 
 原生命令集合是保留命名空间；未来新增与社区工具冲突的新核心顶层命令属于破坏性变化，必须经过 ADR、迁移期诊断和工具冲突统计，不能静默覆盖已有已注册工具。
 

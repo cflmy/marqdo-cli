@@ -351,6 +351,19 @@ fn observation_payload(event: ObservationEvent<'_>) -> (&'static str, Json) {
                 "span": span.map(span_json),
             }),
         ),
+        ObservationEvent::LoopTransfer {
+            frame_id,
+            transfer,
+            module_id,
+            span,
+        } => (
+            transfer.event_kind(),
+            json!({
+                "frame_id": frame_id.as_wire(),
+                "module_id": module_id,
+                "span": span_json(span),
+            }),
+        ),
         ObservationEvent::Effect {
             operation,
             result_code,

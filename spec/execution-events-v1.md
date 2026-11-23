@@ -118,7 +118,7 @@ Required payload fields: `entry`, `mode`, `source`; optional
 ```
 
 `source.analysis_digest` is `sha256:` plus the SHA-256 of the **exact bytes**
-of the Analysis v2 file produced for the same project and projection
+of the [Analysis file](analysis-v3.md) produced for the same project and projection
 configuration (not a re-serialization of the in-memory IR). If the source
 changes, existing events become stale; consumers must not render them onto the
 new source.
@@ -152,6 +152,7 @@ Required payload fields:
 | `return` | `frame_id`, `value_type`, `module_id`, `span` |
 | `branch.eval` | `frame_id`, `result`, `module_id`, `span` |
 | `loop.iteration` | `frame_id`, `decision`, `module_id`, `span` |
+| `control.break`, `control.continue` | `frame_id`, `module_id`, non-null `span` |
 | `effect` | `operation`, `result_code`, `module_id`, `span` |
 
 * `frame_id` is an opaque run-unique string (`f1`, `f2`, ...). It identifies
@@ -166,6 +167,10 @@ Required payload fields:
 * `branch.eval.result` is a JSON boolean. `loop.iteration.decision` is
   `continue` (body will execute) or `exit` (condition was false). The event is
   emitted once per condition evaluation; iteration indices are not part of v1.
+* `control.break` and `control.continue` report an executed transfer at
+  its carrier span. The frame stays active. A continue precedes the next
+  condition check, and a break skips further checks of the loop it exits.
+  The structural event budget applies to both events.
 * `effect.result_code` is a non-sensitive result summary (for example `ok` or a
   stable error code). It never carries effect arguments or file contents.
 * `module_id` is a logical package module id; `span` is
@@ -291,7 +296,7 @@ authorization are unchanged.
 * Program stdout/stderr may contain secrets by the program's own intent; the
   protocol preserves bytes and does not promise automatic redaction of program
   output.
-* Trace v2 and Analysis v2 never gain argument/local values, handles, memory
+* Trace v2 and Analysis never gain argument/local values, handles, memory
   bytes or new secret-bearing fields through this protocol.
 * A third-party extension's raw OS stdout/stderr must not pollute the JSONL
   channel. Such output remains external process data: it is either captured by
@@ -303,11 +308,11 @@ authorization are unchanged.
 * Tests use synthetic sentinel values and assert that unselected values never
   appear in the stream, Trace or `--json`.
 
-## 6. Relation to Analysis v2 and Trace v2
+## 6. Relation to Analysis and Trace v2
 
 | Artifact | Relation |
 |---|---|
-| Analysis v2 | Static only. `run.started.source` binds to its exact bytes via `analysis_digest`. Events never replace it. |
+| Analysis v2/v3 | Static only. `run.started.source` binds to its exact bytes via `analysis_digest`. Events never replace it. |
 | Trace v2 | Unchanged schema/version and privacy promise. In a combined run both writers share the CLI-generated `run_id`; Trace v2 gains no frame/value fields and is still published atomically after the run. |
 | Tool Protocol v1 | Unchanged. A consumer invokes the released binary via `MARQDO_BIN` and negotiates by reading `stream.opened`; `tool.json` does not implicitly advertise an `events` field. |
 | View SSE | Implemented by the View repository by adapting this JSONL stream. The CLI implements no HTTP/SSE. |

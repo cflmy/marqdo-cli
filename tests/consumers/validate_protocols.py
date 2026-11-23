@@ -48,22 +48,28 @@ def main():
     trace = json.loads(trace_path.read_text(encoding="utf-8"))
     tool = json.loads(tool_path.read_text(encoding="utf-8"))
 
-    require_valid("analysis-v2.schema.json", analysis, "analysis")
+    version = analysis.get("schema_version")
+    if version not in (2, 3):
+        raise SystemExit("unsupported Analysis schema version")
+    analysis_schema = f"analysis-v{version}.schema.json"
+    require_valid(analysis_schema, analysis, "analysis")
+    if version == 3:
+        require_invalid("analysis-v2.schema.json", analysis, "legacy schema rejects v3")
     require_valid("trace-v2.schema.json", trace, "trace")
     require_valid("tool-v1.schema.json", tool, "tool")
 
     # Negative mutations: structure, version and traversal must fail closed.
     bad = copy.deepcopy(analysis)
     bad["schema_version"] = 999
-    require_invalid("analysis-v2.schema.json", bad, "analysis unsupported version")
+    require_invalid(analysis_schema, bad, "analysis unsupported version")
 
     bad = copy.deepcopy(analysis)
     bad.pop("modules", None)
-    require_invalid("analysis-v2.schema.json", bad, "analysis missing modules")
+    require_invalid(analysis_schema, bad, "analysis missing modules")
 
     bad = copy.deepcopy(analysis)
     bad["modules"][0]["resources"] = 3
-    require_invalid("analysis-v2.schema.json", bad, "analysis resources integer")
+    require_invalid(analysis_schema, bad, "analysis resources integer")
 
     bad = copy.deepcopy(trace)
     bad["events"][0]["seq"] = "zero"

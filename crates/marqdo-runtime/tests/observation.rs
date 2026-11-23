@@ -93,6 +93,18 @@ impl ObservationSink for Recorder {
                 source: None,
                 decision: decision.to_string(),
             },
+            ObservationEvent::LoopTransfer {
+                frame_id, transfer, ..
+            } => Seen {
+                kind: transfer.event_kind(),
+                frame: Some(frame_id.0),
+                name: String::new(),
+                value_type: String::new(),
+                state: None,
+                wire: None,
+                source: None,
+                decision: String::new(),
+            },
             ObservationEvent::VariableAssigned {
                 frame_id,
                 name,

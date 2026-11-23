@@ -1047,6 +1047,25 @@ impl Host for StdHost {
                     false,
                 )
             }
+            RuntimeObservation::LoopTransfer {
+                frame_id,
+                transfer,
+                module_id,
+                span,
+            } => {
+                let Some(frame_id) = frame_id else {
+                    return Ok(());
+                };
+                self.emit_observation(
+                    ObservationEvent::LoopTransfer {
+                        frame_id,
+                        transfer,
+                        module_id,
+                        span,
+                    },
+                    false,
+                )
+            }
             RuntimeObservation::VariableAssigned {
                 frame_id,
                 name,

@@ -58,6 +58,10 @@ enum Recorded {
         state: ValueState,
         value: Option<serde_json::Value>,
     },
+    LoopTransfer {
+        frame: FrameId,
+        kind: &'static str,
+    },
     Effect {
         operation: String,
         result_code: String,
@@ -109,6 +113,12 @@ impl From<ObservationEvent<'_>> for Recorded {
             } => Recorded::Loop {
                 frame: frame_id,
                 decision: decision.to_string(),
+            },
+            ObservationEvent::LoopTransfer {
+                frame_id, transfer, ..
+            } => Recorded::LoopTransfer {
+                frame: frame_id,
+                kind: transfer.event_kind(),
             },
             ObservationEvent::Effect {
                 operation,

@@ -765,3 +765,109 @@ fn broken_pipe_makes_the_run_fail_instead_of_running_forever() {
         "expected a transport diagnostic on stderr: {stderr}"
     );
 }
+
+#[test]
+fn loop_transfers_are_ordered_structural_events_with_source_spans() {
+    use sha2::{Digest, Sha256};
+
+    let dir = TempDir::new("loop-transfers");
+    let source = r#"## @exec main
+
+`索引 = 0`
+
+`while true`
+
+`索引 = 索引 + 1`
+
+`if 索引 == 1`
+
+`continue`
+
+`else if 索引 == 2`
+
+`break`
+
+`end`
+
+`end`
+
+`return 索引`
+"#;
+    dir.write("index.mq.md", source);
+    let checked = cli(
+        dir.path(),
+        &["check", "index.mq.md", "--emit", "analysis.json"],
+    );
+    assert!(checked.status.success(), "{checked:?}");
+    let analysis_bytes = fs::read(dir.path().join("analysis.json")).unwrap();
+    let analysis: Value = serde_json::from_slice(&analysis_bytes).unwrap();
+    assert_eq!(analysis["schema_version"], 3);
+    let module = &analysis["modules"][0];
+    let branch = &module["functions"][0]["body"][1]["body"][1];
+    let output = cli(
+        dir.path(),
+        &[
+            "run",
+            "index.mq.md",
+            "--mode",
+            "pure",
+            "--event-stream",
+            "jsonl",
+            "--trace-file",
+            "trace.json",
+        ],
+    );
+    assert!(output.status.success(), "{output:?}");
+    let events = parse_events(&output.stdout);
+    assert_envelope(&events);
+    assert_eq!(events.last().unwrap()["kind"], "run.completed");
+    let trace: Value =
+        serde_json::from_slice(&fs::read(dir.path().join("trace.json")).unwrap()).unwrap();
+    assert_eq!(trace["schema_version"], 2);
+    assert_eq!(
+        trace["source"]["analysis_digest"],
+        format!("sha256:{:x}", Sha256::digest(analysis_bytes))
+    );
+
+    let kinds = |events: &[Value]| {
+        events
+            .iter()
+            .filter_map(|event| match event["kind"].as_str() {
+                Some("loop.iteration") => Some("loop.iteration"),
+                Some("control.continue") => Some("control.continue"),
+                Some("control.break") => Some("control.break"),
+                Some("return") => Some("return"),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+    let expected = [
+        "loop.iteration",
+        "control.continue",
+        "loop.iteration",
+        "control.break",
+        "return",
+    ];
+    assert_eq!(kinds(&events), expected);
+    let trace_events = trace["events"].as_array().unwrap();
+    assert_eq!(kinds(trace_events), expected);
+    let frame = &events_of(&events, "call.enter")[0]["payload"]["frame_id"];
+    for (index, keyword) in ["continue", "break"].iter().enumerate() {
+        let kind = format!("control.{keyword}");
+        let carrier = format!("`{keyword}`");
+        let start = source.find(&carrier).unwrap();
+        let span = serde_json::json!({"start": start, "end": start + carrier.len()});
+        let payload = &events_of(&events, &kind)[0]["payload"];
+        assert_eq!(payload["frame_id"], *frame);
+        assert_eq!(payload["module_id"], module["id"]);
+        assert_eq!(payload["span"], span);
+        assert_eq!(payload.as_object().unwrap().len(), 3);
+        let event = &events_of(trace_events, &kind)[0];
+        assert_eq!(event["module_id"], module["id"]);
+        assert_eq!(event["span"], span);
+        assert!(event["detail"].is_null());
+        let statement = &branch["arms"][index]["body"][0];
+        assert_eq!(statement["kind"], *keyword);
+        assert_eq!(statement["span"], span);
+    }
+}

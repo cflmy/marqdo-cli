@@ -155,6 +155,23 @@
       }
     },
     {
+      "if": {"required": ["kind"], "properties": {"kind": {"enum": ["control.break", "control.continue"]}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["frame_id", "module_id", "span"],
+            "properties": {
+              "frame_id": {"type": "string", "pattern": "^f[0-9]+$"},
+              "module_id": {"type": "string", "minLength": 1},
+              "span": {"type": "object", "$ref": "#/$defs/span"}
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
       "if": {"required": ["kind"], "properties": {"kind": {"enum": ["variable.assigned", "parameter.observed"]}}},
       "then": {
         "properties": {

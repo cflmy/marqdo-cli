@@ -4,7 +4,8 @@ use std::collections::BTreeMap;
 
 use marqdo_expression::{BinaryOp, Expr, RecordEntry};
 use marqdo_host::{
-    ExecutionContext, FrameId, Host, HostOp, ParameterSource, ResourceRead, RuntimeObservation,
+    ExecutionContext, FrameId, Host, HostOp, LoopTransfer, ParameterSource, ResourceRead,
+    RuntimeObservation,
 };
 use marqdo_ir::{builtins, Function, FunctionId, ModuleId, PlaceTarget, Program, Stmt};
 use marqdo_span::Span;
@@ -71,8 +72,7 @@ struct BoundArgs {
 enum Flow {
     Next,
     Return(Value),
-    Break(Span),
-    Continue(Span),
+    LoopTransfer(LoopTransfer, Span),
 }
 
 /// Marqdo tree-walk interpreter.
@@ -232,7 +232,7 @@ impl<'a> Interpreter<'a> {
             .and_then(|flow| match flow {
                 Flow::Next => Ok(None),
                 Flow::Return(value) => Ok(Some(value)),
-                Flow::Break(span) | Flow::Continue(span) => Err(RuntimeError::new(
+                Flow::LoopTransfer(_, span) => Err(RuntimeError::new(
                     ErrorCategory::Internal,
                     Some(span),
                     "loop control escaped its enclosing function",
@@ -420,8 +420,31 @@ impl<'a> Interpreter<'a> {
                 Stmt::Eval { expr, .. } => {
                     self.eval_expr(expr, frame)?;
                 }
-                Stmt::Break { span } => return Ok(Flow::Break(*span)),
-                Stmt::Continue { span } => return Ok(Flow::Continue(*span)),
+                Stmt::Break { span } | Stmt::Continue { span } => {
+                    let transfer = if matches!(stmt, Stmt::Break { .. }) {
+                        LoopTransfer::Break
+                    } else {
+                        LoopTransfer::Continue
+                    };
+                    let module = frame.function.module.canonical();
+                    self.host.record_semantic(
+                        transfer.event_kind(),
+                        Some(&frame.function.to_string()),
+                        Some(&module),
+                        Some(*span),
+                        None,
+                    );
+                    if self.observe {
+                        self.host
+                            .observe_runtime(RuntimeObservation::LoopTransfer {
+                                frame_id: frame.id,
+                                transfer,
+                                module_id: &module,
+                                span: *span,
+                            })?;
+                    }
+                    return Ok(Flow::LoopTransfer(transfer, *span));
+                }
                 Stmt::Return { value, span } => {
                     let value = self.eval_expr(value, frame)?;
                     let module = frame.function.module.canonical();
@@ -515,8 +538,8 @@ impl<'a> Interpreter<'a> {
                         break;
                     }
                     match self.exec_stmts(program, body, frame)? {
-                        Flow::Next | Flow::Continue(_) => {}
-                        Flow::Break(_) => break,
+                        Flow::Next | Flow::LoopTransfer(LoopTransfer::Continue, _) => {}
+                        Flow::LoopTransfer(LoopTransfer::Break, _) => break,
                         flow @ Flow::Return(_) => return Ok(flow),
                     }
                 },

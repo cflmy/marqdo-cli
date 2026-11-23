@@ -249,3 +249,46 @@ fn memory_budget_is_enforced_without_changing_the_region() {
     .unwrap_err();
     assert_eq!(error.code(), "resource.exhausted");
 }
+
+#[test]
+fn continue_obeys_fuel_and_wall_clock_budgets() {
+    use std::time::{Duration, Instant};
+
+    let source = "## @exec main\n\n`while true`\n\n`continue`\n\n`end`\n";
+    let program = build(source);
+    let module = ModuleId::from("index.mq.md");
+
+    let mut fuel_host = host();
+    fuel_host.budget.fuel = 20;
+    let fuel = run(&program, &mut fuel_host, &module, "main", Vec::new()).unwrap_err();
+    assert_eq!(fuel.code(), "resource.exhausted");
+    assert!(fuel.message.contains("fuel exhausted"));
+
+    let mut deadline_host = host();
+    deadline_host.budget.fuel = u64::MAX;
+    deadline_host.budget.deadline = Some(Instant::now() + Duration::from_millis(25));
+    let timeout = run(&program, &mut deadline_host, &module, "main", Vec::new()).unwrap_err();
+    assert_eq!(timeout.code(), "resource.exhausted");
+    assert!(timeout.message.contains("wall-clock time limit"));
+}
+
+#[test]
+fn malformed_ir_cannot_transfer_into_the_callers_loop() {
+    let source =
+        "## @exec child\n\n`return 1`\n\n## @exec main\n\n`while true`\n\n`child()`\n\n`end`\n";
+    let mut program = build(source);
+    let module = ModuleId::from("index.mq.md");
+    let child = program
+        .modules
+        .get_mut(&module)
+        .unwrap()
+        .functions
+        .iter_mut()
+        .find(|function| function.id.name == "child")
+        .unwrap();
+    let span = child.body[0].span();
+    child.body[0] = marqdo_ir::Stmt::Break { span };
+    let error = run(&program, &mut host(), &module, "main", Vec::new()).unwrap_err();
+    assert_eq!(error.category, marqdo_value::ErrorCategory::Internal);
+    assert_eq!(error.span, Some(span));
+}

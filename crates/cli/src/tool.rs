@@ -31,7 +31,10 @@ struct SupportedProtocols {
 
 const SUPPORTED: SupportedProtocols = SupportedProtocols {
     tool: PROTOCOL_VERSION,
-    analysis: &[2],
+    analysis: &[
+        crate::analysis::BASE_VERSION,
+        crate::analysis::LOOP_CONTROL_VERSION,
+    ],
     trace: &[2],
 };
 
@@ -297,12 +300,20 @@ fn negotiate_protocol(
     let Some(requested) = requested else {
         return Ok(());
     };
-    if requested.is_empty() || !requested.iter().any(|version| supported.contains(version)) {
+    if shared_version(requested, supported).is_none() {
         return Err(format!(
             "tool.protocol_incompatible: tool requires {name} version(s) {requested:?}, this core supports {supported:?}"
         ));
     }
     Ok(())
+}
+
+fn shared_version(requested: &[u32], supported: &[u32]) -> Option<u32> {
+    requested
+        .iter()
+        .copied()
+        .filter(|version| supported.contains(version))
+        .max()
 }
 
 fn is_valid_command(command: &str) -> bool {
@@ -623,21 +634,21 @@ pub fn dispatch(args: &[OsString]) -> i32 {
         process.env("MARQDO_BIN", bin);
     }
     process.env("MARQDO_TOOL_PROTOCOL", "1");
-    if record
+    if let Some(version) = record
         .compatibility
         .analysis
-        .as_ref()
-        .is_some_and(|versions| versions.contains(&2))
+        .as_deref()
+        .and_then(|versions| shared_version(versions, SUPPORTED.analysis))
     {
-        process.env("MARQDO_PROTOCOL_ANALYSIS", "2");
+        process.env("MARQDO_PROTOCOL_ANALYSIS", version.to_string());
     }
-    if record
+    if let Some(version) = record
         .compatibility
         .trace
-        .as_ref()
-        .is_some_and(|versions| versions.contains(&2))
+        .as_deref()
+        .and_then(|versions| shared_version(versions, SUPPORTED.trace))
     {
-        process.env("MARQDO_PROTOCOL_TRACE", "2");
+        process.env("MARQDO_PROTOCOL_TRACE", version.to_string());
     }
     match process.status() {
         Ok(status) => status.code().unwrap_or(1),

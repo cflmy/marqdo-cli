@@ -376,6 +376,17 @@ fn protocol_negotiation_accepts_declared_versions_and_rejects_disjoint_ones() {
     assert!(text.contains("analysis=2"), "{text}");
     assert!(text.contains("trace=2"), "{text}");
 
+    let manifest = write_tool(dir.path(), "proto-v3", "");
+    let mut declared: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&manifest).unwrap()).unwrap();
+    declared["compatibility"]["analysis"] = serde_json::json!([2, 3]);
+    std::fs::write(&manifest, declared.to_string()).unwrap();
+    let install = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
+    assert_eq!(install.status.code(), Some(0), "{}", stderr(&install));
+    let output = cli(&home, &["proto-v3"]);
+    assert_eq!(output.status.code(), Some(7), "{}", stderr(&output));
+    assert!(stdout(&output).contains("analysis=3"));
+
     for (compat, tag) in [
         ("\"analysis\":[99]", "analysis-disjoint"),
         ("\"analysis\":[]", "analysis-empty"),

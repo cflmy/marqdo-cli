@@ -314,7 +314,7 @@ struct CheckArgs {
     /// Declare a plugin manifest for static export-signature checking.
     #[arg(long = "plugin", value_name = "PATH")]
     plugin: Vec<PathBuf>,
-    /// Write the public Analysis v2 projection (only on successful check).
+    /// Write public Analysis JSON, using v3 for projects with loop transfers.
     #[arg(long, value_name = "PATH")]
     emit: Option<PathBuf>,
     /// Machine readable JSON output.

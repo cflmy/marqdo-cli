@@ -114,6 +114,19 @@ jobs:
           python3 tests/consumers/analysis_consumer.py /tmp/analysis-v2.json
           python3 tests/consumers/trace_consumer.py \
             /tmp/analysis-v2.json /tmp/trace-v2.json
+          ./target/debug/marqdo check tests/conformance/semantics/85-nested-loop-control.mq.md \
+            --emit /tmp/analysis-v3.json
+          ./target/debug/marqdo run tests/conformance/semantics/85-nested-loop-control.mq.md \
+            --event-stream jsonl --trace-file /tmp/control-trace-v2.json > /tmp/control-events.jsonl
+          python3 tests/consumers/validate_protocols.py \
+            /tmp/analysis-v3.json /tmp/control-trace-v2.json examples/tool-unknown-name/tool.json
+          python3 tests/consumers/analysis_v3_consumer.py /tmp/analysis-v3.json
+          if python3 tests/consumers/analysis_consumer.py /tmp/analysis-v3.json; then
+            echo "Analysis v2 consumer accepted a v3 document" >&2
+            exit 1
+          fi
+          python3 tests/consumers/trace_consumer.py /tmp/analysis-v3.json /tmp/control-trace-v2.json
+          python3 tests/consumers/execution_events_consumer.py /tmp/control-events.jsonl
 
   cross-platform:
     name: runtime contract (${{ matrix.os }})
