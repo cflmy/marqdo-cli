@@ -8,7 +8,7 @@ this beta. Executed status and same-SHA evidence are in
 [`docs/STATUS.md`](docs/STATUS.md), and SHA-bound external evidence is under
 [`docs/evidence/extension/`](docs/evidence/extension/README.md).
 
-The `3.0.0-rc.1` candidate targets Linux x86_64 on glibc 2.39 and
+The `3.0.0-rc.2` candidate targets Linux x86_64 on glibc 2.39 and
 includes the post-beta changes below. See the
 [RC acceptance procedure](docs/releasing.md). The platform evidence table
 records the beta and subsequent development verification.
@@ -51,7 +51,7 @@ Consequences for compatibility:
 
 ## Post-`3.0.0-beta.1` boundary changes (RFC-EXT-0003)
 
-These landed after the beta tag and **are included in the `3.0.0-rc.1` candidate**; they are
+These landed after the beta tag and **are included in the `3.0.0-rc.2` candidate**; they are
 intentional beta-line incompatibilities. Frozen decisions: ADR-0060..0063; executed
 evidence: [`docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md`](docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md).
 
@@ -65,9 +65,9 @@ evidence: [`docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md`](docs/evid
 | Heading Annotations v1 (H-05/H-07) | **Proposed, not implemented.** This build still rejects unknown `@foo` with `sem.invalid_mode_marker`; no annotation manifest, `annotation.unknown` or heading annotations projection exists yet. Target `3.1.x`; ADR-0060 and `spec/heading-annotations-v1.md`. |
 | Foreign removal F-B (H-02) | **Deferred, not claimed.** The one-shot permission-gated `foreign.*` primitive remains (F-A); its grants/digest/timeout/wire/output negatives are unchanged and must not be skipped. ADR-0063 and `spec/foreign.md` §8. |
 
-## Structured control flow (RFC-CTRL-0005, unreleased)
+## Structured control flow (RFC-CTRL-0005, RC.2)
 
-The development branch reserves `break` and `continue` only as complete
+The RC.2 candidate reserves `break` and `continue` only as complete
 payloads. An existing standalone identifier read can be written as
 `(break)` or `(continue)`. Calls, bindings, fields and identifiers within
 expressions retain their meaning. Two separate carriers containing `else` and
@@ -77,14 +77,18 @@ Parameter inference ignores reads after a definite transfer. When upgrading
 a caller that passed an argument inferred solely from unreachable code,
 remove the argument or keep it through an explicit `params(...)` declaration.
 
+`marqdo-lint 0.1.0` reads legacy Analysis v2 documents. Its control layout
+alignment for `else if` and its Analysis v3 support require an update in
+that tool.
+
 ## Public protocol versions
 
 | Surface | Version | Compatibility rule |
 |---|---|---|
 | Markdown profile | `marqdo.md.v1` | Frozen parser/options. The RFC-LANG-0002 mapping rewrite keeps this profile; the source-language break is tracked above, not by a new profile id. |
-| Language / CLI | `3.0.0-rc.1` (candidate) | SemVer prerelease: breaking changes inside the 3.0 beta line are allowed and announced in the changelog. The `.mq.md` source language changed incompatibly (RFC-LANG-0002); there is no old-syntax execution path or downgrade. CLI flags may change with a changelog note; `strict` refusal is contractual. |
+| Language / CLI | `3.0.0-rc.2` (candidate) | SemVer prerelease: breaking changes inside the 3.0 beta line are allowed and announced in the changelog. The `.mq.md` source language changed incompatibly (RFC-LANG-0002); there is no old-syntax execution path or downgrade. CLI flags may change with a changelog note; `strict` refusal is contractual. |
 | `marqdo.lock` | v4 | v3 is rejected with an explicit `marqdo lock` migration error; v1/v2 are rejected with a relock instruction; `run`/`call`/`check` never rewrite or fetch the lock. `extensions:` records manifest/artifact identity (integrity, not publisher auth). |
-| Analysis | v2/v3 on the RFC-CTRL-0005 development branch | Projects with loop transfers emit v3. Other projects emit v2. Consumers reject unknown majors. |
+| Analysis | v2/v3 | Projects with loop transfers emit v3. Other projects emit v2. Consumers reject unknown majors. |
 | Trace | v2 | Binds to the exact Analysis bytes; unknown majors rejected. |
 | Execution Events | v1 | Live NDJSON for `run/call --event-stream jsonl`; independent version axis. Values are opt-in and bounded; unknown majors rejected. Not yet part of the tagged beta archive (post-beta addition). |
 | CLI Tool | v1 | Manifest schema, SemVer negotiation and whole-bundle digest are stable for v1. |

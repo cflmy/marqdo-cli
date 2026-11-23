@@ -16,7 +16,7 @@ Usage (from the repository root, after
 
     python3 tools/release/package.py \
         --source-sha "$(git rev-parse HEAD)" \
-        --version 3.0.0-rc.1
+        --version 3.0.0-rc.2
 """
 
 from __future__ import annotations

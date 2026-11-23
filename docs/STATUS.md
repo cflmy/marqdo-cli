@@ -26,7 +26,7 @@ as current status.
 
 ## RC candidate
 
-The workspace reports `3.0.0-rc.1` and declares Rust 1.89 as its locked
+The workspace reports `3.0.0-rc.2` and declares Rust 1.89 as its locked
 minimum. Linux x86_64 on glibc 2.39 is the candidate platform. The
 [release procedure](releasing.md) requires a green manifest bound to the
 candidate SHA before publication. The release record below refers to the
@@ -264,7 +264,7 @@ digests. The external lane ran from a temporary fixture checkout with Cargo
 absent from PATH. Archive SHA-256 is
 `8934bfc25c7b5526071eae6f24143ca3805ad3d7cc484626a4345b1deed430b2`.
 
-## 0.8 Structured control flow — RFC-CTRL-0005 (unreleased)
+## 0.8 Structured control flow — RFC-CTRL-0005 (RC.2 candidate)
 
 [ADR-0067](adr/0067-structured-control-flow.md) covers the phase A implementation.
 An `else if` carrier adds a condition arm to the existing branch IR.
@@ -276,8 +276,8 @@ list containers.
 [Analysis v3](../spec/analysis-v3.md) represents the loop transfer statements.
 Other documents continue to emit v2. Trace v2 and Execution Events v1 expose
 the new control events. The published beta evidence applies to its original
-SHA. Maintainers decide when to include phase A in a release. List iteration
-is a follow-up design. The [local verification record](evidence/2026-11-23-rfc-ctrl-0005.md)
+SHA. The maintainer selected phase A for RC.2. List iteration
+is a follow-up design. The [pre-candidate local verification record](evidence/2026-11-23-rfc-ctrl-0005.md)
 identifies the tested commit, commands, archive digest and consumer results.
 
 ## 1. Historical: pre-beta remote baseline and evidence

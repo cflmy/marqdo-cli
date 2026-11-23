@@ -10,7 +10,7 @@ The official implementation is a Rust workspace; Python/Node are optional
 foreign kernels, never the compiler target.
 
 This repository is the new, independent Marqdo toolchain, now at product
-version **`3.0.0-rc.1`** in this checkout. It is **not** a compatibility rewrite of
+version **`3.0.0-rc.2`** in this checkout. It is **not** a compatibility rewrite of
 `cflmy/marqdo`; the old syntax, package format and plugin ABI v2 are not
 claimed to work here. See [docs/developers/](docs/developers/README.md) for the
 third-party entry point and `docs/MARQDO_3_0_PRERELEASE_PLAN.md` for the beta

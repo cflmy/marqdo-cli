@@ -10,12 +10,23 @@ Foreign wire v1, Provider manifest v2, lock v4) and independent package
 versions (including the bundled stdlib `0.1.0`) are versioned separately and
 do not follow the product version. Dates use ISO 8601.
 
-## 3.0.0-rc.1 (candidate)
+## 3.0.0-rc.2 (candidate)
 
 - The Rust workspace, CLI version output and protocol producers report
-  `3.0.0-rc.1`. The locked workspace requires Rust 1.89.
+  `3.0.0-rc.2`. The locked workspace requires Rust 1.89.
 - The candidate targets Linux x86_64 with glibc. See
   [release gates](docs/releasing.md) for the evidence required for publication.
+
+### Structured control flow (RFC-CTRL-0005)
+
+- Added ordered `else if` arms and nearest-loop `break` and `continue`.
+  Bare keyword carriers take the control meaning. Calls, bindings and
+  identifiers within expressions retain their existing syntax.
+- Inferred signatures now use reachable reads and merge assignments on
+  reachable control exits. A parameter inferred only from unreachable
+  statements may disappear.
+- Analysis v3 represents loop transfers. Projects without transfers still emit
+  v2. Trace v2 and Execution Events v1 report the two explicit control events.
 
 ### Core/extension boundary — RFC-EXT-0003 (issue #3)
 
@@ -68,7 +79,7 @@ detach), ADR-0062 (resource-operation ownership/core kinds), ADR-0063
   metadata-only `@namespace.identifier` annotation layer is specified as
   **Proposed** with target `3.1.x`. The current parser still rejects any other
   leading `@foo` with `sem.invalid_mode_marker`; no `annotation.unknown` code,
-  manifest loader, Analysis v3 or sidecar exists in this build. Contracts:
+  manifest loader or heading annotations projection exists in this build. Contracts:
   ADR-0060 and [`spec/heading-annotations-v1.md`](spec/heading-annotations-v1.md).
 - **Foreign F-B removal is deferred (H-02).** The permission-gated one-shot
   `foreign.run`/`foreign.call` + `KernelRegistry` stay as the controlled
@@ -98,8 +109,8 @@ detach), ADR-0062 (resource-operation ownership/core kinds), ADR-0063
 - New public contract
   [`spec/execution-events-v1.md`](spec/execution-events-v1.md) and
   [`spec/schemas/execution-events-v1.schema.json`](spec/schemas/execution-events-v1.schema.json),
-  with fixtures and an independent Python consumer. Analysis v2 and Trace v2
-  schemas/versions are unchanged.
+  with fixtures and an independent Python consumer. Trace v2 retains its
+  public event envelope.
 - Limitations: memory metadata events (OBS-06/P2), a bidirectional debug
   protocol and SSE/HTTP remain out of scope; strict mode refuses event mode
   explicitly.
@@ -172,18 +183,6 @@ items are in
   stable PASS.
 
 ## Unreleased (post-beta)
-
-### Structured control flow (RFC-CTRL-0005)
-
-- Added ordered `else if` arms and nearest-loop `break` and `continue`.
-  Bare keyword carriers take the control meaning. Calls, bindings and
-  identifiers within expressions retain their existing syntax.
-- Inferred signatures now use reachable reads and merge assignments on
-  reachable control exits. A parameter inferred only from unreachable
-  statements may disappear.
-- Analysis v3 represents loop transfers. Projects without transfers still emit
-  v2. Trace v2 and Execution Events v1 report the two explicit control events.
-- Release inclusion remains a maintainer decision.
 
 ### Planned changes
 

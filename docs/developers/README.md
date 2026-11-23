@@ -6,7 +6,7 @@ Rust structures, `marqdo-ir` internals, `inspect --ir`, relative paths into the
 core checkout, or host memory layout. Adding a new domain function must not
 require a core commit.
 
-Product version for these docs: **`3.0.0-rc.1`** (Linux x86_64 candidate).
+Product version for these docs: **`3.0.0-rc.2`** (Linux x86_64 candidate).
 Protocol versions are independent: Analysis v2, Trace v2, Execution Events v1,
 Tool v1, Plugin ABI v1, Foreign wire v1, Provider manifest v2, lock v4,
 markdown profile `marqdo.md.v1`.
