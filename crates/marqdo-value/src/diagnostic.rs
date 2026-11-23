@@ -35,6 +35,10 @@ pub mod codes {
     pub const SEM_UNMATCHED_ELSE_IF: &str = "sem.unmatched_else_if";
     /// `else if` follows the final `else`.
     pub const SEM_ELSE_IF_AFTER_ELSE: &str = "sem.else_if_after_else";
+    /// A `break` appears outside a loop in its heading segment.
+    pub const SEM_BREAK_OUTSIDE_LOOP: &str = "sem.break_outside_loop";
+    /// A `continue` appears outside a loop in its heading segment.
+    pub const SEM_CONTINUE_OUTSIDE_LOOP: &str = "sem.continue_outside_loop";
     /// A second `else` appears for one `if`.
     pub const SEM_DUPLICATE_ELSE: &str = "sem.duplicate_else";
     /// `end` closes no open frame.

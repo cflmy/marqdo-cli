@@ -1,0 +1,6 @@
+{
+  "codes": [
+    "sem.unclosed_control",
+    "sem.unmatched_end"
+  ]
+}

@@ -2,7 +2,7 @@
 //!
 //! One Markdown carrier holds exactly one payload. This module is the only
 //! place that decides whether that payload is a control statement
-//! (`if`/`else if`/`else`/`while`/`end`/`return`), a `params(...)` declaration, or an
+//! (`if`/`else if`/`else`/`while`/`break`/`continue`/`end`/`return`), a `params(...)` declaration, or an
 //! ordinary assignment/expression. The frontend still owns pairing the control
 //! words into blocks; this module owns their lexical recognition and the
 //! expression grammar they embed.
@@ -28,6 +28,10 @@ pub enum PayloadStatement {
     Else,
     /// `while <expr>`
     While(Expr),
+    /// Exit the closest enclosing loop.
+    Break,
+    /// Recheck the closest enclosing loop condition.
+    Continue,
     /// `end` (no expression)
     End,
     /// `return <expr>`
@@ -67,7 +71,12 @@ pub fn parse_payload_statement(source: &str) -> Result<PayloadStatement, ParseEr
 
     let tokens = lexer::tokenize(trimmed)?;
     let first = tokens.first().expect("tokenize always returns EOF");
-    match first.kind {
+    match &first.kind {
+        TokenKind::Ident(name) if matches!(tokens[1].kind, TokenKind::Eof) => match name.as_str() {
+            "break" => Ok(PayloadStatement::Break),
+            "continue" => Ok(PayloadStatement::Continue),
+            _ => parse_statement(trimmed).map(PayloadStatement::Ordinary),
+        },
         TokenKind::If => {
             let expr = control_expression(trimmed, first.span, "if")?;
             Ok(PayloadStatement::If(expr))
@@ -181,6 +190,33 @@ mod tests {
                 parse_payload_statement(source).is_err(),
                 "{source} must be rejected"
             );
+        }
+    }
+
+    #[test]
+    fn loop_control_keywords_are_contextual() {
+        assert_eq!(
+            parse_payload_statement("break").unwrap(),
+            PayloadStatement::Break
+        );
+        assert_eq!(
+            parse_payload_statement("continue").unwrap(),
+            PayloadStatement::Continue
+        );
+        for source in [
+            "break(1)",
+            "continue = 1",
+            "(break)",
+            "break + continue",
+            "continue_work()",
+        ] {
+            assert!(matches!(
+                parse_payload_statement(source).unwrap(),
+                PayloadStatement::Ordinary(_)
+            ));
+        }
+        for source in ["break 2", "continue outer", "break if true"] {
+            assert!(parse_payload_statement(source).is_err(), "{source}");
         }
     }
 

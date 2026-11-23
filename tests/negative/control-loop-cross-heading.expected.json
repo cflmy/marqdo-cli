@@ -1,0 +1,7 @@
+{
+  "codes": [
+    "sem.continue_outside_loop",
+    "sem.unclosed_control",
+    "sem.unmatched_end"
+  ]
+}

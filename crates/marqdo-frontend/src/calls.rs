@@ -213,7 +213,10 @@ fn collect_assigned(stmts: &[Stmt], out: &mut BTreeSet<String>) {
                 }
             }
             Stmt::Loop { body, .. } => collect_assigned(body, out),
-            Stmt::Eval { .. } | Stmt::Return { .. } => {}
+            Stmt::Eval { .. }
+            | Stmt::Return { .. }
+            | Stmt::Break { .. }
+            | Stmt::Continue { .. } => {}
         }
     }
 }
@@ -257,6 +260,7 @@ impl<'a> Binder<'a> {
                     self.expr(condition);
                     self.stmts(body);
                 }
+                Stmt::Break { .. } | Stmt::Continue { .. } => {}
             }
         }
     }

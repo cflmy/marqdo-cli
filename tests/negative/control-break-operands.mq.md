@@ -1,0 +1,7 @@
+## @exec main
+
+`while true`
+
+`break 2`
+
+`end`

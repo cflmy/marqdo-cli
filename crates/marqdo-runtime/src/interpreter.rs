@@ -71,6 +71,8 @@ struct BoundArgs {
 enum Flow {
     Next,
     Return(Value),
+    Break(Span),
+    Continue(Span),
 }
 
 /// Marqdo tree-walk interpreter.
@@ -225,11 +227,21 @@ impl<'a> Interpreter<'a> {
             id: frame_id,
         };
         self.depth += 1;
-        let result = self.exec_stmts(program, &function.body, &mut frame);
+        let result = self
+            .exec_stmts(program, &function.body, &mut frame)
+            .and_then(|flow| match flow {
+                Flow::Next => Ok(None),
+                Flow::Return(value) => Ok(Some(value)),
+                Flow::Break(span) | Flow::Continue(span) => Err(RuntimeError::new(
+                    ErrorCategory::Internal,
+                    Some(span),
+                    "loop control escaped its enclosing function",
+                )),
+            });
         self.depth -= 1;
         let status = match &result {
-            Ok(Flow::Next) => "ok",
-            Ok(Flow::Return(_)) => "return",
+            Ok(None) => "ok",
+            Ok(Some(_)) => "return",
             Err(error) => error.code(),
         };
         self.host.record_semantic(
@@ -246,8 +258,7 @@ impl<'a> Interpreter<'a> {
             close?;
         }
         match result {
-            Ok(Flow::Next) => Ok(Value::Unit),
-            Ok(Flow::Return(value)) => Ok(value),
+            Ok(value) => Ok(value.unwrap_or(Value::Unit)),
             Err(mut error) => {
                 error.attribute_module(function.id.module.canonical());
                 error.push_frame(
@@ -409,6 +420,8 @@ impl<'a> Interpreter<'a> {
                 Stmt::Eval { expr, .. } => {
                     self.eval_expr(expr, frame)?;
                 }
+                Stmt::Break { span } => return Ok(Flow::Break(*span)),
+                Stmt::Continue { span } => return Ok(Flow::Continue(*span)),
                 Stmt::Return { value, span } => {
                     let value = self.eval_expr(value, frame)?;
                     let module = frame.function.module.canonical();
@@ -461,7 +474,7 @@ impl<'a> Interpreter<'a> {
                         if condition {
                             match self.exec_stmts(program, &arm.body, frame)? {
                                 Flow::Next => break,
-                                Flow::Return(value) => return Ok(Flow::Return(value)),
+                                flow => return Ok(flow),
                             }
                         }
                     }
@@ -502,8 +515,9 @@ impl<'a> Interpreter<'a> {
                         break;
                     }
                     match self.exec_stmts(program, body, frame)? {
-                        Flow::Next => {}
-                        Flow::Return(value) => return Ok(Flow::Return(value)),
+                        Flow::Next | Flow::Continue(_) => {}
+                        Flow::Break(_) => break,
+                        flow @ Flow::Return(_) => return Ok(flow),
                     }
                 },
             }

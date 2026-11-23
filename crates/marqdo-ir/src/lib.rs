@@ -285,11 +285,11 @@ pub enum Stmt {
         /// Span of the whole statement.
         span: Span,
     },
-    /// `if`/`else` group: the first true arm wins.
+    /// `if`/`else if`/`else` group: the first true arm wins.
     Branch {
         /// Arms in AST order.
         arms: Vec<BranchArm>,
-        /// Span of the list node.
+        /// Span of the opening `if` carrier.
         span: Span,
     },
     /// `while`/`end` group.
@@ -301,6 +301,16 @@ pub enum Stmt {
         /// Loop body.
         body: Vec<Stmt>,
         /// Span of the whole `while` statement.
+        span: Span,
+    },
+    /// Exit the nearest loop in the enclosing function.
+    Break {
+        /// Span of the carrier.
+        span: Span,
+    },
+    /// Resume at the nearest loop condition in the enclosing function.
+    Continue {
+        /// Span of the carrier.
         span: Span,
     },
     /// Return from the enclosing function (`return` statement).
@@ -320,12 +330,14 @@ impl Stmt {
             | Stmt::Eval { span, .. }
             | Stmt::Branch { span, .. }
             | Stmt::Loop { span, .. }
+            | Stmt::Break { span }
+            | Stmt::Continue { span }
             | Stmt::Return { span, .. } => *span,
         }
     }
 }
 
-/// One arm of an `if`/`else` group.
+/// One arm of an `if`/`else if`/`else` group.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BranchArm {
     /// Boolean condition expression.
@@ -334,7 +346,7 @@ pub struct BranchArm {
     pub condition_span: Span,
     /// Statements executed when the condition is true.
     pub body: Vec<Stmt>,
-    /// Span of the whole list item.
+    /// Span of the branch carrier.
     pub span: Span,
 }
 

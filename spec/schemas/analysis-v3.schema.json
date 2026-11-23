@@ -1,0 +1,376 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://marqdo.dev/schemas/analysis-v3.schema.json",
+  "title": "Marqdo Analysis v3",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "producer",
+    "project",
+    "modules",
+    "diagnostics"
+  ],
+  "properties": {
+    "schema": {
+      "const": "marqdo.analysis"
+    },
+    "schema_version": {
+      "const": 3
+    },
+    "producer": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "markdown_profile"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "markdown_profile": {
+          "const": "marqdo.md.v1"
+        }
+      },
+      "additionalProperties": true
+    },
+    "project": {
+      "type": "object",
+      "required": [
+        "root_id",
+        "identity_kind",
+        "lock_digest"
+      ],
+      "properties": {
+        "root_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(root:|sha256:[0-9a-f]{64}$)"
+        },
+        "identity_kind": {
+          "enum": [
+            "manifest",
+            "workspace_snapshot"
+          ]
+        },
+        "lock_digest": {
+          "type": "string",
+          "pattern": "^(sha256:[0-9a-f]{64})?$"
+        }
+      },
+      "additionalProperties": true
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "package_instance_id",
+          "relative_path",
+          "source_digest",
+          "units",
+          "functions",
+          "imports",
+          "references",
+          "calls",
+          "resources"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "::"
+          },
+          "package_instance_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relative_path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*\\.\\.)"
+          },
+          "source_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "units": {
+            "type": "array"
+          },
+          "functions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "body"
+              ],
+              "properties": {
+                "body": {
+                  "$ref": "#/$defs/body"
+                }
+              }
+            }
+          },
+          "imports": {
+            "type": "array"
+          },
+          "references": {
+            "type": "array"
+          },
+          "calls": {
+            "type": "array"
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "module_id",
+                "unit_id",
+                "kind",
+                "span",
+                "content_digest"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "#resource:(formula|code)-[0-9]+$"
+                },
+                "module_id": {
+                  "type": "string",
+                  "pattern": "::"
+                },
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "kind": {
+                  "enum": [
+                    "formula",
+                    "code"
+                  ]
+                },
+                "span": {
+                  "type": "object",
+                  "required": [
+                    "start",
+                    "end"
+                  ],
+                  "properties": {
+                    "start": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "end": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": true
+                },
+                "content_digest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "language": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "display": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "module",
+          "relative_path",
+          "severity",
+          "code",
+          "message"
+        ],
+        "properties": {
+          "module": {
+            "type": "string",
+            "pattern": "::"
+          },
+          "relative_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "span": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "start",
+              "end"
+            ],
+            "properties": {
+              "start": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "end": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "column": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "severity": {
+            "enum": [
+              "error",
+              "warning"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "body": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/statement"
+      }
+    },
+    "span": {
+      "type": "object",
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "statement": {
+      "type": "object",
+      "required": [
+        "kind",
+        "span"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "assign",
+            "expression",
+            "branch",
+            "loop",
+            "return",
+            "break",
+            "continue"
+          ]
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "loop"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "body"
+            ],
+            "properties": {
+              "body": {
+                "$ref": "#/$defs/body"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "branch"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "arms"
+            ],
+            "properties": {
+              "arms": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "body"
+                  ],
+                  "properties": {
+                    "body": {
+                      "$ref": "#/$defs/body"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -222,3 +222,7 @@ When that work ships (target `3.1.x`), it must use a new protocol version
 source digest and the exact Analysis bytes digest; it must not rewrite v2 `units[]`.
 Consumers that only know v2 must keep passing the existing schema/version contract,
 and must reject an unknown sidecar/v3 version rather than silently ignoring it.
+
+Projects containing structured loop transfers use [Analysis v3](analysis-v3.md).
+A v2 projection never contains those transfer statements. Multiple conditional
+arms use the existing ordered `branch.arms` array.

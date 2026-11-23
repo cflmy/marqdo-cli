@@ -3,16 +3,12 @@
 //! Parameters come only from free reads of executable expressions. Prose,
 //! headings, inert code spans and natural language never introduce parameters.
 //!
-//! The analysis tracks, for every program point:
-//! * `must`  – variables definitely assigned on every path from entry;
-//! * `may`   – variables assigned on at least one path;
-//! * `ambiguous` – variables that may have been assigned before the read on
-//!   some path but not on all paths, which makes the variable's identity
-//!   ambiguous (blueprint S-04) rather than silently inventing a parameter.
+//! Each reachable path tracks definite and possible assignments. Sequences
+//! merge fallthrough, break and continue separately, so a transfer never
+//! contributes bindings from the statements it skips. A return ends the path.
 //!
-//! Loop bodies get special treatment: their first iteration starts from the
-//! pre-loop state, so a read of an entry variable inside a loop is a parameter
-//! candidate even though the body also assigns it (the classic counter case).
+//! The first iteration starts from the pre-loop state. A first read before a
+//! body assignment can therefore still be a parameter (the counter case).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -45,7 +41,6 @@ pub struct ParamCandidate {
 struct State {
     must: BTreeSet<String>,
     may: BTreeSet<String>,
-    ambiguous: BTreeSet<String>,
 }
 
 impl State {
@@ -53,8 +48,36 @@ impl State {
         State {
             must: self.must.intersection(&other.must).cloned().collect(),
             may: self.may.union(&other.may).cloned().collect(),
-            ambiguous: self.ambiguous.union(&other.ambiguous).cloned().collect(),
         }
+    }
+}
+
+/// Join only reachable paths. An absent path contributes no assignments.
+fn merge_paths(left: &mut Option<State>, right: Option<State>) {
+    if let Some(right) = right {
+        *left = Some(match left.take() {
+            Some(left) => left.join(&right),
+            None => right,
+        });
+    }
+}
+
+#[derive(Default)]
+struct Flow {
+    next: Option<State>,
+    breaks: Option<State>,
+    continues: Option<State>,
+}
+
+impl Flow {
+    fn merge(&mut self, other: Self) {
+        merge_paths(&mut self.next, other.next);
+        self.merge_loop_transfers(other.breaks, other.continues);
+    }
+
+    fn merge_loop_transfers(&mut self, breaks: Option<State>, continues: Option<State>) {
+        merge_paths(&mut self.breaks, breaks);
+        merge_paths(&mut self.continues, continues);
     }
 }
 
@@ -83,7 +106,7 @@ impl<'a> Analyzer<'a> {
         if state.must.contains(name) {
             return;
         }
-        if state.ambiguous.contains(name) {
+        if state.may.contains(name) {
             if !self.ambiguous_reported.contains(name) {
                 self.ambiguous_reported.insert(name.to_string());
                 self.diagnostics.push(
@@ -169,107 +192,104 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn assign(&self, name: &str, state: &mut State) {
-        state.must.insert(name.to_string());
-        state.may.insert(name.to_string());
-        state.ambiguous.insert(name.to_string());
-    }
-
-    fn analyze_stmts(&mut self, stmts: &[Stmt], mut state: State) -> State {
+    fn analyze_stmts(&mut self, stmts: &[Stmt], state: State) -> Flow {
+        let mut flow = Flow {
+            next: Some(state),
+            ..Flow::default()
+        };
         for stmt in stmts {
-            state = match stmt {
+            let Some(mut state) = flow.next.take() else {
+                break;
+            };
+            flow.next = match stmt {
                 Stmt::Assign { target, value, .. } => {
                     match target {
                         PlaceTarget::Local { name, .. } => {
-                            // Preserve v1 order: the RHS is read before the
-                            // local rebinding makes the name definitely
-                            // assigned.
                             self.read_expr(value, &state);
-                            self.assign(name, &mut state);
+                            state.must.insert(name.clone());
+                            state.may.insert(name.clone());
                         }
                         PlaceTarget::Index { base, index, .. } => {
-                            // Runtime order for an index place is base, index,
-                            // RHS; reads in the place are free reads like any
-                            // other.
+                            // Keep the runtime's evaluation order.
                             self.read_expr(base, &state);
                             self.read_expr(index, &state);
                             self.read_expr(value, &state);
                         }
                     }
-                    state
+                    Some(state)
                 }
                 Stmt::Eval { expr, .. } => {
                     self.read_expr(expr, &state);
-                    state
+                    Some(state)
                 }
                 Stmt::Return { value, .. } => {
                     self.read_expr(value, &state);
-                    state
+                    None
                 }
-                Stmt::Branch { arms, .. } => self.analyze_branch(arms, state),
+                Stmt::Break { .. } => {
+                    merge_paths(&mut flow.breaks, Some(state));
+                    None
+                }
+                Stmt::Continue { .. } => {
+                    merge_paths(&mut flow.continues, Some(state));
+                    None
+                }
+                Stmt::Branch { arms, .. } => {
+                    let branch = self.analyze_branch(arms, state);
+                    flow.merge_loop_transfers(branch.breaks, branch.continues);
+                    branch.next
+                }
                 Stmt::Loop {
                     condition, body, ..
-                } => {
-                    self.read_expr(condition, &state);
-                    // First iteration starts from the pre-loop state: body
-                    // assignments must not flag pre-loop reads as ambiguous.
-                    let body_out = self.analyze_stmts(
-                        body,
-                        State {
-                            must: state.must.clone(),
-                            may: state.may.clone(),
-                            ambiguous: state.ambiguous.clone(),
-                        },
-                    );
-                    State {
-                        must: state.must.clone(),
-                        may: body_out
-                            .may
-                            .union(&state.may)
-                            .cloned()
-                            .collect::<BTreeSet<_>>(),
-                        ambiguous: body_out
-                            .ambiguous
-                            .union(&state.ambiguous)
-                            .cloned()
-                            .collect::<BTreeSet<_>>(),
-                    }
-                }
+                } => self.analyze_loop(condition, body, state),
             };
         }
-        state
+        flow
     }
 
-    fn analyze_branch(&mut self, arms: &[BranchArm], state: State) -> State {
-        // Conditions are evaluated in order against the incoming state.
+    fn analyze_branch(&mut self, arms: &[BranchArm], state: State) -> Flow {
+        let mut flow = Flow::default();
         for arm in arms {
+            // Only earlier false conditions lead to this arm. Conditions do
+            // not change the assignment state of the current frame.
             self.read_expr(&arm.condition, &state);
+            if arm.condition != Expr::Bool(false) {
+                flow.merge(self.analyze_stmts(&arm.body, state.clone()));
+            }
+            if arm.condition == Expr::Bool(true) {
+                return flow;
+            }
         }
-        // The branch may match no arm, so the incoming state joins every arm's
-        // state; variables assigned only inside an arm stay "may assigned".
-        let mut joined: Option<State> = Some(State {
-            must: state.must.clone(),
-            may: state.may.clone(),
-            ambiguous: state.ambiguous.clone(),
-        });
-        for arm in arms {
-            let arm_out = self.analyze_stmts(
-                &arm.body,
-                State {
-                    must: state.must.clone(),
-                    may: state.may.clone(),
-                    ambiguous: state.ambiguous.clone(),
-                },
-            );
-            joined = Some(match joined {
-                None => arm_out,
-                Some(previous) => previous.join(&arm_out),
-            });
+        merge_paths(&mut flow.next, Some(state));
+        flow
+    }
+
+    fn analyze_loop(&mut self, condition: &Expr, body: &[Stmt], state: State) -> Option<State> {
+        self.read_expr(condition, &state);
+        if *condition == Expr::Bool(false) {
+            return Some(state);
         }
-        match joined {
-            Some(joined) => joined,
-            None => state,
+
+        let Flow {
+            mut next,
+            mut breaks,
+            continues,
+        } = self.analyze_stmts(body, state.clone());
+        merge_paths(&mut next, continues);
+        // A later break can inherit assignments from an earlier iteration.
+        // It can also occur on the first, so only "may" gains those bindings.
+        if let (Some(breaks), Some(backedge)) = (&mut breaks, &next) {
+            breaks.may.extend(backedge.may.iter().cloned());
         }
+        if *condition == Expr::Bool(true) {
+            return breaks;
+        }
+
+        // A false condition may be seen before any iteration or after a
+        // backedge. A break exits directly and a return never reaches here.
+        merge_paths(&mut next, Some(state));
+        merge_paths(&mut next, breaks);
+        next
     }
 }
 
@@ -294,7 +314,18 @@ pub fn infer(
         names
     });
     let mut analyzer = Analyzer::new(known.as_ref());
-    analyzer.analyze_stmts(stmts, State::default());
+    let initial = signature.map_or_else(State::default, |signature| {
+        let bound: BTreeSet<_> = signature
+            .params
+            .iter()
+            .map(|param| param.name.clone())
+            .collect();
+        State {
+            must: bound.clone(),
+            may: bound,
+        }
+    });
+    analyzer.analyze_stmts(stmts, initial);
     let mut params: Vec<ParamCandidate> = analyzer
         .reads
         .iter()
@@ -399,7 +430,7 @@ mod tests {
         let stmts = vec![
             Stmt::Branch {
                 arms: vec![BranchArm {
-                    condition: parse_expression("true").unwrap(),
+                    condition: parse_expression("flag").unwrap(),
                     condition_span: Span::new(0, 0),
                     body: vec![assign("x", "1")],
                     span: Span::new(0, 0),
@@ -409,7 +440,14 @@ mod tests {
             ret("x"),
         ];
         let inference = infer(&stmts, None, &BTreeSet::new());
-        assert!(inference.params.is_empty());
+        assert_eq!(
+            inference
+                .params
+                .iter()
+                .map(|param| param.name.as_str())
+                .collect::<Vec<_>>(),
+            ["flag"]
+        );
         assert!(inference
             .diagnostics
             .iter()

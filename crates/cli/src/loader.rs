@@ -648,6 +648,7 @@ fn collect_identifiers_stmts(stmts: &[Stmt], names: &mut std::collections::BTree
                 collect_identifiers_expr(condition, names);
                 collect_identifiers_stmts(body, names);
             }
+            Stmt::Break { .. } | Stmt::Continue { .. } => {}
         }
     }
 }

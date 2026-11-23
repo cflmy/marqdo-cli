@@ -139,7 +139,7 @@ impl Mapper {
             self.extract(block, &mut raw, true);
         }
         let mut position = 0;
-        let stmts = self.sequence(&raw, &mut position, ArmContext::Outside);
+        let stmts = self.sequence(&raw, &mut position, ArmContext::Outside, false);
         if let Some(node) = raw.get(position) {
             // The only delimiter that can stop the segment is a stray `end`.
             self.error(
@@ -251,6 +251,7 @@ impl Mapper {
         nodes: &[RawPayload],
         position: &mut usize,
         arm: ArmContext,
+        in_loop: bool,
     ) -> Vec<Stmt> {
         let mut out = Vec::new();
         while let Some(raw) = nodes.get(*position) {
@@ -278,12 +279,12 @@ impl Mapper {
                 Payload::End => break,
                 Payload::If(_) => {
                     self.executed = true;
-                    out.push(self.branch(nodes, position));
+                    out.push(self.branch(nodes, position, in_loop));
                 }
                 Payload::While(condition) => {
                     self.executed = true;
                     *position += 1;
-                    let body = self.sequence(nodes, position, ArmContext::Outside);
+                    let body = self.sequence(nodes, position, ArmContext::Outside, true);
                     self.close_block(nodes, position, raw.span, "while");
                     out.push(Stmt::Loop {
                         condition: condition.clone(),
@@ -291,6 +292,30 @@ impl Mapper {
                         body,
                         span: raw.span,
                     });
+                }
+                Payload::Break | Payload::Continue => {
+                    self.executed = true;
+                    let span = raw.span;
+                    let (statement, code, keyword) = match raw.payload {
+                        Payload::Break => {
+                            (Stmt::Break { span }, codes::SEM_BREAK_OUTSIDE_LOOP, "break")
+                        }
+                        _ => (
+                            Stmt::Continue { span },
+                            codes::SEM_CONTINUE_OUTSIDE_LOOP,
+                            "continue",
+                        ),
+                    };
+                    if in_loop {
+                        out.push(statement);
+                    } else {
+                        self.error(
+                            code,
+                            Some(span),
+                            format!("`{keyword}` requires an open loop in this heading segment"),
+                        );
+                    }
+                    *position += 1;
                 }
                 Payload::Return(value) => {
                     self.executed = true;
@@ -362,7 +387,7 @@ impl Mapper {
         out
     }
 
-    fn branch(&mut self, nodes: &[RawPayload], position: &mut usize) -> Stmt {
+    fn branch(&mut self, nodes: &[RawPayload], position: &mut usize, in_loop: bool) -> Stmt {
         let span = nodes[*position].span;
         let mut arms = Vec::new();
         while let Some(raw) = nodes.get(*position) {
@@ -371,7 +396,7 @@ impl Mapper {
                 _ => break,
             };
             *position += 1;
-            let body = self.sequence(nodes, position, ArmContext::Conditional);
+            let body = self.sequence(nodes, position, ArmContext::Conditional, in_loop);
             arms.push(BranchArm {
                 condition: condition.clone(),
                 condition_span: raw.span,
@@ -384,7 +409,7 @@ impl Mapper {
             Some(Payload::Else)
         ) {
             *position += 1;
-            let body = self.sequence(nodes, position, ArmContext::Default);
+            let body = self.sequence(nodes, position, ArmContext::Default, in_loop);
             // Preserve the v2 projection and observation of the fallback arm.
             // An empty fallback has the same effect as ordinary fallthrough.
             if !body.is_empty() {
