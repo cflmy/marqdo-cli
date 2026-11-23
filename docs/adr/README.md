@@ -64,4 +64,5 @@ Files: `0001`–`0050`, plus:
 * [0065](0065-resource-control-vnext.md) — proposed manifest-driven stateful
   operations and child resources;
 * [0066](0066-structured-tasks-v1.md) — proposed task isolation, bounded
-  communication and cancellation.
+  communication and cancellation;
+* [0067](0067-structured-control-flow.md) — multi-arm branches and nearest-loop transfers.

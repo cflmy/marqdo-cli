@@ -404,20 +404,19 @@ impl Mapper {
                 span: raw.span,
             });
         }
-        if matches!(
-            nodes.get(*position).map(|raw| &raw.payload),
-            Some(Payload::Else)
-        ) {
+        if let Some(raw) = nodes
+            .get(*position)
+            .filter(|raw| matches!(raw.payload, Payload::Else))
+        {
             *position += 1;
             let body = self.sequence(nodes, position, ArmContext::Default, in_loop);
-            // Preserve the v2 projection and observation of the fallback arm.
-            // An empty fallback has the same effect as ordinary fallthrough.
+            // An empty fallback is ordinary fallthrough.
             if !body.is_empty() {
                 arms.push(BranchArm {
                     condition: Expr::Bool(true),
-                    condition_span: span,
+                    condition_span: raw.span,
                     body,
-                    span,
+                    span: raw.span,
                 });
             }
         }

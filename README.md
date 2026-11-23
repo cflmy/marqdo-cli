@@ -114,10 +114,11 @@ executes anything. The Markdown profile is unchanged by the semantic rewrite.
 * **Closed carriers are interchangeable.** In an Exec section, `**x = 1**`,
   `*x = 1*` and `` `x = 1` `` are the same assignment. Prefer inline code spans
   for expressions containing `*` or `**`.
-* **Statements are explicit.** `if <Bool>`, `else`, `while <Bool>`, `end`,
-  `return <expr>`, `params(n: Int)`, assignment, or an expression call. Each
-  carrier holds exactly one statement; every `if`/`while` is closed by `end`
-  inside the same heading body.
+* **Statements are explicit.** An `if` may have multiple `else if` arms and
+  a final `else`. `while` repeats while its condition is true. `break` exits the
+  nearest loop and `continue` rechecks its condition. Each carrier holds one
+  statement and every `if` or `while` closes with `end` in the same heading
+  body. See the [control-flow example](examples/control-flow.mq.md).
 * **Containers do not compute.** `1.`, `-`, `>` and emphasis only organize the
   document. `> print(1)` is prose; `> **print(1)**` contains a call.
 * **Knowledge is inert.** Nothing in a `@knowledge` section executes, so it is
@@ -231,7 +232,7 @@ rules are [`RFC-LANG-0002`](docs/architecture/RFC-LANG-0002-unified-semantics.md
   target-triple + sha256 artifact verification, native and isolated worker
   transports, brokered `fs.read`, and explicitly trusted in-process calls
   (`--plugin --trust-native-plugin --allow-plugin`). A C ABI is not a sandbox.
-* **Public protocols** — Analysis v2 and Trace v2 with JSON Schemas and
+* **Public protocols** — Analysis [v2](spec/analysis-v2.md)/[v3](spec/analysis-v3.md) and Trace v2 with JSON Schemas and
   independent Python consumers; Tool Protocol v1 with arbitrary command names,
   SemVer negotiation and whole-bundle digest verification; **Execution Events
   v1** (`run/call --event-stream jsonl`) for live stdout/stderr, call frames and
@@ -373,6 +374,7 @@ tests/                        conformance/negative corpus (see tests/README.md)
 
 ```bash
 marqdo run examples/hello.mq.md
+marqdo call examples/control-flow.mq.md main
 marqdo call examples/factorial.mq.md 数学.阶乘 --arg n=5
 marqdo run examples/multi-module/index.mq.md
 marqdo run examples/python-foreign.mq.md --allow-foreign   # needs python3 or node

@@ -87,7 +87,7 @@ struct Analyzer<'a> {
     known: Option<&'a BTreeSet<String>>,
     reads: BTreeMap<String, Span>,
     diagnostics: Vec<Diagnostic>,
-    ambiguous_reported: BTreeSet<String>,
+    ambiguous_reads: BTreeMap<String, Span>,
     unknown_reported: BTreeSet<String>,
 }
 
@@ -97,7 +97,7 @@ impl<'a> Analyzer<'a> {
             known,
             reads: BTreeMap::new(),
             diagnostics: Vec::new(),
-            ambiguous_reported: BTreeSet::new(),
+            ambiguous_reads: BTreeMap::new(),
             unknown_reported: BTreeSet::new(),
         }
     }
@@ -107,19 +107,7 @@ impl<'a> Analyzer<'a> {
             return;
         }
         if state.may.contains(name) {
-            if !self.ambiguous_reported.contains(name) {
-                self.ambiguous_reported.insert(name.to_string());
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        codes::SYMBOL_UNINITIALIZED,
-                        Some(span),
-                        format!("`{name}` may be read before it is assigned"),
-                    )
-                    .with_hint(
-                        "assign it on every path before this read, or pass it in as a parameter",
-                    ),
-                );
-            }
+            self.ambiguous_reads.entry(name.to_string()).or_insert(span);
             return;
         }
         if let Some(known) = self.known {
@@ -326,6 +314,22 @@ pub fn infer(
         }
     });
     analyzer.analyze_stmts(stmts, initial);
+    for (name, span) in analyzer.ambiguous_reads {
+        // A reachable free read makes the name an entry parameter throughout
+        // an inferred function, including before or after a local rebinding.
+        if !analyzer.reads.contains_key(&name) {
+            analyzer.diagnostics.push(
+                Diagnostic::error(
+                    codes::SYMBOL_UNINITIALIZED,
+                    Some(span),
+                    format!("`{name}` may be read before it is assigned"),
+                )
+                .with_hint(
+                    "assign it on every path before this read, or pass it in as a parameter",
+                ),
+            );
+        }
+    }
     let mut params: Vec<ParamCandidate> = analyzer
         .reads
         .iter()
@@ -422,7 +426,14 @@ mod tests {
             },
             ret("n"),
         ];
-        assert_eq!(params(&stmts), vec!["n".to_string()]);
+        let inference = infer(&stmts, None, &BTreeSet::new());
+        assert_eq!(inference.params[0].name, "n");
+        assert_eq!(inference.params.len(), 1);
+        assert!(
+            inference.diagnostics.is_empty(),
+            "{:?}",
+            inference.diagnostics
+        );
     }
 
     #[test]

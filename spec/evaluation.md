@@ -84,12 +84,14 @@ implicit string↔number conversions; conversion builtins must be called.
 * `Return` — written as the `return <expr>` statement in an executable payload
   — unwinds through any number of branch/loop bodies to the enclosing H2
   function frame. A function that falls off the end still returns `Unit`.
-* `Branch` comes from an `if`/`else`/`end` group: the condition is evaluated
-  once, must be `Bool`, and exactly one arm executes (the `else` arm when
-  present and the condition is false, otherwise the then arm). `Loop` comes
-  from a `while`/`end` group and re-evaluates its `Bool` condition before each
-  iteration. The control stack is compile-time only (`spec/mapping.md` §5);
-  neither `end` nor `else` is a runtime instruction.
+* `Branch` evaluates `if` and `else if` conditions in order. Each reached
+  condition is evaluated once and must be `Bool`. At most one arm executes.
+  When all conditions are false, the optional `else` arm executes.
+* A `while` loop evaluates its `Bool` condition before each iteration.
+  `Break` exits the nearest loop. `Continue` immediately returns to the
+  nearest loop's condition check. Both are charged as statements and
+  preserve the loop's budget checks. Pairing and legality are checked
+  within each heading execution segment (see [mapping](mapping.md)).
 * Imported modules only register definitions for the importing document; they
   have no initialization side effects and their `main` is never started.
 * Function calls recurse; recursion depth is bounded by the stack budget.
@@ -293,22 +295,18 @@ and `resource.exhausted` (region or run budget).
 
 ## 5. Parameter inference (static, name based)
 
-Parameters are discovered by definite-assignment data-flow analysis over the
-function's control-flow graph, never from prose:
+Definite-assignment analysis uses the function's structured control flow.
+First-entry arguments are bound before the body executes. A read on a
+reachable path with no possible prior assignment can establish an inferred
+parameter. A partially assigned name without an entry binding is ambiguous
+and raises `symbol.uninitialized`. With an explicit signature, unresolved
+names raise `symbol.unknown`. Builtins and imported aliases are excluded
+from parameter inference.
 
-1. Build the CFG of the function body in AST order, with branch and loop
-   edges. Loop bodies may execute zero times.
-2. Compute the set of variables *definitely assigned* on every path from the
-   function entry.
-3. Every read of a variable that is not definitely assigned at that point and
-   that has no assignment anywhere in the function is a **candidate
-   parameter** (sorted by canonical name).
-4. If a variable is assigned on some paths but read before that assignment on
-   others, its identity is ambiguous: emit `symbol.uninitialized` (S-04)
-   instead of inventing a parameter.
-5. Exclude builtins, imported aliases and reserved names from inference.
-6. A read that is not explained by a parameter, a local, a builtin or an
-   import is `symbol.unknown` with a hint (typo protection).
+An unconditional transfer stops the current sequence. A branch joins only
+the arms that reach its next statement. A loop may skip the body if its
+condition can be false. Its normal and `continue` backedges lead to the
+condition check and its `break` paths join the loop exit.
 
 Consequences: `**结果 = n * 阶乘(n=n-1)**` infers `n`; `**n = 3**` followed by
 reads makes `n` a local. Inferred parameters are named arguments only; an

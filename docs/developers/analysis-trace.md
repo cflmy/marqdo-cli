@@ -1,9 +1,9 @@
-# Analysis v2 and Trace v2 consumers
+# Analysis and Trace v2 consumers
 
 Both are public, versioned JSON artifacts. A consumer must read them as files,
 never link Marqdo's Rust internals or depend on `inspect --ir`.
 
-## Analysis v2 (static)
+## Analysis v2 and v3 (static)
 
 ```bash
 marqdo check index.mq.md --emit ./analysis.json
@@ -13,7 +13,10 @@ marqdo check index.mq.md --emit ./analysis.json
   independent Markdown-link check and can make `check` fail; on failure the emit
   target is removed. Do not generate a consumer artifact with
   `check --refs --emit` without checking the exit code.
-- `schema: "marqdo.analysis"`, `schema_version: 2`.
+- `schema: "marqdo.analysis"`. The writer emits `schema_version: 2` for
+  projects without loop transfers and `3` when a function body contains
+  `break` or `continue`. Check the version before walking function bodies.
+  Both versions encode `else if` in the ordered `branch.arms` array.
 - Top level: `producer` (`name`, `version` = product version,
   `markdown_profile`), `project`, `modules`, `diagnostics`.
 - `project`: `root_id` (`root:<name>@<version>` for manifest projects),
@@ -26,9 +29,10 @@ marqdo check index.mq.md --emit ./analysis.json
   instance ids, never absolute paths.
 - `check` does not load plugin libraries, start kernels/providers or execute the
   program.
-- Schemas: `spec/schemas/analysis-v2.schema.json`; contract:
-  `spec/analysis-v2.md`; consumers: `tests/consumers/analysis_consumer.py`,
-  `tests/consumers/validate_protocols.py`.
+- Contracts: [Analysis v2](../../spec/analysis-v2.md) and
+  [Analysis v3](../../spec/analysis-v3.md). Each links to its schema.
+  The independent consumers in `tests/consumers/` check the version and
+  decode the public nodes.
 
 View must render the **original Markdown** and use Analysis only to correlate
 source offsets/heading units/callable mapping. Knowledge must use heading
@@ -50,7 +54,8 @@ marqdo run index.mq.md --trace-file ./trace.json
   stale; do not bind it to the new source. `run --trace-file` does not emit
   Analysis itself.
 - Event kinds: `call.enter`, `call.exit`, `branch.eval`, `loop.iteration`,
-  `return`, `effect`, and possibly `trace.truncated`. Sourced events carry a
+  `control.break`, `control.continue`, `return`, `effect` and possibly
+  `trace.truncated`. Sourced events carry a
   module id and a UTF-8 span.
 - Defaults are 100,000 events / 32 MiB; `--trace-max-events` and
   `--trace-max-bytes` adjust them (`0` = unlimited). A consumer must tolerate
@@ -80,10 +85,11 @@ marqdo run index.mq.md --event-stream jsonl --trace-file ./trace.json
   a complete stream. An EOF without a terminal event is `incomplete`
   (SIGKILL/crash/broken pipe); never synthesize success.
 - `run.started.source` contains `root_id` and the `sha256:` digest of the exact
-  Analysis v2 bytes. `--trace-file` may be combined; both writers share one
+  Analysis bytes. `--trace-file` may be combined; both writers share one
   opaque run id, and Trace v2 remains atomic and value-free.
 - Structural events: `call.enter`/`call.exit` (`frame_id`, `parent_frame_id`),
-  `return`, `branch.eval`, `loop.iteration`, `effect`. Frames identify call
+  `return`, `branch.eval`, `loop.iteration`, `control.break`,
+  `control.continue` and `effect`. Frames identify call
   instances, not functions; a failed argument binding creates no frame.
 - Values are off by default (`value_state: not_requested`).
   `--observe-variable NAME` and `--observe-parameter NAME` are exact-name

@@ -49,6 +49,7 @@ marqdo-cli/
 │   ├── foreign.md                 Python/Node kernel protocol
 │   ├── tool-v1.md                 generic external Tool Protocol v1
 │   ├── analysis-v2.md             public Analysis v2 projection (v1 historical)
+│   ├── analysis-v3.md             projection for projects with loop transfers
 │   ├── trace-v2.md                public Trace v2 projection (v1 historical)
 │   └── trace-v1.md                public Trace v1 event stream
 ├── crates/

@@ -58,9 +58,15 @@ stdout and diagnostics.
   documentation. Unmarked headings inherit the nearest ancestor mode.
 - `**strong**`, `*emph*` and inline `` `code` `` are interchangeable carriers of
   one statement each.
-- Control flow uses keywords: `if`/`else`/`while`/`end`, plus `params(...)` and
-  `return`.
-- Lists, block quotes and paragraphs are presentation only.
+- A branch has an `if`, any number of `else if` arms and an optional
+  final `else`, followed by one `end`. Each condition is evaluated in order.
+- A `while` loop ends at `end`. Inside its body, `break` exits the nearest
+  loop and `continue` skips to its next condition check. `return` exits
+  the function. See the [runnable example](../../examples/control-flow.mq.md).
+- Lists, block quotes and paragraphs organize the source view. For review or
+  linting, put each branch head at the start of an ordered list item and
+  place the loop head at the start of a bullet item. Nest the body visually
+  and close each group with its own `end` carrier.
 - The normative contract is
   [`../architecture/RFC-LANG-0002-unified-semantics.md`](../architecture/RFC-LANG-0002-unified-semantics.md),
   [`../../spec/mapping.md`](../../spec/mapping.md) and

@@ -437,6 +437,7 @@ fn multi_arm_branch_preserves_analysis_v2_and_carrier_positions() {
         "`if 数值 < 0`",
         "**else if 数值 == 0**",
         "*else if 数值 == 1*",
+        "`else`",
     ]) {
         let start = source.find(carrier).unwrap();
         let expected = serde_json::json!({"start": start, "end": start + carrier.len()});

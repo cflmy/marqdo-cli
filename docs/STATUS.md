@@ -264,6 +264,21 @@ digests. The external lane ran from a temporary fixture checkout with Cargo
 absent from PATH. Archive SHA-256 is
 `8934bfc25c7b5526071eae6f24143ca3805ad3d7cc484626a4345b1deed430b2`.
 
+## 0.8 Structured control flow — RFC-CTRL-0005 (unreleased)
+
+[ADR-0067](adr/0067-structured-control-flow.md) covers the phase A implementation.
+An `else if` carrier adds a condition arm to the existing branch IR.
+`break` and `continue` transfer to the nearest loop in the same heading
+execution segment. Binding inference joins only reachable control exits.
+The [runnable example](../examples/control-flow.mq.md) uses ordinary Markdown
+list containers.
+
+[Analysis v3](../spec/analysis-v3.md) represents the loop transfer statements.
+Other documents continue to emit v2. Trace v2 and Execution Events v1 expose
+the new control events. The published beta evidence applies to its original
+SHA. Maintainers decide when to include phase A in a release. List iteration
+is a follow-up design.
+
 ## 1. Historical: pre-beta remote baseline and evidence
 
 > **Historical record.** Everything in §1 onward was executed before the

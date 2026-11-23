@@ -429,3 +429,35 @@ fn narration_removal_preserves_execution() {
     );
     assert_eq!(values[0], marqdo_value::Value::int(120));
 }
+
+#[test]
+fn control_flow_ir_is_independent_of_lists_quotes_and_prose() {
+    let statements = [
+        "`i = 0`",
+        "`while true`",
+        "`i = i + 1`",
+        "`if i == 1`",
+        "`continue`",
+        "`else if i == 2`",
+        "`break`",
+        "`end`",
+        "`end`",
+        "`return i`",
+    ];
+    let plain = format!("## @exec main\n\n{}\n", statements.join("\n\n"));
+    let adorned = statements
+        .iter()
+        .enumerate()
+        .map(|(index, statement)| match index % 3 {
+            0 => format!("1. {statement} Ordinary prose follows the carrier."),
+            1 => format!("> {statement}"),
+            _ => format!("- {statement}"),
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    let decorated = format!("## @exec main\n\n{adorned}\n");
+    assert_eq!(
+        executable_projection(&plain),
+        executable_projection(&decorated)
+    );
+}

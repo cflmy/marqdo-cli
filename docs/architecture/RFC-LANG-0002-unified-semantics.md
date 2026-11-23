@@ -526,8 +526,11 @@ import:
 | 关键字 | 语法 | 含义 | 是否新增计算原语 |
 |---|---|---|---|
 | `if` | `if <Bool expression>` | 开始条件分支 | 否，映射已有 `Branch` |
+| `else if` | `else if <Bool expression>` | 添加同一分支组的条件臂 | 否，复用 `Branch` |
 | `else` | `else` | 切换至当前 if 的否则分支 | 否 |
 | `while` | `while <Bool expression>` | 开始循环 | 否，映射已有 `Loop` |
+| `break` | `break` | 退出最近一层循环 | 否，结构化控制转移 |
+| `continue` | `continue` | 重新检查最近一层循环的条件 | 否，结构化控制转移 |
 | `end` | `end` | 结束最近未关闭的 if/while | 否，仅用于编译期配对 |
 | `return` | `return <expression>` | 返回当前 H2 函数，终止后续执行 | 否，映射已有 `Return` |
 | `params` | `params(name: Type, ...)` | H2 Exec 函数的可选参数声明 | 否，编译期元数据 |
@@ -823,14 +826,23 @@ TokenStream = [StatementToken(payload, span, carrier_kind, owner_unit), ...]
 
 ```text
 open_if(condition):
-    push IfFrame(cond, then=[], else=None)
+    push IfFrame(arms=[(condition, [])], has_else=false)
 
 on_statement(stmt):
     append stmt to the current innermost active body
 
+on_else_if(condition):
+    require stack.top == IfFrame and not frame.has_else
+    append and activate a new conditional arm
+
 on_else:
-    require stack.top == IfFrame and frame.else is None
-    switch frame active branch from then to else
+    require stack.top == IfFrame and not frame.has_else
+    append and activate the final arm
+    set frame.has_else
+
+on_break_or_continue:
+    require an open WhileFrame in the current segment
+    append the transfer to the current innermost active body
 
 open_while(condition):
     push WhileFrame(cond, body=[])
@@ -848,10 +860,10 @@ at_segment_end:
 
 该算法可以保证：
 
-- `else` 配对最近尚未结束、且位于栈顶的 `if`；不得跳过未关闭的 `while` 寻找更外层 `if`。
+- `else if` 和 `else` 配对栈顶的 `if`，且只能出现在末尾 `else` 之前；不得跳过未关闭的 `while` 寻找更外层 `if`。
 - `end` 只关闭栈顶最近的一层 if/while，没有匹配结构时报错。
 - `return` 属于正在打开的 body，但运行时终止整个 H2 函数；降为现有 `Stmt::Return` IR。
-- `else` 不会成为单独一条 Runtime 指令；它只是 IR `Branch` 的分支边界。
+- `else if` 和 `else` 是 `Branch` 的臂边界。解释器将 `break` 和 `continue` 传递到最近的循环。
 - 相同载荷序列应产生相同的**归一化可执行 IR**，不因列表编号、引用层数、加粗/斜体/行内代码形态改变运算类别。
 
 **一个实现注意点**：现有 `Branch` IR 的每个 arm 带 `condition`，没有专用可选 else；首版可以将兜底 else 降为最后一个 `true` arm，并明确保持既有“从左到右找第一匹配”的短路求值。如果未来 IR 引入更明确的 `else_body`，必须同步更改 IR schema、Trace 规范和**全部下游消费者及测试**；不能在本轮暗改行为。
@@ -975,6 +987,10 @@ R(IR, imports) = ExecutableProgram or Diagnostics
 | `## @exec` | 缺少标题名称 | `sem.empty_unit_name` |
 | `**if x >**` | 语法错误，不降级文档 | `sem.syntax` |
 | `**else**`（无 if） | 无匹配分支 | `sem.unmatched_else` |
+| `**else if true**`（无 if） | 无匹配分支 | `sem.unmatched_else_if` |
+| `**else if true**`（位于末尾 else 后） | 条件臂位置非法 | `sem.else_if_after_else` |
+| `**break**`（循环外） | 无匹配循环 | `sem.break_outside_loop` |
+| `**continue**`（循环外） | 无匹配循环 | `sem.continue_outside_loop` |
 | `**else**`（重复 else） | 重复，否则分支只允许一个 | `sem.duplicate_else` |
 | `**end**`（无 if/while） | 不能独立结束 | `sem.unmatched_end` |
 | `**if true**` 到片段结束无 end | 未闭合控制 | `sem.unclosed_control` |

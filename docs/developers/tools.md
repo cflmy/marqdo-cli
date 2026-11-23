@@ -44,7 +44,8 @@ marqdo-view/
   rejects a mismatched range at install and dispatch time with a
   `requires marqdo …` diagnostic.
 - `analysis`/`trace` are declared only if the tool consumes them; the current
-  core provides Analysis v2 and Trace v2.
+  development branch provides Analysis v2/v3 and Trace v2. Declare
+  `analysis: [2, 3]` when the reader handles both versions.
 - `command` must match `^[a-z][a-z0-9-]*$` and must not collide with a built-in
   command (`init`, `run`, `call`, `check`, `inspect`, `fmt`, `plugin`, `add`,
   `remove`, `lock`, `sync`, `tool`, `help`).
@@ -72,7 +73,7 @@ The tool receives:
 |---|---|
 | `MARQDO_BIN` | absolute path of the running `marqdo` executable |
 | `MARQDO_TOOL_PROTOCOL` | `1` |
-| `MARQDO_PROTOCOL_ANALYSIS` | `2` when Analysis v2 was negotiated |
+| `MARQDO_PROTOCOL_ANALYSIS` | Highest shared Analysis version. Read the artifact envelope for its actual version. |
 | `MARQDO_PROTOCOL_TRACE` | `2` when Trace v2 was negotiated |
 
 Call `$MARQDO_BIN` with an argv array; do not assume `marqdo` is on `PATH`.

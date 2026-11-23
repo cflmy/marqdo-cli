@@ -72,7 +72,8 @@ struct BoundArgs {
 enum Flow {
     Next,
     Return(Value),
-    LoopTransfer(LoopTransfer, Span),
+    Break(Span),
+    Continue(Span),
 }
 
 /// Marqdo tree-walk interpreter.
@@ -232,7 +233,7 @@ impl<'a> Interpreter<'a> {
             .and_then(|flow| match flow {
                 Flow::Next => Ok(None),
                 Flow::Return(value) => Ok(Some(value)),
-                Flow::LoopTransfer(_, span) => Err(RuntimeError::new(
+                Flow::Break(span) | Flow::Continue(span) => Err(RuntimeError::new(
                     ErrorCategory::Internal,
                     Some(span),
                     "loop control escaped its enclosing function",
@@ -421,10 +422,10 @@ impl<'a> Interpreter<'a> {
                     self.eval_expr(expr, frame)?;
                 }
                 Stmt::Break { span } | Stmt::Continue { span } => {
-                    let transfer = if matches!(stmt, Stmt::Break { .. }) {
-                        LoopTransfer::Break
+                    let (flow, transfer) = if matches!(stmt, Stmt::Break { .. }) {
+                        (Flow::Break(*span), LoopTransfer::Break)
                     } else {
-                        LoopTransfer::Continue
+                        (Flow::Continue(*span), LoopTransfer::Continue)
                     };
                     let module = frame.function.module.canonical();
                     self.host.record_semantic(
@@ -443,7 +444,7 @@ impl<'a> Interpreter<'a> {
                                 span: *span,
                             })?;
                     }
-                    return Ok(Flow::LoopTransfer(transfer, *span));
+                    return Ok(flow);
                 }
                 Stmt::Return { value, span } => {
                     let value = self.eval_expr(value, frame)?;
@@ -538,8 +539,8 @@ impl<'a> Interpreter<'a> {
                         break;
                     }
                     match self.exec_stmts(program, body, frame)? {
-                        Flow::Next | Flow::LoopTransfer(LoopTransfer::Continue, _) => {}
-                        Flow::LoopTransfer(LoopTransfer::Break, _) => break,
+                        Flow::Next | Flow::Continue(_) => {}
+                        Flow::Break(_) => break,
                         flow @ Flow::Return(_) => return Ok(flow),
                     }
                 },

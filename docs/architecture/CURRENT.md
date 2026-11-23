@@ -55,6 +55,13 @@ replace `spec/` or a recorded test log.
 > [Task v1](../adr/0066-structured-tasks-v1.md) designs are Proposed.
 > See [STATUS §0.7](../STATUS.md#07-post-beta-stable-core-review--rfc-gpl-0004-unreleased).
 
+> **Structured control flow (RFC-CTRL-0005).**
+> [ADR-0067](../adr/0067-structured-control-flow.md) extends the payload parser
+> and branch mapper, adds nearest-loop execution transfers and makes binding
+> inference path-sensitive. Analysis chooses v2 or v3 according to the
+> statements it emits. The interpreter owns the transfers and reports them
+> through the existing observation facade.
+
 ## 1. Four state dimensions
 
 A claim is stated in exactly one of these dimensions. "Exists in the tree" is not

@@ -173,6 +173,18 @@ items are in
 
 ## Unreleased (post-beta)
 
+### Structured control flow (RFC-CTRL-0005)
+
+- Added ordered `else if` arms and nearest-loop `break` and `continue`.
+  Bare keyword carriers take the control meaning. Calls, bindings and
+  identifiers within expressions retain their existing syntax.
+- Inferred signatures now use reachable reads and merge assignments on
+  reachable control exits. A parameter inferred only from unreachable
+  statements may disappear.
+- Analysis v3 represents loop transfers. Projects without transfers still emit
+  v2. Trace v2 and Execution Events v1 report the two explicit control events.
+- Release inclusion remains a maintainer decision.
+
 ### Planned changes
 
 - Fixes collected from the first beta users; see `docs/MARQDO_3_0_PRERELEASE_PLAN.md`

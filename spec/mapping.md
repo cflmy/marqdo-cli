@@ -270,7 +270,8 @@ The innermost open control block owns its body.
 * Definite-assignment inference merges reachable fallthrough paths. Loop
   exits include condition-failure and `break` paths. `continue` and
   ordinary body fallthrough lead back to the condition. An abrupt transfer
-  stops inference from its remaining sequence.
+  stops inference from its remaining sequence. A reachable free read of an
+  inferred parameter establishes its entry binding before any reassignment.
 
 ## 6. Functions, signatures and calls
 
