@@ -120,7 +120,7 @@ python3 tools/release/package.py --version "$version" --source-sha "$sha"
 
 Contents: `marqdo` **and** `marqdo-provider-worker` in the same directory,
 the **complete verified `stdlib/` bundle** (`stdlib.json`, every `.mq.md` module
-and self-test), `LICENSE-*`, `README.md`, `CHANGELOG.md`, `COMPATIBILITY.md`,
+and self-test), `LICENSE-APACHE`, `README.md`, `CHANGELOG.md`, `COMPATIBILITY.md`,
 `RELEASE_INFO.json`, `SOURCE_SHA`, `KNOWN_LIMITATIONS.md`, `spec/`,
 `docs/developers/`, `examples/` (with host-built plugin/provider/math-backend
 artifacts so the examples run without a compiler) and `tests/consumers/`.

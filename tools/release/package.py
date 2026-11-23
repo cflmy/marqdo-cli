@@ -219,8 +219,7 @@ def stage(stage_dir: Path, version: str, source_sha: str, target: str) -> dict:
 
     for name in ("README.md", "CHANGELOG.md", "COMPATIBILITY.md"):
         shutil.copy2(ROOT / name, stage_dir / name)
-    for license_name in ("LICENSE-MIT", "LICENSE-APACHE"):
-        shutil.copy2(ROOT / license_name, stage_dir / license_name)
+    shutil.copy2(ROOT / "LICENSE-APACHE", stage_dir / "LICENSE-APACHE")
 
     copy_tree(ROOT / "spec", stage_dir / "spec")
     copy_tree(ROOT / "docs" / "developers", stage_dir / "docs" / "developers")

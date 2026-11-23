@@ -22,7 +22,7 @@ members = [
 version = "3.0.0-rc.2"
 edition = "2021"
 rust-version = "1.89"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 repository = "https://github.com/cflmy/marqdo-cli"
 authors = ["Marqdo contributors"]
 
