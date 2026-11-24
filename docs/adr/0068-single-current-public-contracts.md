@@ -27,10 +27,12 @@ requires its own compatibility policy.
   `run` and `call` use `--output text|json|jsonl` and
   `--observation-file PATH`. Capture selections and budgets apply to all
   observation destinations.
-- Tool manifests use `marqdo.cli-tool` revision 2, with a required
+- Tool manifests use `marqdo.cli-tool` with its existing revision 1, a required
   `requires.api_revision: 1` and optional exact Analysis and Observation
   requirements. Reinstall tools registered under earlier formats. The
   existing Tool subcommands and external dispatch suffice for this workflow.
+  Required fields and strict validation reject retired input at the existing
+  format identifier. This change introduces no new numeric protocol versions.
 - Keep the three current extension descriptors. Callable exports, resource
   rights and foreign interpreter selection have independent validation and
   lifecycles. Share value encoding and equivalent process transport

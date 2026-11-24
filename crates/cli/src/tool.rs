@@ -1,4 +1,4 @@
-//! Generic external CLI tool protocol (spec/tool-v1.md).
+//! Generic external CLI tool protocol (spec/cli-tool.md).
 //!
 //! The core never knows a tool's name. It validates a user-supplied
 //! `tool.json`, verifies protocol compatibility, copies the whole bundle into a
@@ -11,7 +11,7 @@ use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command as ProcessCommand;
 
-use semver::{Version, VersionReq};
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -21,19 +21,7 @@ const RECORD_VERSION: u32 = 2;
 const MAX_BUNDLE_FILES: usize = 4096;
 const MAX_BUNDLE_BYTES: u64 = 256 * 1024 * 1024;
 
-/// Protocols this core can provide to tools.
-#[derive(Debug, Clone, Copy)]
-struct SupportedProtocols {
-    tool: u32,
-    analysis: &'static [u32],
-    trace: &'static [u32],
-}
-
-const SUPPORTED: SupportedProtocols = SupportedProtocols {
-    tool: PROTOCOL_VERSION,
-    analysis: &[crate::analysis::SCHEMA_VERSION],
-    trace: &[2],
-};
+const API_REVISION: u32 = 1;
 
 const BUILTIN_COMMANDS: &[&str] = &[
     "init", "run", "call", "check", "inspect", "fmt", "plugin", "add", "remove", "lock", "sync",
@@ -41,6 +29,7 @@ const BUILTIN_COMMANDS: &[&str] = &[
 ];
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ToolManifest {
     schema: String,
     schema_version: u32,
@@ -48,38 +37,29 @@ struct ToolManifest {
     version: String,
     command: String,
     entrypoint: PathBuf,
-    #[serde(default)]
-    compatibility: Compatibility,
+    requires: Requirements,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
-struct Compatibility {
-    #[serde(default)]
-    marqdo: Option<String>,
-    #[serde(default)]
-    analysis: Option<Vec<u32>>,
-    #[serde(default)]
-    trace: Option<Vec<u32>>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Requirements {
+    api_revision: u32,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "read_requirement"
+    )]
+    analysis: Option<u32>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "read_requirement"
+    )]
+    observation: Option<u32>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-struct RecordedCompatibility {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    marqdo: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    analysis: Option<Vec<u32>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    trace: Option<Vec<u32>>,
-}
-
-impl RecordedCompatibility {
-    fn as_compatibility(&self) -> Compatibility {
-        Compatibility {
-            marqdo: self.marqdo.clone(),
-            analysis: self.analysis.clone(),
-            trace: self.trace.clone(),
-        }
-    }
+fn read_requirement<'de, D: serde::Deserializer<'de>>(reader: D) -> Result<Option<u32>, D::Error> {
+    u32::deserialize(reader).map(Some)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -90,6 +70,7 @@ struct BundleEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ToolRecord {
     record_version: u32,
     command: String,
@@ -100,8 +81,7 @@ struct ToolRecord {
     bundle_sha256: String,
     source: String,
     schema_version: u32,
-    #[serde(default)]
-    compatibility: RecordedCompatibility,
+    requires: Requirements,
 }
 
 /// `marqdo tool install <manifest-or-directory>`.
@@ -201,11 +181,7 @@ fn install_inner(manifest_path: &Path) -> Result<ToolRecord, String> {
             bundle_sha256: bundle_sha256.clone(),
             source: manifest_file.display().to_string(),
             schema_version: manifest.schema_version,
-            compatibility: RecordedCompatibility {
-                marqdo: manifest.compatibility.marqdo.clone(),
-                analysis: manifest.compatibility.analysis.clone(),
-                trace: manifest.compatibility.trace.clone(),
-            },
+            requires: manifest.requires.clone(),
         };
         let record_json = serde_json::to_string_pretty(&record)
             .map_err(|error| format!("cannot serialize record: {error}"))?;
@@ -226,7 +202,7 @@ impl ToolManifest {
         let text = std::fs::read_to_string(path)
             .map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
         let manifest: Self =
-            serde_json::from_str(&text).map_err(|error| format!("invalid tool.json: {error}"))?;
+            serde_json::from_str(&text).map_err(|error| format!("invalid tool.json: {error}. Build the tool with current exact protocol requirements"))?;
         Ok(manifest)
     }
 }
@@ -235,10 +211,10 @@ fn validate_manifest(manifest: &ToolManifest) -> Result<(), String> {
     if manifest.schema != SCHEMA {
         return Err(format!("unsupported tool schema `{}`", manifest.schema));
     }
-    if manifest.schema_version != SUPPORTED.tool {
+    if manifest.schema_version != PROTOCOL_VERSION {
         return Err(format!(
             "unsupported tool schema_version {} (expected {})",
-            manifest.schema_version, SUPPORTED.tool
+            manifest.schema_version, PROTOCOL_VERSION
         ));
     }
     if !is_valid_command(&manifest.command) {
@@ -262,55 +238,32 @@ fn validate_manifest(manifest: &ToolManifest) -> Result<(), String> {
             manifest.version
         )
     })?;
-    negotiate(&manifest.version, &manifest.compatibility)
+    validate_requirements(&manifest.requires)
 }
 
-fn negotiate(tool_version: &str, compatibility: &Compatibility) -> Result<(), String> {
-    Version::parse(tool_version)
-        .map_err(|error| format!("tool version `{tool_version}` is not valid SemVer: {error}"))?;
-    let core_version = Version::parse(env!("CARGO_PKG_VERSION"))
-        .map_err(|error| format!("core version is not valid SemVer: {error}"))?;
-    if let Some(range) = &compatibility.marqdo {
-        let requirement = VersionReq::parse(range)
-            .map_err(|error| format!("invalid marqdo compatibility range `{range}`: {error}"))?;
-        if !requirement.matches(&core_version) {
-            return Err(format!(
-                "tool requires marqdo `{range}`, this core is {}",
-                env!("CARGO_PKG_VERSION")
-            ));
+fn validate_requirements(requires: &Requirements) -> Result<(), String> {
+    for (name, requested, current) in [
+        ("api_revision", Some(requires.api_revision), API_REVISION),
+        (
+            "analysis",
+            requires.analysis,
+            crate::analysis::SCHEMA_VERSION,
+        ),
+        (
+            "observation",
+            requires.observation,
+            crate::execution_events::SCHEMA_VERSION,
+        ),
+    ] {
+        if let Some(requested) = requested {
+            if requested != current {
+                return Err(format!(
+                    "tool.protocol_incompatible: tool requires {name} {requested}, this core provides {current}"
+                ));
+            }
         }
     }
-    negotiate_protocol(
-        "analysis",
-        compatibility.analysis.as_deref(),
-        SUPPORTED.analysis,
-    )?;
-    negotiate_protocol("trace", compatibility.trace.as_deref(), SUPPORTED.trace)?;
     Ok(())
-}
-
-fn negotiate_protocol(
-    name: &str,
-    requested: Option<&[u32]>,
-    supported: &[u32],
-) -> Result<(), String> {
-    let Some(requested) = requested else {
-        return Ok(());
-    };
-    if shared_version(requested, supported).is_none() {
-        return Err(format!(
-            "tool.protocol_incompatible: tool requires {name} version(s) {requested:?}, this core supports {supported:?}"
-        ));
-    }
-    Ok(())
-}
-
-fn shared_version(requested: &[u32], supported: &[u32]) -> Option<u32> {
-    requested
-        .iter()
-        .copied()
-        .filter(|version| supported.contains(version))
-        .max()
 }
 
 fn is_valid_command(command: &str) -> bool {
@@ -483,7 +436,7 @@ pub fn list(json: bool) -> i32 {
                             "name": record.name,
                             "version": record.version,
                             "bundle_files": record.bundle.len(),
-                            "compatibility": record.compatibility,
+                            "requires": record.requires,
                         })
                     })
                     .collect();
@@ -568,8 +521,8 @@ pub fn dispatch(args: &[OsString]) -> i32 {
         return 2;
     };
     let command = first.to_string_lossy();
-    if BUILTIN_COMMANDS.contains(&command.as_ref()) {
-        eprintln!("error: internal dispatch error for built-in command `{command}`");
+    if !is_valid_command(&command) || BUILTIN_COMMANDS.contains(&command.as_ref()) {
+        eprintln!("error: invalid external command `{command}`");
         return 2;
     }
     let home = match tool_home() {
@@ -582,6 +535,10 @@ pub fn dispatch(args: &[OsString]) -> i32 {
     let dir = home.join(command.as_ref());
     let record = match load_record(&dir) {
         Ok(record) => record,
+        Err(error) if dir.exists() => {
+            eprintln!("error: tool `{command}`: {error}");
+            return 1;
+        }
         Err(_) => {
             eprintln!(
                 "error: unknown command `{command}`; install a tool with `marqdo tool install <tool.json>`"
@@ -591,14 +548,6 @@ pub fn dispatch(args: &[OsString]) -> i32 {
     };
     if record.command != command {
         eprintln!("error: tool record does not match command `{command}`; reinstall it");
-        return 1;
-    }
-    if let Err(error) = negotiate(&record.version, &record.compatibility.as_compatibility()) {
-        eprintln!("error: tool `{command}` is not compatible with this core: {error}");
-        return 1;
-    }
-    if record.record_version != RECORD_VERSION {
-        eprintln!("error: tool `{command}` uses an old record; reinstall it");
         return 1;
     }
     let bundle = match collect_bundle(&dir, true) {
@@ -627,26 +576,16 @@ pub fn dispatch(args: &[OsString]) -> i32 {
     };
     let mut process = ProcessCommand::new(&entrypoint);
     process.args(&args[1..]);
-    if let Ok(bin) = std::env::current_exe() {
-        process.env("MARQDO_BIN", bin);
+    match std::env::current_exe() {
+        Ok(bin) => {
+            process.env("MARQDO_BIN", bin);
+        }
+        Err(error) => {
+            eprintln!("error: cannot locate marqdo for tool `{command}`: {error}");
+            return 1;
+        }
     }
-    process.env("MARQDO_TOOL_PROTOCOL", "1");
-    if let Some(version) = record
-        .compatibility
-        .analysis
-        .as_deref()
-        .and_then(|versions| shared_version(versions, SUPPORTED.analysis))
-    {
-        process.env("MARQDO_PROTOCOL_ANALYSIS", version.to_string());
-    }
-    if let Some(version) = record
-        .compatibility
-        .trace
-        .as_deref()
-        .and_then(|versions| shared_version(versions, SUPPORTED.trace))
-    {
-        process.env("MARQDO_PROTOCOL_TRACE", version.to_string());
-    }
+    process.env("MARQDO_API_REVISION", API_REVISION.to_string());
     match process.status() {
         Ok(status) => status.code().unwrap_or(1),
         Err(error) => {
@@ -690,7 +629,10 @@ fn installed_records() -> Result<Vec<ToolRecord>, String> {
         if entry.file_name().to_string_lossy().starts_with('.') {
             continue;
         }
-        if let Ok(record) = load_record(&entry.path()) {
+        if entry.path().join("record.json").is_file() {
+            let record = load_record(&entry.path()).map_err(|error| {
+                format!("tool `{}`: {error}", entry.file_name().to_string_lossy())
+            })?;
             records.insert(record.command.clone(), record);
         }
     }
@@ -698,13 +640,26 @@ fn installed_records() -> Result<Vec<ToolRecord>, String> {
 }
 
 fn load_record(dir: &Path) -> Result<ToolRecord, String> {
-    let text = std::fs::read_to_string(dir.join("record.json"))
-        .map_err(|error| format!("tool record is missing: {error}"))?;
-    let record: ToolRecord =
-        serde_json::from_str(&text).map_err(|error| format!("invalid tool record: {error}"))?;
-    if record.record_version != RECORD_VERSION {
-        return Err("tool record is from an older protocol; reinstall it".to_string());
+    let record_path = dir.join("record.json");
+    let inspect = |path| {
+        std::fs::symlink_metadata(path)
+            .map_err(|error| format!("cannot inspect tool registration: {error}"))
+    };
+    if !inspect(dir)?.is_dir() || !inspect(record_path.as_path())?.is_file() {
+        return Err("invalid tool registration path. Remove and reinstall the tool".to_string());
     }
+    let text = std::fs::read_to_string(record_path)
+        .map_err(|error| format!("tool record is missing: {error}"))?;
+    let record: ToolRecord = serde_json::from_str(&text).map_err(|error| {
+        format!("invalid or retired tool record: {error}. Remove and reinstall the tool")
+    })?;
+    if record.record_version != RECORD_VERSION || record.schema_version != PROTOCOL_VERSION {
+        return Err(
+            "tool record uses an unsupported format. Remove and reinstall the tool".to_string(),
+        );
+    }
+    validate_requirements(&record.requires)
+        .map_err(|error| format!("{error}. Remove and reinstall the tool"))?;
     Ok(record)
 }
 

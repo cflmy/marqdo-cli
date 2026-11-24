@@ -12,7 +12,7 @@ marqdo tool remove benchmark
 ```
 
 The executable receives the remaining arguments verbatim, inherits stdio/cwd,
-and its exit code is propagated. `MARQDO_TOOL_PROTOCOL=1` and `MARQDO_BIN` are
+and its exit code is propagated. `MARQDO_API_REVISION=1` and `MARQDO_BIN` are
 provided for tools that need `check --emit`/`run --trace-file`.
 
 A Tool is a user-run native process. It is **not** a C ABI plugin, a foreign

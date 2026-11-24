@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "command": "benchmark",
   "entrypoint": "bin/marqdo-benchmark",
-  "compatibility": {
-    "marqdo": ">=3.0.0-beta.1,<4.0.0"
+  "requires": {
+    "api_revision": 1
   }
 }

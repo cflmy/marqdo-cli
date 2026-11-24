@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://marqdo.dev/schemas/tool-v1.schema.json",
-  "title": "Marqdo CLI Tool Manifest v1",
+  "$id": "https://marqdo.dev/schemas/cli-tool.schema.json",
+  "title": "Marqdo CLI Tool Manifest",
   "type": "object",
   "required": [
     "schema",
@@ -9,7 +9,8 @@
     "name",
     "version",
     "command",
-    "entrypoint"
+    "entrypoint",
+    "requires"
   ],
   "properties": {
     "schema": {
@@ -35,31 +36,24 @@
       "minLength": 1,
       "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
     },
-    "compatibility": {
+    "requires": {
       "type": "object",
+      "required": [
+        "api_revision"
+      ],
+      "additionalProperties": false,
       "properties": {
-        "marqdo": {
-          "type": "string"
+        "api_revision": {
+          "const": 1
         },
         "analysis": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "integer",
-            "minimum": 1
-          }
+          "const": 3
         },
-        "trace": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "integer",
-            "minimum": 1
-          }
+        "observation": {
+          "const": 1
         }
-      },
-      "additionalProperties": true
+      }
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

@@ -48,7 +48,7 @@ fn main() {
         std::process::exit(1);
     }
     let version = number_field(&json, "schema_version").unwrap_or_default();
-    if version != 2 {
+    if version != 3 {
         eprintln!("sample-view: unsupported Analysis version {version}");
         std::process::exit(1);
     }

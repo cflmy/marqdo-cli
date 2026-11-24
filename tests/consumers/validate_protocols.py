@@ -51,7 +51,7 @@ def main():
     analysis_schema = "analysis.schema.json"
     require_valid(analysis_schema, analysis, "analysis")
     require_valid("trace-v2.schema.json", trace, "trace")
-    require_valid("tool-v1.schema.json", tool, "tool")
+    require_valid("cli-tool.schema.json", tool, "tool")
 
     # Negative mutations: structure, version and traversal must fail closed.
     bad = copy.deepcopy(analysis)
@@ -76,11 +76,11 @@ def main():
 
     bad = copy.deepcopy(tool)
     bad["entrypoint"] = "../outside"
-    require_invalid("tool-v1.schema.json", bad, "tool traversal entrypoint")
+    require_invalid("cli-tool.schema.json", bad, "tool traversal entrypoint")
 
     bad = copy.deepcopy(tool)
     bad["version"] = "not semver"
-    require_invalid("tool-v1.schema.json", bad, "tool invalid version")
+    require_invalid("cli-tool.schema.json", bad, "tool invalid version")
 
     print(
         "validated analysis/trace/tool artifacts "

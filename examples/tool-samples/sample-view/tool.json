@@ -5,9 +5,8 @@
   "version": "0.1.0",
   "command": "sample-view",
   "entrypoint": "bin/sample-view",
-  "compatibility": {
-    "marqdo": ">=3.0.0-beta.1,<4.0.0",
-    "analysis": [2],
-    "trace": [2]
+  "requires": {
+    "api_revision": 1,
+    "analysis": 3
   }
 }
