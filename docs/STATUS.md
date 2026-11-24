@@ -1,12 +1,11 @@
 # Marqdo Implementation Status
 
-Snapshot: **2026-11-22**, product version **`3.0.0-beta.1`** (prerelease, tag
-`v3.0.0-beta.1`). Released platform: **Linux x86_64 (glibc)**. Tagged source
-SHA: **`2c7c4f31e7a388d3fcfa717a77067e696ed13854`**; release:
-https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-beta.1. The
-same-SHA evidence aggregate is
-[`evidence/ci/2c7c4f31e7a388d3fcfa717a77067e696ed13854/manifest.json`](evidence/ci/2c7c4f31e7a388d3fcfa717a77067e696ed13854/manifest.json)
-(decision `BETA_RELEASE_CANDIDATE`); binary hashes are in the archive's
+Snapshot: **2026-11-24**, product version **`3.0.0-rc.3`** (prerelease
+candidate). Last published prerelease: `3.0.0-rc.2` at source SHA
+**`9149ee40a48fcda692c5c112f66c465487d13dfb`**; last published beta
+`3.0.0-beta.1` at **`2c7c4f31e7a388d3fcfa717a77067e696ed13854`**. The released
+platform is **Linux x86_64 (glibc 2.39)**. The RC gate aggregate for this
+candidate is bound to the candidate SHA; its binary hashes are in the archive's
 `RELEASE_INFO.json`. Do not copy a SHA from a plan.
 
 Current architecture overview:
@@ -76,19 +75,21 @@ path. Policy: [ADR-0068](adr/0068-single-current-public-contracts.md) and
 section records commands executed on the candidate tree; it is local Linux
 evidence, not a same-SHA CI or archive gate.
 
-Executed 2026-11-24 on Linux x86_64 (workspace `3.0.0-rc.3`, Rust 1.93.1):
+Executed 2026-11-24 on the reviewed candidate tree, Linux x86_64
+(workspace `3.0.0-rc.3`, Rust 1.100.0):
 
 ```text
 cargo fmt --all -- --check                              PASS
 cargo clippy --workspace --all-targets -- -D warnings   PASS
-cargo test --workspace --locked                         PASS: 601 passed, 0 failed, 2 ignored
+cargo test --workspace --locked                         PASS: 607 passed, 0 failed, 2 ignored
 cargo test -p marqdo-cli --test architecture_boundaries PASS: 12 passed
-cargo test -p marqdo-cli --test docs_consistency        PASS: 5 passed
-cargo test -p marqdo-cli --test observation             PASS: 15 passed
-cargo test -p marqdo-cli --test analysis_observation    PASS: 10 passed
+cargo test -p marqdo-cli --test docs_consistency        PASS: 7 passed
+cargo test -p marqdo-cli --test observation             PASS: 16 passed
+cargo test -p marqdo-cli --test analysis_observation    PASS: 23 passed
 cargo test -p marqdo-cli --test tool_protocol           PASS: 7 passed
 cargo test -p marqdo-cli --test extension_selection     PASS: 14 passed
 cargo test -p marqdo-worker-ipc                         PASS: 5 passed
+python3 -m unittest discover -s tools/ci -p "test_*.py" PASS: 41 tests
 ```
 
 Black-box consumer run against the real `target/debug/marqdo`:
@@ -107,7 +108,7 @@ observation_consumer.py stream.jsonl --analysis stale-analysis.json    rejected
 marqdo --version                                                       marqdo 3.0.0-rc.3
 ```
 
-Same-SHA CI on Linux x86_64
+Same-SHA CI on the first (pre-review) candidate build, Linux x86_64
 ([pipeline #70](https://ci.cflmy.cn/repos/1/pipeline/70), commit
 `5a89a137c7f76f6c31744a4e8f8d4dbc0af623ef`): the fast `contract` lane, the full
 Rust `test` lane (fmt, clippy, workspace tests, docs/architecture gates, Windows
@@ -119,16 +120,42 @@ passed the from-archive smoke, and passed the frozen external conformance suite
 (callable registry, plugin worker, foreign kernel, provider CLI, pinned package,
 tool Analysis consumer, negative security).
 
-The detailed local log and the CI addendum are in
-[`evidence/2026-11-24-rc.3-protocol-convergence-local.md`](evidence/2026-11-24-rc.3-protocol-convergence-local.md).
+The detailed local log and that CI addendum are in
+[`evidence/2026-11-24-rc.3-protocol-convergence-local.md`](evidence/2026-11-24-rc.3-protocol-convergence-local.md);
+they describe the protocol convergence itself. The reviewed candidate's own
+same-SHA CI, archive and gate evidence are recorded in the release evidence
+bound to the released SHA.
 
-Release status: the tree, contracts, archive and same-SHA Linux CI are ready for
-`3.0.0-rc.3`, but **publication is not authorized by this evidence**. The RC
-profile in [`releasing.md`](releasing.md) additionally requires a same-SHA
-strict-L1 PASS on a disposable VM as a non-root user and fixed-node G4
-performance evidence (or the recorded maintainer exception). Neither exists
-here; the CI host truthfully reports `strict: unavailable` fail-closed. Do not
-tag or publish `v3.0.0-rc.3` from this section.
+### 0.9.1 Review closure on the candidate tree
+
+A code review of the first candidate build found and closed these defects
+(regression test for each):
+
+- A strict run no longer emits a partial JSONL stream for a destination it
+  refuses; live and file destinations are rejected before any session opens.
+- `check --emit` removes a previous Analysis artifact when the project cannot
+  be loaded, not only when it has compile errors.
+- Filesystem resource requests report their concrete effect operation
+  (`fs.exists`, `fs.metadata`, `fs.list`, `fs.mkdir`, `fs.remove`,
+  `fs.rename`).
+- The shared worker transport preserves `worker_frame_too_large` and
+  `worker_encode_failed` for the plugin boundary.
+- Observation error locations no longer embed an absolute host path, and
+  pre-start option errors use the documented `options` phase.
+- The event and snapshot schemas agree on the capture `level` enum.
+- The G4 workload catalogue measures `run`/`call` through `--output json`; the
+  retired `--json` flag had made every non-check workload fail correctness.
+- `spec/` and the current developer guides were brought back in line with the
+  binary, and a docs-consistency gate now fails when a retired interface or a
+  deleted spec path returns.
+
+Release status: this section records local Linux evidence and the same-SHA CI
+for the candidate. Publication additionally requires the RC profile gates in
+[`releasing.md`](releasing.md) — same-SHA disposable-VM strict L1, clean
+install, frozen extensions, version compatibility and G4 performance (the
+maintainer-approved shared-node `WARN` for this named RC). Those results are
+recorded in the evidence bound to the released SHA and in the release assets;
+an unavailable strict host is fail-closed, never a downgrade.
 
 ## 0. Beta release record — `3.0.0-beta.1`
 

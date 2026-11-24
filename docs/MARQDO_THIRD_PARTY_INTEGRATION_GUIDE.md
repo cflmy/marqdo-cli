@@ -1,5 +1,14 @@
 # Marqdo 3.x 第三方开发者接入手册
 
+> **历史文档（beta 时代记录）。** 本文于 `3.0.0-beta.1` 上验证并随其发布。
+> beta 时代的 Analysis v2、Trace v2、Tool Protocol v1 与
+> `run/call --trace-file` 等接口已被 [ADR-0068](adr/0068-single-current-public-contracts.md)
+> 原地替换：当前契约是 Analysis v3、Observation v1、CLI Tool revision 1。
+> 请以 `spec/`（[analysis](spec/analysis.md)、[observation](spec/observation.md)、
+> [cli-tool](spec/cli-tool.md)）和
+> [`developers/README.md`](developers/README.md) 为当前入口；本文仅作 beta
+> 接洽流程与迁移背景保留，其中出现的旧命令/旧协议名不代表当前 CLI 可用。
+>
 > 状态：**随 `3.0.0-beta.1` 发布**（Linux x86_64 beta）。产品版本为 `3.0.0-beta.1`；协议版本独立：Analysis v2、Trace v2、Tool v1、Plugin ABI v1、Foreign wire v1、Provider manifest v2、Lock v4、Markdown profile `marqdo.md.v1`。官方 stdlib 包版本 `0.1.0`、插件/工具/示例包版本也都是独立版本轴，不随产品版本变化。
 >
 > 本文是入门与工程接洽流程；与已发布二进制冲突时，以该版本 `--help`、`--version`、`spec/` 和 release notes 为准。本文所有命令片段都已在 `3.0.0-beta.1` 二进制上验证；未验证的可能平台行为会明确标注为 UNVERIFIED/UNSUPPORTED，绝不默认为支持。

@@ -41,7 +41,9 @@ Foreign wire v1, Provider manifest v2, lock v4 and markdown profile
    file ships in the archive as `KNOWN_LIMITATIONS.md`).
 
 The full worked handbook is
-[`../MARQDO_THIRD_PARTY_INTEGRATION_GUIDE.md`](../MARQDO_THIRD_PARTY_INTEGRATION_GUIDE.md).
+[`../MARQDO_THIRD_PARTY_INTEGRATION_GUIDE.md`](../MARQDO_THIRD_PARTY_INTEGRATION_GUIDE.md)
+(beta-era integration handbook, kept as a historical record; the current
+contracts are the pages above and `spec/`).
 Normative contracts live in [`../../spec/`](../../spec/); this directory is a
 task-oriented map, not a second specification.
 

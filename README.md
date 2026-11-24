@@ -327,7 +327,7 @@ tests/                        conformance/negative corpus (see tests/README.md)
 * [`docs/developers/README.md`](docs/developers/README.md) — third-party and
   integrator entry point (libraries, tools, plugins, kernels, providers,
   Analysis/Trace consumers, compatibility).
-* [`docs/MARQDO_THIRD_PARTY_INTEGRATION_GUIDE.md`](docs/MARQDO_THIRD_PARTY_INTEGRATION_GUIDE.md)
+* [`docs/MARQDO_THIRD_PARTY_INTEGRATION_GUIDE.md`](docs/MARQDO_THIRD_PARTY_INTEGRATION_GUIDE.md) — beta-era integration handbook (historical; current contracts are `spec/`)
   — end-to-end third-party integration handbook.
 * [`docs/STABLE_RELEASE_IMPLEMENTATION.md`](docs/STABLE_RELEASE_IMPLEMENTATION.md)
   — historical stable-release roadmap input (its own header marks it Proposed
