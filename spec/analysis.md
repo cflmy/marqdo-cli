@@ -1,8 +1,7 @@
-# Marqdo Analysis v2
+# Marqdo Analysis
 
-Status: **implemented by `marqdo check --emit <path>` (S2); ADR-0022 adds an
-additive index target shape.** Supersedes
-Analysis v1. v1 was never released; it is kept as history and is not written.
+Current public contract for `marqdo check --emit PATH`. Every project emits
+`marqdo.analysis` with `schema_version: 3`.
 
 ## 1. Invariants
 
@@ -22,7 +21,7 @@ Analysis v1. v1 was never released; it is kept as history and is not written.
 ```json
 {
   "schema": "marqdo.analysis",
-  "schema_version": 2,
+  "schema_version": 3,
   "producer": {
     "name": "marqdo",
     "version": "<crate version>",
@@ -99,7 +98,7 @@ conservative summary, not a purity proof).
 (`spec/callable-resolution.md` §6): `state` remains
 `function`/`builtin`/`plugin`/`unresolved`, and official stdlib aliases such as
 `打印` are reported as `function` targets because that is the implementation
-that runs. The private `CallBindingTable` is not serialized; Analysis v2's
+that runs. The private `CallBindingTable` is not serialized; Analysis's
 schema and version are unchanged.
 
 An `assign` node keeps the v1 string `target` for a local rebinding. Addressable
@@ -181,48 +180,24 @@ location exists.
 
 The `code` value is an open, stable string: the current language revision adds
 the `sem.*` family (`spec/mapping.md` §8) and removes the old
-`markdown.inert_executable` warning. This is a diagnostic-value change, not an
-Analysis schema change; `schema_version` stays 2.
+`markdown.inert_executable` warning. Diagnostic codes may be added without changing the structure.
 
-## 6. Compatibility
+## 6. Loop transfers
 
-* Writers emit `schema_version: 2`. There is no v1 writer and no
-  `--emit-version` flag; v1 was experimental.
-* Consumers must reject unknown `schema_version` values and unknown resource
-  kinds rather than silently accepting them.
-* Changing `root_id`, resource fields, diagnostic fields or the digest
-  definition is a protocol break requiring a new version and an ADR.
-* JSON Schema: `spec/schemas/analysis-v2.schema.json` (Draft 2020-12).
-  Schema validation is structural; cross-record checks (span inside source,
-  call targets, digest verification) remain semantic tests.
+Conditional arms appear in source order. Both `break` and `continue` are
+statements with a `kind` and the half-open UTF-8 `span` of their carrier.
+They have no operands or call edges. Walk the enclosing bodies to find
+the nearest loop. `break` transfers past that loop and `continue` transfers
+to its condition.
 
-## 7. Tests
+## 7. Validation
 
-* `analysis_is_deterministic_and_has_stable_semantic_nodes`
-* `analysis_v2_identity_is_location_independent`
-* `analysis_v2_projects_addressable_formula_and_code_resources`
-* `failed_check_removes_stale_analysis`
-* `tests/consumers/analysis_consumer.py` (independent Python consumer)
+Require exactly `schema: "marqdo.analysis"` and `schema_version: 3` before
+traversing the document. The [JSON Schema](schemas/analysis.schema.json)
+validates record shapes. Check source digests, spans, ownership and
+reference targets separately. Its full branch and loop structure applies
+equally to simple projects and imported modules.
 
-## 8. Versioning and future heading metadata
-
-`units[]` keeps its v2 fields and semantics: `id/kind/name/level/span/function`.
-The effective core mode and origin of a `section` unit are deliberately **not**
-added to v2, and neither are heading annotations.
-
-The language still has exactly two Core Modes (`@exec`/`@knowledge`); unmarked
-headings inherit from the nearest ancestor and the root default is Knowledge
-(`spec/mapping.md` §1.2, including the H-06 sibling fix). A future declarative,
-metadata-only Heading Annotation index is Proposed under
-[ADR-0060](../docs/adr/0060-heading-modes-and-extensible-annotations.md) and is
-**not implemented in this build**.
-
-When that work ships (target `3.1.x`), it must use a new protocol version
-(Analysis v3) or a separate `heading-annotations.v1` sidecar, bound to both the
-source digest and the exact Analysis bytes digest; it must not rewrite v2 `units[]`.
-Consumers that only know v2 must keep passing the existing schema/version contract,
-and must reject an unknown sidecar/v3 version rather than silently ignoring it.
-
-Projects containing structured loop transfers use [Analysis v3](analysis-v3.md).
-A v2 projection never contains those transfer statements. Multiple conditional
-arms use the existing ordered `branch.arms` array.
+Source digests cover the original bytes. Preserve UTF-8 byte offsets for
+BOM, CRLF, CJK and emoji. Observation binds to the SHA-256 of the exact
+emitted Analysis JSON bytes.

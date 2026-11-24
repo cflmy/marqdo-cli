@@ -1,4 +1,4 @@
-//! Public Analysis/Trace v1 black-box contract (spec/analysis-v1.md,
+//! Public Analysis and Trace black-box contracts (spec/analysis.md,
 //! spec/trace-v1.md).
 
 use std::path::{Path, PathBuf};
@@ -96,7 +96,7 @@ fn analysis_is_deterministic_and_has_stable_semantic_nodes() {
 
     let analysis: serde_json::Value = serde_json::from_slice(&first_bytes).unwrap();
     assert_eq!(analysis["schema"], "marqdo.analysis");
-    assert_eq!(analysis["schema_version"], 2);
+    assert_eq!(analysis["schema_version"], 3);
     let module = &analysis["modules"][0];
     assert_eq!(module["id"], "root:default::index.mq.md");
     assert_eq!(module["package_instance_id"], "root:default");
@@ -140,7 +140,7 @@ fn analysis_is_deterministic_and_has_stable_semantic_nodes() {
 }
 
 #[test]
-fn analysis_v2_identity_is_location_independent() {
+fn analysis_identity_is_location_independent() {
     let first = TempDir::new("analysis-identity-a");
     let second = TempDir::new("analysis-identity-b");
     let source = "## @exec main\n\n`x = 1`\n\n`return x`\n";
@@ -182,7 +182,7 @@ fn analysis_v2_identity_is_location_independent() {
 }
 
 #[test]
-fn analysis_v2_projects_memory_place_targets_additively() {
+fn analysis_projects_memory_place_targets_additively() {
     let dir = TempDir::new("analysis-place");
     let source =
         "## @exec main\n\n`内存 = memory.new(1, 2)`\n\n`内存[0] = 7`\n\n`return 内存[0]`\n";
@@ -211,7 +211,7 @@ fn analysis_v2_projects_memory_place_targets_additively() {
 }
 
 #[test]
-fn analysis_v2_projects_addressable_formula_and_code_resources() {
+fn analysis_projects_addressable_formula_and_code_resources() {
     let dir = TempDir::new("analysis-resources");
     let source = r#"## @exec calc
 
@@ -395,7 +395,7 @@ fn trace_records_calls_effects_and_status_without_secrets() {
 }
 
 #[test]
-fn multi_arm_branch_preserves_analysis_v2_and_carrier_positions() {
+fn multi_arm_branch_preserves_analysis_and_carrier_positions() {
     let dir = TempDir::new("else-if");
     let source = r#"## @exec 分类
 
@@ -427,7 +427,7 @@ fn multi_arm_branch_preserves_analysis_v2_and_carrier_positions() {
     assert!(output.status.success(), "{output:?}");
     let analysis: serde_json::Value =
         serde_json::from_slice(&std::fs::read(dir.path().join("analysis.json")).unwrap()).unwrap();
-    assert_eq!(analysis["schema_version"], 2);
+    assert_eq!(analysis["schema_version"], 3);
     assert_eq!(analysis["producer"]["markdown_profile"], "marqdo.md.v1");
     let branch = &analysis["modules"][0]["functions"][0]["body"][0];
     assert_eq!(branch["kind"], "branch");
@@ -463,7 +463,7 @@ fn multi_arm_branch_preserves_analysis_v2_and_carrier_positions() {
 }
 
 #[test]
-fn an_imported_loop_transfer_selects_v3_and_keeps_the_else_if_call_edge() {
+fn an_imported_loop_transfer_uses_current_schema_and_keeps_the_else_if_call_edge() {
     let dir = TempDir::new("imported-loop");
     write(
         dir.path(),

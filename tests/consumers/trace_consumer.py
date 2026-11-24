@@ -13,7 +13,7 @@ analysis = json.loads(analysis_bytes)
 with open(sys.argv[2], encoding="utf-8") as handle:
     trace = json.load(handle)
 
-if analysis.get("schema") != "marqdo.analysis" or analysis.get("schema_version") not in (2, 3):
+if analysis.get("schema") != "marqdo.analysis" or analysis.get("schema_version") != 3:
     raise SystemExit("unsupported analysis")
 if trace.get("schema") != "marqdo.trace" or trace.get("schema_version") != 2:
     raise SystemExit("unsupported trace")

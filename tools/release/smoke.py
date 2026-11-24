@@ -167,17 +167,16 @@ class Runner:
             fail(f"`marqdo {' '.join(args)} --json` is not JSON: {error}\n{result.stdout}")
 
 
+ANALYSIS_VERSION = 3
 ANALYSIS_CASES = {
-    2: ("examples/multi-module/index.mq.md", "analysis_consumer.py"),
-    3: ("examples/control-flow.mq.md", "analysis_v3_consumer.py"),
+    "simple": ("examples/multi-module/index.mq.md", ()),
+    "control": ("examples/control-flow.mq.md", ("--require-transfers",)),
 }
 
 
 def verify_analysis_metadata(protocols: dict) -> None:
-    if protocols.get("analysis") != min(ANALYSIS_CASES):
-        fail("RELEASE_INFO.json does not identify the default Analysis version")
-    if protocols.get("analysis_versions") != sorted(ANALYSIS_CASES):
-        fail("RELEASE_INFO.json Analysis versions do not match the archive smoke cases")
+    if protocols.get("analysis") != ANALYSIS_VERSION or "analysis_versions" in protocols:
+        fail("RELEASE_INFO.json must identify only the current Analysis revision")
 
 
 def run_consumer(install: Path, consumer: str, *paths: Path) -> None:
@@ -193,17 +192,17 @@ def run_consumer(install: Path, consumer: str, *paths: Path) -> None:
 def verify_analysis_protocols(runner: Runner, install: Path, info: dict) -> None:
     protocols = info["protocols"]
     verify_analysis_metadata(protocols)
-    for schema_version, (source, consumer) in ANALYSIS_CASES.items():
-        analysis = install / f"analysis-v{schema_version}.json"
-        trace = install / f"trace-for-analysis-v{schema_version}.json"
+    for case, (source, options) in ANALYSIS_CASES.items():
+        analysis = install / f"analysis-{case}.json"
+        trace = install / f"trace-for-analysis-{case}.json"
         runner.run(["check", source, "--emit", str(analysis)])
         document = json.loads(analysis.read_text(encoding="utf-8"))
-        if document.get("schema") != "marqdo.analysis" or document.get("schema_version") != schema_version:
-            fail(f"{source} did not produce Analysis v{schema_version}")
+        if document.get("schema") != "marqdo.analysis" or document.get("schema_version") != ANALYSIS_VERSION:
+            fail(f"{source} did not produce Analysis revision {ANALYSIS_VERSION}")
         if document.get("producer", {}).get("version") != info["product_version"]:
             fail("Analysis producer.version does not match the released product version")
         runner.run(["run", source, "--trace-file", str(trace)])
-        run_consumer(install, consumer, analysis)
+        run_consumer(install, "analysis_consumer.py", analysis, *options)
         run_consumer(install, "trace_consumer.py", analysis, trace)
 
         # CI installs jsonschema. The standalone smoke can use stdlib Python.

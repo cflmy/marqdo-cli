@@ -31,10 +31,7 @@ struct SupportedProtocols {
 
 const SUPPORTED: SupportedProtocols = SupportedProtocols {
     tool: PROTOCOL_VERSION,
-    analysis: &[
-        crate::analysis::BASE_VERSION,
-        crate::analysis::LOOP_CONTROL_VERSION,
-    ],
+    analysis: &[crate::analysis::SCHEMA_VERSION],
     trace: &[2],
 };
 
