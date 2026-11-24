@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 libloading = { workspace = true }
 serde_json = { workspace = true }
+marqdo-worker-ipc = { workspace = true }
 
 [dev-dependencies]
 marqdo-host = { path = "../marqdo-host" }

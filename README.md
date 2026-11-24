@@ -363,7 +363,8 @@ tests/                        conformance/negative corpus (see tests/README.md)
   [`package-format.md`](spec/package-format.md),
   [`plugin-abi.md`](spec/plugin-abi.md), [`math.md`](spec/math.md),
   [`foreign.md`](spec/foreign.md), [`cli-tool.md`](spec/cli-tool.md),
-  [`analysis.md`](spec/analysis.md), [`observation.md`](spec/observation.md);
+  [`analysis.md`](spec/analysis.md), [`observation.md`](spec/observation.md),
+  [`worker-ipc.md`](spec/worker-ipc.md);
   JSON Schemas in [`spec/schemas/`](spec/schemas/).
 * [`tests/README.md`](tests/README.md) — conformance corpus and `UPDATE_GOLDENS`
   workflow.

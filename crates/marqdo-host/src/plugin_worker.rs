@@ -4,27 +4,30 @@
 //! `__plugin-worker` command. It isolates crashes and keeps native code out of
 //! the interpreter process. A plain process is **not** an OS sandbox; strict
 //! mode still refuses without a real isolation adapter.
+//!
+//! Framing, bounded reads, deadlines and teardown come from
+//! [`marqdo_worker_ipc`]. The invoke/capability vocabulary, capability limit and
+//! plugin error codes remain owned here: a shared transport never shares
+//! capabilities.
 
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::mpsc::{self, Receiver};
-use std::thread;
-use std::time::Duration;
+use std::process::{Child, Command, Stdio};
+use std::time::{Duration, Instant};
 
 use marqdo_plugin_abi::worker::{
-    read_frame, write_frame, MAX_CAPABILITY_REQUESTS, MAX_CAPABILITY_REQUEST_BYTES, WORKER_COMMAND,
+    response_from_frame, MAX_CAPABILITY_REQUESTS, MAX_CAPABILITY_REQUEST_BYTES, MAX_FRAME_BYTES,
+    WORKER_COMMAND,
 };
 use marqdo_plugin_abi::{
     CapabilityHandler, PluginError, PluginManifest, WireRequest, WireResponse,
 };
+use marqdo_worker_ipc::{Connection, FrameError, TransportError};
 use serde_json::json;
 
 /// A native plugin running in an isolated worker process.
 pub struct WorkerPlugin {
-    child: Child,
-    stdin: ChildStdin,
-    frames: Receiver<Result<serde_json::Value, PluginError>>,
+    connection: Connection,
     exports: BTreeMap<String, String>,
     dead: bool,
     capability_handler: Option<CapabilityHandler>,
@@ -36,7 +39,7 @@ const CALL_TIMEOUT: Duration = Duration::from_secs(10);
 impl std::fmt::Debug for WorkerPlugin {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WorkerPlugin")
-            .field("pid", &self.child.id())
+            .field("pid", &self.connection.id())
             .field("exports", &self.exports.keys().collect::<Vec<_>>())
             .finish()
     }
@@ -77,7 +80,7 @@ impl WorkerPlugin {
                 format!("cannot find the current executable: {error}"),
             )
         })?;
-        let mut child = match Command::new(executable)
+        let child: Child = match Command::new(executable)
             .arg(WORKER_COMMAND)
             .arg(&manifest_path)
             .arg(base_dir)
@@ -95,66 +98,33 @@ impl WorkerPlugin {
                 ));
             }
         };
-        let Some(stdin) = child.stdin.take() else {
-            let _ = child.kill();
-            return Err(PluginError::load(
-                "worker_spawn_failed",
-                "worker stdin unavailable",
-            ));
-        };
-        let Some(mut stdout) = child.stdout.take() else {
-            let _ = child.kill();
-            let _ = std::fs::remove_file(&manifest_path);
-            return Err(PluginError::load(
-                "worker_spawn_failed",
-                "worker stdout unavailable",
-            ));
-        };
-        let (sender, frames) = mpsc::channel();
-        thread::Builder::new()
-            .name("marqdo-plugin-worker-reader".to_string())
-            .spawn(move || loop {
-                match read_frame(&mut stdout) {
-                    Ok(Some(frame)) => {
-                        if sender.send(Ok(frame)).is_err() {
-                            break;
-                        }
-                    }
-                    Ok(None) => {
-                        let _ = sender.send(Err(PluginError::invoke(
-                            "plugin.crashed",
-                            "plugin worker closed its output stream",
-                        )));
-                        break;
-                    }
-                    Err(error) => {
-                        let _ = sender.send(Err(error));
-                        break;
-                    }
-                }
-            })
-            .map_err(|error| {
-                let _ = child.kill();
-                PluginError::load(
-                    "worker_spawn_failed",
-                    format!("cannot start worker reader: {error}"),
-                )
-            })?;
-        let ready = match frames.recv_timeout(HANDSHAKE_TIMEOUT) {
-            Ok(frame) => frame,
-            Err(_) => {
+        let connection = match Connection::attach(child, MAX_FRAME_BYTES) {
+            Ok(connection) => connection,
+            Err(error) => {
                 let _ = std::fs::remove_file(&manifest_path);
-                let _ = child.kill();
+                return Err(PluginError::load(
+                    "worker_spawn_failed",
+                    format!("cannot start plugin worker transport: {error}"),
+                ));
+            }
+        };
+        let mut connection = connection;
+        let ready = match connection.receive(Instant::now() + HANDSHAKE_TIMEOUT) {
+            Ok(frame) => frame,
+            Err(TransportError::Timeout) => {
+                let _ = std::fs::remove_file(&manifest_path);
                 return Err(PluginError::invoke(
                     "plugin.timeout",
                     "plugin worker handshake timed out",
                 ));
             }
+            Err(error) => {
+                let _ = std::fs::remove_file(&manifest_path);
+                return Err(transport_error(error));
+            }
         };
         let _ = std::fs::remove_file(&manifest_path);
-        let ready = ready?;
         if ready.get("kind").and_then(serde_json::Value::as_str) != Some("ready") {
-            let _ = child.kill();
             return Err(PluginError::load(
                 "worker_handshake_failed",
                 "worker did not report ready",
@@ -182,16 +152,13 @@ impl WorkerPlugin {
             .collect();
         let actual: std::collections::BTreeSet<&str> = exports.keys().map(String::as_str).collect();
         if declared != actual {
-            let _ = child.kill();
             return Err(PluginError::manifest(
                 "worker_export_mismatch",
                 "worker exports do not match the manifest",
             ));
         }
         Ok(Self {
-            child,
-            stdin,
-            frames,
+            connection,
             exports,
             dead: false,
             capability_handler,
@@ -208,36 +175,21 @@ impl WorkerPlugin {
         }
         let request_value: serde_json::Value = serde_json::from_slice(&request.to_json_bytes()?)
             .map_err(|error| PluginError::wire("worker_encode_failed", error.to_string()))?;
-        if let Err(error) = write_frame(
-            &mut self.stdin,
-            &json!({"kind": "invoke", "request": request_value}),
+        let deadline = Instant::now() + CALL_TIMEOUT;
+        if let Err(error) = self.connection.send(
+            json!({"kind": "invoke", "request": request_value}),
+            deadline,
         ) {
             self.mark_dead();
-            return Err(error);
+            return Err(invocation_error(error));
         }
-        let deadline = std::time::Instant::now() + CALL_TIMEOUT;
         let mut capability_requests = 0usize;
         loop {
-            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
-            if remaining.is_zero() {
-                self.mark_dead();
-                return Err(PluginError::invoke(
-                    "plugin.timeout",
-                    "plugin worker exceeded its invocation timeout",
-                ));
-            }
-            let frame = match self.frames.recv_timeout(remaining) {
-                Ok(Ok(frame)) => frame,
-                Ok(Err(error)) => {
+            let frame = match self.connection.receive(deadline) {
+                Ok(frame) => frame,
+                Err(error) => {
                     self.mark_dead();
-                    return Err(error);
-                }
-                Err(_) => {
-                    self.mark_dead();
-                    return Err(PluginError::invoke(
-                        "plugin.timeout",
-                        "plugin worker exceeded its invocation timeout",
-                    ));
+                    return Err(invocation_error(error));
                 }
             };
             match frame.get("kind").and_then(serde_json::Value::as_str) {
@@ -252,13 +204,13 @@ impl WorkerPlugin {
                             ),
                         ));
                     }
-                    if let Err(error) = self.handle_capability_request(&frame) {
+                    if let Err(error) = self.handle_capability_request(&frame, deadline) {
                         self.mark_dead();
                         return Err(error);
                     }
                 }
                 Some("response") => {
-                    return marqdo_plugin_abi::worker::response_from_frame(&frame);
+                    return response_from_frame(&frame);
                 }
                 Some("error") => {
                     return Err(PluginError::invoke(
@@ -283,7 +235,11 @@ impl WorkerPlugin {
         }
     }
 
-    fn handle_capability_request(&mut self, frame: &serde_json::Value) -> Result<(), PluginError> {
+    fn handle_capability_request(
+        &mut self,
+        frame: &serde_json::Value,
+        deadline: Instant,
+    ) -> Result<(), PluginError> {
         let id = frame
             .get("id")
             .and_then(serde_json::Value::as_u64)
@@ -332,23 +288,53 @@ impl WorkerPlugin {
                 "message":error.message,
             }),
         };
-        if let Err(error) = write_frame(&mut self.stdin, &reply) {
-            self.mark_dead();
-            return Err(error);
-        }
-        Ok(())
+        self.connection
+            .send(reply, deadline)
+            .map_err(invocation_error)
     }
 
     fn mark_dead(&mut self) {
         self.dead = true;
-        let _ = self.child.kill();
+        self.connection.abort();
     }
 }
 
 impl Drop for WorkerPlugin {
     fn drop(&mut self) {
-        let _ = write_frame(&mut self.stdin, &json!({"kind": "shutdown"}));
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        if !self.dead {
+            let _ = self.connection.send(
+                json!({"kind": "shutdown"}),
+                Instant::now() + Duration::from_millis(500),
+            );
+        }
+        self.connection.abort();
+    }
+}
+
+fn invocation_error(error: TransportError) -> PluginError {
+    match error {
+        TransportError::Timeout => PluginError::invoke(
+            "plugin.timeout",
+            "plugin worker exceeded its invocation timeout",
+        ),
+        other => transport_error(other),
+    }
+}
+
+fn transport_error(error: TransportError) -> PluginError {
+    match error {
+        TransportError::Timeout => {
+            PluginError::invoke("plugin.timeout", "plugin worker exceeded its timeout")
+        }
+        TransportError::Closed => {
+            PluginError::invoke("plugin.crashed", "plugin worker closed its output stream")
+        }
+        TransportError::Frame(FrameError::Io(error)) => PluginError::invoke(
+            "plugin.crashed",
+            format!("worker frame I/O failed: {error}"),
+        ),
+        TransportError::Frame(other) => {
+            PluginError::wire("worker_frame_invalid", other.to_string())
+        }
     }
 }

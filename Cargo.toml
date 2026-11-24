@@ -10,6 +10,7 @@ members = [
     "crates/marqdo-foreign",
     "crates/marqdo-plugin-abi",
     "crates/marqdo-provider-worker",
+    "crates/marqdo-worker-ipc",
     "crates/marqdo-plugin-sdk",
     "crates/marqdo-host",
     "crates/marqdo-runtime",
@@ -35,6 +36,7 @@ marqdo-ir = { path = "crates/marqdo-ir" }
 marqdo-frontend = { path = "crates/marqdo-frontend" }
 marqdo-foreign = { path = "crates/marqdo-foreign" }
 marqdo-plugin-abi = { path = "crates/marqdo-plugin-abi" }
+marqdo-worker-ipc = { path = "crates/marqdo-worker-ipc" }
 marqdo-host = { path = "crates/marqdo-host" }
 marqdo-runtime = { path = "crates/marqdo-runtime" }
 marqdo-package = { path = "crates/marqdo-package" }

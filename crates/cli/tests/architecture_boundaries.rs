@@ -33,6 +33,7 @@ const WORKSPACE_CRATES: &[&str] = &[
     "marqdo-foreign",
     "marqdo-plugin-abi",
     "marqdo-provider-worker",
+    "marqdo-worker-ipc",
     "marqdo-plugin-sdk",
     "marqdo-host",
     "marqdo-runtime",
@@ -137,6 +138,42 @@ fn stdlib_imports_resolve_inside_the_bundle() {
                 target
             );
         }
+    }
+}
+
+#[test]
+fn shared_worker_transport_is_neutral_and_not_duplicated() {
+    let root = repo_root();
+    let transport = read(&root.join("crates/marqdo-worker-ipc/Cargo.toml"));
+    for forbidden in ["marqdo-host", "marqdo-plugin-abi", "marqdo-provider-worker"] {
+        assert!(
+            !transport.contains(forbidden),
+            "marqdo-worker-ipc must stay transport-only; it must not depend on `{forbidden}`"
+        );
+    }
+    for user in [
+        "crates/marqdo-host/Cargo.toml",
+        "crates/marqdo-plugin-abi/Cargo.toml",
+        "crates/marqdo-provider-worker/Cargo.toml",
+    ] {
+        assert!(
+            read(&root.join(user)).contains("marqdo-worker-ipc = {"),
+            "{user} must use the one shared worker transport"
+        );
+    }
+    // The four-byte length prefix and its bounds live in exactly one crate.
+    for private in [
+        "crates/marqdo-host/src/plugin_worker.rs",
+        "crates/marqdo-host/src/provider_worker.rs",
+        "crates/marqdo-plugin-abi/src/worker.rs",
+        "crates/marqdo-provider-worker/src/main.rs",
+    ] {
+        let text = read(&root.join(private));
+        let implementation = text.split("#[cfg(test)]").next().unwrap_or(&text);
+        assert!(
+            !implementation.contains("from_be_bytes") && !implementation.contains("to_be_bytes"),
+            "{private} reimplements worker framing instead of using marqdo-worker-ipc"
+        );
     }
 }
 

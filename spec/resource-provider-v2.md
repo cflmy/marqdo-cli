@@ -189,7 +189,9 @@ The helper is `marqdo-provider-worker <selected-artifact-path>`. It loads
 exactly one `c-abi-1` shared library, verifies
 `marqdo_resource_provider_abi_version() == 1`, and speaks the ADR-0035 framed
 protocol over stdin/stdout: 4-byte big-endian length + JSON, 1 MiB maximum per
-frame.
+frame. Framing and process plumbing come from the
+[shared worker transport](worker-ipc.md); the operation vocabulary, kind rights
+and token lifecycle below remain owned by this boundary.
 
 ```text
 {"op":"ping"}                              -> {"ok":true}          (handshake)

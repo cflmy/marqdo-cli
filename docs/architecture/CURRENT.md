@@ -65,6 +65,7 @@ for replacing public interfaces before the first stable release.
 | Runtime facts | Interpreter and Host observation sink | [Observation](../../spec/observation.md) |
 | Installed CLI commands | Generic Tool registry | [CLI Tool](../../spec/cli-tool.md) |
 | Runtime extensions | Plugin, Resource Provider and Foreign each enforce their own grants | [Plugin ABI](../../spec/plugin-abi.md), [Resource Provider](../../spec/resource-provider-v2.md), [Foreign](../../spec/foreign.md) |
+| Persistent worker plumbing | Plugin and provider workers share one bounded framed transport; each keeps its vocabulary, limits and authority | [Shared worker transport](../../spec/worker-ipc.md) |
 | Values and package identities | Value Wire and project lock | [Value Wire](../../spec/value-wire.md), [Extension selection and lock](../../spec/extension-selection.md) |
 
 `check --emit analysis.json` projects static facts from the prepared project.
@@ -154,8 +155,16 @@ Current Rust dependency edges (documented, not proposed):
 marqdo-cli -> marqdo-runtime -> marqdo-host
 marqdo-cli -> marqdo-package, marqdo-sandbox, marqdo-frontend, ...
 marqdo-runtime -> marqdo-ir, marqdo-expression, marqdo-value
-marqdo-host   -> marqdo-plugin-abi, marqdo-foreign, marqdo-sandbox
+marqdo-host   -> marqdo-plugin-abi, marqdo-foreign, marqdo-sandbox, marqdo-worker-ipc
+marqdo-plugin-abi     -> marqdo-worker-ipc
+marqdo-provider-worker -> marqdo-worker-ipc
 ```
+
+`marqdo-worker-ipc` depends only on `serde_json` and `thiserror`: it is the one
+copy of bounded worker framing, deadlines and process teardown
+([spec/worker-ipc.md](../../spec/worker-ipc.md)). It must never depend on the
+host, the plugin ABI, or a worker binary; sharing plumbing must not share
+capabilities. Foreign kernels and CLI Tools stay outside it.
 
 `marqdo-runtime -> marqdo-host` is the current direction. Do not add a second
 execution backend or a `marqdo-stdlib` crate by implication. A future embedded

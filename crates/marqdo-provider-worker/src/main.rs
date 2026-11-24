@@ -5,7 +5,6 @@
 //! boundary, not a sandbox: the library runs with the worker's privileges.
 
 use std::ffi::{c_char, CString};
-use std::io::{Read, Write};
 use std::path::PathBuf;
 
 use libloading::Library;
@@ -129,41 +128,16 @@ impl Provider {
 }
 
 fn read_frame() -> Result<Option<Json>, String> {
-    let mut header = [0u8; 4];
-    let mut read = 0usize;
-    while read < header.len() {
-        match std::io::stdin().read(&mut header[read..]) {
-            Ok(0) if read == 0 => return Ok(None),
-            Ok(0) => return Err("stdin ended inside a frame header".to_string()),
-            Ok(count) => read += count,
-            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
-            Err(error) => return Err(format!("stdin read failed: {error}")),
-        }
-    }
-    let length = u32::from_be_bytes(header) as usize;
-    if length == 0 || length > MAX_FRAME_BYTES {
-        return Err(format!("invalid frame length {length}"));
-    }
-    let mut payload = vec![0u8; length];
-    std::io::stdin()
-        .read_exact(&mut payload)
-        .map_err(|error| format!("stdin read failed: {error}"))?;
-    serde_json::from_slice(&payload)
-        .map(Some)
-        .map_err(|error| format!("invalid JSON frame: {error}"))
+    let stdin = std::io::stdin();
+    let mut input = stdin.lock();
+    marqdo_worker_ipc::read_frame(&mut input, MAX_FRAME_BYTES).map_err(|error| error.to_string())
 }
 
 fn write_frame(value: &Json) -> Result<(), String> {
-    let bytes = serde_json::to_vec(value).map_err(|error| format!("encode failed: {error}"))?;
-    if bytes.len() > MAX_FRAME_BYTES {
-        return Err("response frame is too large".to_string());
-    }
-    let mut stdout = std::io::stdout();
-    stdout
-        .write_all(&(bytes.len() as u32).to_be_bytes())
-        .and_then(|()| stdout.write_all(&bytes))
-        .and_then(|()| stdout.flush())
-        .map_err(|error| format!("stdout write failed: {error}"))
+    let stdout = std::io::stdout();
+    let mut output = stdout.lock();
+    marqdo_worker_ipc::write_frame(&mut output, value, MAX_FRAME_BYTES)
+        .map_err(|error| error.to_string())
 }
 
 fn fail(message: &str) -> Json {

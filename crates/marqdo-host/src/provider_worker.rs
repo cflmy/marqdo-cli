@@ -1,29 +1,34 @@
 //! Host-managed worker resource provider (ADR-0035).
 //!
-//! This is a small, versioned framed-JSON transport for **trusted helper
-//! processes**. It is not a C ABI binding and not an OS sandbox: the helper
-//! runs as the host user. Registration is a host embedding API; language code
-//! only sees the normal `resource.*` operations.
+//! This is a bounded framed-JSON transport for **trusted helper processes**.
+//! It is not a C ABI binding and not an OS sandbox: the helper runs as the host
+//! user. Registration is a host embedding API; language code only sees the
+//! normal `resource.*` operations.
+//!
+//! Framing, bounded reads, request deadlines and teardown come from
+//! [`marqdo_worker_ipc`]. The `open`/`read`/`write`/`close` vocabulary, kind
+//! rights and error categories stay owned by the resource boundary, so a
+//! shared transport never widens provider authority.
 
-use std::io::{BufReader, Read, Write};
 use std::path::Path;
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
 use marqdo_span::Span;
+use marqdo_worker_ipc::{Connection, FrameError, TransportError};
 use serde_json::{json, Value as Json};
 
 use crate::resource::{ResourceProvider, ResourceRead};
 use marqdo_value::{ErrorCategory, RuntimeError};
 
 const MAX_FRAME_BYTES: usize = 1024 * 1024;
+const WORKER_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// A `ResourceProvider` backed by a child process speaking framed JSON.
 pub(crate) struct WorkerResourceProvider {
     name: String,
     kinds: Vec<String>,
-    child: Child,
-    stdin: ChildStdin,
-    stdout: BufReader<ChildStdout>,
+    connection: Connection,
 }
 
 impl WorkerResourceProvider {
@@ -33,7 +38,7 @@ impl WorkerResourceProvider {
         program: &Path,
         args: &[String],
     ) -> Result<Self, RuntimeError> {
-        let mut child = Command::new(program)
+        let child = Command::new(program)
             .args(args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -49,20 +54,12 @@ impl WorkerResourceProvider {
                     ),
                 )
             })?;
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| worker_error("missing stdin pipe"))?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| worker_error("missing stdout pipe"))?;
+        let connection = Connection::attach(child, MAX_FRAME_BYTES)
+            .map_err(|error| worker_error(&format!("cannot attach to worker: {error}")))?;
         let mut provider = Self {
             name: name.to_string(),
             kinds: kinds.to_vec(),
-            child,
-            stdin,
-            stdout: BufReader::new(stdout),
+            connection,
         };
         // Handshake: the helper must answer a ping before it is trusted.
         provider.request(json!({"op": "ping"}))?;
@@ -70,30 +67,11 @@ impl WorkerResourceProvider {
     }
 
     fn request(&mut self, request: Json) -> Result<Json, RuntimeError> {
-        let bytes = serde_json::to_vec(&request)
-            .map_err(|error| worker_error(&format!("cannot encode request: {error}")))?;
-        if bytes.len() > MAX_FRAME_BYTES {
-            return Err(worker_error("request frame is too large"));
-        }
-        self.stdin
-            .write_all(&(bytes.len() as u32).to_be_bytes())
-            .and_then(|()| self.stdin.write_all(&bytes))
-            .and_then(|()| self.stdin.flush())
-            .map_err(|error| worker_error(&format!("cannot write request frame: {error}")))?;
-        let mut header = [0u8; 4];
-        self.stdout
-            .read_exact(&mut header)
-            .map_err(|error| worker_error(&format!("cannot read response header: {error}")))?;
-        let length = u32::from_be_bytes(header) as usize;
-        if length == 0 || length > MAX_FRAME_BYTES {
-            return Err(worker_error("invalid response frame length"));
-        }
-        let mut payload = vec![0u8; length];
-        self.stdout
-            .read_exact(&mut payload)
-            .map_err(|error| worker_error(&format!("cannot read response frame: {error}")))?;
-        let response: Json = serde_json::from_slice(&payload)
-            .map_err(|error| worker_error(&format!("invalid response JSON: {error}")))?;
+        let deadline = Instant::now() + WORKER_TIMEOUT;
+        self.connection
+            .send(request, deadline)
+            .map_err(transport_error)?;
+        let response = self.connection.receive(deadline).map_err(transport_error)?;
         if response.get("ok").and_then(Json::as_bool) != Some(true) {
             let code = response
                 .get("code")
@@ -192,9 +170,11 @@ impl ResourceProvider for WorkerResourceProvider {
 
 impl Drop for WorkerResourceProvider {
     fn drop(&mut self) {
-        let _ = self.request(json!({"op": "shutdown"}));
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        let _ = self.connection.send(
+            json!({"op": "shutdown"}),
+            Instant::now() + Duration::from_millis(500),
+        );
+        self.connection.abort();
     }
 }
 
@@ -203,6 +183,21 @@ fn with_span(mut error: RuntimeError, span: Option<Span>) -> RuntimeError {
         error.span = span;
     }
     error
+}
+
+fn transport_error(error: TransportError) -> RuntimeError {
+    match error {
+        TransportError::Timeout => {
+            worker_error("worker resource provider did not answer before the deadline")
+        }
+        TransportError::Closed => worker_error("worker resource provider closed its transport"),
+        TransportError::Frame(FrameError::Io(error)) => {
+            worker_error(&format!("worker resource provider I/O failed: {error}"))
+        }
+        TransportError::Frame(other) => {
+            worker_error(&format!("worker resource provider frame error: {other}"))
+        }
+    }
 }
 
 fn worker_error(message: &str) -> RuntimeError {
