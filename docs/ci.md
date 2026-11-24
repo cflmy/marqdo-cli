@@ -36,7 +36,7 @@ test:
   check + run the nested-loop control-flow conformance fixture
   validate_protocols.py / analysis_consumer.py --require-transfers
   observation_consumer.py (stream, snapshot, stale-Analysis rejection)
-  stream JSONL == snapshot events assertion
+  stream JSONL == snapshot events (tools/ci/verify_observation_stream.py)
   cargo test -p marqdo-cli --test docs_consistency
   cargo test -p marqdo-cli --test architecture_boundaries
   cargo test -p marqdo-cli --test stdlib_product
