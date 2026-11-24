@@ -107,14 +107,28 @@ observation_consumer.py stream.jsonl --analysis stale-analysis.json    rejected
 marqdo --version                                                       marqdo 3.0.0-rc.3
 ```
 
-Release status: the tree and developer inputs are ready for `3.0.0-rc.3`. The
-built archive (source `291e521c`, sha256 `8a663dee…`) passed the from-archive
-smoke; the local evidence is
+Same-SHA CI on Linux x86_64
+([pipeline #70](https://ci.cflmy.cn/repos/1/pipeline/70), commit
+`5a89a137c7f76f6c31744a4e8f8d4dbc0af623ef`): the fast `contract` lane, the full
+Rust `test` lane (fmt, clippy, workspace tests, docs/architecture gates, Windows
+cross-target compile check), `minimum-rust` and `build` all PASS. The build lane
+produced `marqdo-3.0.0-rc.3-x86_64-unknown-linux-gnu.tar.gz`
+(sha256 `d6ef6297a7ba5297af758a0b00da5c6e0f4b69f40363afc4ddc180654e70ac37`),
+passed the from-archive smoke, and passed the frozen external conformance suite
+7/7 with fixtures at `015ff8ac15417b7ebbdb31ce2be2dab5362a1eba`
+(callable registry, plugin worker, foreign kernel, provider CLI, pinned package,
+tool Analysis consumer, negative security).
+
+The detailed local log and the CI addendum are in
 [`evidence/2026-11-24-rc.3-protocol-convergence-local.md`](evidence/2026-11-24-rc.3-protocol-convergence-local.md).
-Publication still requires the same-SHA CI pipeline plus the clean-install
-container gate bound to that SHA, as required by
-[`releasing.md`](releasing.md). Do not tag or publish from local evidence
-alone.
+
+Release status: the tree, contracts, archive and same-SHA Linux CI are ready for
+`3.0.0-rc.3`, but **publication is not authorized by this evidence**. The RC
+profile in [`releasing.md`](releasing.md) additionally requires a same-SHA
+strict-L1 PASS on a disposable VM as a non-root user and fixed-node G4
+performance evidence (or the recorded maintainer exception). Neither exists
+here; the CI host truthfully reports `strict: unavailable` fail-closed. Do not
+tag or publish `v3.0.0-rc.3` from this section.
 
 ## 0. Beta release record — `3.0.0-beta.1`
 

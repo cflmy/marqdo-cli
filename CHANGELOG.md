@@ -78,8 +78,13 @@ Migration for consumers:
 - `crates/cli/tests/architecture_boundaries.rs` forbids a second worker
   framing implementation and pins the workspace layer list;
   `docs_consistency` keeps one current overview and resolving links.
-- Release evidence for publication still requires the same-SHA CI pipeline and
-  archive smoke described in [`docs/releasing.md`](docs/releasing.md).
+- Same-SHA Linux CI [pipeline #70](https://ci.cflmy.cn/repos/1/pipeline/70)
+  passed all lanes, produced archive sha256
+  `d6ef6297a7ba5297af758a0b00da5c6e0f4b69f40363afc4ddc180654e70ac37`, passed
+  the from-archive smoke and the frozen external conformance suite 7/7 with
+  fixtures at `015ff8ac15417b7ebbdb31ce2be2dab5362a1eba`.
+- Publication still requires the RC strict-VM and G4 performance evidence
+  described in [`docs/releasing.md`](docs/releasing.md).
 
 ## 3.0.0-rc.2 (candidate)
 
