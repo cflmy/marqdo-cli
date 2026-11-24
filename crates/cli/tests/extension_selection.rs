@@ -493,3 +493,59 @@ fn declared_kernel_extension_is_activated_from_the_manifest() {
     let run = cli(&["run", "index.mq.md", "--allow-foreign"], project.path());
     assert_eq!(run.status.code(), Some(0), "{}", stderr(&run));
 }
+
+#[test]
+fn retired_extension_descriptor_revisions_are_rejected_without_migration() {
+    // A kernel descriptor is only current at wire_version 1. There is no v2
+    // reader and no migration: the descriptor is rejected before locking.
+    let project = TempDir::new("retired-kernel");
+    std::fs::create_dir_all(project.path().join("kernel")).unwrap();
+    std::fs::write(
+        project.path().join("kernel/kernel.json"),
+        r#"{
+  "provider_id": "retired-provider",
+  "languages": ["retired-lang"],
+  "wire_version": 2,
+  "entrypoint": "./retired-lang",
+  "permissions_requested": [],
+  "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}"#,
+    )
+    .unwrap();
+    write_project(
+        project.path(),
+        "extensions:\n  kernels:\n    - from: ./kernel/kernel.json\n",
+    );
+    std::fs::write(project.path().join("index.mq.md"), "## @exec main\n\nx\n").unwrap();
+    let rejected = lock(project.path());
+    assert!(!rejected.status.success(), "{}", stderr(&rejected));
+    assert!(
+        stderr(&rejected).contains("unsupported wire_version 2"),
+        "{}",
+        stderr(&rejected)
+    );
+    assert!(
+        !project.path().join("marqdo.lock").exists(),
+        "a rejected retired descriptor must not produce a lock"
+    );
+
+    // A plugin manifest whose ABI requirement targets a retired major is
+    // rejected by the single current manifest validator.
+    let Some(project) = plugin_project("retired-abi") else {
+        return;
+    };
+    let manifest_path = project.path().join("adapter/plugin.yaml");
+    let manifest = std::fs::read_to_string(&manifest_path).unwrap();
+    std::fs::write(
+        &manifest_path,
+        manifest.replace("abi: \"^1.0\"", "abi: \"^2.0\""),
+    )
+    .unwrap();
+    let rejected = lock(project.path());
+    assert!(!rejected.status.success(), "{}", stderr(&rejected));
+    assert!(
+        stderr(&rejected).contains("abi_requirement_unsupported"),
+        "{}",
+        stderr(&rejected)
+    );
+}
