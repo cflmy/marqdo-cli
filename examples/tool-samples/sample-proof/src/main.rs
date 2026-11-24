@@ -1,4 +1,4 @@
-//! Independent Tool Protocol v1 consumer: binds Analysis v2 and Trace v2.
+//! Independent Tool Protocol v1 consumer: reads an Analysis and Observation source binding.
 
 use std::fs;
 
@@ -22,38 +22,39 @@ fn read(path: &str, label: &str) -> String {
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut analysis = None;
-    let mut trace = None;
+    let mut snapshot = None;
     let mut index = 0;
     while index + 1 < args.len() {
         match args[index].as_str() {
             "--analysis" => analysis = Some(args[index + 1].clone()),
-            "--trace" => trace = Some(args[index + 1].clone()),
+            "--observation" => snapshot = Some(args[index + 1].clone()),
             _ => {}
         }
         index += 2;
     }
-    let (Some(analysis), Some(trace)) = (analysis, trace) else {
-        eprintln!("usage: sample-proof --analysis <analysis-v2.json> --trace <trace-v2.json>");
+    let (Some(analysis), Some(snapshot)) = (analysis, snapshot) else {
+        eprintln!("usage: sample-proof --analysis <analysis.json> --observation <observation.json>");
         std::process::exit(2);
     };
     let analysis = read(&analysis, "analysis");
-    let trace = read(&trace, "trace");
+    let snapshot = read(&snapshot, "snapshot");
     if string_field(&analysis, "schema") != Some("marqdo.analysis") {
         eprintln!("sample-proof: analysis schema mismatch");
         std::process::exit(1);
     }
-    if string_field(&trace, "schema") != Some("marqdo.trace") {
-        eprintln!("sample-proof: trace schema mismatch");
+    if string_field(&snapshot, "schema") != Some("marqdo.observation") {
+        eprintln!("sample-proof: snapshot schema mismatch");
         std::process::exit(1);
     }
-    if string_field(&trace, "status") != Some("ok") {
-        eprintln!("sample-proof: trace did not complete successfully");
+    let run = snapshot.rsplit_once("\"run\"").map(|(_, run)| run).unwrap_or_default();
+    if string_field(run, "status") != Some("ok") {
+        eprintln!("sample-proof: snapshot did not complete successfully");
         std::process::exit(1);
     }
-    let digest = string_field(&trace, "analysis_digest").unwrap_or_default();
+    let digest = string_field(&snapshot, "analysis_digest").unwrap_or_default();
     if !digest.starts_with("sha256:") {
-        eprintln!("sample-proof: trace is not bound to an analysis digest");
+        eprintln!("sample-proof: snapshot is not bound to an analysis digest");
         std::process::exit(1);
     }
-    println!("sample-proof bound=true digest={digest}");
+    println!("sample-proof claimed_digest={digest}");
 }

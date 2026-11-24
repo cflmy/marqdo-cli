@@ -9,6 +9,9 @@
 //! Temporary directories live under the OS temp directory and are removed on
 //! drop; the repository itself is never modified.
 
+#[path = "support/observation.rs"]
+pub mod observation;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -253,16 +256,16 @@ fn run_json_embeds_program_stdout() {
         "print.mq.md",
         "## @exec main\n\n`打印(\"你好\")`\n\n`打印(42)`\n\n`return None`\n",
     );
-    let output = cli(dir.path(), &["run", "print.mq.md", "--json"]);
-    assert_exit(&output, 0, "run --json must succeed");
+    let output = cli(dir.path(), &["run", "print.mq.md", "--output", "json"]);
+    assert_exit(&output, 0, "run --output json must succeed");
     // Exactly one JSON document on stdout: program output is embedded, never
     // interleaved with the machine-readable envelope.
     let value = json_stdout(&output);
-    assert_eq!(value["command"], "run");
-    assert_eq!(value["success"], true);
-    assert_eq!(value["stdout"], "你好\n42\n");
-    assert_eq!(value["value"]["type"], "none");
-    assert!(value["trace"].as_array().is_some());
+    assert_eq!(value["schema"], "marqdo.observation");
+    assert_eq!(value["run"]["status"], "ok");
+    assert_eq!(observation::text(&value, "stdout.chunk"), "你好\n42\n");
+    assert_eq!(observation::terminal(&value)["value"]["type"], "none");
+    assert!(value["events"].as_array().is_some());
     assert!(stderr_text(&output).is_empty());
 
     // Text mode writes program output only to stdout, no JSON envelope.
@@ -297,24 +300,33 @@ fn call_executes_examples_with_typed_arguments() {
             "数学.阶乘",
             "--arg",
             "n=5",
-            "--json",
+            "--output",
+            "json",
         ],
     );
     assert_exit(&output, 0, "call must execute factorial");
     let value = json_stdout(&output);
-    assert_eq!(value["success"], true);
-    assert_eq!(value["value"]["type"], "int");
-    assert_eq!(value["value"]["decimal"], "120");
+    assert_eq!(value["run"]["status"], "ok");
+    assert_eq!(observation::terminal(&value)["value"]["type"], "int");
+    assert_eq!(observation::terminal(&value)["value"]["decimal"], "120");
 
     let math = examples.join("math.mq.md");
     let output = cli(
         &root,
-        &["call", math.to_str().unwrap(), "计算圆面积", "--json"],
+        &[
+            "call",
+            math.to_str().unwrap(),
+            "计算圆面积",
+            "--output",
+            "json",
+        ],
     );
     assert_exit(&output, 0, "call must execute the math example");
     let value = json_stdout(&output);
-    assert_eq!(value["value"]["type"], "float");
-    let area = value["value"]["value"].as_f64().expect("float value");
+    assert_eq!(observation::terminal(&value)["value"]["type"], "float");
+    let area = observation::terminal(&value)["value"]["value"]
+        .as_f64()
+        .expect("float value");
     assert!(
         (area - std::f64::consts::PI * 16.0).abs() < 1e-12,
         "area={area}"
@@ -323,11 +335,17 @@ fn call_executes_examples_with_typed_arguments() {
     let references = examples.join("references.mq.md");
     let output = cli(
         &root,
-        &["call", references.to_str().unwrap(), "计算作用力", "--json"],
+        &[
+            "call",
+            references.to_str().unwrap(),
+            "计算作用力",
+            "--output",
+            "json",
+        ],
     );
     assert_exit(&output, 0, "call must execute the references example");
     let value = json_stdout(&output);
-    assert_eq!(value["value"]["decimal"], "6");
+    assert_eq!(observation::terminal(&value)["value"]["decimal"], "6");
 
     let hello = examples.join("hello.mq.md");
     let output = cli(&root, &["run", hello.to_str().unwrap()]);
@@ -425,7 +443,8 @@ fn strict_mode_enforces_isolation_or_refuses_closed() {
         assert!(
             stderr.contains("namespace")
                 || stderr.contains("Resource temporarily unavailable")
-                || stderr.contains("os error 11"),
+                || stderr.contains("os error 11")
+                || (stderr.contains("bwrap") && stderr.contains("Permission denied")),
             "strict failure diagnostic does not identify the launch failure: {stderr}"
         );
         assert!(
@@ -436,12 +455,19 @@ fn strict_mode_enforces_isolation_or_refuses_closed() {
 
         let json = cli(
             &root,
-            &["run", hello.to_str().unwrap(), "--mode", "strict", "--json"],
+            &[
+                "run",
+                hello.to_str().unwrap(),
+                "--mode",
+                "strict",
+                "--output",
+                "json",
+            ],
         );
         if json.status.success() {
             let value = json_stdout(&json);
-            assert_eq!(value["success"], true);
-            assert_eq!(value["value"]["type"], "none");
+            assert_eq!(value["run"]["status"], "ok");
+            assert_eq!(observation::terminal(&value)["value"]["type"], "none");
         } else {
             assert_exit(
                 &json,
@@ -449,8 +475,8 @@ fn strict_mode_enforces_isolation_or_refuses_closed() {
                 "strict launch failure keeps exit code 1 in JSON mode",
             );
             let value = json_stdout(&json);
-            assert_eq!(value["success"], false);
-            assert!(value["error"]
+            assert_eq!(value["run"]["status"], "rejected");
+            assert!(observation::terminal(&value)["error"]["message"]
                 .as_str()
                 .expect("error string")
                 .contains("strict"));
@@ -472,19 +498,26 @@ fn strict_mode_enforces_isolation_or_refuses_closed() {
 
     let json = cli(
         &root,
-        &["run", hello.to_str().unwrap(), "--mode", "strict", "--json"],
+        &[
+            "run",
+            hello.to_str().unwrap(),
+            "--mode",
+            "strict",
+            "--output",
+            "json",
+        ],
     );
     assert_exit(&json, 1, "strict refusal keeps exit code 1 in JSON mode");
     let value = json_stdout(&json);
-    assert_eq!(value["success"], false);
-    assert!(value["error"]
+    assert_eq!(value["run"]["status"], "rejected");
+    assert!(observation::terminal(&value)["error"]["message"]
         .as_str()
         .expect("error string")
         .contains("strict mode"));
 }
 
 /// A forged `MARQDO_STRICT_ACTIVE` marker must never be trusted and every
-/// `--json` refusal must still contain exactly one JSON document. This runs on
+/// `--output json` refusal must still contain exactly one JSON document. This runs on
 /// every platform; Linux rejects the marker during identity verification and
 /// non-Linux builds reject it as unsupported.
 #[test]
@@ -494,15 +527,18 @@ fn forged_strict_marker_is_rejected_with_one_json_document() {
     let hello = hello.to_str().unwrap();
     let json = cli_env(
         &root,
-        &["run", hello, "--mode", "strict", "--json"],
+        &["run", hello, "--mode", "strict", "--output", "json"],
         "MARQDO_STRICT_ACTIVE",
         "1",
     );
     assert_exit(&json, 1, "forged strict marker must fail closed");
     let value = json_stdout(&json);
-    assert_eq!(value["command"], "run");
-    assert_eq!(value["success"], false);
-    assert_eq!(value["code"], "strict.identity_invalid");
+    assert_eq!(value["schema"], "marqdo.observation");
+    assert_eq!(value["run"]["status"], "rejected");
+    assert_eq!(
+        observation::terminal(&value)["error"]["code"],
+        "strict.identity_invalid"
+    );
 
     let human = cli_env(
         &root,
@@ -519,7 +555,7 @@ fn forged_strict_marker_is_rejected_with_one_json_document() {
     assert!(stderr_text(&human).contains("strict isolation verification failed"));
 }
 
-/// CLI usage errors in `--json` mode keep the same one-document contract as
+/// CLI usage errors in `--output json` mode keep the same one-document contract as
 /// successful and runtime-failure paths.
 #[test]
 fn json_mode_reports_cli_errors_as_one_document() {
@@ -527,11 +563,17 @@ fn json_mode_reports_cli_errors_as_one_document() {
     let hello = root.join("examples").join("hello.mq.md");
     let hello = hello.to_str().unwrap();
 
-    let mode = cli(&root, &["run", hello, "--mode", "bogus", "--json"]);
+    let mode = cli(
+        &root,
+        &["run", hello, "--mode", "bogus", "--output", "json"],
+    );
     assert_exit(&mode, 2, "unknown mode");
     let value = json_stdout(&mode);
-    assert_eq!(value["success"], false);
-    assert_eq!(value["code"], "cli.invalid_mode");
+    assert_eq!(value["run"]["status"], "rejected");
+    assert_eq!(
+        observation::terminal(&value)["error"]["code"],
+        "cli.invalid_mode"
+    );
 
     let grants = cli(
         &root,
@@ -542,13 +584,17 @@ fn json_mode_reports_cli_errors_as_one_document() {
             "pure",
             "--allow-read",
             "x",
-            "--json",
+            "--output",
+            "json",
         ],
     );
     assert_exit(&grants, 2, "pure mode must reject grants");
     let value = json_stdout(&grants);
-    assert_eq!(value["success"], false);
-    assert_eq!(value["code"], "cli.invalid_grants");
+    assert_eq!(value["run"]["status"], "rejected");
+    assert_eq!(
+        observation::terminal(&value)["error"]["code"],
+        "cli.invalid_grants"
+    );
 
     let strict = cli(
         &root,
@@ -558,13 +604,17 @@ fn json_mode_reports_cli_errors_as_one_document() {
             "--mode",
             "strict",
             "--allow-foreign",
-            "--json",
+            "--output",
+            "json",
         ],
     );
     assert_exit(&strict, 2, "strict L1 must reject foreign grants");
     let value = json_stdout(&strict);
-    assert_eq!(value["success"], false);
-    assert_eq!(value["code"], "strict.unsupported_grant");
+    assert_eq!(value["run"]["status"], "rejected");
+    assert_eq!(
+        observation::terminal(&value)["error"]["code"],
+        "strict.unsupported_grant"
+    );
 }
 
 #[test]
@@ -923,11 +973,11 @@ fn runtime_error_in_imported_module_reports_that_module() {
         "## @exec boom\n\n说明文字。\n\n`x = 1 / 0`\n\n`return x`\n",
     );
 
-    let output = cli(dir.path(), &["run", "index.mq.md", "--json"]);
+    let output = cli(dir.path(), &["run", "index.mq.md", "--output", "json"]);
     assert_exit(&output, 1, "division by zero is a runtime error");
     let value: serde_json::Value =
-        serde_json::from_str(&stdout_text(&output)).expect("run --json emits JSON");
-    let error = &value["error"];
+        serde_json::from_str(&stdout_text(&output)).expect("run --output json emits JSON");
+    let error = &observation::terminal(&value)["error"];
     assert_eq!(error["code"], "runtime.division_by_zero");
     assert!(
         error["module_id"]
@@ -1171,22 +1221,22 @@ fn power_branch_loop_and_inert_code_end_to_end() {
         "branch.mq.md",
         "## @exec main\n\n`n = 2`\n\n`if n ** 2 == 4`\n\n`print(\"乘方正确\")`\n\n`else`\n\n`if n ** 2 != 4`\n\n`print(\"乘方错误\")`\n\n`end`\n\n`end`\n",
     );
-    let branch = cli(dir.path(), &["run", "branch.mq.md", "--json"]);
+    let branch = cli(dir.path(), &["run", "branch.mq.md", "--output", "json"]);
     assert_exit(&branch, 0, "power branch run");
     let value = json_stdout(&branch);
-    assert_eq!(value["success"], true);
-    assert_eq!(value["stdout"], "乘方正确\n");
-    assert_eq!(value["value"]["type"], "unit");
+    assert_eq!(value["run"]["status"], "ok");
+    assert_eq!(observation::text(&value, "stdout.chunk"), "乘方正确\n");
+    assert_eq!(observation::terminal(&value)["value"]["type"], "unit");
 
     dir.write(
         "loop.mq.md",
         "## @exec main\n\n`n = 0`\n\n`limit = 100`\n\n`while n ** 2 < limit`\n\n`n = n + 1`\n\n`end`\n\n`return n`\n",
     );
-    let looped = cli(dir.path(), &["run", "loop.mq.md", "--json"]);
+    let looped = cli(dir.path(), &["run", "loop.mq.md", "--output", "json"]);
     assert_exit(&looped, 0, "power loop run");
     let value = json_stdout(&looped);
-    assert_eq!(value["value"]["type"], "int");
-    assert_eq!(value["value"]["decimal"], "10");
+    assert_eq!(observation::terminal(&value)["value"]["type"], "int");
+    assert_eq!(observation::terminal(&value)["value"]["decimal"], "10");
 
     // A code fence containing power syntax is an inert value: it produces no
     // diagnostics and never changes the returned value.
@@ -1194,10 +1244,10 @@ fn power_branch_loop_and_inert_code_end_to_end() {
         "inert.mq.md",
         "## @exec main\n\n```text\n**n = 2 ** 3**\n```\n\n`x = 1`\n\n`return x`\n\n### @knowledge 说明\n\n正文里的 `2 ** 3` 不执行。\n",
     );
-    let inert = cli(dir.path(), &["run", "inert.mq.md", "--json"]);
+    let inert = cli(dir.path(), &["run", "inert.mq.md", "--output", "json"]);
     assert_exit(&inert, 0, "inert code run");
     let value = json_stdout(&inert);
-    assert_eq!(value["value"]["decimal"], "1");
+    assert_eq!(observation::terminal(&value)["value"]["decimal"], "1");
 }
 
 #[test]

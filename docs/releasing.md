@@ -57,7 +57,7 @@ requires re-running every gate. On that SHA:
    environment and limits; the 9 correctness workloads must still pass. Never
    report TCG/QEMU or development-container timings as G4.
 8. `README`, `CHANGELOG`, `COMPATIBILITY`, `docs/STATUS`, this file,
-   `spec/tool-v1.md`, `spec/plugin-abi.md` and the developer docs are on the
+   `spec/cli-tool.md`, `spec/plugin-abi.md` and the developer docs are on the
    same fact baseline. No "implemented but says Proposed", no "released but
    says DO NOT RELEASE", no product/protocol/package version confusion.
 9. Every shipped binary was actually built and smoke-tested on its claimed
@@ -150,7 +150,7 @@ python3 tools/release/smoke.py \
 
 It verifies the `.sha256`, `RELEASE_INFO.json`/`SOURCE_SHA`, both stdlib
 digests against `stdlib/stdlib.json` and the staged tree, offline
-`--version`/`--help`, `check`/`run`/`call`, lock/sync, Analysis v2/v3 and Trace v2
+`--version`/`--help`, `check`/`run`/`call`, lock/sync, Analysis and Observation
 consumers, Tool install/dispatch, native + worker plugin transports, a foreign
 kernel, Resource Provider v2 through the shipped worker (positive,
 unauthorized and missing-helper fail-closed), the pure math package and optional

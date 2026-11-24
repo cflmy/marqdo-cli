@@ -3,13 +3,13 @@
 
 Extracts the archive into a fresh temporary directory and exercises the shipped
 binaries only (never the development source tree): version/help, check/run/call,
-lock/sync for a path dependency, Analysis v2/v3 and Trace v2 consumers, Tool
+lock/sync for a path dependency, Analysis and Observation consumers, Tool
 install/dispatch, native and worker plugin transports, foreign kernel, the
 Provider v2 worker (positive, unauthorized and missing-helper fail-closed), and
 strict mode when the host genuinely supports it.
 
 Usage:
-    python3 tools/release/smoke.py --archive dist/marqdo-3.0.0-rc.2-x86_64-unknown-linux-gnu.tar.gz
+    python3 tools/release/smoke.py --archive dist/marqdo-3.0.0-rc.3-x86_64-unknown-linux-gnu.tar.gz
 """
 
 from __future__ import annotations
@@ -160,24 +160,24 @@ class Runner:
         return result
 
     def json(self, args: list[str]) -> dict:
-        result = self.run([*args, "--json"])
+        flags = ["--output", "json"] if args[0] in ("run", "call") else ["--json"]
+        result = self.run([*args, *flags])
         try:
             return json.loads(result.stdout)
         except json.JSONDecodeError as error:
-            fail(f"`marqdo {' '.join(args)} --json` is not JSON: {error}\n{result.stdout}")
+            fail(f"`marqdo {' '.join([*args, *flags])}` is not JSON: {error}\n{result.stdout}")
 
 
+ANALYSIS_VERSION = 3
 ANALYSIS_CASES = {
-    2: ("examples/multi-module/index.mq.md", "analysis_consumer.py"),
-    3: ("examples/control-flow.mq.md", "analysis_v3_consumer.py"),
+    "simple": ("examples/multi-module/index.mq.md", ()),
+    "control": ("examples/control-flow.mq.md", ("--require-transfers",)),
 }
 
 
 def verify_analysis_metadata(protocols: dict) -> None:
-    if protocols.get("analysis") != min(ANALYSIS_CASES):
-        fail("RELEASE_INFO.json does not identify the default Analysis version")
-    if protocols.get("analysis_versions") != sorted(ANALYSIS_CASES):
-        fail("RELEASE_INFO.json Analysis versions do not match the archive smoke cases")
+    if protocols.get("analysis") != ANALYSIS_VERSION or "analysis_versions" in protocols:
+        fail("RELEASE_INFO.json must identify only the current Analysis revision")
 
 
 def run_consumer(install: Path, consumer: str, *paths: Path) -> None:
@@ -193,23 +193,23 @@ def run_consumer(install: Path, consumer: str, *paths: Path) -> None:
 def verify_analysis_protocols(runner: Runner, install: Path, info: dict) -> None:
     protocols = info["protocols"]
     verify_analysis_metadata(protocols)
-    for schema_version, (source, consumer) in ANALYSIS_CASES.items():
-        analysis = install / f"analysis-v{schema_version}.json"
-        trace = install / f"trace-for-analysis-v{schema_version}.json"
+    for case, (source, options) in ANALYSIS_CASES.items():
+        analysis = install / f"analysis-{case}.json"
+        snapshot = install / f"observation-{case}.json"
         runner.run(["check", source, "--emit", str(analysis)])
         document = json.loads(analysis.read_text(encoding="utf-8"))
-        if document.get("schema") != "marqdo.analysis" or document.get("schema_version") != schema_version:
-            fail(f"{source} did not produce Analysis v{schema_version}")
+        if document.get("schema") != "marqdo.analysis" or document.get("schema_version") != ANALYSIS_VERSION:
+            fail(f"{source} did not produce Analysis revision {ANALYSIS_VERSION}")
         if document.get("producer", {}).get("version") != info["product_version"]:
             fail("Analysis producer.version does not match the released product version")
-        runner.run(["run", source, "--trace-file", str(trace)])
-        run_consumer(install, consumer, analysis)
-        run_consumer(install, "trace_consumer.py", analysis, trace)
+        runner.run(["run", source, "--observation-file", str(snapshot)])
+        run_consumer(install, "analysis_consumer.py", analysis, *options)
+        run_consumer(install, "observation_consumer.py", "--snapshot", snapshot, "--analysis", analysis)
 
         # CI installs jsonschema. The standalone smoke can use stdlib Python.
         if importlib.util.find_spec("jsonschema") is not None:
             run_consumer(
-                install, "validate_protocols.py", analysis, trace,
+                install, "validate_protocols.py", analysis, snapshot,
                 install / "examples" / "tool-unknown-name" / "tool.json",
             )
 
@@ -291,51 +291,25 @@ def main(argv: list[str]) -> int:
 
         verify_analysis_protocols(runner, install, info)
         runner.run(["check", "examples/multi-module/index.mq.md", "--refs"])
-        # Execution Events v1: the released binary's live NDJSON stream,
-        # validated by the independent consumer shipped in the archive.
+        # Verify both observation destinations from the same installed run.
         run_help = runner.run(["run", "--help"]).stdout
-        if "--event-stream" not in run_help or "--observe-variable" not in run_help:
-            fail("run --help does not advertise Execution Events v1 options")
-        live = runner.run(
-            [
-                "run",
-                "tests/consumers/fixtures/execution-events/basic.mq.md",
-                "--event-stream",
-                "jsonl",
-            ]
-        )
-        events_path = install / "execution-events.jsonl"
+        if any(flag not in run_help for flag in ("--output", "--observation-file", "--observe-variable")):
+            fail("run --help is missing current observation options")
+        snapshot = install / "observation.json"
+        live = runner.run([
+            "run", "tests/consumers/fixtures/observation/basic.mq.md",
+            "--output", "jsonl", "--observation-file", str(snapshot),
+        ])
+        events_path = install / "observation.jsonl"
         events_path.write_text(live.stdout, encoding="utf-8")
-        events = [
-            json.loads(line)
-            for line in live.stdout.splitlines()
-            if line.strip()
-        ]
-        if not events or events[0].get("kind") != "stream.opened":
-            fail("Execution Events stream does not start with stream.opened")
-        if events[0].get("payload", {}).get("producer", {}).get("version") != version:
-            fail("Execution Events producer.version does not match the product version")
-        if events[0].get("schema_version") != info["protocols"].get("execution_events"):
-            fail("Execution Events schema_version does not match RELEASE_INFO.json")
-        if events[-1].get("kind") != "run.completed":
-            fail("Execution Events stream has no successful terminal event")
-        validate_events = subprocess.run(
-            [
-                sys.executable,
-                str(install / "tests" / "consumers" / "execution_events_consumer.py"),
-                str(events_path),
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if validate_events.returncode != 0:
-            if "jsonschema" in validate_events.stderr and "ModuleNotFoundError" in validate_events.stderr:
-                print("smoke: note: jsonschema is not installed; Execution Events schema validation skipped")
-            else:
-                fail(
-                    "execution_events_consumer.py failed:\n"
-                    f"{validate_events.stdout}\n{validate_events.stderr}"
-                )
+        events = [json.loads(line) for line in live.stdout.strip("\n").split("\n")]
+        if events != json.loads(snapshot.read_bytes())["events"]:
+            fail("live events differ from the same run's snapshot")
+        if events[0]["payload"]["producer"]["version"] != version:
+            fail("Observation producer version does not match the archive")
+        if events[0]["schema_version"] != info["protocols"].get("observation"):
+            fail("Observation revision does not match RELEASE_INFO.json")
+        run_consumer(install, "observation_consumer.py", events_path)
 
         # Tool Protocol v1: install and dispatch an independent process.
         runner.run(["tool", "install", "examples/tool-unknown-name/tool.json"])
@@ -408,15 +382,17 @@ def main(argv: list[str]) -> int:
                 "demo.sensor",
             ]
         )
-        if not provider_run.get("success"):
+        if provider_run["run"]["status"] != "ok":
             fail(f"provider run was not successful: {provider_run}")
         reads = [
-            event
-            for event in provider_run.get("trace", [])
-            if event.get("op") == "resource.read"
+            event["payload"]
+            for event in provider_run["events"]
+            if event["kind"] == "effect" and event["payload"]["operation"] == "resource.read"
         ]
-        if not reads or "count=5" not in str(reads[-1].get("result")):
-            fail(f"provider read did not report five bytes: {reads}")
+        if not reads or reads[-1]["result_code"] != "ok":
+            fail(f"provider read did not succeed: {reads}")
+        if provider_run["events"][-1]["payload"]["value"] != {"type": "int", "decimal": "5"}:
+            fail("provider demo did not return its five-byte read count")
         runner.run(
             [
                 "run",

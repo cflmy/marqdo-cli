@@ -1,0 +1,855 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://marqdo.dev/schemas/observation-event.schema.json",
+  "title": "Marqdo Observation Event",
+  "description": "One event shared by live JSONL and JSON snapshots.",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "run_id",
+    "seq",
+    "kind",
+    "payload"
+  ],
+  "properties": {
+    "schema": {
+      "const": "marqdo.observation"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "kind": {
+      "enum": [
+        "stream.opened",
+        "run.started",
+        "call.enter",
+        "observation.truncated",
+        "run.completed",
+        "run.failed",
+        "run.rejected",
+        "stdout.chunk",
+        "stderr.chunk",
+        "call.exit",
+        "return",
+        "branch.eval",
+        "loop.iteration",
+        "effect",
+        "control.break",
+        "control.continue",
+        "variable.assigned",
+        "parameter.observed"
+      ]
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "stream.opened"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "producer",
+              "observation",
+              "limits"
+            ],
+            "properties": {
+              "producer": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "properties": {
+                  "name": {
+                    "const": "marqdo"
+                  },
+                  "version": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": true
+              },
+              "observation": {
+                "type": "object",
+                "required": [
+                  "level",
+                  "values",
+                  "selected_variables",
+                  "selected_parameters",
+                  "allow_text_values"
+                ],
+                "properties": {
+                  "level": {
+                    "enum": [
+                      "base",
+                      "structural",
+                      "values"
+                    ]
+                  },
+                  "values": {
+                    "type": "boolean"
+                  },
+                  "selected_variables": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "selected_parameters": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "allow_text_values": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": true
+              },
+              "limits": {
+                "type": "object",
+                "required": [
+                  "max_observation_events",
+                  "max_observation_bytes",
+                  "max_value_bytes"
+                ],
+                "properties": {
+                  "max_observation_events": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "max_observation_bytes": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "max_value_bytes": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "run.started"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "entry",
+              "mode",
+              "source"
+            ],
+            "properties": {
+              "entry": {
+                "type": "string",
+                "minLength": 1
+              },
+              "mode": {
+                "enum": [
+                  "pure",
+                  "project",
+                  "strict"
+                ]
+              },
+              "source": {
+                "type": "object",
+                "required": [
+                  "root_id",
+                  "analysis_digest"
+                ],
+                "properties": {
+                  "root_id": {
+                    "type": "string",
+                    "pattern": "^(root:|sha256:[0-9a-f]{64}$)"
+                  },
+                  "analysis_digest": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                },
+                "additionalProperties": true
+              },
+              "started_unix_ms": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "stdout.chunk",
+              "stderr.chunk"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "encoding",
+              "data_base64",
+              "byte_count"
+            ],
+            "properties": {
+              "encoding": {
+                "const": "base64"
+              },
+              "data_base64": {
+                "type": "string",
+                "contentEncoding": "base64"
+              },
+              "byte_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "call.enter"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "frame_id",
+              "parent_frame_id",
+              "function_id",
+              "module_id",
+              "span"
+            ],
+            "properties": {
+              "frame_id": {
+                "type": "string",
+                "pattern": "^f[0-9]+$"
+              },
+              "parent_frame_id": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^f[0-9]+$"
+                  }
+                ]
+              },
+              "function_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "module_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "span": {
+                "$ref": "#/$defs/span"
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "call.exit"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "frame_id",
+              "status",
+              "module_id",
+              "span"
+            ],
+            "properties": {
+              "frame_id": {
+                "type": "string",
+                "pattern": "^f[0-9]+$"
+              },
+              "status": {
+                "type": "string",
+                "minLength": 1
+              },
+              "module_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "span": {
+                "$ref": "#/$defs/span"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "return"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "frame_id",
+              "value_type",
+              "module_id",
+              "span"
+            ],
+            "properties": {
+              "frame_id": {
+                "type": "string",
+                "pattern": "^f[0-9]+$"
+              },
+              "value_type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "module_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "span": {
+                "$ref": "#/$defs/span"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "branch.eval"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "frame_id",
+              "result",
+              "module_id",
+              "span"
+            ],
+            "properties": {
+              "frame_id": {
+                "type": "string",
+                "pattern": "^f[0-9]+$"
+              },
+              "result": {
+                "type": "boolean"
+              },
+              "module_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "span": {
+                "$ref": "#/$defs/span"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "loop.iteration"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "frame_id",
+              "decision",
+              "module_id",
+              "span"
+            ],
+            "properties": {
+              "frame_id": {
+                "type": "string",
+                "pattern": "^f[0-9]+$"
+              },
+              "decision": {
+                "enum": [
+                  "continue",
+                  "exit"
+                ]
+              },
+              "module_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "span": {
+                "$ref": "#/$defs/span"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "effect"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "frame_id",
+              "operation",
+              "result_code",
+              "module_id",
+              "span"
+            ],
+            "properties": {
+              "frame_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^f[0-9]+$"
+              },
+              "operation": {
+                "type": "string",
+                "minLength": 1
+              },
+              "result_code": {
+                "type": "string",
+                "minLength": 1
+              },
+              "module_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "span": {
+                "$ref": "#/$defs/span"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "control.break",
+              "control.continue"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "frame_id",
+              "module_id",
+              "span"
+            ],
+            "properties": {
+              "frame_id": {
+                "type": "string",
+                "pattern": "^f[0-9]+$"
+              },
+              "module_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "span": {
+                "type": "object",
+                "$ref": "#/$defs/span"
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "variable.assigned",
+              "parameter.observed"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "frame_id",
+              "name",
+              "value_type",
+              "module_id",
+              "span",
+              "value_state"
+            ],
+            "properties": {
+              "frame_id": {
+                "type": "string",
+                "pattern": "^f[0-9]+$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source": {
+                "enum": [
+                  "provided",
+                  "default"
+                ]
+              },
+              "value_type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "module_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "span": {
+                "$ref": "#/$defs/span"
+              },
+              "value_state": {
+                "enum": [
+                  "not_requested",
+                  "redacted",
+                  "truncated",
+                  "unsupported",
+                  "observed"
+                ]
+              },
+              "value": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "observation.truncated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "reason",
+              "limit",
+              "written",
+              "dropped"
+            ],
+            "properties": {
+              "reason": {
+                "enum": [
+                  "event_budget",
+                  "byte_budget"
+                ]
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "written": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "dropped": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "run.completed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "status",
+              "value",
+              "value_type"
+            ],
+            "properties": {
+              "status": {
+                "const": "ok"
+              },
+              "value": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "value_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "run.failed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "status",
+              "error"
+            ],
+            "properties": {
+              "status": {
+                "const": "error"
+              },
+              "error": {
+                "$ref": "#/$defs/error"
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "run.rejected"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "status",
+              "phase",
+              "error"
+            ],
+            "properties": {
+              "status": {
+                "const": "rejected"
+              },
+              "phase": {
+                "enum": [
+                  "options",
+                  "prepare",
+                  "compile",
+                  "authorization",
+                  "strict"
+                ]
+              },
+              "error": {
+                "$ref": "#/$defs/error"
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "span": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "start",
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "end": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "error": {
+      "type": "object",
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string"
+        },
+        "module_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

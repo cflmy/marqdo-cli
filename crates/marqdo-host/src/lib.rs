@@ -1,4 +1,4 @@
-//! CapabilityHost: capability checks, resource budgets, effect tracing and the
+//! CapabilityHost: capability checks, resource budgets, observation and the
 //! only bridge to math, foreign kernels, files and plugins.
 //!
 //! Blueprint §9 and §7.3: every side effect goes through this boundary, checks
@@ -17,7 +17,6 @@ mod process;
 mod provider_c;
 mod provider_worker;
 pub mod resource;
-pub mod trace;
 
 pub use budget::{Budget, DEFAULT_FUEL, DEFAULT_OUTPUT_BYTES, DEFAULT_STACK_LIMIT};
 pub use capability::{
@@ -39,4 +38,3 @@ pub use resource::{
     is_core_resource_kind, ResourceProvider, ResourceRead, ResourceTable, SharedResourceProvider,
     CORE_RESOURCE_KINDS,
 };
-pub use trace::{EffectTrace, SemanticEvent, TraceBudget, TraceEntry, TraceState, TraceTruncation};

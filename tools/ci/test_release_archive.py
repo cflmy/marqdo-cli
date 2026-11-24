@@ -68,14 +68,9 @@ class ReleaseArchiveContractTest(unittest.TestCase):
         self.assertIn('"stdlib": stdlib_info', source)
         self.assertIn("verify_stdlib()", source)
 
-    def test_archive_analysis_metadata_preserves_default_and_declares_each_major(self) -> None:
-        self.smoke.verify_analysis_metadata({"analysis": 2, "analysis_versions": [2, 3]})
-        for malformed in (
-            {"analysis": 3, "analysis_versions": [2, 3]},
-            {"analysis": 2, "analysis_versions": [2]},
-            {"analysis": 2, "analysis_versions": [2, 3, 4]},
-            {"analysis": 2},
-        ):
+    def test_archive_declares_only_current_analysis_revision(self) -> None:
+        self.smoke.verify_analysis_metadata({"analysis": 3})
+        for malformed in ({"analysis": 2}, {"analysis": 3, "analysis_versions": [3]}, {}):
             with self.subTest(protocols=malformed), contextlib.redirect_stderr(io.StringIO()):
                 with self.assertRaises(SystemExit):
                     self.smoke.verify_analysis_metadata(malformed)

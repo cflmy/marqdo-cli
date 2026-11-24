@@ -1,5 +1,8 @@
 # ADR-0067 — Multi-arm branches and nearest-loop control
 
+> Historical public protocol sections. Current Analysis, runtime output and
+> Tool contracts are specified by [ADR-0068](0068-single-current-public-contracts.md).
+
 Status: Accepted for development. Release inclusion requires a maintainer
 decision and the applicable same-SHA release gates.
 

@@ -11,20 +11,32 @@
   [development-credentials.md](development-credentials.md). Do not put tokens in
   pipeline files or commit messages.
 
-The default Docker pipeline runs on push and pull request:
+The default Docker pipeline runs on push and pull request. A fast `contract`
+lane exercises the public Analysis/Observation contracts through the real CLI
+and the independent Python consumers; the full `test` lane runs the Rust gates
+and the Windows cross-target compile check; `build` packages the archive, runs
+the from-archive smoke and the frozen external conformance suite.
 
 ```text
+contract:
+  cargo build --locked -p marqdo-cli -p marqdo-provider-worker
+  real CLI check/run over the Observation fixtures
+  analysis_consumer / observation_consumer / validate_protocols
+  stream==snapshot assertion and stale-Analysis rejection
+
 test:
   rustup component add clippy rustfmt
   apt install curl/ca-certificates/python3/python3-jsonschema + Node.js 22
   cargo fmt --all -- --check
   cargo clippy --workspace --all-targets -- -D warnings
-  cargo build --locked -p marqdo-provider-worker
+  cargo build --locked -p marqdo-cli -p marqdo-provider-worker
   cargo test --workspace --locked
-  cargo run --locked -p marqdo-cli -- run \
-    tests/consumers/fixtures/execution-events/basic.mq.md --event-stream jsonl \
-    > /tmp/execution-events.jsonl
-  python3 tests/consumers/execution_events_consumer.py /tmp/execution-events.jsonl
+  check + run tests/consumers/fixtures/observation/basic.mq.md
+  analysis_consumer.py / observation_consumer.py (stream + snapshot)
+  check + run the nested-loop control-flow conformance fixture
+  validate_protocols.py / analysis_consumer.py --require-transfers
+  observation_consumer.py (stream, snapshot, stale-Analysis rejection)
+  stream JSONL == snapshot events assertion
   cargo test -p marqdo-cli --test docs_consistency
   cargo test -p marqdo-cli --test architecture_boundaries
   cargo test -p marqdo-cli --test stdlib_product
@@ -34,8 +46,12 @@ test:
 
 build (depends on test):
   cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
-  package + cold-install smoke (which now validates live Execution Events v1)
+  package + cold-install smoke (current Analysis/Observation contracts)
 ```
+
+The pipeline is a protocol consumer itself: it must exercise only the current
+Analysis and Observation contracts. `docs_consistency::ci_configuration_uses_only_current_protocols`
+fails if a retired option or consumer name returns.
 
 Node.js 22 is required because the optional foreign-kernel tests use ES-module
 syntax; Debian bookworm's Node 18 fails those tests.

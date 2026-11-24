@@ -7,16 +7,15 @@
 mod analysis;
 mod args;
 mod commands;
-mod execution_events;
 mod extension_descriptors;
 mod extension_selection;
 mod loader;
+mod observation;
 mod output;
 mod project_prepare;
 mod provider_manifest;
 mod stdlib;
 mod tool;
-mod trace;
 
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -35,69 +34,44 @@ struct Cli {
     command: Command,
 }
 
-/// Execution Events v1 options (RFC-OBS-0001).
-///
-/// `--event-stream jsonl` makes the CLI stdout a dedicated NDJSON channel;
-/// program stdout/stderr become events. It is mutually exclusive with
-/// `--json` and is not accepted by static commands.
+/// Output and capture options for run and call.
 #[derive(Args, Clone)]
 struct ObserveArgs {
-    /// Stream Execution Events v1 as JSON Lines on stdout (only `jsonl`).
-    #[arg(
-        long = "event-stream",
-        value_name = "FORMAT",
-        value_parser = [execution_events::FORMAT_JSONL],
-        conflicts_with = "json"
-    )]
-    event_stream: Option<String>,
+    /// Select terminal text, a JSON observation snapshot or live JSON Lines.
+    #[arg(long, value_enum, default_value = "text")]
+    output: observation::OutputFormat,
+    /// Atomically save a private observation snapshot of this run.
+    #[arg(long, value_name = "PATH")]
+    observation_file: Option<PathBuf>,
     /// Publish the value of one exactly named local variable (repeatable).
-    #[arg(
-        long = "observe-variable",
-        value_name = "NAME",
-        requires = "event_stream"
-    )]
+    #[arg(long = "observe-variable", value_name = "NAME")]
     observe_variable: Vec<String>,
     /// Publish the value of one exactly named parameter (repeatable).
-    #[arg(
-        long = "observe-parameter",
-        value_name = "NAME",
-        requires = "event_stream"
-    )]
+    #[arg(long = "observe-parameter", value_name = "NAME")]
     observe_parameter: Vec<String>,
     /// Allow selected Text values to be published (second explicit consent).
-    #[arg(long = "observe-text-values", requires = "event_stream")]
+    #[arg(long = "observe-text-values")]
     observe_text_values: bool,
     /// Maximum encoded source bytes for one observed value (0 = unlimited).
-    #[arg(
-        long = "observe-max-value-bytes",
-        value_name = "BYTES",
-        requires = "event_stream"
-    )]
+    #[arg(long = "observe-max-value-bytes", value_name = "BYTES")]
     observe_max_value_bytes: Option<usize>,
     /// Override the structural/value event budget (0 = unlimited).
-    #[arg(
-        long = "observe-max-events",
-        value_name = "COUNT",
-        requires = "event_stream"
-    )]
+    #[arg(long = "observe-max-events", value_name = "COUNT")]
     observe_max_events: Option<u64>,
     /// Override the approximate structural/value byte budget (0 = unlimited).
-    #[arg(
-        long = "observe-max-bytes",
-        value_name = "BYTES",
-        requires = "event_stream"
-    )]
+    #[arg(long = "observe-max-bytes", value_name = "BYTES")]
     observe_max_bytes: Option<u64>,
 }
 
 impl ObserveArgs {
-    fn options(&self) -> Option<execution_events::ObservationOptions> {
-        self.event_stream.as_ref()?;
-        let mut options = execution_events::ObservationOptions {
+    fn options(&self) -> observation::ObservationOptions {
+        let mut options = observation::ObservationOptions {
+            output: self.output,
+            file: self.observation_file.clone(),
             variables: self.observe_variable.clone(),
             parameters: self.observe_parameter.clone(),
             allow_text_values: self.observe_text_values,
-            ..execution_events::ObservationOptions::default()
+            ..observation::ObservationOptions::default()
         };
         if let Some(bytes) = self.observe_max_value_bytes {
             options.max_value_bytes = bytes;
@@ -108,7 +82,7 @@ impl ObserveArgs {
         if let Some(bytes) = self.observe_max_bytes {
             options.max_bytes = bytes;
         }
-        Some(options)
+        options
     }
 }
 
@@ -220,15 +194,6 @@ struct SandboxArgs {
     /// (repeatable; wildcards are not supported).
     #[arg(long = "allow-provider", value_name = "NAME")]
     allow_provider: Vec<String>,
-    /// Write a versioned Trace v2 file for this run.
-    #[arg(long = "trace-file", value_name = "PATH")]
-    trace_file: Option<PathBuf>,
-    /// Override the trace event budget (0 = unlimited).
-    #[arg(long = "trace-max-events")]
-    trace_max_events: Option<usize>,
-    /// Override the approximate trace byte budget (0 = unlimited).
-    #[arg(long = "trace-max-bytes")]
-    trace_max_bytes: Option<usize>,
     /// Register an external foreign-kernel provider (repeatable).
     #[arg(long = "kernel", value_name = "PATH")]
     kernel: Vec<PathBuf>,
@@ -259,9 +224,6 @@ impl SandboxArgs {
             providers: self.provider.clone(),
             allow_provider: self.allow_provider.clone(),
             trust_native_plugin: self.trust_native_plugin,
-            trace_file: self.trace_file.clone(),
-            trace_max_events: self.trace_max_events,
-            trace_max_bytes: self.trace_max_bytes,
             kernels: self.kernel.clone(),
         }
     }
@@ -273,12 +235,6 @@ struct RunArgs {
     file: Option<PathBuf>,
     #[command(flatten)]
     sandbox: SandboxArgs,
-    /// Machine readable JSON output; program stdout is embedded, never mixed.
-    #[arg(long)]
-    json: bool,
-    /// Include the host effect trace.
-    #[arg(long)]
-    trace: bool,
     #[command(flatten)]
     observe: ObserveArgs,
 }
@@ -294,12 +250,6 @@ struct CallArgs {
     args: Vec<String>,
     #[command(flatten)]
     sandbox: SandboxArgs,
-    /// Machine readable JSON output.
-    #[arg(long)]
-    json: bool,
-    /// Include the host effect trace.
-    #[arg(long)]
-    trace: bool,
     #[command(flatten)]
     observe: ObserveArgs,
 }
@@ -314,7 +264,7 @@ struct CheckArgs {
     /// Declare a plugin manifest for static export-signature checking.
     #[arg(long = "plugin", value_name = "PATH")]
     plugin: Vec<PathBuf>,
-    /// Write public Analysis JSON, using v3 for projects with loop transfers.
+    /// Write the current public Analysis JSON for the checked project.
     #[arg(long, value_name = "PATH")]
     emit: Option<PathBuf>,
     /// Machine readable JSON output.
@@ -514,36 +464,20 @@ fn dispatch() -> i32 {
             };
             commands::inspect(args.file.as_deref(), &flags, args.json, &args.plugin)
         }
-        Command::Run(args) => {
-            let observation = args.observe.options();
-            commands::execute(
-                args.file.as_deref(),
-                None,
-                &[],
-                &args.sandbox.settings(),
-                args.json,
-                args.trace,
-                observation.as_ref(),
-            )
-        }
-        Command::Call(args) => match commands::parse_named_args(&args.args) {
-            Ok(named) => {
-                let observation = args.observe.options();
-                commands::execute(
-                    Some(&args.file),
-                    Some(&args.function),
-                    &named,
-                    &args.sandbox.settings(),
-                    args.json,
-                    args.trace,
-                    observation.as_ref(),
-                )
-            }
-            Err(error) => {
-                eprintln!("error: {error}");
-                2
-            }
-        },
+        Command::Run(args) => commands::execute(
+            args.file.as_deref(),
+            None,
+            Ok(Vec::new()),
+            &args.sandbox.settings(),
+            &args.observe.options(),
+        ),
+        Command::Call(args) => commands::execute(
+            Some(&args.file),
+            Some(&args.function),
+            commands::parse_named_args(&args.args),
+            &args.sandbox.settings(),
+            &args.observe.options(),
+        ),
         Command::Fmt(args) => commands::fmt(args.file.as_deref(), args.check),
         Command::Plugin(args) => match args.command {
             PluginCommand::Inspect(args) => commands::plugin_inspect(&args.target, args.json),

@@ -78,8 +78,8 @@ echo "== positive CLI contract =="
 "$bin" run examples/hello.mq.md --mode strict | grep -q "你好，Marqdo"
 "$bin" call examples/factorial.mq.md 数学.阶乘 --arg n=5 --mode strict | grep -qx "120"
 "$bin" run examples/multi-module/index.mq.md --mode strict >/dev/null
-"$bin" run examples/hello.mq.md --mode strict --json | python3 -c \
-  'import json,sys; d=json.load(sys.stdin); assert d["success"] is True'
+"$bin" run examples/hello.mq.md --mode strict --output json | python3 -c \
+  'import json,sys; d=json.load(sys.stdin); assert d["run"]["status"] == "ok"'
 
 echo "== strict language resources are console-only =="
 mkdir -p .cache/security
@@ -141,7 +141,8 @@ reject --allow-write 'data/**'
 reject --allow-net 127.0.0.1
 reject --trust-native-plugin --plugin examples/plugin-demo/build
 reject --kernel examples/kernel-mock/kernel.json
-reject --trace-file /tmp/marqdo-trace.json
+reject --observation-file /tmp/marqdo-observation.json
+reject --output jsonl
 
 echo "== @knowledge payloads stay inert under strict =="
 rm -f .cache/security/knowledge-side-effect.txt
@@ -174,7 +175,7 @@ fi
 # exactly one parseable document with the stable code.
 forged_json="$(mktemp)"
 set +e
-MARQDO_STRICT_ACTIVE=1 "$bin" run examples/hello.mq.md --mode strict --json >"$forged_json" 2>/dev/null
+MARQDO_STRICT_ACTIVE=1 "$bin" run examples/hello.mq.md --mode strict --output json >"$forged_json" 2>/dev/null
 code=$?
 set -e
 if [ "$code" -ne 1 ]; then
@@ -188,9 +189,9 @@ import sys
 
 with open(sys.argv[1], encoding="utf-8") as handle:
     document = json.load(handle)
-if document.get("success") is not False:
+if document["run"]["status"] != "rejected":
     raise SystemExit(f"forged marker JSON is not a failure: {document}")
-if document.get("code") != "strict.identity_invalid":
+if document["events"][-1]["payload"]["error"]["code"] != "strict.identity_invalid":
     raise SystemExit(f"forged marker JSON code drifted: {document}")
 PY
 rm -f "$forged_json"

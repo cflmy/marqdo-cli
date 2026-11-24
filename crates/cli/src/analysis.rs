@@ -1,4 +1,4 @@
-//! Public Analysis projection (spec/analysis-v2.md and spec/analysis-v3.md).
+//! Public Analysis projection (spec/analysis.md).
 //!
 //! This is deliberately not a serde dump of `marqdo-ir`: the schema and node
 //! kinds are the public contract, while internal Rust types may change. The
@@ -17,24 +17,13 @@ use crate::loader::LoadedProject;
 
 /// Schema name and version.
 pub const SCHEMA: &str = "marqdo.analysis";
-pub const BASE_VERSION: u32 = 2;
-/// First schema version with structured loop transfers.
-pub const LOOP_CONTROL_VERSION: u32 = 3;
+pub const SCHEMA_VERSION: u32 = 3;
 
 /// Build the deterministic public projection.
 pub fn build(project: &LoadedProject) -> Value {
     let mut modules = Vec::new();
-    let mut version = BASE_VERSION;
     for (module_id, file) in &project.files {
         let module = &file.analysis.module;
-        if version == BASE_VERSION
-            && module
-                .functions
-                .iter()
-                .any(|function| has_loop_control(&function.body))
-        {
-            version = LOOP_CONTROL_VERSION;
-        }
         modules.push(json!({
             "id": module_id.to_string(),
             "package_instance_id": module_id.instance,
@@ -60,7 +49,7 @@ pub fn build(project: &LoadedProject) -> Value {
     });
     json!({
         "schema": SCHEMA,
-        "schema_version": version,
+        "schema_version": SCHEMA_VERSION,
         "producer": {
             "name": "marqdo",
             "version": env!("CARGO_PKG_VERSION"),
@@ -81,26 +70,15 @@ pub fn build(project: &LoadedProject) -> Value {
     })
 }
 
-fn has_loop_control(body: &[Stmt]) -> bool {
-    body.iter().any(|stmt| match stmt {
-        Stmt::Break { .. } | Stmt::Continue { .. } => true,
-        Stmt::Branch { arms, .. } => arms.iter().any(|arm| has_loop_control(&arm.body)),
-        Stmt::Loop { body, .. } => has_loop_control(body),
-        Stmt::Assign { .. } | Stmt::Eval { .. } | Stmt::Return { .. } => false,
-    })
-}
-
 /// Encode exactly the bytes written by `check --emit`.
 fn encode(project: &LoadedProject) -> Result<Vec<u8>, String> {
     serde_json::to_vec_pretty(&build(project))
         .map_err(|error| format!("cannot encode analysis: {error}"))
 }
 
-/// SHA-256 of the exact emitted Analysis bytes (Trace binds to this digest).
-pub fn digest(project: &LoadedProject) -> String {
-    encode(project)
-        .map(|bytes| sha256_hex(&bytes))
-        .unwrap_or_else(|_| sha256_hex(b""))
+/// SHA-256 of the exact emitted Analysis bytes.
+pub fn digest(project: &LoadedProject) -> Result<String, String> {
+    encode(project).map(|bytes| format!("sha256:{}", sha256_hex(&bytes)))
 }
 
 /// Atomically write the projection. An error must not leave a stale success

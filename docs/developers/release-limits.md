@@ -1,4 +1,4 @@
-# Marqdo 3.0.0-rc.2 — known limitations
+# Marqdo 3.0.0-rc.3 — known limitations
 
 This file ships in the release archive as `KNOWN_LIMITATIONS.md`. It is part of
 the release record: it defines the platform and feature scope for the release candidate.
@@ -57,10 +57,10 @@ Even when available:
 
 ## Compatibility and versioning
 
-* `3.0.0-rc.2` is a **prerelease**. The changelog lists changes from the beta.
-* The product version is independent of protocol versions: Analysis v2, Trace
-  v2, Execution Events v1, Tool v1, Plugin ABI v1, Foreign wire v1, Provider
-  manifest v2 and lock v4 keep their own major numbers.
+* `3.0.0-rc.3` is a **prerelease**. The changelog lists changes from the beta.
+* The product version is independent of protocol versions: Analysis,
+  Observation, CLI Tool, Plugin ABI v1, Foreign wire v1, Provider manifest v2
+  and lock v4 keep their own identifiers.
 * The official bundled stdlib keeps its independent package version `0.1.0`.
   A plugin `.mq.md` package version such as `0.1.0` is also independent.
 * `project.marqdo` in `marqdo.yaml` is enforced in this release. SemVer
@@ -84,7 +84,7 @@ an untrusted Git URL does not make the code trustworthy.
 * Not implemented: memory region/budget metadata (OBS-06/P2), raw memory
   content, breakpoints/stepping/time travel, and a bidirectional debug
   protocol. Do not infer a debugger from this protocol.
-* `--mode strict` currently rejects `--event-stream` explicitly; there is no
+* `--mode strict` currently rejects `--output jsonl` explicitly; there is no
   silent fallback to `project`.
 * The live lane is tested on Linux x86_64; macOS/Windows are unverified for
   this option for this candidate.

@@ -2,9 +2,9 @@
 
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::{ErrorCategory, ExecutionContext, Host, RuntimeError, SandboxMode, StdHost, Value};
+use super::{ErrorCategory, ExecutionContext, RuntimeError, SandboxMode, StdHost, Value};
 
 impl StdHost {
     pub(super) fn request_compatibility_operation(
@@ -13,7 +13,6 @@ impl StdHost {
         args: Vec<Value>,
         ctx: &ExecutionContext,
     ) -> Result<Value, RuntimeError> {
-        let started = Instant::now();
         if self.mode != SandboxMode::Project {
             return Err(RuntimeError::new(
                 ErrorCategory::PermissionDenied,
@@ -72,14 +71,7 @@ impl StdHost {
                 self.capabilities.check_process(&program, ctx.span)?;
                 let result =
                     crate::process::run_process(self.fs.root(), &program, &program_args, ctx)?;
-                self.record_semantic(
-                    "resource.request",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some("op=process.run"),
-                );
-                self.record_resource_effect("resource.request", ctx, started, "process.run");
+                self.observe_effect("process.run", "ok", ctx);
                 Ok(result)
             }
             "regex.match" | "regex.captures" => {
@@ -116,14 +108,7 @@ impl StdHost {
                         ))
                     }
                 };
-                self.record_semantic(
-                    "resource.request",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some(operation),
-                );
-                self.record_resource_effect("resource.request", ctx, started, operation);
+                self.observe_effect(operation, "ok", ctx);
                 let mut map = BTreeMap::new();
                 map.insert("ok".to_string(), Value::Bool(true));
                 if operation == "regex.match" {
@@ -192,14 +177,7 @@ impl StdHost {
                     .into_iter()
                     .map(|byte| Value::int(byte as i64))
                     .collect();
-                self.record_semantic(
-                    "resource.request",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some("op=compress.gzip"),
-                );
-                self.record_resource_effect("resource.request", ctx, started, "compress.gzip");
+                self.observe_effect("compress.gzip", "ok", ctx);
                 let mut map = BTreeMap::new();
                 map.insert("ok".to_string(), Value::Bool(true));
                 map.insert("value".to_string(), Value::List(values));
@@ -274,14 +252,7 @@ impl StdHost {
                         ))
                     }
                 };
-                self.record_semantic(
-                    "resource.request",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some("op=compress.gunzip"),
-                );
-                self.record_resource_effect("resource.request", ctx, started, "compress.gunzip");
+                self.observe_effect("compress.gunzip", "ok", ctx);
                 let mut map = BTreeMap::new();
                 map.insert("ok".to_string(), Value::Bool(true));
                 map.insert("value".to_string(), Value::text(text));
@@ -326,14 +297,7 @@ impl StdHost {
                     .into_iter()
                     .map(|byte| Value::int(byte as i64))
                     .collect();
-                self.record_semantic(
-                    "resource.request",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some("op=random.bytes"),
-                );
-                self.record_resource_effect("resource.request", ctx, started, "random.bytes");
+                self.observe_effect("random.bytes", "ok", ctx);
                 let mut map = BTreeMap::new();
                 map.insert("ok".to_string(), Value::Bool(true));
                 map.insert("value".to_string(), Value::List(values));
@@ -385,14 +349,7 @@ impl StdHost {
                         );
                     }
                 }
-                self.record_semantic(
-                    "resource.request",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some("op=env.get"),
-                );
-                self.record_resource_effect("resource.request", ctx, started, "env.get");
+                self.observe_effect("env.get", "ok", ctx);
                 Ok(Value::Map(map))
             }
             "clock.now" => {
@@ -420,14 +377,7 @@ impl StdHost {
                 let mut map = BTreeMap::new();
                 map.insert("ok".to_string(), Value::Bool(true));
                 map.insert("value".to_string(), Value::int(millis));
-                self.record_semantic(
-                    "resource.request",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some("op=clock.now"),
-                );
-                self.record_resource_effect("resource.request", ctx, started, "clock.now");
+                self.observe_effect("clock.now", "ok", ctx);
                 Ok(Value::Map(map))
             }
             "fs.read_at" => {
@@ -470,14 +420,7 @@ impl StdHost {
                 let result = self
                     .fs
                     .request("read_at", &[path, offset, length], ctx.span)?;
-                self.record_semantic(
-                    "resource.request",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some("op=fs.read_at"),
-                );
-                self.record_resource_effect("resource.request", ctx, started, "fs.read_at");
+                self.observe_effect("fs.read_at", "ok", ctx);
                 Ok(result)
             }
             "fs.append" => {
@@ -507,14 +450,7 @@ impl StdHost {
                 };
                 self.capabilities.check_write(&path, ctx.span)?;
                 let result = self.fs.request("append", &[path, text], ctx.span)?;
-                self.record_semantic(
-                    "resource.request",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some("op=fs.append"),
-                );
-                self.record_resource_effect("resource.request", ctx, started, "fs.append");
+                self.observe_effect("fs.append", "ok", ctx);
                 Ok(result)
             }
             "fs.walk" => {
@@ -537,14 +473,7 @@ impl StdHost {
                 };
                 self.capabilities.check_read(&path, ctx.span)?;
                 let result = self.fs.request("walk", &[path], ctx.span)?;
-                self.record_semantic(
-                    "resource.request",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some("op=fs.walk"),
-                );
-                self.record_resource_effect("resource.request", ctx, started, "fs.walk");
+                self.observe_effect("fs.walk", "ok", ctx);
                 Ok(result)
             }
             "fs.exists" | "fs.metadata" | "fs.list" | "fs.mkdir" | "fs.remove" | "fs.rename" => {
@@ -587,19 +516,7 @@ impl StdHost {
                     _ => unreachable!(),
                 }
                 let result = self.fs.request(name, &paths, ctx.span)?;
-                self.record_semantic(
-                    "resource.request",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some(&format!("op=fs.{name}")),
-                );
-                self.record_resource_effect(
-                    "resource.request",
-                    ctx,
-                    started,
-                    &format!("fs.{name}"),
-                );
+                self.observe_effect("resource.request", "ok", ctx);
                 Ok(result)
             }
             _ => {

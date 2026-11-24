@@ -1,4 +1,4 @@
-//! External CLI Tool Protocol v1 black-box tests (spec/tool-v1.md).
+//! External CLI CLI Tool black-box tests (spec/cli-tool.md).
 //!
 //! The tool fixture is compiled with rustc from `tests/fixtures/tool_echo.rs`
 //! rather than a shell script, so these tests run on Windows and macOS too.
@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::OnceLock;
+
+use sha2::Digest;
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -95,7 +97,7 @@ fn write_tool(dir: &Path, command: &str, _script: &str) -> PathBuf {
     std::fs::write(
         &manifest,
         format!(
-            r#"{{"schema":"marqdo.cli-tool","schema_version":1,"name":"demo.{command}","version":"0.1.0","command":"{command}","entrypoint":"{entrypoint}","compatibility":{{"marqdo":">=3.0.0-beta.1,<4.0.0"}}}}"#
+            r#"{{"schema":"marqdo.cli-tool","schema_version":1,"name":"demo.{command}","version":"0.1.0","command":"{command}","entrypoint":"{entrypoint}","requires":{{"api_revision":1}}}}"#
         ),
     )
     .unwrap();
@@ -120,7 +122,7 @@ fn repo_root() -> PathBuf {
 }
 
 /// Compile one of the checked-in independent consumer samples and package it
-/// as a Tool Protocol v1 bundle. Sources live in `examples/tool-samples/` so
+/// as a CLI Tool bundle. Sources live in `examples/tool-samples/` so
 /// they are reviewable software, not hidden test strings.
 fn write_sample_from_source(dir: &Path, command: &str) -> PathBuf {
     let root = repo_root();
@@ -137,20 +139,18 @@ fn write_sample_from_source(dir: &Path, command: &str) -> PathBuf {
         .status()
         .expect("run rustc for the sample tool");
     assert!(status.success(), "rustc failed for {command}");
-    let entrypoint = format!("bin/{command}{}", std::env::consts::EXE_SUFFIX);
     let manifest = package.join("tool.json");
-    std::fs::write(
-        &manifest,
-        format!(
-            r#"{{"schema":"marqdo.cli-tool","schema_version":1,"name":"demo.{command}","version":"0.1.0","command":"{command}","entrypoint":"{entrypoint}","compatibility":{{"marqdo":">=3.0.0-beta.1,<4.0.0","analysis":[2],"trace":[2]}}}}"#
-        ),
-    )
-    .unwrap();
+    let template = root.join(format!("examples/tool-samples/{command}/tool.json"));
+    let mut document: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(template).unwrap()).unwrap();
+    document["entrypoint"] =
+        serde_json::json!(format!("bin/{command}{}", std::env::consts::EXE_SUFFIX));
+    std::fs::write(&manifest, document.to_string()).unwrap();
     manifest
 }
 
 #[test]
-fn independent_sample_tools_consume_public_analysis_and_trace() {
+fn independent_sample_tools_consume_public_analysis_and_observation() {
     let dir = TempDir::new("samples");
     let home = dir.path().join("home");
     let analysis = dir.path().join("analysis.json");
@@ -170,7 +170,11 @@ fn independent_sample_tools_consume_public_analysis_and_trace() {
         .expect("run check");
     assert!(check.status.success(), "check failed: {}", stderr(&check));
     let run = Command::new(binary())
-        .args(["run", "examples/multi-module/index.mq.md", "--trace-file"])
+        .args([
+            "run",
+            "examples/multi-module/index.mq.md",
+            "--observation-file",
+        ])
         .arg(&trace)
         .current_dir(&root)
         .output()
@@ -200,22 +204,22 @@ fn independent_sample_tools_consume_public_analysis_and_trace() {
     assert_eq!(view.status.code(), Some(0), "{}", stderr(&view));
     let text = stdout(&view);
     assert!(
-        text.contains("sample-view schema=marqdo.analysis version=2"),
+        text.contains("sample-view schema=marqdo.analysis version=3"),
         "{text}"
     );
     assert!(text.contains("modules="), "{text}");
 
     let knowledge = cli(
         &home,
-        &["sample-knowledge", "--trace", trace.to_str().unwrap()],
+        &["sample-knowledge", "--analysis", analysis.to_str().unwrap()],
     );
     assert_eq!(knowledge.status.code(), Some(0), "{}", stderr(&knowledge));
     let text = stdout(&knowledge);
     assert!(
-        text.contains("sample-knowledge schema=marqdo.trace version=2"),
+        text.contains("sample-knowledge schema=marqdo.analysis version=3"),
         "{text}"
     );
-    assert!(text.contains("status=ok"), "{text}");
+    assert!(text.contains("reference_sets="), "{text}");
 
     let proof = cli(
         &home,
@@ -223,14 +227,20 @@ fn independent_sample_tools_consume_public_analysis_and_trace() {
             "sample-proof",
             "--analysis",
             analysis.to_str().unwrap(),
-            "--trace",
+            "--observation",
             trace.to_str().unwrap(),
         ],
     );
     assert_eq!(proof.status.code(), Some(0), "{}", stderr(&proof));
     let text = stdout(&proof);
-    assert!(text.contains("sample-proof bound=true"), "{text}");
-    assert!(text.contains("digest=sha256:"), "{text}");
+    let digest = format!(
+        "sha256:{:x}",
+        sha2::Sha256::digest(std::fs::read(&analysis).unwrap())
+    );
+    assert!(
+        text.contains(&format!("sample-proof claimed_digest={digest}")),
+        "{text}"
+    );
 
     for command in ["sample-view", "sample-knowledge", "sample-proof"] {
         let removed = cli(&home, &["tool", "remove", command]);
@@ -245,7 +255,7 @@ fn install_dispatch_list_remove_without_core_knowledge_of_the_name() {
     let manifest = write_tool(
         dir.path(),
         "benchmark",
-        "#!/bin/sh\nfor a in \"$@\"; do printf 'arg=%s\\n' \"$a\"; done\nprintf 'protocol=%s\\n' \"$MARQDO_TOOL_PROTOCOL\"\nexit 7\n",
+        "#!/bin/sh\nfor a in \"$@\"; do printf 'arg=%s\\n' \"$a\"; done\nprintf 'protocol=%s\\n' \"$MARQDO_API_REVISION\"\nexit 7\n",
     );
 
     let install = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
@@ -301,7 +311,7 @@ fn invalid_manifests_and_path_escapes_are_rejected() {
 
     let incompatible = std::fs::read_to_string(&manifest)
         .unwrap()
-        .replace(">=3.0.0-beta.1,<4.0.0", ">=99.0");
+        .replace("\"api_revision\":1", "\"api_revision\":99");
     let incompatible_manifest = dir.path().join("incompatible.json");
     std::fs::write(&incompatible_manifest, incompatible).unwrap();
     let output = cli(
@@ -309,7 +319,7 @@ fn invalid_manifests_and_path_escapes_are_rejected() {
         &["tool", "install", incompatible_manifest.to_str().unwrap()],
     );
     assert_eq!(output.status.code(), Some(1));
-    assert!(stderr(&output).contains("requires marqdo"));
+    assert!(stderr(&output).contains("requires api_revision"));
 }
 
 #[test]
@@ -355,58 +365,61 @@ fn tampered_binary_and_path_hijack_are_not_executed() {
 }
 
 #[test]
-fn protocol_negotiation_accepts_declared_versions_and_rejects_disjoint_ones() {
+fn tool_requires_exact_current_protocols_and_rejects_retired_registrations() {
+    use serde_json::json;
+
     let dir = TempDir::new("protocols");
     let home = dir.path().join("home");
-    let manifest = write_tool(
-        dir.path(),
-        "proto",
-        "#!/bin/sh\nprintf 'analysis=%s\\ntrace=%s\\n' \"$MARQDO_PROTOCOL_ANALYSIS\" \"$MARQDO_PROTOCOL_TRACE\"\n",
-    );
-    let text = std::fs::read_to_string(&manifest).unwrap().replace(
-        "\"marqdo\":\">=3.0.0-beta.1,<4.0.0\"",
-        "\"marqdo\":\">=3.0.0-beta.1,<4.0.0\",\"analysis\":[2],\"trace\":[2]",
-    );
-    std::fs::write(&manifest, text).unwrap();
-    let install = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
-    assert_eq!(install.status.code(), Some(0), "{}", stderr(&install));
-    let output = cli(&home, &["proto"]);
-    assert_eq!(output.status.code(), Some(7), "{}", stderr(&output));
-    let text = stdout(&output);
-    assert!(text.contains("analysis=2"), "{text}");
-    assert!(text.contains("trace=2"), "{text}");
-
-    let manifest = write_tool(dir.path(), "proto-v3", "");
-    let mut declared: serde_json::Value =
+    let manifest = write_tool(dir.path(), "proto", "");
+    let mut document: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&manifest).unwrap()).unwrap();
-    declared["compatibility"]["analysis"] = serde_json::json!([2, 3]);
-    std::fs::write(&manifest, declared.to_string()).unwrap();
-    let install = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
-    assert_eq!(install.status.code(), Some(0), "{}", stderr(&install));
-    let output = cli(&home, &["proto-v3"]);
-    assert_eq!(output.status.code(), Some(7), "{}", stderr(&output));
-    assert!(stdout(&output).contains("analysis=3"));
-
-    for (compat, tag) in [
-        ("\"analysis\":[99]", "analysis-disjoint"),
-        ("\"analysis\":[]", "analysis-empty"),
-        ("\"trace\":[9]", "trace-disjoint"),
+    for (requires, expected) in [
+        (
+            json!({"api_revision": 1, "analysis": [3]}),
+            "invalid tool.json",
+        ),
+        (
+            json!({"api_revision": 1, "analysis": null}),
+            "invalid tool.json",
+        ),
+        (
+            json!({"api_revision": 1, "analysis": 2}),
+            "tool.protocol_incompatible",
+        ),
+        (
+            json!({"api_revision": 1, "observation": 99}),
+            "tool.protocol_incompatible",
+        ),
     ] {
-        let command = format!("bad-{tag}");
-        let manifest = write_tool(dir.path(), &command, "#!/bin/sh\nexit 0\n");
-        let text = std::fs::read_to_string(&manifest).unwrap().replace(
-            "\"marqdo\":\">=3.0.0-beta.1,<4.0.0\"",
-            &format!("\"marqdo\":\">=3.0.0-beta.1,<4.0.0\",{compat}"),
-        );
-        std::fs::write(&manifest, text).unwrap();
+        document["requires"] = requires;
+        std::fs::write(&manifest, document.to_string()).unwrap();
         let output = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
-        assert_eq!(output.status.code(), Some(1), "{tag}");
-        assert!(
-            stderr(&output).contains("protocol_incompatible"),
-            "{tag}: {}",
-            stderr(&output)
-        );
+        assert_eq!(output.status.code(), Some(1));
+        assert!(stderr(&output).contains(expected), "{}", stderr(&output));
     }
+    document.as_object_mut().unwrap().remove("requires");
+    document["compatibility"] = json!({"analysis": [2, 3]});
+    std::fs::write(&manifest, document.to_string()).unwrap();
+    let output = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(stderr(&output).contains("invalid tool.json"));
+
+    document.as_object_mut().unwrap().remove("compatibility");
+    document["requires"] = json!({"api_revision": 1, "analysis": 3, "observation": 1});
+    std::fs::write(&manifest, document.to_string()).unwrap();
+    let output = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(cli(&home, &["proto"]).status.code(), Some(7));
+    let record = home.join("proto/record.json");
+    let mut installed: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&record).unwrap()).unwrap();
+    installed.as_object_mut().unwrap().remove("requires");
+    installed["compatibility"] = json!({"analysis": [2, 3]});
+    std::fs::write(&record, installed.to_string()).unwrap();
+    let output = cli(&home, &["proto"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(stderr(&output).contains("Remove and reinstall"));
+    assert!(cli(&home, &["tool", "remove", "proto"]).status.success());
 }
 
 #[test]
@@ -459,42 +472,4 @@ fn a_root_record_json_in_the_source_package_is_rejected() {
     let output = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
     assert_eq!(output.status.code(), Some(1));
     assert!(stderr(&output).contains("must not contain a root record.json"));
-}
-
-#[test]
-fn prerelease_core_requires_an_explicit_prerelease_compatible_range() {
-    let dir = TempDir::new("prerelease-range");
-    let home = dir.path().join("home");
-    let core = env!("CARGO_PKG_VERSION");
-
-    for (range, compatible) in [
-        (">=3.0.0-beta.1,<4.0.0".to_string(), true),
-        (format!("={core}"), true),
-        (">=3.0.0,<4.0.0".to_string(), !core.contains('-')),
-        (">=0.1,<1".to_string(), false),
-    ] {
-        let manifest = write_tool(dir.path(), "prerelease", "#!/bin/sh\nexit 0\n");
-        let text = std::fs::read_to_string(&manifest)
-            .unwrap()
-            .replace(">=3.0.0-beta.1,<4.0.0", &range);
-        std::fs::write(&manifest, text).unwrap();
-        let output = cli(&home, &["tool", "install", manifest.to_str().unwrap()]);
-        assert_eq!(
-            output.status.success(),
-            compatible,
-            "{range} on {core}: {}",
-            stderr(&output)
-        );
-        if compatible {
-            assert!(cli(&home, &["tool", "remove", "prerelease"])
-                .status
-                .success());
-        } else {
-            assert!(
-                stderr(&output).contains("requires marqdo"),
-                "{}",
-                stderr(&output)
-            );
-        }
-    }
 }

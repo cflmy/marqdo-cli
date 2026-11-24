@@ -13,14 +13,8 @@ fn main() {
     }
     println!(
         "protocol={}",
-        std::env::var("MARQDO_TOOL_PROTOCOL").unwrap_or_default()
+        std::env::var("MARQDO_API_REVISION").unwrap_or_default()
     );
-    if let Ok(value) = std::env::var("MARQDO_PROTOCOL_ANALYSIS") {
-        println!("analysis={value}");
-    }
-    if let Ok(value) = std::env::var("MARQDO_PROTOCOL_TRACE") {
-        println!("trace={value}");
-    }
     let mut stdin = String::new();
     let _ = std::io::stdin().read_to_string(&mut stdin);
     if !stdin.is_empty() {

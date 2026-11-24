@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://marqdo.dev/schemas/observation-file.schema.json",
+  "title": "Marqdo Observation Snapshot",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "run",
+    "capture",
+    "events"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "marqdo.observation"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "run": {
+      "type": "object",
+      "required": [
+        "id",
+        "status",
+        "source"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "error",
+            "rejected",
+            "incomplete"
+          ]
+        },
+        "source": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "if": {
+            "type": "object"
+          },
+          "then": {
+            "required": [
+              "root_id",
+              "analysis_digest"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "root_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "analysis_digest": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "capture": {
+      "type": "object",
+      "required": [
+        "level",
+        "values",
+        "selected_variables",
+        "selected_parameters",
+        "allow_text_values",
+        "truncated"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "enum": [
+            "structural",
+            "values"
+          ]
+        },
+        "values": {
+          "type": "boolean"
+        },
+        "selected_variables": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "selected_parameters": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow_text_values": {
+          "type": "boolean"
+        },
+        "truncated": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "observation-event.schema.json"
+      }
+    }
+  }
+}

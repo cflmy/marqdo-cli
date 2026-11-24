@@ -1,15 +1,15 @@
 # Quickstart: install and run
 
-Product: `3.0.0-rc.2` (Linux x86_64 candidate). Install a **release archive**, not
+Product: `3.0.0-rc.3` (Linux x86_64 candidate). Install a **release archive**, not
 a source checkout, when you only consume Marqdo.
 
 ## 1. Install the archive
 
 ```bash
-sha256sum -c marqdo-3.0.0-rc.2-x86_64-unknown-linux-gnu.tar.gz.sha256
-tar -xzf marqdo-3.0.0-rc.2-x86_64-unknown-linux-gnu.tar.gz
-cd marqdo-3.0.0-rc.2-x86_64-unknown-linux-gnu
-./marqdo --version            # marqdo 3.0.0-rc.2
+sha256sum -c marqdo-3.0.0-rc.3-x86_64-unknown-linux-gnu.tar.gz.sha256
+tar -xzf marqdo-3.0.0-rc.3-x86_64-unknown-linux-gnu.tar.gz
+cd marqdo-3.0.0-rc.3-x86_64-unknown-linux-gnu
+./marqdo --version            # marqdo 3.0.0-rc.3
 ./marqdo --help
 ```
 
@@ -48,7 +48,7 @@ marqdo call index.mq.md main
 ```
 
 `run` executes the entry function (`main` by default) and prints program output;
-`call` prints the returned value. Use `--json` for machine-readable
+`call` prints the returned value. Use `--output json` for machine-readable
 results (`{"command":"run","success":true,...}`), including embedded program
 stdout and diagnostics.
 
@@ -76,8 +76,8 @@ stdout and diagnostics.
 
 ```bash
 marqdo check index.mq.md --json
-marqdo run index.mq.md --json
-marqdo call index.mq.md main --json
+marqdo run index.mq.md --output json
+marqdo call index.mq.md main --output json
 ```
 
 ## 5. Where next
@@ -85,6 +85,6 @@ marqdo call index.mq.md main --json
 - Publish/consume a pure library: [libraries.md](libraries.md).
 - Build an external tool: [tools.md](tools.md).
 - Plugins, kernels, providers: [extensions.md](extensions.md).
-- Analysis/Trace consumers: [analysis-trace.md](analysis-trace.md).
+- Analysis/Trace consumers: [analysis-observation.md](analysis-observation.md).
 - Version axes and platform support: [compatibility.md](compatibility.md).
 - Beta limitations: [release-limits.md](release-limits.md).

@@ -16,7 +16,7 @@ Usage (from the repository root, after
 
     python3 tools/release/package.py \
         --source-sha "$(git rev-parse HEAD)" \
-        --version 3.0.0-rc.2
+        --version 3.0.0-rc.3
 """
 
 from __future__ import annotations
@@ -263,10 +263,8 @@ def stage(stage_dir: Path, version: str, source_sha: str, target: str) -> dict:
         "binaries": binaries,
         "stdlib": stdlib_info,
         "protocols": {
-            "analysis": 2,
-            "analysis_versions": [2, 3],
-            "trace": 2,
-            "execution_events": 1,
+            "analysis": 3,
+            "observation": 1,
             "tool": 1,
             "plugin_abi": "1.x",
             "foreign_wire": 1,

@@ -5,6 +5,9 @@ Status: **index**. The single current architecture overview is
 input and evidence. It is not a second running-status page.
 
 - Current architecture and four state dimensions: [`CURRENT.md`](CURRENT.md).
+- Public-contract convergence rules and review checklist:
+  [`PROTOCOL_CONVERGENCE_POLICY.md`](PROTOCOL_CONVERGENCE_POLICY.md)
+  ([ADR-0068](../adr/0068-single-current-public-contracts.md)).
 - **Current language contract:**
   [`RFC-LANG-0002-unified-semantics.md`](RFC-LANG-0002-unified-semantics.md),
   adopted by [ADR-0052](../adr/0052-unified-markdown-semantics.md) and
@@ -21,7 +24,7 @@ input and evidence. It is not a second running-status page.
 |---|---|---|
 | [Unified semantics RFC-LANG-0002](RFC-LANG-0002-unified-semantics.md) | **Adopted and implemented** | Single syntax: heading modes, unified payloads, keyword control flow, breaking migration and acceptance gates. |
 | [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) | **Review input (historical)** | Responsibility convergence, stdio/file/stream correctness, CLI/Host split and the migration order at the time. Its language examples predate RFC-LANG-0002. |
-| [Runtime observability RFC-OBS-0001](RFC-OBS-0001-runtime-observability.md) | **Adopted and implemented (P0/P1)** | Typed host observation, Execution Events v1 NDJSON, frame identity, selected bounded values; P2 memory metadata remains deferred. |
+| [Runtime observability RFC-OBS-0001](RFC-OBS-0001-runtime-observability.md) | **Historical: superseded by Observation (ADR-0068)** | Its event vocabulary and privacy model fed the current [Observation](../../spec/observation.md) contract; the Execution Events v1 name/options are retired. |
 | [Compute machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) | **Proposed** | Opaque `Memory`, addressable regions, wire/host rejection. Compute semantics are unchanged by the syntax rewrite; its `.mq.md` examples are historical spelling. |
 | [Core and stdlib migration RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) | **Proposed** | Minimum core, `.mq.md` stdlib and system-capability migration. The stdlib source migration is complete; current status is recorded in ../STATUS.md. |
 | RFC-EXT-0003 core/extension boundary (issue #3) | **Adopted slices in ADR-0060–0063** | H-01/H-03/H-04/H-05/H-06/H-07/H-08/H-02 decisions; heading annotations are Step A (Proposed), foreign F-B deferred. See [`resource-operations.md`](resource-operations.md) and `spec/heading-annotations-v1.md`. |

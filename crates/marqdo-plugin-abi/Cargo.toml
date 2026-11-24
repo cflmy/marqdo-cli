@@ -11,6 +11,7 @@ authors.workspace = true
 [dependencies]
 marqdo-span = { workspace = true }
 marqdo-value = { workspace = true }
+marqdo-worker-ipc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }

@@ -370,7 +370,10 @@ not an OS sandbox: the worker still runs as the user. Wasm, hot unload and worke
 Frames are a 4-byte big-endian length followed by one JSON object (max 8 MiB).
 A zero/oversized length, partial header, truncated payload or invalid JSON is a
 protocol error; clean EOF at a frame boundary is not. The host marks the worker
-dead after a transport failure and does not reuse it.
+dead after a transport failure and does not reuse it. Framing, bounded reads,
+deadlines and process teardown are implemented once in the
+[shared worker transport](worker-ipc.md); the frame vocabulary below, the
+capability limit and every grant remain owned by this boundary.
 Worker → host: `{"kind":"ready","exports":[...]}`. Host → worker:
 `{"kind":"invoke","request":<wire request>}` and `{"kind":"shutdown"}`.
 Worker → host responses are `{"kind":"response","response":<wire response>}` or

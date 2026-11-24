@@ -6,7 +6,7 @@ This page summarizes the public support policy. The authoritative matrix is
 
 ## Version axes (do not conflate)
 
-| Axis | `3.0.0-rc.2` value | Change rule |
+| Axis | `3.0.0-rc.3` value | Change rule |
 |---|---|---|
 | Product / CLI | `3.0.0-rc.2` | SemVer prerelease. See `CHANGELOG.md` for changes from the beta. |
 | Analysis | v2 | New major for incompatible changes; consumers reject unknown majors. |
@@ -38,11 +38,11 @@ Strict is Linux-only and probe-gated. Plugin/provider worker transports are not
 OS sandboxes. `pure`/`project` are execution modes, not security boundaries.
 Execution Events v1 is a live observation protocol: it is not a capability
 grant, values are off by default, and `--mode strict` currently refuses
-`--event-stream` explicitly (no downgrade).
+`--output jsonl` explicitly (no downgrade).
 
 ## Language compatibility
 
-`3.0.0-rc.2` implements RFC-LANG-0002 only. Pre-RFC `.mq.md` source
+`3.0.0-rc.3` implements RFC-LANG-0002 only. Pre-RFC `.mq.md` source
 (Strong-execute / Emph-return / ordered-list branch / bullet-list loop /
 block-quote call / first code-span signature) is **not executable**; there is no
 `--legacy`, syntax switch or downgrade path. Migration is a rewrite task

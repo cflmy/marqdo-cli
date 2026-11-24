@@ -6,17 +6,18 @@ Rust structures, `marqdo-ir` internals, `inspect --ir`, relative paths into the
 core checkout, or host memory layout. Adding a new domain function must not
 require a core commit.
 
-Product version for these docs: **`3.0.0-rc.2`** (Linux x86_64 candidate).
-Protocol versions are independent: Analysis v2, Trace v2, Execution Events v1,
-Tool v1, Plugin ABI v1, Foreign wire v1, Provider manifest v2, lock v4,
-markdown profile `marqdo.md.v1`.
+Product version for these docs: **`3.0.0-rc.3`** (Linux x86_64 candidate).
+Current protocol contracts: Analysis, Observation, CLI Tool, Plugin ABI v1,
+Foreign wire v1, Provider manifest v2, lock v4 and markdown profile
+`marqdo.md.v1`. Product, protocol and package versions are independent; see
+[compatibility.md](compatibility.md).
 
 ## Pick your entry point
 
 | Goal | Use | Deliverable |
 |---|---|---|
 | AI/math/data/quantum/SKILL libraries, pure algorithms | `.mq.md` package | `index.mq.md`, `marqdo.yaml`, README, tests |
-| Knowledge/Proof/View/IDE/lint/analysis tools | CLI Tool Protocol v1 | standalone executable + `tool.json` + Analysis/Trace consumer |
+| Knowledge/Proof/View/IDE/lint/analysis tools | CLI Tool protocol | standalone executable + `tool.json` + Analysis/Observation consumer |
 | High-performance native callable functions | Callable Plugin ABI v1 | `plugin.yaml`, host-targeted library, SDK/header |
 | New foreign language backend (R/Python/Julia/…) | Foreign Kernel | `kernel.json`, executable provider, pinned environment |
 | Hardware/device/external-stream resources | Resource Provider v2 | `provider.json`, C ABI library, worker helper |
@@ -28,12 +29,12 @@ markdown profile `marqdo.md.v1`.
    project.
 2. [libraries.md](libraries.md) — publish a pure `.mq.md` library and consume
    it through a pinned Git dependency.
-3. [tools.md](tools.md) — build an external Tool that consumes Analysis v2 and
-   Trace v2.
+3. [tools.md](tools.md) — build an external Tool that consumes the current
+   Analysis and Observation contracts.
 4. [extensions.md](extensions.md) — plugins, foreign kernels, resource
    providers, extension selection and lock v4.
-5. [analysis-trace.md](analysis-trace.md) — the public static/dynamic data
-   contracts, Execution Events v1 and digest binding.
+5. [analysis-observation.md](analysis-observation.md) — the public static/dynamic data
+   contracts and digest binding.
 6. [compatibility.md](compatibility.md) — version axes, platform matrix and the
    prerelease policy.
 7. [release-limits.md](release-limits.md) — the honest beta limitations (this

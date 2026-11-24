@@ -30,84 +30,42 @@ pub const MAX_CAPABILITY_REQUEST_BYTES: usize = 64 * 1024;
 /// Read one length-prefixed frame (4-byte big-endian length + JSON).
 ///
 /// `Ok(None)` means a clean EOF at a frame boundary. A partial header or
-/// truncated payload is a protocol error, never EOF.
+/// truncated payload is a protocol error, never EOF. Framing itself is shared
+/// with other persistent workers; the plugin vocabulary stays in this module.
 pub fn read_frame<R: Read>(reader: &mut R) -> Result<Option<Value>, PluginError> {
-    let mut length = [0_u8; 4];
-    let mut read = 0usize;
-    while read < length.len() {
-        match reader.read(&mut length[read..]) {
-            Ok(0) if read == 0 => return Ok(None),
-            Ok(0) => {
-                return Err(PluginError::wire(
-                    "worker_frame_invalid",
-                    "worker stream ended inside a frame header",
-                ))
-            }
-            Ok(count) => read += count,
-            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
-            Err(error) => {
-                return Err(PluginError::invoke(
-                    "plugin.crashed",
-                    format!("worker frame read failed: {error}"),
-                ))
-            }
-        }
-    }
-    let length = u32::from_be_bytes(length) as usize;
-    if length == 0 || length > MAX_FRAME_BYTES {
-        return Err(PluginError::wire(
-            "worker_frame_invalid",
-            format!("worker frame length {length} is invalid"),
-        ));
-    }
-    let mut bytes = Vec::with_capacity(length.min(64 * 1024));
-    let read = reader
-        .take(length as u64)
-        .read_to_end(&mut bytes)
-        .map_err(|error| {
-            PluginError::invoke(
-                "plugin.crashed",
-                format!("worker frame read failed: {error}"),
-            )
-        })?;
-    if read != length {
-        return Err(PluginError::wire(
-            "worker_frame_invalid",
-            format!("worker frame declared {length} bytes but only {read} arrived"),
-        ));
-    }
-    serde_json::from_slice(&bytes).map(Some).map_err(|error| {
-        PluginError::wire(
-            "worker_frame_invalid",
-            format!("worker frame is not valid JSON: {error}"),
-        )
-    })
+    marqdo_worker_ipc::read_frame(reader, MAX_FRAME_BYTES).map_err(frame_read_error)
 }
 
 /// Write one length-prefixed frame.
 pub fn write_frame<W: Write>(writer: &mut W, value: &Value) -> Result<(), PluginError> {
-    let bytes = serde_json::to_vec(value).map_err(|error| {
-        PluginError::wire(
-            "worker_encode_failed",
-            format!("cannot encode worker frame: {error}"),
-        )
-    })?;
-    if bytes.len() > MAX_FRAME_BYTES {
-        return Err(PluginError::wire(
-            "worker_frame_too_large",
-            format!("worker frame is {} bytes", bytes.len()),
-        ));
+    marqdo_worker_ipc::write_frame(writer, value, MAX_FRAME_BYTES).map_err(frame_write_error)
+}
+
+fn frame_read_error(error: marqdo_worker_ipc::FrameError) -> PluginError {
+    match error {
+        marqdo_worker_ipc::FrameError::Io(error) => PluginError::invoke(
+            "plugin.crashed",
+            format!("worker frame read failed: {error}"),
+        ),
+        other => PluginError::wire("worker_frame_invalid", other.to_string()),
     }
-    writer
-        .write_all(&(bytes.len() as u32).to_be_bytes())
-        .and_then(|()| writer.write_all(&bytes))
-        .and_then(|()| writer.flush())
-        .map_err(|error| {
-            PluginError::invoke(
-                "plugin.crashed",
-                format!("worker frame write failed: {error}"),
-            )
-        })
+}
+
+fn frame_write_error(error: marqdo_worker_ipc::FrameError) -> PluginError {
+    match error {
+        marqdo_worker_ipc::FrameError::Io(error) => PluginError::invoke(
+            "plugin.crashed",
+            format!("worker frame write failed: {error}"),
+        ),
+        marqdo_worker_ipc::FrameError::Encode(error) => {
+            PluginError::wire("worker_encode_failed", error.to_string())
+        }
+        marqdo_worker_ipc::FrameError::Length(length) => PluginError::wire(
+            "worker_frame_too_large",
+            format!("worker frame is {length} bytes"),
+        ),
+        other => PluginError::wire("worker_frame_invalid", other.to_string()),
+    }
 }
 
 /// Run one worker until shutdown/EOF. Returns a process exit code.

@@ -49,12 +49,6 @@ pub struct SandboxSettings {
     pub allow_provider: Vec<String>,
     /// Explicit trust decision for in-process native plugin loading.
     pub trust_native_plugin: bool,
-    /// Optional Trace v2 output path.
-    pub trace_file: Option<PathBuf>,
-    /// Trace event budget override (0 = unlimited).
-    pub trace_max_events: Option<usize>,
-    /// Trace approximate byte budget override (0 = unlimited).
-    pub trace_max_bytes: Option<usize>,
     /// External foreign-kernel descriptor paths.
     pub kernels: Vec<PathBuf>,
 }
@@ -72,7 +66,7 @@ impl SandboxSettings {
 
     /// Reject strict-mode requests that this L1 isolation level does not
     /// support. Strict currently covers pure Marqdo and native Math only;
-    /// granting Foreign, ABI plugins, resource providers, tools or trace files
+    /// granting Foreign, ABI plugins, resource providers or tools
     /// would require extending the supervisor contract first.
     pub fn strict_preflight(&self) -> Result<(), String> {
         let requested = self.allow_foreign
@@ -87,14 +81,13 @@ impl SandboxSettings {
             || !self.providers.is_empty()
             || !self.allow_provider.is_empty()
             || self.trust_native_plugin
-            || !self.kernels.is_empty()
-            || self.trace_file.is_some();
+            || !self.kernels.is_empty();
         if requested {
             return Err(
                 "strict mode currently supports pure Marqdo and native Math only; \
                  --allow-read/--allow-write/--allow-env/--allow-process/--allow-random/\
                  --allow-foreign/--allow-plugin/--plugin/--provider/--allow-provider/\
-                 --trust-native-plugin/--kernel/--trace-file are rejected. \
+                 --trust-native-plugin/--kernel are rejected. \
                  Use --mode project for those capabilities."
                     .to_string(),
             );

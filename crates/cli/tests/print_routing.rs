@@ -52,7 +52,7 @@ fn print_is_routed_through_the_stdlib_and_not_hostop_print() {
         &[
             "run",
             "index.mq.md",
-            "--trace-file",
+            "--observation-file",
             trace.to_str().unwrap(),
         ],
     );
@@ -69,7 +69,7 @@ fn print_is_routed_through_the_stdlib_and_not_hostop_print() {
         .as_array()
         .unwrap()
         .iter()
-        .filter_map(|event| event["operation"].as_str())
+        .filter_map(|event| event["payload"]["operation"].as_str())
         .collect();
     assert!(
         operations.contains(&"resource.write"),

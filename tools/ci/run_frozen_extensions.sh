@@ -12,7 +12,7 @@ source_sha="$2"
 manifest="$3"
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 fixture_remote=https://git.cflmy.cn/cflmy/marqdo-extension-conformance.git
-fixture_sha=cf92e1ae7d22cb4bd1f5609c5fa8daa11e8980ec
+fixture_sha=015ff8ac15417b7ebbdb31ce2be2dab5362a1eba
 
 work="$(mktemp -d)"
 trap 'rm -rf -- "$work"' EXIT

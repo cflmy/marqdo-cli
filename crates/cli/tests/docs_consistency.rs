@@ -202,3 +202,32 @@ fn has_hex_sha(text: &str) -> bool {
     }
     false
 }
+
+/// CI is a consumer of the public protocols: its configuration must exercise
+/// only the current contracts. A retired name in a pipeline is a latent
+/// failure and implies a compatibility path was kept somewhere.
+#[test]
+fn ci_configuration_uses_only_current_protocols() {
+    let root = repo_root();
+    for relative in [
+        ".woodpecker/main.yml",
+        ".github/workflows/ci.yml",
+        "docs/ci.md",
+    ] {
+        let text = read(&root.join(relative));
+        for retired in [
+            "--event-stream",
+            "--trace-file",
+            "execution-events",
+            "execution_events",
+            "analysis_v3_consumer",
+            "trace_consumer",
+            "analysis-v3",
+        ] {
+            assert!(
+                !text.contains(retired),
+                "{relative} still references retired `{retired}`"
+            );
+        }
+    }
+}

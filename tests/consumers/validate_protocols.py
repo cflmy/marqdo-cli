@@ -11,6 +11,15 @@ import sys
 
 from jsonschema import Draft202012Validator
 
+try:
+    # jsonschema >= 4.18 resolves the external event schema through
+    # `referencing`. The CI image may ship an older jsonschema, so keep the
+    # standard resolver fallback: the public consumer must run on both.
+    from referencing import Registry, Resource
+except ImportError:  # pragma: no cover - exercised by the compatibility shim
+    Registry = None
+    Resource = None
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCHEMA_DIR = ROOT / "spec" / "schemas"
 
@@ -22,8 +31,23 @@ def load_schema(name):
     return schema
 
 
+EVENT_SCHEMA_ID = "https://marqdo.dev/schemas/observation-event.schema.json"
+
+
 def validator(schema):
-    return Draft202012Validator(schema)
+    event = load_schema("observation-event.schema.json")
+    if Registry is not None:
+        registry = Registry().with_resource(EVENT_SCHEMA_ID, Resource.from_contents(event))
+        return Draft202012Validator(schema, registry=registry)
+    # jsonschema < 4.18 (Debian bookworm's python3-jsonschema).
+    from jsonschema import RefResolver
+
+    store = {
+        EVENT_SCHEMA_ID: event,
+        "observation-event.schema.json": event,
+    }
+    resolver = RefResolver.from_schema(schema, store=store)
+    return Draft202012Validator(schema, resolver=resolver)
 
 
 def require_valid(schema_name, document, label):
@@ -41,26 +65,21 @@ def require_invalid(schema_name, document, label):
 def main():
     if len(sys.argv) != 4:
         raise SystemExit(
-            "usage: validate_protocols.py ANALYSIS.json TRACE.json TOOL.json"
+            "usage: validate_protocols.py ANALYSIS.json OBSERVATION.json TOOL.json"
         )
-    analysis_path, trace_path, tool_path = map(pathlib.Path, sys.argv[1:])
+    analysis_path, observation_path, tool_path = map(pathlib.Path, sys.argv[1:])
     analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
-    trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    observation = json.loads(observation_path.read_text(encoding="utf-8"))
     tool = json.loads(tool_path.read_text(encoding="utf-8"))
 
-    version = analysis.get("schema_version")
-    if version not in (2, 3):
-        raise SystemExit("unsupported Analysis schema version")
-    analysis_schema = f"analysis-v{version}.schema.json"
+    analysis_schema = "analysis.schema.json"
     require_valid(analysis_schema, analysis, "analysis")
-    if version == 3:
-        require_invalid("analysis-v2.schema.json", analysis, "legacy schema rejects v3")
-    require_valid("trace-v2.schema.json", trace, "trace")
-    require_valid("tool-v1.schema.json", tool, "tool")
+    require_valid("observation-file.schema.json", observation, "observation")
+    require_valid("cli-tool.schema.json", tool, "tool")
 
     # Negative mutations: structure, version and traversal must fail closed.
     bad = copy.deepcopy(analysis)
-    bad["schema_version"] = 999
+    bad["schema_version"] = 2
     require_invalid(analysis_schema, bad, "analysis unsupported version")
 
     bad = copy.deepcopy(analysis)
@@ -71,25 +90,28 @@ def main():
     bad["modules"][0]["resources"] = 3
     require_invalid(analysis_schema, bad, "analysis resources integer")
 
-    bad = copy.deepcopy(trace)
+    bad = copy.deepcopy(observation)
     bad["events"][0]["seq"] = "zero"
-    require_invalid("trace-v2.schema.json", bad, "trace event sequence type")
+    require_invalid("observation-file.schema.json", bad, "observation event sequence type")
 
-    bad = copy.deepcopy(trace)
-    bad["truncated"] = {"reason": "made_up", "limit": 1, "written": 1}
-    require_invalid("trace-v2.schema.json", bad, "trace truncation reason")
+    bad = copy.deepcopy(observation)
+    bad["events"][0]["schema"] = "marqdo.execution-events"
+    require_invalid("observation-file.schema.json", bad, "retired event format")
+    bad = copy.deepcopy(tool)
+    bad["requires"]["analysis"] = [3]
+    require_invalid("cli-tool.schema.json", bad, "tool version requirement array")
 
     bad = copy.deepcopy(tool)
     bad["entrypoint"] = "../outside"
-    require_invalid("tool-v1.schema.json", bad, "tool traversal entrypoint")
+    require_invalid("cli-tool.schema.json", bad, "tool traversal entrypoint")
 
     bad = copy.deepcopy(tool)
     bad["version"] = "not semver"
-    require_invalid("tool-v1.schema.json", bad, "tool invalid version")
+    require_invalid("cli-tool.schema.json", bad, "tool invalid version")
 
     print(
-        "validated analysis/trace/tool artifacts "
-        f"({len(analysis['modules'])} modules, {len(trace['events'])} events)"
+        "validated analysis/observation/tool artifacts "
+        f"({len(analysis['modules'])} modules, {len(observation['events'])} events)"
     )
 
 

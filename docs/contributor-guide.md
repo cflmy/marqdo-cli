@@ -24,6 +24,7 @@ marqdo-cli/
 ├── docs/
 │   ├── DEVELOPMENT_BLUEPRINT.md   architecture baseline (language-mapping sections historical)
 │   ├── architecture/RFC-LANG-0002-unified-semantics.md  current language authority
+│   ├── architecture/PROTOCOL_CONVERGENCE_POLICY.md  one-current-contract rules + review checklist
 │   ├── STABLE_RELEASE_IMPLEMENTATION.md  authoritative next-phase/release plan
 │   ├── STATUS.md                  current evidence, work packages, blockers
 │   ├── migration/                 syntax-migration rules + file inventory
@@ -45,13 +46,13 @@ marqdo-cli/
 │   ├── security.md                modes, capabilities, budgets, trust
 │   ├── package-format.md          marqdo.yaml / marqdo.lock / init
 │   ├── plugin-abi.md              C ABI v1, SDK, host lifecycle
+│   ├── worker-ipc.md              shared persistent-worker framing/transport
 │   ├── math.md                    removed core math outlook + migration (ADR-0061)
 │   ├── foreign.md                 Python/Node kernel protocol
-│   ├── tool-v1.md                 generic external Tool Protocol v1
-│   ├── analysis-v2.md             public Analysis v2 projection (v1 historical)
-│   ├── analysis-v3.md             projection for projects with loop transfers
-│   ├── trace-v2.md                public Trace v2 projection (v1 historical)
-│   └── trace-v1.md                public Trace v1 event stream
+│   ├── cli-tool.md                external command registration and dispatch
+│   ├── analysis.md                current static projection
+│   ├── observation.md             live events and snapshots
+│   └── cli-tool.md                external command registration and dispatch
 ├── crates/
 │   ├── marqdo-span/               Span, LineCol, LineIndex (leaf)
 │   ├── marqdo-value/              Value, diagnostics, errors, wire encoding
@@ -310,9 +311,8 @@ capability flags shown above). See [`STATUS.md`](STATUS.md).
   `docs/NEXT_RELEASE_CI_CONVERGENCE.md` are **Historical/Superseded** planning
   input (their banners link the RFC); `docs/STABLE_RELEASE_IMPLEMENTATION.md` is
   the authoritative next-phase/release plan. None describes implemented
-  behavior. `spec/tool-v1.md` is a candidate protocol until an ADR and
-  implementation tests land. Never cite a proposed or historical document as
-  evidence that a feature exists.
+  behavior. Use the current contracts and [ADR-0068](adr/0068-single-current-public-contracts.md)
+  when replacing a public interface.
 * Changes to language semantics, AST mapping, wire format, plugin ABI,
   package/lock format, authorization defaults or public CLI behavior require an
   **Accepted ADR** (or superseding one) plus spec updates and tests. Use the

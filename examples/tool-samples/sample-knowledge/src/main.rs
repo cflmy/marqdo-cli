@@ -1,4 +1,4 @@
-//! Independent Tool Protocol v1 consumer: reads a small part of Trace v2.
+//! Independent Tool Protocol v1 consumer: reads a small part of Analysis.
 
 use std::fs;
 
@@ -27,11 +27,11 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let path = args
         .iter()
-        .position(|arg| arg == "--trace")
+        .position(|arg| arg == "--analysis")
         .and_then(|index| args.get(index + 1))
         .or_else(|| args.first())
         .unwrap_or_else(|| {
-            eprintln!("usage: sample-knowledge --trace <trace-v2.json>");
+            eprintln!("usage: sample-knowledge --analysis <analysis.json>");
             std::process::exit(2);
         });
     let json = fs::read_to_string(path).unwrap_or_else(|error| {
@@ -39,16 +39,15 @@ fn main() {
         std::process::exit(1);
     });
     let schema = string_field(&json, "schema").unwrap_or_default();
-    if schema != "marqdo.trace" {
-        eprintln!("sample-knowledge: expected marqdo.trace, got {schema:?}");
+    if schema != "marqdo.analysis" {
+        eprintln!("sample-knowledge: expected marqdo.analysis, got {schema:?}");
         std::process::exit(1);
     }
     let version = number_field(&json, "schema_version").unwrap_or_default();
-    if version != 2 {
-        eprintln!("sample-knowledge: unsupported Trace version {version}");
+    if version != 3 {
+        eprintln!("sample-knowledge: unsupported Analysis version {version}");
         std::process::exit(1);
     }
-    let status = string_field(&json, "status").unwrap_or_default();
-    let events = json.matches("\"seq\"").count();
-    println!("sample-knowledge schema={schema} version={version} events={events} status={status}");
+    let references = json.matches("\"references\"").count();
+    println!("sample-knowledge schema={schema} version={version} reference_sets={references}");
 }

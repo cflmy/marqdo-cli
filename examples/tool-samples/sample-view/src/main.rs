@@ -1,4 +1,4 @@
-//! Independent Tool Protocol v1 consumer: reads a small part of Analysis v2.
+//! Independent Tool Protocol v1 consumer: reads a small part of Analysis.
 //!
 //! This is a test fixture, not a hard-coded CLI command. Build it with
 //! `rustc --edition 2021`, package it with `tool.json`, install it, and invoke
@@ -35,7 +35,7 @@ fn main() {
         .and_then(|index| args.get(index + 1))
         .or_else(|| args.first())
         .unwrap_or_else(|| {
-            eprintln!("usage: sample-view --analysis <analysis-v2.json>");
+            eprintln!("usage: sample-view --analysis <analysis.json>");
             std::process::exit(2);
         });
     let json = fs::read_to_string(path).unwrap_or_else(|error| {
@@ -48,7 +48,7 @@ fn main() {
         std::process::exit(1);
     }
     let version = number_field(&json, "schema_version").unwrap_or_default();
-    if version != 2 {
+    if version != 3 {
         eprintln!("sample-view: unsupported Analysis version {version}");
         std::process::exit(1);
     }

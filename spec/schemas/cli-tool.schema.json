@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://marqdo.dev/schemas/cli-tool.schema.json",
+  "title": "Marqdo CLI Tool Manifest",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "name",
+    "version",
+    "command",
+    "entrypoint",
+    "requires"
+  ],
+  "properties": {
+    "schema": {
+      "const": "marqdo.cli-tool"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "command": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "entrypoint": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "requires": {
+      "type": "object",
+      "required": [
+        "api_revision"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "api_revision": {
+          "const": 1
+        },
+        "analysis": {
+          "const": 3
+        },
+        "observation": {
+          "const": 1
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

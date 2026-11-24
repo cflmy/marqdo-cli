@@ -4,6 +4,8 @@
 //! point is to prove that `check` and `run` share one static resolution and
 //! that the runtime never guesses a plugin from a dotted string prefix.
 #![cfg(unix)]
+#[path = "support/observation.rs"]
+pub mod observation;
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -187,11 +189,11 @@ fn renamed_import_alias_binds_the_module_function() {
     );
     let check = cli(&["check", "index.mq.md"], dir.path());
     assert_eq!(check.status.code(), Some(0), "{}", stderr(&check));
-    let run = cli(&["run", "index.mq.md", "--json"], dir.path());
+    let run = cli(&["run", "index.mq.md", "--output", "json"], dir.path());
     assert_eq!(run.status.code(), Some(0), "{}", stderr(&run));
     let json: serde_json::Value = serde_json::from_str(&stdout(&run)).unwrap();
     assert_eq!(
-        json["value"],
+        observation::terminal(&json)["value"],
         serde_json::json!({"type": "int", "decimal": "101"})
     );
 }
@@ -482,11 +484,14 @@ fn local_function_reference_is_a_dynamic_language_call() {
         &dir.path().join("index.mq.md"),
         "## @exec 平方\n\n`params(n: Int)`\n\n`return n * n`\n\n## @exec 主\n\n`f = ref(\"#平方\")`\n\n`return f(n=4)`\n",
     );
-    let run = cli(&["call", "index.mq.md", "主", "--json"], dir.path());
+    let run = cli(
+        &["call", "index.mq.md", "主", "--output", "json"],
+        dir.path(),
+    );
     assert_eq!(run.status.code(), Some(0), "{}", stderr(&run));
     let json: serde_json::Value = serde_json::from_str(&stdout(&run)).unwrap();
     assert_eq!(
-        json["value"],
+        observation::terminal(&json)["value"],
         serde_json::json!({"type": "int", "decimal": "16"})
     );
 }
@@ -526,11 +531,11 @@ fn explicit_import_aliases_bind_same_named_functions_independently() {
         &dir.path().join("index.mq.md"),
         "---\nimport:\n  aa: \"./a.mq.md\"\n  bb: \"./b.mq.md\"\n---\n\n## @exec main\n\n`return aa.value() + bb.value()`\n",
     );
-    let run = cli(&["run", "index.mq.md", "--json"], dir.path());
+    let run = cli(&["run", "index.mq.md", "--output", "json"], dir.path());
     assert_eq!(run.status.code(), Some(0), "{}", stderr(&run));
     let json: serde_json::Value = serde_json::from_str(&stdout(&run)).unwrap();
     assert_eq!(
-        json["value"],
+        observation::terminal(&json)["value"],
         serde_json::json!({"type": "int", "decimal": "30"})
     );
 }
@@ -632,7 +637,6 @@ fn check_emit_and_run_share_the_same_static_binding_source() {
             plugin_dir.path().to_str().unwrap(),
             "--allow-plugin",
             "demo.solver",
-            "--json",
         ],
         dir.path(),
     );

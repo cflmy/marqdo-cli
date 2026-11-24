@@ -26,11 +26,109 @@ as current status.
 
 ## RC candidate
 
-The workspace reports `3.0.0-rc.2` and declares Rust 1.89 as its locked
+The workspace reports `3.0.0-rc.3` and declares Rust 1.89 as its locked
 minimum. Linux x86_64 on glibc 2.39 is the candidate platform. The
 [release procedure](releasing.md) requires a green manifest bound to the
 candidate SHA before publication. The release record below refers to the
 published beta.
+
+## Current protocol integration
+
+[ADR-0068](adr/0068-single-current-public-contracts.md) and the
+[single-contract policy](architecture/PROTOCOL_CONVERGENCE_POLICY.md) govern
+every public boundary. Current developer inputs are
+[Analysis](../spec/analysis.md), [Observation](../spec/observation.md) and the
+[CLI Tool](../spec/cli-tool.md); the shared persistent-worker transport is
+[worker-ipc](../spec/worker-ipc.md).
+
+Issue [#8](https://git.cflmy.cn/cflmy/marqdo-cli/issues/8) converged the
+pre-stable contracts in one breaking integration, with no compatibility layer:
+
+- Analysis has one writer and one current `schema_version` for every project,
+  including projects without loop transfers. The content-driven v2/v3 selector
+  and the retired `spec/analysis-v*.md` documents are gone.
+- Trace and Execution Events became one Observation event definition. One
+  execution emits one `run_id`/`seq` sequence; `--output jsonl` and
+  `--observation-file` deliver those same events, never a second execution or a
+  second numbering. The retired `--json`/`--trace-file`/`--event-stream`
+  options are rejected.
+- CLI Tool requirements are single exact integers (`api_revision`, optional
+  `analysis`, optional `observation`). Version arrays and intersection
+  negotiation are removed; retired registrations are rejected with a reinstall
+  instruction.
+- Plugin and resource-provider workers share one bounded framed transport
+  ([worker-ipc](../spec/worker-ipc.md)) while each boundary keeps its own
+  vocabulary, limits, capabilities and error codes.
+- Extension descriptors (plugin/provider/kernel) and lock v4 keep their current
+  format identifiers. Retired lock versions are rejected with an explicit
+  `marqdo lock` regeneration instruction; there is no migrator. Renumbering an
+  unchanged format was explicitly rejected.
+
+The `spec/` tree contains only current contracts; retired specifications are in
+Git history and tagged archives. The earlier release records below describe
+their tagged binaries and are not current protocol claims.
+
+## 0.9 Pre-stable protocol convergence — issue #8 (RC.3 candidate)
+
+The current tree replaces the retired protocols in place, with no compatibility
+path. Policy: [ADR-0068](adr/0068-single-current-public-contracts.md) and
+[the convergence policy](architecture/PROTOCOL_CONVERGENCE_POLICY.md). This
+section records commands executed on the candidate tree; it is local Linux
+evidence, not a same-SHA CI or archive gate.
+
+Executed 2026-11-24 on Linux x86_64 (workspace `3.0.0-rc.3`, Rust 1.93.1):
+
+```text
+cargo fmt --all -- --check                              PASS
+cargo clippy --workspace --all-targets -- -D warnings   PASS
+cargo test --workspace --locked                         PASS: 601 passed, 0 failed, 2 ignored
+cargo test -p marqdo-cli --test architecture_boundaries PASS: 12 passed
+cargo test -p marqdo-cli --test docs_consistency        PASS: 5 passed
+cargo test -p marqdo-cli --test observation             PASS: 15 passed
+cargo test -p marqdo-cli --test analysis_observation    PASS: 10 passed
+cargo test -p marqdo-cli --test tool_protocol           PASS: 7 passed
+cargo test -p marqdo-cli --test extension_selection     PASS: 14 passed
+cargo test -p marqdo-worker-ipc                         PASS: 5 passed
+```
+
+Black-box consumer run against the real `target/debug/marqdo`:
+
+```text
+check examples/multi-module/index.mq.md --refs --emit analysis.json   schema marqdo.analysis/3
+run examples/multi-module/index.mq.md --observation-file snap.json     schema marqdo.observation/1
+validate_protocols.py analysis.json snap.json tool.json                PASS (7 modules, 333 events)
+analysis_consumer.py analysis.json                                     PASS (32 functions)
+observation_consumer.py --snapshot snap.json --analysis analysis.json  PASS
+check tests/conformance/semantics/85-nested-loop-control.mq.md         PASS
+run ... --output jsonl --observation-file snapshot                     66 events
+observation_consumer.py stream.jsonl --validate-schema                 PASS (3 transfers)
+snapshot["events"] == stream lines                                     PASS
+observation_consumer.py stream.jsonl --analysis stale-analysis.json    rejected
+marqdo --version                                                       marqdo 3.0.0-rc.3
+```
+
+Same-SHA CI on Linux x86_64
+([pipeline #70](https://ci.cflmy.cn/repos/1/pipeline/70), commit
+`5a89a137c7f76f6c31744a4e8f8d4dbc0af623ef`): the fast `contract` lane, the full
+Rust `test` lane (fmt, clippy, workspace tests, docs/architecture gates, Windows
+cross-target compile check), `minimum-rust` and `build` all PASS. The build lane
+produced `marqdo-3.0.0-rc.3-x86_64-unknown-linux-gnu.tar.gz`
+(sha256 `d6ef6297a7ba5297af758a0b00da5c6e0f4b69f40363afc4ddc180654e70ac37`),
+passed the from-archive smoke, and passed the frozen external conformance suite
+7/7 with fixtures at `015ff8ac15417b7ebbdb31ce2be2dab5362a1eba`
+(callable registry, plugin worker, foreign kernel, provider CLI, pinned package,
+tool Analysis consumer, negative security).
+
+The detailed local log and the CI addendum are in
+[`evidence/2026-11-24-rc.3-protocol-convergence-local.md`](evidence/2026-11-24-rc.3-protocol-convergence-local.md).
+
+Release status: the tree, contracts, archive and same-SHA Linux CI are ready for
+`3.0.0-rc.3`, but **publication is not authorized by this evidence**. The RC
+profile in [`releasing.md`](releasing.md) additionally requires a same-SHA
+strict-L1 PASS on a disposable VM as a non-root user and fixed-node G4
+performance evidence (or the recorded maintainer exception). Neither exists
+here; the CI host truthfully reports `strict: unavailable` fail-closed. Do not
+tag or publish `v3.0.0-rc.3` from this section.
 
 ## 0. Beta release record — `3.0.0-beta.1`
 
@@ -39,9 +137,10 @@ published beta.
 - Workspace/crate version, `marqdo --version` and Analysis `producer.version`
   are `3.0.0-beta.1`; `Cargo.lock` is committed and release builds use
   `--locked`.
-- Independent axes are unchanged: Analysis v2, Trace v2, Tool v1, Plugin ABI
+- At the tagged beta, the axes were Analysis v2, Trace v2, Tool v1, Plugin ABI
   v1, Foreign wire v1, Provider manifest v2, lock v4, markdown profile
-  `marqdo.md.v1`; bundled stdlib stays package version `0.1.0`.
+  `marqdo.md.v1`; bundled stdlib stayed package version `0.1.0`. Those are
+  historical identifiers, not current claims.
 - `project.marqdo` is enforced; prerelease SemVer rules are covered by tests
   (`>=3.0.0,<4.0.0` does not silently accept a beta core).
 - Only the Linux x86_64 archive is claimed. macOS/Windows are
@@ -102,12 +201,12 @@ exports reconcile exactly with the static manifest. The independent
 frozen-binary suite is the beta gate above; the older `6a7bb98` manifest is
 historical and superseded by the release-SHA manifest.
 
-## 0.5 Post-beta addition — Execution Events v1 (unreleased)
+## 0.5 Historical: post-beta Execution Events v1 (superseded by Observation)
 
 This section records work **after** the `v3.0.0-beta.1` tag. It is not part of
 the tagged beta archive and no new release tag has been created. The design
 input is RFC-OBS-0001 (issue `#1`), the frozen decision is ADR-0059 and the
-normative contract is [`spec/execution-events-v1.md`](../spec/execution-events-v1.md).
+normative contract is [the beta-era event contract](https://git.cflmy.cn/cflmy/marqdo-cli/src/tag/v3.0.0-rc.2/spec/execution-events-v1.md).
 Executed evidence for this section is
 [`evidence/2026-11-22-execution-events-v1.md`](evidence/2026-11-22-execution-events-v1.md).
 
@@ -264,7 +363,7 @@ digests. The external lane ran from a temporary fixture checkout with Cargo
 absent from PATH. Archive SHA-256 is
 `8934bfc25c7b5526071eae6f24143ca3805ad3d7cc484626a4345b1deed430b2`.
 
-## 0.8 Structured control flow — RFC-CTRL-0005 (RC.2 candidate)
+## 0.8 Historical: structured control flow — RFC-CTRL-0005 (RC.2 snapshot)
 
 [ADR-0067](adr/0067-structured-control-flow.md) covers the phase A implementation.
 An `else if` carrier adds a condition arm to the existing branch IR.
@@ -273,7 +372,7 @@ execution segment. Binding inference joins only reachable control exits.
 The [runnable example](../examples/control-flow.mq.md) uses ordinary Markdown
 list containers.
 
-[Analysis v3](../spec/analysis-v3.md) represents the loop transfer statements.
+[the shipped rc.2 Analysis contract](https://git.cflmy.cn/cflmy/marqdo-cli/src/tag/v3.0.0-rc.2/spec/analysis-v3.md) represents the loop transfer statements.
 Other documents continue to emit v2. Trace v2 and Execution Events v1 expose
 the new control events. The published beta evidence applies to its original
 SHA. The maintainer selected phase A for RC.2. List iteration
@@ -672,7 +771,7 @@ Consumer evidence:
 
 ```bash
 ./target/debug/marqdo check examples/multi-module/index.mq.md --refs --emit /tmp/a.json
-./target/debug/marqdo run examples/multi-module/index.mq.md --trace-file /tmp/t.json
+./target/debug/marqdo run examples/multi-module/index.mq.md --observation-file /tmp/observation.json
 python3 tests/consumers/analysis_consumer.py /tmp/a.json
 python3 tests/consumers/trace_consumer.py /tmp/a.json /tmp/t.json
 ```

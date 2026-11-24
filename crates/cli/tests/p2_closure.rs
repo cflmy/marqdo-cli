@@ -1,5 +1,8 @@
 //! RFC-CM P2 closure lane: C01–C06/C11/C12 in a pure, no-Foreign/no-Plugin host.
 
+#[path = "support/observation.rs"]
+pub mod observation;
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -70,7 +73,14 @@ fn p2_algorithms_run_in_a_pure_no_foreign_no_plugin_host() {
             );
         }
         let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
-            .args(["run", path.to_str().unwrap(), "--mode", "pure", "--json"])
+            .args([
+                "run",
+                path.to_str().unwrap(),
+                "--mode",
+                "pure",
+                "--output",
+                "json",
+            ])
             .current_dir(repo_root())
             .output()
             .expect("run marqdo");
@@ -82,14 +92,15 @@ fn p2_algorithms_run_in_a_pure_no_foreign_no_plugin_host() {
         );
         let report: serde_json::Value =
             serde_json::from_slice(&output.stdout).expect("json report");
-        assert_eq!(report["success"], true, "{name}");
+        assert_eq!(report["run"]["status"], "ok", "{name}");
         let golden = expected(name);
         assert_eq!(
-            report["value"], golden["value"],
+            observation::terminal(&report)["value"],
+            golden["value"],
             "{criterion} fixture {name}"
         );
         assert_eq!(
-            report["stdout"].as_str().unwrap_or_default(),
+            observation::text(&report, "stdout.chunk"),
             golden["stdout"].as_str().unwrap_or_default(),
             "{criterion} fixture {name} stdout"
         );
@@ -100,7 +111,14 @@ fn p2_algorithms_run_in_a_pure_no_foreign_no_plugin_host() {
 fn p2_stdlib_table_also_runs_in_pure_mode() {
     let path = repo_root().join("stdlib").join("tests").join("table.mq.md");
     let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
-        .args(["run", path.to_str().unwrap(), "--mode", "pure", "--json"])
+        .args([
+            "run",
+            path.to_str().unwrap(),
+            "--mode",
+            "pure",
+            "--output",
+            "json",
+        ])
         .current_dir(repo_root().join("stdlib"))
         .env("MARQDO_STDLIB_DIR", repo_root().join("stdlib"))
         .output()
@@ -112,8 +130,8 @@ fn p2_stdlib_table_also_runs_in_pure_mode() {
         String::from_utf8_lossy(&output.stderr)
     );
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json");
-    assert_eq!(report["success"], true);
-    let items = report["value"]["items"]
+    assert_eq!(report["run"]["status"], "ok");
+    let items = observation::terminal(&report)["value"]["items"]
         .as_array()
         .expect("table test list");
     assert_eq!(items.len(), 9);
@@ -133,14 +151,24 @@ fn foreign_and_plugin_shortcuts_are_unavailable_in_the_pure_lane() {
     )
     .unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
-        .args(["run", foreign.to_str().unwrap(), "--mode", "pure", "--json"])
+        .args([
+            "run",
+            foreign.to_str().unwrap(),
+            "--mode",
+            "pure",
+            "--output",
+            "json",
+        ])
         .current_dir(dir.path())
         .output()
         .expect("run foreign fixture");
     assert_eq!(output.status.code(), Some(1));
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json");
-    assert_eq!(report["success"], false);
-    assert_eq!(report["error"]["code"], "permission.denied");
+    assert_ne!(report["run"]["status"], "ok");
+    assert_eq!(
+        observation::terminal(&report)["error"]["code"],
+        "permission.denied"
+    );
 
     let plugin = dir.path().join("plugin.mq.md");
     std::fs::write(
@@ -149,11 +177,18 @@ fn foreign_and_plugin_shortcuts_are_unavailable_in_the_pure_lane() {
     )
     .unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
-        .args(["run", plugin.to_str().unwrap(), "--mode", "pure", "--json"])
+        .args([
+            "run",
+            plugin.to_str().unwrap(),
+            "--mode",
+            "pure",
+            "--output",
+            "json",
+        ])
         .current_dir(dir.path())
         .output()
         .expect("run plugin fixture");
     assert_eq!(output.status.code(), Some(1));
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json");
-    assert_eq!(report["success"], false);
+    assert_ne!(report["run"]["status"], "ok");
 }
