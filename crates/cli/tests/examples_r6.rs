@@ -1,6 +1,9 @@
 //! R6 integration examples that do not require an official external repo.
 #![cfg(unix)]
 
+#[path = "support/observation.rs"]
+pub mod observation;
+
 use std::path::Path;
 use std::process::{Command, Output};
 
@@ -51,13 +54,13 @@ fn mqmd_stdlib_print_output_matches_builtin_print() {
 
 #[test]
 fn addressable_memory_example_runs_through_the_cli() {
-    let output = cli(&["run", "examples/memory-buffer.mq.md", "--json"]);
+    let output = cli(&["run", "examples/memory-buffer.mq.md", "--output", "json"]);
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     let report: serde_json::Value =
-        serde_json::from_slice(&output.stdout).expect("run --json emits JSON");
-    assert_eq!(report["success"], true);
-    assert_eq!(report["value"]["type"], "int");
-    assert_eq!(report["value"]["decimal"], "141");
+        serde_json::from_slice(&output.stdout).expect("run --output json emits a snapshot");
+    assert_eq!(report["run"]["status"], "ok");
+    assert_eq!(observation::terminal(&report)["value"]["type"], "int");
+    assert_eq!(observation::terminal(&report)["value"]["decimal"], "141");
 }
 
 #[test]
@@ -67,13 +70,17 @@ fn cli_memory_budget_override_fails_closed() {
         "examples/memory-buffer.mq.md",
         "--max-memory",
         "0",
-        "--json",
+        "--output",
+        "json",
     ]);
     assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
     let report: serde_json::Value =
-        serde_json::from_slice(&output.stdout).expect("run --json emits JSON");
-    assert_eq!(report["success"], false);
-    assert_eq!(report["error"]["code"], "resource.exhausted");
+        serde_json::from_slice(&output.stdout).expect("run --output json emits a snapshot");
+    assert_eq!(report["run"]["status"], "error");
+    assert_eq!(
+        observation::terminal(&report)["error"]["code"],
+        "resource.exhausted"
+    );
 }
 
 #[test]
@@ -133,7 +140,12 @@ fn unknown_tool_name_installs_and_dispatches() {
 
 #[test]
 fn public_schemas_are_valid_json_and_versioned() {
-    for name in ["analysis", "trace-v1", "cli-tool", "execution-events-v1"] {
+    for name in [
+        "analysis",
+        "observation-event",
+        "cli-tool",
+        "observation-file",
+    ] {
         let path = repo()
             .join("spec/schemas")
             .join(format!("{name}.schema.json"));

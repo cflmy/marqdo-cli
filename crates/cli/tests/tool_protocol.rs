@@ -8,6 +8,8 @@ use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::OnceLock;
 
+use sha2::Digest;
+
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
 struct TempDir(PathBuf);
@@ -137,20 +139,18 @@ fn write_sample_from_source(dir: &Path, command: &str) -> PathBuf {
         .status()
         .expect("run rustc for the sample tool");
     assert!(status.success(), "rustc failed for {command}");
-    let entrypoint = format!("bin/{command}{}", std::env::consts::EXE_SUFFIX);
     let manifest = package.join("tool.json");
-    std::fs::write(
-        &manifest,
-        format!(
-            r#"{{"schema":"marqdo.cli-tool","schema_version":1,"name":"demo.{command}","version":"0.1.0","command":"{command}","entrypoint":"{entrypoint}","requires":{{"api_revision":1,"analysis":3,"observation":1}}}}"#
-        ),
-    )
-    .unwrap();
+    let template = root.join(format!("examples/tool-samples/{command}/tool.json"));
+    let mut document: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(template).unwrap()).unwrap();
+    document["entrypoint"] =
+        serde_json::json!(format!("bin/{command}{}", std::env::consts::EXE_SUFFIX));
+    std::fs::write(&manifest, document.to_string()).unwrap();
     manifest
 }
 
 #[test]
-fn independent_sample_tools_consume_public_analysis_and_trace() {
+fn independent_sample_tools_consume_public_analysis_and_observation() {
     let dir = TempDir::new("samples");
     let home = dir.path().join("home");
     let analysis = dir.path().join("analysis.json");
@@ -170,7 +170,11 @@ fn independent_sample_tools_consume_public_analysis_and_trace() {
         .expect("run check");
     assert!(check.status.success(), "check failed: {}", stderr(&check));
     let run = Command::new(binary())
-        .args(["run", "examples/multi-module/index.mq.md", "--trace-file"])
+        .args([
+            "run",
+            "examples/multi-module/index.mq.md",
+            "--observation-file",
+        ])
         .arg(&trace)
         .current_dir(&root)
         .output()
@@ -207,15 +211,15 @@ fn independent_sample_tools_consume_public_analysis_and_trace() {
 
     let knowledge = cli(
         &home,
-        &["sample-knowledge", "--trace", trace.to_str().unwrap()],
+        &["sample-knowledge", "--analysis", analysis.to_str().unwrap()],
     );
     assert_eq!(knowledge.status.code(), Some(0), "{}", stderr(&knowledge));
     let text = stdout(&knowledge);
     assert!(
-        text.contains("sample-knowledge schema=marqdo.trace version=2"),
+        text.contains("sample-knowledge schema=marqdo.analysis version=3"),
         "{text}"
     );
-    assert!(text.contains("status=ok"), "{text}");
+    assert!(text.contains("reference_sets="), "{text}");
 
     let proof = cli(
         &home,
@@ -223,14 +227,20 @@ fn independent_sample_tools_consume_public_analysis_and_trace() {
             "sample-proof",
             "--analysis",
             analysis.to_str().unwrap(),
-            "--trace",
+            "--observation",
             trace.to_str().unwrap(),
         ],
     );
     assert_eq!(proof.status.code(), Some(0), "{}", stderr(&proof));
     let text = stdout(&proof);
-    assert!(text.contains("sample-proof bound=true"), "{text}");
-    assert!(text.contains("digest=sha256:"), "{text}");
+    let digest = format!(
+        "sha256:{:x}",
+        sha2::Sha256::digest(std::fs::read(&analysis).unwrap())
+    );
+    assert!(
+        text.contains(&format!("sample-proof claimed_digest={digest}")),
+        "{text}"
+    );
 
     for command in ["sample-view", "sample-knowledge", "sample-proof"] {
         let removed = cli(&home, &["tool", "remove", command]);

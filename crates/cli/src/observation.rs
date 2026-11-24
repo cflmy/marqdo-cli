@@ -1,15 +1,9 @@
-//! Execution Events v1 JSONL writer and public envelope.
-//!
-//! Normative contract: `spec/execution-events-v1.md`; decision record:
-//! ADR-0059. The host owns the typed events; this module only assigns the
-//! public envelope/sequence, encodes bytes as base64 and writes one flushed
-//! line per event to the CLI protocol stdout.
-//!
-//! There is no HTTP, SSE, WebSocket, View or Agent branch here.
+//! Deliver the Host observation sequence to JSONL or atomic JSON snapshots.
 
 use std::cell::RefCell;
 use std::collections::BTreeSet;
-use std::io::{self, Write};
+use std::io::{self, Seek, Write};
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -18,19 +12,27 @@ use marqdo_host::{
     ParameterSource, ValueState, DEFAULT_MAX_OBSERVATION_BYTES, DEFAULT_MAX_OBSERVATION_EVENTS,
     DEFAULT_MAX_VALUE_BYTES,
 };
-use marqdo_value::{RuntimeError, Value};
+use marqdo_value::Value;
 use serde_json::{json, Value as Json};
 
 /// Public schema name.
-pub const SCHEMA: &str = "marqdo.execution-events";
+pub const SCHEMA: &str = "marqdo.observation";
 /// Public schema major version.
 pub const SCHEMA_VERSION: u32 = 1;
-/// The only accepted `--event-stream` format in v1.
-pub const FORMAT_JSONL: &str = "jsonl";
+/// Delivery format on stdout.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum OutputFormat {
+    #[default]
+    Text,
+    Json,
+    Jsonl,
+}
 
 /// CLI observation options.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ObservationOptions {
+    pub output: OutputFormat,
+    pub file: Option<PathBuf>,
     /// Exact local-variable names selected with `--observe-variable`.
     pub variables: Vec<String>,
     /// Exact parameter names selected with `--observe-parameter`.
@@ -48,6 +50,8 @@ pub struct ObservationOptions {
 impl Default for ObservationOptions {
     fn default() -> Self {
         Self {
+            output: OutputFormat::Text,
+            file: None,
             variables: Vec::new(),
             parameters: Vec::new(),
             allow_text_values: false,
@@ -59,6 +63,20 @@ impl Default for ObservationOptions {
 }
 
 impl ObservationOptions {
+    pub fn enabled(&self) -> bool {
+        self.output != OutputFormat::Text || self.file.is_some()
+    }
+
+    pub fn has_capture_overrides(&self) -> bool {
+        let defaults = Self::default();
+        !self.variables.is_empty()
+            || !self.parameters.is_empty()
+            || self.allow_text_values
+            || self.max_value_bytes != defaults.max_value_bytes
+            || self.max_events != defaults.max_events
+            || self.max_bytes != defaults.max_bytes
+    }
+
     /// Typed host policy for this run.
     pub fn config(&self) -> ObservationConfig {
         ObservationConfig {
@@ -73,15 +91,15 @@ impl ObservationOptions {
     }
 }
 
-/// One run's JSONL writer, shared with the host sink.
+/// One run and event sequence, shared with the host observation sink.
 #[derive(Clone)]
-pub struct EventStream {
-    inner: Rc<RefCell<JsonlWriter>>,
+pub struct ObservationSession {
+    inner: Rc<RefCell<EventWriter>>,
     config: ObservationConfig,
 }
 
-impl EventStream {
-    /// Open the protocol channel and write `stream.opened` as `seq: 0`.
+impl ObservationSession {
+    /// Set up all destinations and publish the first event.
     pub fn open(options: &ObservationOptions) -> Result<Self, String> {
         let run_id = new_run_id();
         let config = options.config();
@@ -89,10 +107,6 @@ impl EventStream {
             "producer": {
                 "name": "marqdo",
                 "version": env!("CARGO_PKG_VERSION"),
-            },
-            "protocol": {
-                "name": SCHEMA,
-                "schema_version": SCHEMA_VERSION,
             },
             "observation": {
                 "level": config.level(),
@@ -107,21 +121,21 @@ impl EventStream {
                 "max_value_bytes": config.max_value_bytes,
             },
         });
-        let mut writer = JsonlWriter {
-            out: Box::new(io::stdout()),
-            run_id: run_id.clone(),
+        let mut writer = EventWriter {
+            output: options.output,
+            snapshot: Snapshot::open(options)?,
+            run_id,
             seq: 0,
+            source: Json::Null,
+            truncated: Json::Null,
+            capture: opened["observation"].clone(),
+            failed: false,
         };
         writer.emit("stream.opened", opened)?;
         Ok(Self {
             inner: Rc::new(RefCell::new(writer)),
             config,
         })
-    }
-
-    /// Opaque run identity shared with Trace v2 when both are requested.
-    pub fn run_id(&self) -> String {
-        self.inner.borrow().run_id.clone()
     }
 
     /// Typed policy (used to install the host sink).
@@ -163,40 +177,26 @@ impl EventStream {
         )
     }
 
-    /// Write the successful terminal event.
+    /// Write the successful terminal event and its explicitly returned result.
     pub fn completed(&self, value: &Value) -> Result<(), String> {
+        let transferable = !value.contains_memory()
+            && !value.contains_resource()
+            && !marqdo_host::contains_plugin_handle(value);
+        let wire = transferable.then(|| marqdo_value::to_wire(value));
         self.emit(
             "run.completed",
-            json!({"status": "ok", "value": marqdo_value::to_wire(value)}),
+            json!({"status": "ok", "value": wire, "value_type": value.type_name()}),
         )
     }
 
     /// Write the failed terminal event.
-    pub fn failed(&self, error: &RuntimeError) -> Result<(), String> {
-        self.emit(
-            "run.failed",
-            json!({
-                "status": "error",
-                "error": {
-                    "code": error.code(),
-                    "message": error.message,
-                    "module_id": error.module_id.as_deref(),
-                    "span": error.span.map(span_json),
-                }
-            }),
-        )
+    pub fn failed(&self, error: Json) -> Result<(), String> {
+        self.emit("run.failed", json!({"status": "error", "error": error}))
     }
 
-    /// Write a failed terminal event for a CLI-level failure that still has a
-    /// stable code (for example `cli.trace_failed`).
-    pub fn failed_error(&self, code: &str, message: &str) -> Result<(), String> {
-        self.emit(
-            "run.failed",
-            json!({
-                "status": "error",
-                "error": {"code": code, "message": message},
-            }),
-        )
+    /// Deliver a snapshot without a terminal event when isolation interrupted a run.
+    pub fn incomplete(&self) -> Result<(), String> {
+        self.inner.borrow_mut().finish_snapshot("incomplete")
     }
 
     /// Write the pre-execution rejection terminal event.
@@ -220,7 +220,7 @@ impl EventStream {
 
 /// `ObservationSink` adapter installed into `StdHost`.
 pub struct HostEventSink {
-    stream: EventStream,
+    stream: ObservationSession,
 }
 
 impl ObservationSink for HostEventSink {
@@ -231,14 +231,105 @@ impl ObservationSink for HostEventSink {
     }
 }
 
-struct JsonlWriter {
-    out: Box<dyn Write>,
-    run_id: String,
-    seq: u64,
+struct Snapshot {
+    staging: tempfile::NamedTempFile,
+    path: Option<PathBuf>,
 }
 
-impl JsonlWriter {
+impl Snapshot {
+    fn open(options: &ObservationOptions) -> Result<Option<Self>, String> {
+        if options.output != OutputFormat::Json && options.file.is_none() {
+            return Ok(None);
+        }
+        let staging = if let Some(path) = &options.file {
+            let parent = path
+                .parent()
+                .filter(|parent| !parent.as_os_str().is_empty())
+                .unwrap_or_else(|| Path::new("."));
+            std::fs::create_dir_all(parent)
+                .map_err(|error| format!("cannot create observation directory: {error}"))?;
+            tempfile::NamedTempFile::new_in(parent)
+        } else {
+            tempfile::NamedTempFile::new()
+        }
+        .map_err(|error| format!("cannot stage observation snapshot: {error}"))?;
+        let mut snapshot = Self {
+            staging,
+            path: options.file.clone(),
+        };
+        snapshot.write(b"{\"events\":[")?;
+        Ok(Some(snapshot))
+    }
+
+    fn write(&mut self, bytes: &[u8]) -> Result<(), String> {
+        self.staging
+            .write_all(bytes)
+            .map_err(|error| format!("cannot write observation snapshot: {error}"))
+    }
+
+    fn finish(mut self, metadata: Json, stdout: bool) -> Result<(), String> {
+        let suffix = serde_json::to_vec(&metadata)
+            .map_err(|error| format!("cannot encode observation metadata: {error}"))?;
+        self.write(b"],")?;
+        self.write(&suffix[1..])?;
+        self.write(b"\n")?;
+        if let Some(path) = &self.path {
+            self.staging
+                .as_file()
+                .sync_all()
+                .map_err(|error| format!("cannot sync observation snapshot: {error}"))?;
+            let mut file = self
+                .staging
+                .persist(path)
+                .map_err(|error| format!("cannot publish observation snapshot: {error}"))?;
+            if stdout {
+                write_snapshot_stdout(&mut file)?;
+            }
+        } else {
+            write_snapshot_stdout(self.staging.as_file_mut())?;
+        }
+        Ok(())
+    }
+}
+
+fn write_snapshot_stdout(file: &mut std::fs::File) -> Result<(), String> {
+    let mut out = io::stdout().lock();
+    file.rewind()
+        .and_then(|()| io::copy(file, &mut out))
+        .and_then(|_| out.flush())
+        .map_err(|error| format!("cannot write observation snapshot to stdout: {error}"))
+}
+
+struct EventWriter {
+    output: OutputFormat,
+    snapshot: Option<Snapshot>,
+    run_id: String,
+    seq: u64,
+    source: Json,
+    truncated: Json,
+    capture: Json,
+    failed: bool,
+}
+
+impl EventWriter {
     fn emit(&mut self, kind: &str, payload: Json) -> Result<(), String> {
+        if self.failed {
+            return Err("observation transport already failed".into());
+        }
+        let result = self.deliver(kind, payload);
+        if result.is_err() {
+            self.failed = true;
+            self.snapshot.take();
+        }
+        result
+    }
+
+    fn deliver(&mut self, kind: &str, payload: Json) -> Result<(), String> {
+        match kind {
+            "run.started" => self.source = payload["source"].clone(),
+            "observation.truncated" => self.truncated = payload.clone(),
+            _ => {}
+        }
         let event = json!({
             "schema": SCHEMA,
             "schema_version": SCHEMA_VERSION,
@@ -247,18 +338,78 @@ impl JsonlWriter {
             "kind": kind,
             "payload": payload,
         });
-        let mut line = serde_json::to_vec(&event)
-            .map_err(|error| format!("cannot encode execution event: {error}"))?;
-        line.push(b'\n');
-        // Flush each line: line-buffered batching would hide real-time output
-        // behind the run duration (RFC-OBS-0001 §5.2).
-        self.out
-            .write_all(&line)
-            .and_then(|()| self.out.flush())
-            .map_err(|error| format!("cannot write execution event stream: {error}"))?;
+        let mut bytes = serde_json::to_vec(&event)
+            .map_err(|error| format!("cannot encode observation event: {error}"))?;
+        if let Some(snapshot) = &mut self.snapshot {
+            if self.seq != 0 {
+                snapshot.write(b",")?;
+            }
+            snapshot.write(&bytes)?;
+        }
+        if matches!(kind, "run.completed" | "run.failed" | "run.rejected") {
+            self.finish_snapshot(payload["status"].as_str().expect("terminal status"))?;
+        }
+        if self.output == OutputFormat::Jsonl {
+            let mut out = io::stdout().lock();
+            bytes.push(b'\n');
+            out.write_all(&bytes)
+                .and_then(|()| out.flush())
+                .map_err(|error| format!("cannot write observation stream: {error}"))?;
+        }
         self.seq += 1;
         Ok(())
     }
+
+    fn finish_snapshot(&mut self, status: &str) -> Result<(), String> {
+        let Some(snapshot) = self.snapshot.take() else {
+            return Ok(());
+        };
+        let mut capture = self.capture.clone();
+        capture["truncated"] = self.truncated.clone();
+        snapshot.finish(
+            json!({
+                "schema": SCHEMA,
+                "schema_version": SCHEMA_VERSION,
+                "run": {"id": self.run_id, "status": status, "source": self.source},
+                "capture": capture,
+            }),
+            self.output == OutputFormat::Json,
+        )
+    }
+}
+
+/// The strict supervisor forwards only a complete current snapshot.
+pub fn is_complete_snapshot(bytes: &[u8], exit_code: i32) -> bool {
+    let Ok(snapshot) = serde_json::from_slice::<Json>(bytes) else {
+        return false;
+    };
+    let Some(events) = snapshot["events"].as_array() else {
+        return false;
+    };
+    let Some(run_id) = snapshot["run"]["id"].as_str() else {
+        return false;
+    };
+    let Some(last) = events.last() else {
+        return false;
+    };
+    let status = match last["kind"].as_str() {
+        Some("run.completed") if exit_code == 0 => "ok",
+        Some("run.failed") if exit_code != 0 => "error",
+        Some("run.rejected") if exit_code != 0 => "rejected",
+        _ => return false,
+    };
+    snapshot["schema"] == SCHEMA
+        && snapshot["schema_version"] == SCHEMA_VERSION
+        && snapshot["run"]["status"] == status
+        && snapshot["capture"].is_object()
+        && last["payload"]["status"] == status
+        && events[0]["kind"] == "stream.opened"
+        && events.iter().enumerate().all(|(seq, event)| {
+            event["schema"] == SCHEMA
+                && event["schema_version"] == SCHEMA_VERSION
+                && event["run_id"] == run_id
+                && event["seq"] == seq
+        })
 }
 
 fn observation_payload(event: ObservationEvent<'_>) -> (&'static str, Json) {
@@ -365,6 +516,7 @@ fn observation_payload(event: ObservationEvent<'_>) -> (&'static str, Json) {
             }),
         ),
         ObservationEvent::Effect {
+            frame_id,
             operation,
             result_code,
             module_id,
@@ -372,6 +524,7 @@ fn observation_payload(event: ObservationEvent<'_>) -> (&'static str, Json) {
         } => (
             "effect",
             json!({
+                "frame_id": frame_id.map(FrameId::as_wire),
                 "operation": operation,
                 "result_code": result_code,
                 "module_id": module_id,

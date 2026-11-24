@@ -7,7 +7,6 @@
   "entrypoint": "bin/sample-knowledge",
   "requires": {
     "api_revision": 1,
-    "analysis": 3,
-    "observation": 1
+    "analysis": 3
   }
 }

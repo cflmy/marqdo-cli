@@ -1,5 +1,8 @@
 # ADR-0006: CLI output, exit-code and JSON contract
 
+> Historical public protocol sections. Current Analysis, runtime output and
+> Tool contracts are specified by [ADR-0068](0068-single-current-public-contracts.md).
+
 Status: **Accepted**
 Date: 2026-11-20
 

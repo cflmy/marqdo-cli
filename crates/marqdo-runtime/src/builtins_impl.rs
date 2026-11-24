@@ -160,12 +160,7 @@ pub(crate) fn dispatch(
             let handle = interpreter
                 .memory_mut()
                 .create(initial_pages, max_pages, span)?;
-            interpreter.record_memory_event(
-                "memory.new",
-                &module,
-                span,
-                &format!("initial_pages={initial_pages} max_pages={max_pages}"),
-            );
+            interpreter.observe_memory_effect("memory.new", &module, span)?;
             Ok(Value::Memory(handle))
         }
         "memory.size" => {
@@ -191,12 +186,7 @@ pub(crate) fn dispatch(
             };
             let pages = page_count(take(&bound, "pages", builtin, span)?, span)?;
             let old_pages = interpreter.memory_mut().grow(handle, pages, span)?;
-            interpreter.record_memory_event(
-                "memory.grow",
-                &module,
-                span,
-                &format!("pages={pages} old_pages={old_pages}"),
-            );
+            interpreter.observe_memory_effect("memory.grow", &module, span)?;
             Ok(pages_value(old_pages, span)?)
         }
         "list.append" => {

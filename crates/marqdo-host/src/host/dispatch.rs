@@ -1,7 +1,7 @@
 //! `Host::invoke` dispatch table.
 //!
 //! Child module of `host`: it may call the parent's private capability,
-//! resource and trace helpers. `StdHost` remains the only host implementation.
+//! resource and observation helpers. `StdHost` remains the only host implementation.
 
 use super::*;
 
@@ -36,30 +36,12 @@ pub(crate) fn invoke(
             ),
         ));
     }
-    let started = Instant::now();
     let result = host.dispatch(op, args, ctx);
-    let summary = match &result {
-        Ok(_) => "ok".to_string(),
-        Err(error) => error.code().to_string(),
+    let result_code = match &result {
+        Ok(_) => "ok",
+        Err(error) => error.code(),
     };
-    let estimate = TraceState::estimate(
-        "effect",
-        None,
-        Some(&ctx.module_id),
-        Some(&summary),
-        Some(op.name()),
-    );
-    if host.trace_state.accept(estimate) {
-        let seq = host.next_seq();
-        host.trace.record(
-            seq,
-            op.name(),
-            ctx.module_id.clone(),
-            ctx.span,
-            started.elapsed(),
-            summary,
-        );
-    }
+    host.observe_effect(op.name(), result_code, ctx);
     result
 }
 

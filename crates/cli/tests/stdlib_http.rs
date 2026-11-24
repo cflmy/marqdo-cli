@@ -1,5 +1,8 @@
 //! CM-A08/P5 stdlib HTTP framing module tests.
 
+#[path = "support/observation.rs"]
+pub mod observation;
+
 use std::path::Path;
 use std::process::Command;
 
@@ -15,7 +18,7 @@ fn repo_root() -> std::path::PathBuf {
 #[test]
 fn stdlib_http_parses_chunked_responses_and_builds_requests() {
     let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
-        .args(["run", "tests/http.mq.md", "--json"])
+        .args(["run", "tests/http.mq.md", "--output", "json"])
         .current_dir(repo_root().join("stdlib"))
         .env("MARQDO_STDLIB_DIR", repo_root().join("stdlib"))
         .output()
@@ -27,8 +30,10 @@ fn stdlib_http_parses_chunked_responses_and_builds_requests() {
         String::from_utf8_lossy(&output.stderr)
     );
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json");
-    assert_eq!(report["success"], true);
-    let items = report["value"]["items"].as_array().expect("list");
+    assert_eq!(report["run"]["status"], "ok");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(items[0]["decimal"], "200");
     assert_eq!(items[1]["value"], "OK");
     assert_eq!(items[2]["value"], "text/plain");

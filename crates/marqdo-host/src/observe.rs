@@ -4,7 +4,7 @@
 //! interpreter and host emit at real commit points, the optional sink the CLI
 //! installs, the run-scoped frame identity and the bounded observation budget.
 //! It does **not** know JSONL, HTTP, SSE, View, agents or the public envelope;
-//! the CLI composes the public Execution Events v1 protocol from these events.
+//! the CLI composes the public Observation protocol from these events.
 //!
 //! Defaults are deliberately inert: no sink means no allocation and no
 //! serialization. The facade never exposes `Frame.locals`, the whole
@@ -202,6 +202,7 @@ pub enum ObservationEvent<'a> {
     },
     /// The host completed a controlled effect attempt.
     Effect {
+        frame_id: Option<FrameId>,
         operation: &'a str,
         result_code: &'a str,
         module_id: &'a str,
@@ -247,7 +248,7 @@ pub enum LoopTransfer {
 }
 
 impl LoopTransfer {
-    /// The event kind in Trace and Execution Events.
+    /// The event kind in Observation.
     pub fn event_kind(self) -> &'static str {
         match self {
             Self::Break => "control.break",
@@ -258,10 +259,15 @@ impl LoopTransfer {
 
 /// Borrowed runtime notification accepted by [`crate::Host::observe_runtime`].
 ///
-/// Every variant carries an `Option<FrameId>`; observation of values and
-/// structural events only happens while a frame identity exists.
+/// Value and control observations carry the owning call frame.
 #[derive(Debug)]
 pub enum RuntimeObservation<'a> {
+    /// A local memory operation committed.
+    Effect {
+        operation: &'a str,
+        module_id: &'a str,
+        span: Option<Span>,
+    },
     /// A `return` statement committed (before the call exits).
     Return {
         frame_id: Option<FrameId>,

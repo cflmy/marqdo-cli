@@ -1,5 +1,8 @@
 //! End-to-end resource stream tests through the CLI.
 
+#[path = "support/observation.rs"]
+pub mod observation;
+
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
@@ -80,7 +83,14 @@ fn project_file_stream_reads_chunks_into_memory() {
     write_file(&dir.path().join("index.mq.md"), READER);
     let output = cli(
         dir.path(),
-        &["run", "index.mq.md", "--allow-read", "data.txt", "--json"],
+        &[
+            "run",
+            "index.mq.md",
+            "--allow-read",
+            "data.txt",
+            "--output",
+            "json",
+        ],
     );
     assert_eq!(
         output.status.code(),
@@ -89,8 +99,8 @@ fn project_file_stream_reads_chunks_into_memory() {
         String::from_utf8_lossy(&output.stderr)
     );
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
-    assert_eq!(report["success"], true);
-    let values: Vec<&serde_json::Value> = report["value"]["items"]
+    assert_eq!(report["run"]["status"], "ok");
+    let values: Vec<&serde_json::Value> = observation::terminal(&report)["value"]["items"]
         .as_array()
         .expect("list result")
         .iter()
@@ -148,7 +158,8 @@ fn project_file_stream_writes_on_close_then_reads_back() {
             "out.bin",
             "--allow-read",
             "out.bin",
-            "--json",
+            "--output",
+            "json",
         ],
     );
     assert_eq!(
@@ -158,8 +169,10 @@ fn project_file_stream_writes_on_close_then_reads_back() {
         String::from_utf8_lossy(&output.stderr)
     );
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
-    assert_eq!(report["success"], true);
-    let values = report["value"]["items"].as_array().expect("list result");
+    assert_eq!(report["run"]["status"], "ok");
+    let values = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list result");
     assert_eq!(values[0]["decimal"], "3");
     assert_eq!(values[1]["value"], true);
     assert_eq!(values[2]["decimal"], "3");
@@ -224,7 +237,8 @@ fn file_copy_is_written_in_mqmd_through_chunked_streams() {
             "data.txt",
             "--allow-write",
             "out.bin",
-            "--json",
+            "--output",
+            "json",
         ],
     );
     assert_eq!(
@@ -234,8 +248,10 @@ fn file_copy_is_written_in_mqmd_through_chunked_streams() {
         String::from_utf8_lossy(&output.stderr)
     );
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
-    assert_eq!(report["success"], true);
-    let values = report["value"]["items"].as_array().expect("list result");
+    assert_eq!(report["run"]["status"], "ok");
+    let values = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list result");
     assert_eq!(values[0]["decimal"], "6");
     assert_eq!(values[1]["value"], true);
     assert_eq!(values[2]["value"], true);
@@ -287,7 +303,14 @@ fn tcp_stream_round_trips_through_mqmd_with_a_network_grant() {
     write_file(&dir.path().join("index.mq.md"), &program);
     let output = cli(
         dir.path(),
-        &["run", "index.mq.md", "--allow-net", "127.0.0.1", "--json"],
+        &[
+            "run",
+            "index.mq.md",
+            "--allow-net",
+            "127.0.0.1",
+            "--output",
+            "json",
+        ],
     );
     assert_eq!(
         output.status.code(),
@@ -296,8 +319,10 @@ fn tcp_stream_round_trips_through_mqmd_with_a_network_grant() {
         String::from_utf8_lossy(&output.stderr)
     );
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
-    assert_eq!(report["success"], true);
-    let values = report["value"]["items"].as_array().expect("list");
+    assert_eq!(report["run"]["status"], "ok");
+    let values = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(values[0]["decimal"], "4");
     assert_eq!(values[1]["decimal"], "4");
     for (index, expected) in ["112", "105", "110", "103"].into_iter().enumerate() {
@@ -312,11 +337,14 @@ fn file_stream_requires_a_read_grant() {
     let dir = TempDir::new("file-denied");
     write_file(&dir.path().join("data.txt"), "abcdef");
     write_file(&dir.path().join("index.mq.md"), READER);
-    let output = cli(dir.path(), &["run", "index.mq.md", "--json"]);
+    let output = cli(dir.path(), &["run", "index.mq.md", "--output", "json"]);
     assert_eq!(output.status.code(), Some(1));
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
-    assert_eq!(report["success"], false);
-    assert_eq!(report["error"]["code"], "permission.denied");
+    assert_ne!(report["run"]["status"], "ok");
+    assert_eq!(
+        observation::terminal(&report)["error"]["code"],
+        "permission.denied"
+    );
 }
 
 const STDIN_READER: &str = r#"## @exec main
@@ -338,7 +366,11 @@ const STDIN_READER: &str = r#"## @exec main
 fn piped_stdin_is_chunked_and_reaches_eof() {
     let dir = TempDir::new("stdin");
     write_file(&dir.path().join("index.mq.md"), STDIN_READER);
-    let output = cli_with_stdin(dir.path(), &["run", "index.mq.md", "--json"], b"abcd");
+    let output = cli_with_stdin(
+        dir.path(),
+        &["run", "index.mq.md", "--output", "json"],
+        b"abcd",
+    );
     assert_eq!(
         output.status.code(),
         Some(0),
@@ -346,8 +378,10 @@ fn piped_stdin_is_chunked_and_reaches_eof() {
         String::from_utf8_lossy(&output.stderr)
     );
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
-    assert_eq!(report["success"], true);
-    let values = report["value"]["items"].as_array().expect("list result");
+    assert_eq!(report["run"]["status"], "ok");
+    let values = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list result");
     assert_eq!(values[0]["decimal"], "2");
     assert_eq!(values[1]["value"], false);
     assert_eq!(values[2]["decimal"], "2");
@@ -393,7 +427,7 @@ const STDERR_WRITER: &str = r#"## @exec main
 fn program_stderr_is_separate_from_stdout_and_diagnostics() {
     let dir = TempDir::new("stderr");
     write_file(&dir.path().join("index.mq.md"), STDERR_WRITER);
-    let output = cli(dir.path(), &["run", "index.mq.md", "--json"]);
+    let output = cli(dir.path(), &["run", "index.mq.md", "--output", "json"]);
     assert_eq!(
         output.status.code(),
         Some(0),
@@ -401,10 +435,12 @@ fn program_stderr_is_separate_from_stdout_and_diagnostics() {
         String::from_utf8_lossy(&output.stderr)
     );
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
-    assert_eq!(report["success"], true);
-    assert_eq!(report["stdout"], "out");
-    assert_eq!(report["stderr"], "err");
-    let values = report["value"]["items"].as_array().expect("list result");
+    assert_eq!(report["run"]["status"], "ok");
+    assert_eq!(observation::text(&report, "stdout.chunk"), "out");
+    assert_eq!(observation::text(&report, "stderr.chunk"), "err");
+    let values = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list result");
     assert_eq!(values[0]["decimal"], "3");
     assert_eq!(values[1]["decimal"], "3");
     assert_eq!(values[2]["value"], true);
@@ -433,7 +469,11 @@ import:
 fn stdlib_console_reads_lines_and_reports_eof() {
     let dir = TempDir::new("console");
     write_file(&dir.path().join("index.mq.md"), CONSOLE_READER);
-    let output = cli_with_stdin(dir.path(), &["run", "index.mq.md", "--json"], b"one\ntwo\n");
+    let output = cli_with_stdin(
+        dir.path(),
+        &["run", "index.mq.md", "--output", "json"],
+        b"one\ntwo\n",
+    );
     assert_eq!(
         output.status.code(),
         Some(0),
@@ -441,9 +481,11 @@ fn stdlib_console_reads_lines_and_reports_eof() {
         String::from_utf8_lossy(&output.stderr)
     );
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json output");
-    assert_eq!(report["success"], true);
-    assert_eq!(report["stdout"], "one|two\n");
-    let values = report["value"]["items"].as_array().expect("list result");
+    assert_eq!(report["run"]["status"], "ok");
+    assert_eq!(observation::text(&report, "stdout.chunk"), "one|two\n");
+    let values = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list result");
     assert_eq!(values[0]["value"], true);
     assert_eq!(values[1]["value"], true);
     assert_eq!(values[2]["value"], false);

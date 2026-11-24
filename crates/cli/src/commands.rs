@@ -29,6 +29,7 @@ pub use tool::{fmt, plugin_inspect};
 use crate::args;
 use crate::extension_descriptors::{self, StaticPluginSet};
 use crate::loader::{FileDiagnostic, LoadedProject};
+use crate::observation::ObservationSession;
 use crate::output;
 use crate::project_prepare::{self, PrepareOptions, PreparedProgram};
 
@@ -217,25 +218,6 @@ fn resolve_link(
     }
 }
 
-/// Re-execute this CLI inside the strict Linux supervisor.
-/// Emit one CLI error through the requested channel.
-///
-/// `--json` consumers require exactly one JSON document; human mode keeps the
-/// conventional `error:` line on stderr. This helper is shared with the run
-/// assembly so every strict control-plane failure follows one contract.
-pub(super) fn emit_error(json: bool, command_name: &str, code: &str, message: &str) {
-    if json {
-        output::print_json(&json!({
-            "command": command_name,
-            "success": false,
-            "error": message,
-            "code": code,
-        }));
-    } else {
-        eprintln!("error: {message}");
-    }
-}
-
 /// Machine-readable routing decision for one captured strict execution.
 #[derive(Debug, PartialEq, Eq)]
 enum StrictRoute {
@@ -247,17 +229,15 @@ enum StrictRoute {
 
 /// Classify a captured strict execution.
 ///
-/// A strict child in `--json` mode must produce exactly one JSON document on
-/// stdout. Anything else is a control-plane failure: forwarding bwrap text or
-/// an empty stream would break the CLI protocol (the GitHub-hosted Linux CI
-/// failure that motivated this contract).
-fn classify_strict_outcome(outcome: &StrictOutcome, json: bool) -> StrictRoute {
+/// Machine output is forwarded only if the child emitted one complete
+/// current Observation snapshot whose terminal agrees with the exit status.
+fn classify_strict_outcome(outcome: &StrictOutcome, snapshot: bool) -> StrictRoute {
     let exit_code = outcome.exit_code.unwrap_or(1);
-    if !json {
+    if !snapshot {
         return StrictRoute::Forward { exit_code };
     }
-    if !outcome.stdout.is_empty()
-        && serde_json::from_slice::<serde_json::Value>(&outcome.stdout).is_ok()
+    if outcome.exit_code.is_some()
+        && crate::observation::is_complete_snapshot(&outcome.stdout, exit_code)
     {
         return StrictRoute::Forward { exit_code };
     }
@@ -277,33 +257,39 @@ fn classify_strict_outcome(outcome: &StrictOutcome, json: bool) -> StrictRoute {
     }
     StrictRoute::Failure {
         code: "strict.child_invalid",
-        message: "the strict child did not produce exactly one JSON document; refusing to forward partial output"
+        message: "the strict child did not produce exactly one JSON observation snapshot"
             .to_string(),
     }
 }
 
-/// Route one captured strict execution to stdout/stderr or one error document.
-fn route_strict_outcome(outcome: StrictOutcome, json: bool, command_name: &str) -> i32 {
+/// Route captured child bytes through the selected output contract.
+fn route_strict_outcome(outcome: StrictOutcome, observation: Option<&ObservationSession>) -> i32 {
     use std::io::Write;
-    match classify_strict_outcome(&outcome, json) {
+    match classify_strict_outcome(&outcome, observation.is_some()) {
         StrictRoute::Forward { exit_code } => {
-            let _ = std::io::stdout().write_all(&outcome.stdout);
-            let _ = std::io::stdout().flush();
+            let mut stdout = std::io::stdout().lock();
+            if let Err(error) = stdout
+                .write_all(&outcome.stdout)
+                .and_then(|()| stdout.flush())
+            {
+                return run::transport_failure(&error.to_string());
+            }
             let _ = std::io::stderr().write_all(&outcome.stderr);
-            let _ = std::io::stderr().flush();
             exit_code
         }
         StrictRoute::Failure { code, message } => {
-            output::print_json(&json!({
-                "command": command_name,
-                "success": false,
-                "error": message,
-                "code": code,
-            }));
-            match outcome.exit_code {
-                Some(code) if code != 0 => code,
-                _ => 1,
+            eprintln!("error[{code}]: {message}");
+            if let Some(observation) = observation {
+                let result = if code == "strict.namespace_failure" {
+                    observation.rejected("strict", code, &message)
+                } else {
+                    observation.incomplete()
+                };
+                if let Err(error) = result {
+                    return run::transport_failure(&error);
+                }
             }
+            outcome.exit_code.filter(|code| *code != 0).unwrap_or(1)
         }
     }
 }
@@ -312,22 +298,26 @@ fn launch_strict_process(
     project_root: &Path,
     document: Option<&Path>,
     settings: &SandboxSettings,
-    json: bool,
-    command_name: &str,
+    observation: Option<&ObservationSession>,
 ) -> i32 {
     let program = match std::env::current_exe() {
         Ok(path) => path,
         Err(error) => {
             let message = format!("cannot locate the marqdo executable: {error}");
-            emit_error(json, command_name, "strict.launch_failed", &message);
-            return 1;
+            return run::fail(observation, "strict", "strict.launch_failed", &message, 1);
         }
     };
     let args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
-    let output_limit = settings
+    let program_output_limit = settings
         .max_output
-        .unwrap_or(1024 * 1024)
-        .min(64 * 1024 * 1024);
+        .unwrap_or(marqdo_host::DEFAULT_OUTPUT_BYTES);
+    let output_limit = if observation.is_some() {
+        // Allow framing and runtime observations within the existing
+        // supervisor capture ceiling. The child's program budget still applies.
+        64 * 1024 * 1024
+    } else {
+        program_output_limit.min(64 * 1024 * 1024)
+    };
     let timeout = Duration::from_secs(settings.timeout.unwrap_or(30));
     let stdlib_dir = crate::stdlib::StdlibBundle::discover()
         .ok()
@@ -344,11 +334,8 @@ fn launch_strict_process(
         stdlib_dir: stdlib_dir.as_deref(),
     };
     match marqdo_sandbox::launch_strict_capture(&command) {
-        Ok(outcome) => route_strict_outcome(outcome, json, command_name),
-        Err(error) => {
-            emit_error(json, command_name, error.code(), &error.to_string());
-            1
-        }
+        Ok(outcome) => route_strict_outcome(outcome, observation),
+        Err(error) => run::fail(observation, "strict", error.code(), &error.to_string(), 1),
     }
 }
 
@@ -544,7 +531,7 @@ mod tests {
     #[test]
     fn strict_json_success_is_forwarded_once() {
         let route = classify_strict_outcome(
-            &outcome(Some(0), None, br#"{"command":"run","success":true}"#, b""),
+            &outcome(Some(0), None, br#"{"schema":"marqdo.observation","schema_version":1,"run":{"id":"r","status":"ok"},"capture":{},"events":[{"schema":"marqdo.observation","schema_version":1,"run_id":"r","seq":0,"kind":"stream.opened","payload":{}},{"schema":"marqdo.observation","schema_version":1,"run_id":"r","seq":1,"kind":"run.completed","payload":{"status":"ok"}}]}"#, b""),
             true,
         );
         assert_eq!(route, StrictRoute::Forward { exit_code: 0 });
@@ -553,7 +540,7 @@ mod tests {
     #[test]
     fn strict_json_program_error_is_forwarded_unchanged() {
         let route = classify_strict_outcome(
-            &outcome(Some(2), None, br#"{"command":"run","success":false}"#, b""),
+            &outcome(Some(2), None, br#"{"schema":"marqdo.observation","schema_version":1,"run":{"id":"r","status":"error"},"capture":{},"events":[{"schema":"marqdo.observation","schema_version":1,"run_id":"r","seq":0,"kind":"stream.opened","payload":{}},{"schema":"marqdo.observation","schema_version":1,"run_id":"r","seq":1,"kind":"run.failed","payload":{"status":"error"}}]}"#, b""),
             true,
         );
         assert_eq!(route, StrictRoute::Forward { exit_code: 2 });

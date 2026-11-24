@@ -1,5 +1,8 @@
 # ADR-0013: Generic external CLI Tool Protocol v1
 
+> Historical. [ADR-0068](0068-single-current-public-contracts.md) supersedes
+> the public contracts described in this record.
+
 Status: **Accepted**
 Date: 2026-11-20
 

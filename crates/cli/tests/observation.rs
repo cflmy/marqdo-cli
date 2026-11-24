@@ -1,9 +1,9 @@
-//! Black-box Execution Events v1 contract tests (RFC-OBS-0001).
+//! Black-box Observation contract tests.
 //!
 //! These drive the real `marqdo` binary (`CARGO_BIN_EXE_marqdo`) and parse the
 //! stdout line stream exactly like an external consumer. They cover the P0
 //! envelope/lifecycle/byte-fidelity contract and the P1 frame/value policy,
-//! plus trace coexistence, truncation, live delivery and a broken pipe.
+//! plus snapshot equivalence, truncation, live delivery and a broken pipe.
 
 use std::fs;
 use std::io::{BufRead, BufReader, Read};
@@ -124,7 +124,7 @@ fn assert_envelope(events: &[Value]) {
     assert!(!events.is_empty());
     let first = &events[0];
     assert_eq!(first["kind"], "stream.opened");
-    assert_eq!(first["schema"], "marqdo.execution-events");
+    assert_eq!(first["schema"], "marqdo.observation");
     assert_eq!(first["schema_version"], 1);
     assert_eq!(first["seq"], 0);
     let run_id = first["run_id"].as_str().unwrap().to_string();
@@ -174,15 +174,16 @@ fn checked_in_fixtures_validate_against_the_public_schema() {
         eprintln!("python3 + jsonschema unavailable; schema consumer skipped");
         return;
     }
-    let fixtures = repo_root().join("tests/consumers/fixtures/execution-events");
-    let consumer = repo_root().join("tests/consumers/execution_events_consumer.py");
+    let fixtures = repo_root().join("tests/consumers/fixtures/observation");
+    let consumer = repo_root().join("tests/consumers/observation_consumer.py");
     for name in ["minimal.jsonl", "full.jsonl"] {
         let path = fixtures.join("valid").join(name);
         let output = Command::new("python3")
             .arg(&consumer)
+            .arg("--validate-schema")
             .arg(&path)
             .output()
-            .expect("run execution events consumer");
+            .expect("run observation consumer");
         assert!(
             output.status.success(),
             "valid fixture {name} rejected: {}",
@@ -193,9 +194,10 @@ fn checked_in_fixtures_validate_against_the_public_schema() {
         let path = entry.unwrap().path();
         let output = Command::new("python3")
             .arg(&consumer)
+            .arg("--validate-schema")
             .arg(&path)
             .output()
-            .expect("run execution events consumer");
+            .expect("run observation consumer");
         assert!(
             !output.status.success(),
             "invalid fixture {} was accepted",
@@ -208,7 +210,7 @@ fn checked_in_fixtures_validate_against_the_public_schema() {
 fn structure_fixture_attributes_repeated_recursive_frames() {
     let dir = TempDir::new("structure");
     let source = fs::read_to_string(
-        repo_root().join("tests/consumers/fixtures/execution-events/structure.mq.md"),
+        repo_root().join("tests/consumers/fixtures/observation/structure.mq.md"),
     )
     .unwrap();
     dir.write("index.mq.md", &source);
@@ -217,7 +219,7 @@ fn structure_fixture_attributes_repeated_recursive_frames() {
         &[
             "run",
             "index.mq.md",
-            "--event-stream",
+            "--output",
             "jsonl",
             "--observe-max-events",
             "1000",
@@ -287,7 +289,7 @@ fn native_plugin_is_fail_closed_in_event_mode() {
         &[
             "run",
             "index.mq.md",
-            "--event-stream",
+            "--output",
             "jsonl",
             "--plugin",
             plugin_dir.join("plugin.yaml").to_str().unwrap(),
@@ -302,7 +304,7 @@ fn native_plugin_is_fail_closed_in_event_mode() {
     assert_eq!(terminal["kind"], "run.rejected");
     assert_eq!(
         terminal["payload"]["error"]["code"],
-        "ext.event_stream_unsupported_native_plugin"
+        "ext.observation_unsupported_native_plugin"
     );
     assert!(
         events_of(&events, "run.started").is_empty(),
@@ -311,8 +313,8 @@ fn native_plugin_is_fail_closed_in_event_mode() {
 }
 
 #[test]
-fn observed_values_never_enter_trace_v2() {
-    let dir = TempDir::new("trace-redaction");
+fn selected_values_apply_equally_to_stream_and_private_snapshot() {
+    let dir = TempDir::new("capture-consent");
     dir.write(
         "index.mq.md",
         "## @exec main\n\n`secret_token = \"DO_NOT_LEAK_SENTINEL_1\"`\n\n`visible_count = 42`\n\n`return visible_count`\n",
@@ -323,12 +325,12 @@ fn observed_values_never_enter_trace_v2() {
         &[
             "run",
             "index.mq.md",
-            "--event-stream",
+            "--output",
             "jsonl",
             "--observe-variable",
             "secret_token",
             "--observe-text-values",
-            "--trace-file",
+            "--observation-file",
             trace_path.to_str().unwrap(),
         ],
     );
@@ -337,24 +339,32 @@ fn observed_values_never_enter_trace_v2() {
         String::from_utf8_lossy(&output.stdout).contains("DO_NOT_LEAK_SENTINEL_1"),
         "the explicit event consent publishes the selected value in the stream"
     );
-    let trace = fs::read(&trace_path).unwrap();
-    assert!(
-        !String::from_utf8_lossy(&trace).contains("DO_NOT_LEAK_SENTINEL_1"),
-        "Trace v2 must not gain observed values"
+    let snapshot_bytes = fs::read(&trace_path).unwrap();
+    let snapshot: Value = serde_json::from_slice(&snapshot_bytes).unwrap();
+    assert_eq!(
+        snapshot["events"],
+        serde_json::json!(parse_events(&output.stdout))
     );
-    let trace: Value = serde_json::from_slice(&trace).unwrap();
-    assert_eq!(trace["schema"], "marqdo.trace");
-    assert_eq!(trace["schema_version"], 2);
+    assert_eq!(
+        snapshot["capture"]["selected_variables"],
+        serde_json::json!(["secret_token"])
+    );
+    assert!(String::from_utf8_lossy(&snapshot_bytes).contains("DO_NOT_LEAK_SENTINEL_1"));
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            fs::metadata(&trace_path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
 }
 
 #[test]
 fn basic_stream_is_pure_jsonl_and_reconstructs_program_output() {
     let dir = TempDir::new("basic");
     dir.write("index.mq.md", BASIC);
-    let output = cli(
-        dir.path(),
-        &["run", "index.mq.md", "--event-stream", "jsonl"],
-    );
+    let output = cli(dir.path(), &["run", "index.mq.md", "--output", "jsonl"]);
     assert_eq!(
         output.status.code(),
         Some(0),
@@ -382,27 +392,27 @@ fn basic_stream_is_pure_jsonl_and_reconstructs_program_output() {
 }
 
 #[test]
-fn event_stream_rejects_mixed_json_and_static_commands() {
+fn retired_run_options_and_static_observation_are_rejected() {
     let dir = TempDir::new("reject");
     dir.write("index.mq.md", BASIC);
-    let mixed = cli(
-        dir.path(),
-        &["run", "index.mq.md", "--event-stream", "jsonl", "--json"],
-    );
-    assert_eq!(mixed.status.code(), Some(2));
-    assert!(mixed.stdout.is_empty(), "no mixed stdout");
-    assert!(String::from_utf8_lossy(&mixed.stderr).contains("--json"));
-
+    for args in [
+        vec!["--json"],
+        vec!["--event-stream", "jsonl"],
+        vec!["--trace-file", "retired.json"],
+        vec!["--trace"],
+        vec!["--output", "jsonl", "--output", "json"],
+        vec!["--observe-variable", "n"],
+    ] {
+        let mut command = vec!["run", "index.mq.md"];
+        command.extend(args);
+        let rejected = cli(dir.path(), &command);
+        assert_eq!(rejected.status.code(), Some(2));
+        assert!(rejected.stdout.is_empty(), "{command:?} must not execute");
+    }
+    assert!(!dir.path().join("retired.json").exists());
     for command in ["check", "inspect"] {
-        let rejected = cli(
-            dir.path(),
-            &[command, "index.mq.md", "--event-stream", "jsonl"],
-        );
-        assert_eq!(
-            rejected.status.code(),
-            Some(2),
-            "{command} must reject the option"
-        );
+        let rejected = cli(dir.path(), &[command, "index.mq.md", "--output", "jsonl"]);
+        assert_eq!(rejected.status.code(), Some(2));
         assert!(rejected.stdout.is_empty(), "{command} must not execute");
     }
 }
@@ -411,10 +421,7 @@ fn event_stream_rejects_mixed_json_and_static_commands() {
 fn prepare_and_runtime_failures_have_defined_terminals() {
     let dir = TempDir::new("failures");
     dir.write("broken.mq.md", "## @exec main\n\n`if true`\n\n`return 1`\n");
-    let rejected = cli(
-        dir.path(),
-        &["run", "broken.mq.md", "--event-stream", "jsonl"],
-    );
+    let rejected = cli(dir.path(), &["run", "broken.mq.md", "--output", "jsonl"]);
     assert_eq!(rejected.status.code(), Some(1));
     let events = parse_events(&rejected.stdout);
     assert_envelope(&events);
@@ -429,10 +436,7 @@ fn prepare_and_runtime_failures_have_defined_terminals() {
         "runtime.mq.md",
         "## @exec main\n\n`x = 1 / 0`\n\n`return x`\n",
     );
-    let failed = cli(
-        dir.path(),
-        &["run", "runtime.mq.md", "--event-stream", "jsonl"],
-    );
+    let failed = cli(dir.path(), &["run", "runtime.mq.md", "--output", "jsonl"]);
     assert_eq!(failed.status.code(), Some(1));
     let events = parse_events(&failed.stdout);
     assert_envelope(&events);
@@ -455,10 +459,7 @@ fn value_observation_is_exact_and_requires_text_consent() {
         "## @exec main\n\n`secret_token = \"DO_NOT_LEAK_SENTINEL_1\"`\n\n`visible_count = 42`\n\n`return visible_count`\n",
     );
     // Default: metadata only; no value, no sentinel anywhere.
-    let default = cli(
-        dir.path(),
-        &["run", "index.mq.md", "--event-stream", "jsonl"],
-    );
+    let default = cli(dir.path(), &["run", "index.mq.md", "--output", "jsonl"]);
     assert_eq!(default.status.code(), Some(0));
     assert!(!String::from_utf8_lossy(&default.stdout).contains("DO_NOT_LEAK_SENTINEL_1"));
     for event in events_of(&parse_events(&default.stdout), "variable.assigned") {
@@ -471,7 +472,7 @@ fn value_observation_is_exact_and_requires_text_consent() {
         &[
             "run",
             "index.mq.md",
-            "--event-stream",
+            "--output",
             "jsonl",
             "--observe-variable",
             "visible_count",
@@ -498,7 +499,7 @@ fn value_observation_is_exact_and_requires_text_consent() {
         &[
             "run",
             "index.mq.md",
-            "--event-stream",
+            "--output",
             "jsonl",
             "--observe-variable",
             "secret_token",
@@ -519,7 +520,7 @@ fn value_observation_is_exact_and_requires_text_consent() {
         &[
             "run",
             "index.mq.md",
-            "--event-stream",
+            "--output",
             "jsonl",
             "--observe-variable",
             "secret_token",
@@ -554,10 +555,7 @@ fn binary_and_multibyte_output_is_byte_exact() {
         "{}",
         String::from_utf8_lossy(&normal.stderr)
     );
-    let streamed = cli(
-        dir.path(),
-        &["run", "index.mq.md", "--event-stream", "jsonl"],
-    );
+    let streamed = cli(dir.path(), &["run", "index.mq.md", "--output", "jsonl"]);
     assert_eq!(streamed.status.code(), Some(0));
     let events = parse_events(&streamed.stdout);
     let chunks = chunk_bytes(&events, "stdout.chunk");
@@ -570,37 +568,50 @@ fn binary_and_multibyte_output_is_byte_exact() {
 }
 
 #[test]
-fn trace_file_coexists_and_shares_the_run_identity() {
-    let dir = TempDir::new("trace");
+fn stream_and_snapshot_share_every_event_from_one_run() {
+    let dir = TempDir::new("destinations");
     dir.write("index.mq.md", BASIC);
-    let trace_path = dir.path().join("trace.json");
     let output = cli(
         dir.path(),
         &[
             "run",
             "index.mq.md",
-            "--event-stream",
+            "--output",
             "jsonl",
-            "--trace-file",
-            trace_path.to_str().unwrap(),
+            "--observation-file",
+            "run.json",
         ],
     );
-    assert_eq!(output.status.code(), Some(0));
+    assert!(output.status.success(), "{output:?}");
     let events = parse_events(&output.stdout);
     assert_envelope(&events);
-    let trace: Value = serde_json::from_slice(&fs::read(&trace_path).unwrap()).unwrap();
-    assert_eq!(trace["schema"], "marqdo.trace");
-    assert_eq!(trace["schema_version"], 2);
-    assert_eq!(trace["run"]["id"], events[0]["run_id"]);
-    let started = events_of(&events, "run.started")[0];
+    let snapshot: Value =
+        serde_json::from_slice(&fs::read(dir.path().join("run.json")).unwrap()).unwrap();
+    assert_eq!(snapshot["schema"], "marqdo.observation");
+    assert_eq!(snapshot["schema_version"], 1);
+    assert_eq!(snapshot["run"]["id"], events[0]["run_id"]);
+    assert_eq!(snapshot["run"]["source"], events[1]["payload"]["source"]);
+    assert_eq!(snapshot["events"], serde_json::json!(events));
+
+    let second = cli(
+        dir.path(),
+        &[
+            "run",
+            "index.mq.md",
+            "--output",
+            "json",
+            "--observation-file",
+            "run.json",
+        ],
+    );
+    assert!(second.status.success(), "{second:?}");
     assert_eq!(
-        started["payload"]["source"]["analysis_digest"],
-        trace["source"]["analysis_digest"]
+        second.stdout,
+        fs::read(dir.path().join("run.json")).unwrap()
     );
-    assert!(
-        events_of(&events, "run.completed").len() == 1,
-        "trace writing does not suppress the terminal event"
-    );
+    let second: Value = serde_json::from_slice(&second.stdout).unwrap();
+    assert_ne!(second["run"]["id"], snapshot["run"]["id"]);
+    assert_eq!(second["run"]["status"], "ok");
 }
 
 #[test]
@@ -612,7 +623,7 @@ fn structural_budget_truncates_without_losing_critical_events() {
         &[
             "run",
             "index.mq.md",
-            "--event-stream",
+            "--output",
             "jsonl",
             "--observe-max-events",
             "5",
@@ -637,7 +648,7 @@ fn output_budget_still_fails_the_run_and_emits_no_chunk() {
         &[
             "run",
             "index.mq.md",
-            "--event-stream",
+            "--output",
             "jsonl",
             "--max-output",
             "3",
@@ -663,7 +674,7 @@ fn live_chunks_arrive_while_the_program_is_still_running() {
         .args([
             "run",
             "index.mq.md",
-            "--event-stream",
+            "--output",
             "jsonl",
             "--observe-max-events",
             "20",
@@ -716,7 +727,7 @@ fn broken_pipe_makes_the_run_fail_instead_of_running_forever() {
         .args([
             "run",
             "index.mq.md",
-            "--event-stream",
+            "--output",
             "jsonl",
             "--observe-max-events",
             "10",
@@ -811,9 +822,9 @@ fn loop_transfers_are_ordered_structural_events_with_source_spans() {
             "index.mq.md",
             "--mode",
             "pure",
-            "--event-stream",
+            "--output",
             "jsonl",
-            "--trace-file",
+            "--observation-file",
             "trace.json",
         ],
     );
@@ -823,9 +834,9 @@ fn loop_transfers_are_ordered_structural_events_with_source_spans() {
     assert_eq!(events.last().unwrap()["kind"], "run.completed");
     let trace: Value =
         serde_json::from_slice(&fs::read(dir.path().join("trace.json")).unwrap()).unwrap();
-    assert_eq!(trace["schema_version"], 2);
+    assert_eq!(trace["schema_version"], 1);
     assert_eq!(
-        trace["source"]["analysis_digest"],
+        trace["run"]["source"]["analysis_digest"],
         format!("sha256:{:x}", Sha256::digest(analysis_bytes))
     );
 
@@ -850,7 +861,7 @@ fn loop_transfers_are_ordered_structural_events_with_source_spans() {
     ];
     assert_eq!(kinds(&events), expected);
     let trace_events = trace["events"].as_array().unwrap();
-    assert_eq!(kinds(trace_events), expected);
+    assert_eq!(trace_events, &events);
     let frame = &events_of(&events, "call.enter")[0]["payload"]["frame_id"];
     for (index, keyword) in ["continue", "break"].iter().enumerate() {
         let kind = format!("control.{keyword}");
@@ -862,10 +873,6 @@ fn loop_transfers_are_ordered_structural_events_with_source_spans() {
         assert_eq!(payload["module_id"], module["id"]);
         assert_eq!(payload["span"], span);
         assert_eq!(payload.as_object().unwrap().len(), 3);
-        let event = &events_of(trace_events, &kind)[0];
-        assert_eq!(event["module_id"], module["id"]);
-        assert_eq!(event["span"], span);
-        assert!(event["detail"].is_null());
         let statement = &branch["arms"][index]["body"][0];
         assert_eq!(statement["kind"], *keyword);
         assert_eq!(statement["span"], span);

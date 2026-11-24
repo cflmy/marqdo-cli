@@ -5,6 +5,9 @@
 //! user import path (`std:` + the verified bundle), not through a conformance
 //! fixture or a Rust shortcut.
 
+#[path = "support/observation.rs"]
+pub mod observation;
+
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -130,7 +133,7 @@ fn run_product_test(file: &TestFile) -> serde_json::Value {
         .args(["run"])
         .arg(stdlib_dir().join("tests").join(&file.name))
         .args(file.args.iter())
-        .args(["--json"])
+        .args(["--output", "json"])
         .current_dir(stdlib_dir())
         .env("MARQDO_STDLIB_DIR", stdlib_dir())
         .envs(
@@ -196,9 +199,10 @@ fn the_whole_bundled_library_runs_through_std_imports() {
     for file in product_tests() {
         let _guard = lock_fs(&file.name);
         let report = run_product_test(&file);
-        assert_eq!(report["success"], true, "{}", file.name);
+        assert_eq!(report["run"]["status"], "ok", "{}", file.name);
         assert_eq!(
-            report["stdout"], file.stdout,
+            observation::text(&report, "stdout.chunk"),
+            file.stdout,
             "{} wrote unexpected stdout",
             file.name
         );
@@ -214,7 +218,9 @@ fn fs_test_exercises_the_file_operation_surface() {
             .find(|file| file.name == "fs.mq.md")
             .expect("fs test"),
     );
-    let items = report["value"]["items"].as_array().expect("list");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(items[0]["value"], true);
     assert_eq!(items[1]["decimal"], "7");
     assert_eq!(items[2]["value"], true);
@@ -244,7 +250,9 @@ fn json_test_parses_and_formats_nested_values() {
             .find(|file| file.name == "json.mq.md")
             .expect("json test"),
     );
-    let items = report["value"]["items"].as_array().expect("list");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(items[0]["value"], true);
     assert_eq!(items[1]["decimal"], "1");
     assert_eq!(items[2]["value"], "说\"好");
@@ -269,7 +277,9 @@ fn csv_test_parses_and_formats_quoted_rows() {
             .find(|file| file.name == "csv.mq.md")
             .expect("csv test"),
     );
-    let items = report["value"]["items"].as_array().expect("list");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     let row = items[0]["items"].as_array().expect("row");
     assert_eq!(row.len(), 3);
     assert_eq!(row[0]["value"], "甲");
@@ -298,7 +308,9 @@ fn path_test_joins_and_normalizes_project_paths() {
             .find(|file| file.name == "path.mq.md")
             .expect("path test"),
     );
-    let items = report["value"]["items"].as_array().expect("list");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(items[0]["value"], "a/b/c");
     assert_eq!(items[1]["value"], "c.txt");
     assert_eq!(items[2]["value"], "a/b");
@@ -318,7 +330,9 @@ fn regex_test_matches_anchors_classes_and_search() {
             .find(|file| file.name == "regex.mq.md")
             .expect("regex test"),
     );
-    let items = report["value"]["items"].as_array().expect("list");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(items[0]["value"], true);
     assert_eq!(items[1]["value"], false);
     assert_eq!(items[2]["value"], true);
@@ -347,7 +361,9 @@ fn datetime_test_formats_and_parses_utc_instants() {
             .find(|file| file.name == "datetime.mq.md")
             .expect("datetime test"),
     );
-    let items = report["value"]["items"].as_array().expect("list");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(items[0]["value"], "1970-01-01T00:00:00Z");
     assert_eq!(items[1]["value"], "2023-11-14T22:13:20.123Z");
     assert_eq!(items[2]["decimal"], "0");
@@ -365,7 +381,9 @@ fn clock_test_reports_project_mode_unix_millis() {
             .find(|file| file.name == "clock.mq.md")
             .expect("clock test"),
     );
-    let items = report["value"]["items"].as_array().expect("list");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(items[0]["value"], true);
     assert_eq!(items[1]["value"], "Int");
     assert_eq!(items[2]["value"], true);
@@ -379,7 +397,9 @@ fn env_test_reads_only_granted_names() {
             .find(|file| file.name == "env.mq.md")
             .expect("env test"),
     );
-    let items = report["value"]["items"].as_array().expect("list");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(items[0]["value"], true);
     assert_eq!(items[1]["value"], true);
     assert_eq!(items[2]["value"], true);
@@ -396,7 +416,9 @@ fn process_test_runs_an_explicitly_granted_program() {
             .find(|file| file.name == "process.mq.md")
             .expect("process test"),
     );
-    let items = report["value"]["items"].as_array().expect("list");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(items[0]["value"], true);
     assert_eq!(items[1]["decimal"], "0");
     let expected = Command::new(env!("CARGO_BIN_EXE_marqdo"))
@@ -420,7 +442,9 @@ fn random_test_reads_bounded_entropy() {
             .find(|file| file.name == "random.mq.md")
             .expect("random test"),
     );
-    let items = report["value"]["items"].as_array().expect("list");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(items[0]["value"], true);
     assert_eq!(items[1]["decimal"], "16");
     assert_eq!(items[2]["value"], true);
@@ -436,7 +460,9 @@ fn compress_test_round_trips_gzip_text() {
             .find(|file| file.name == "compress.mq.md")
             .expect("compress test"),
     );
-    let items = report["value"]["items"].as_array().expect("list");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(items[0]["value"], true);
     assert_eq!(items[1]["value"], true);
     assert_eq!(items[2]["value"], true);
@@ -451,7 +477,9 @@ fn format_test_pins_value_semantics_and_handle_observation() {
             .find(|file| file.name == "format.mq.md")
             .expect("format test"),
     );
-    let items = report["value"]["items"].as_array().expect("list");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(items[0]["decimal"], "3");
     assert_eq!(items[1]["value"], "[\"文本\", 2, 1.5]");
     assert_eq!(items[2]["value"], "{a: 1}");
@@ -473,12 +501,30 @@ fn text_and_utf8_tests_agree_on_the_byte_encoding() {
             .find(|file| file.name == "utf8.mq.md")
             .expect("utf8 test"),
     );
-    assert_eq!(text["value"]["items"][0]["decimal"], "2");
-    assert_eq!(text["value"]["items"][1]["decimal"], "195");
-    assert_eq!(text["value"]["items"][2]["decimal"], "169");
-    assert_eq!(utf8["value"]["items"][0]["decimal"], "2");
-    assert_eq!(utf8["value"]["items"][1]["value"], "é");
-    assert_eq!(utf8["value"]["items"][2]["value"], false);
+    assert_eq!(
+        observation::terminal(&text)["value"]["items"][0]["decimal"],
+        "2"
+    );
+    assert_eq!(
+        observation::terminal(&text)["value"]["items"][1]["decimal"],
+        "195"
+    );
+    assert_eq!(
+        observation::terminal(&text)["value"]["items"][2]["decimal"],
+        "169"
+    );
+    assert_eq!(
+        observation::terminal(&utf8)["value"]["items"][0]["decimal"],
+        "2"
+    );
+    assert_eq!(
+        observation::terminal(&utf8)["value"]["items"][1]["value"],
+        "é"
+    );
+    assert_eq!(
+        observation::terminal(&utf8)["value"]["items"][2]["value"],
+        false
+    );
 }
 
 #[test]
@@ -489,8 +535,14 @@ fn stream_and_console_use_the_resource_endpoints() {
             .find(|file| file.name == "stream.mq.md")
             .expect("stream test"),
     );
-    assert_eq!(stream["value"]["items"][0]["value"], true);
-    assert_eq!(stream["value"]["items"][1]["decimal"], "7");
+    assert_eq!(
+        observation::terminal(&stream)["value"]["items"][0]["value"],
+        true
+    );
+    assert_eq!(
+        observation::terminal(&stream)["value"]["items"][1]["decimal"],
+        "7"
+    );
 
     let console = run_product_test(
         product_tests()
@@ -498,14 +550,21 @@ fn stream_and_console_use_the_resource_endpoints() {
             .find(|file| file.name == "console.mq.md")
             .expect("console test"),
     );
-    assert_eq!(console["value"]["items"][0]["value"], true);
-    assert_eq!(console["value"]["items"][1]["value"], "hello");
+    assert_eq!(
+        observation::terminal(&console)["value"]["items"][0]["value"],
+        true
+    );
+    assert_eq!(
+        observation::terminal(&console)["value"]["items"][1]["value"],
+        "hello"
+    );
     assert!(
-        console["trace"]
+        console["events"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|event| event["op"] == "resource.read" || event["op"] == "resource.open"),
+            .any(|event| event["payload"]["operation"] == "resource.read"
+                || event["payload"]["operation"] == "resource.open"),
         "console test did not go through a resource endpoint"
     );
 }

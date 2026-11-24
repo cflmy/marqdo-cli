@@ -1,5 +1,8 @@
 //! C10/P5: a `.mq.md` HTTP client over the TCP resource endpoint.
 
+#[path = "support/observation.rs"]
+pub mod observation;
+
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::path::Path;
@@ -89,7 +92,14 @@ import:
     );
     std::fs::write(dir.path().join("index.mq.md"), program).unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
-        .args(["run", "index.mq.md", "--allow-net", "127.0.0.1", "--json"])
+        .args([
+            "run",
+            "index.mq.md",
+            "--allow-net",
+            "127.0.0.1",
+            "--output",
+            "json",
+        ])
         .current_dir(dir.path())
         .env(
             "MARQDO_STDLIB_DIR",
@@ -110,8 +120,10 @@ import:
         String::from_utf8_lossy(&output.stdout)
     );
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json");
-    assert_eq!(report["success"], true);
-    let items = report["value"]["items"].as_array().expect("list");
+    assert_eq!(report["run"]["status"], "ok");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(items[0]["value"], true);
     assert_eq!(items[1]["value"], true);
     assert_eq!(items[2]["decimal"], "200");

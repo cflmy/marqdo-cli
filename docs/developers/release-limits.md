@@ -84,7 +84,7 @@ an untrusted Git URL does not make the code trustworthy.
 * Not implemented: memory region/budget metadata (OBS-06/P2), raw memory
   content, breakpoints/stepping/time travel, and a bidirectional debug
   protocol. Do not infer a debugger from this protocol.
-* `--mode strict` currently rejects `--event-stream` explicitly; there is no
+* `--mode strict` currently rejects `--output jsonl` explicitly; there is no
   silent fallback to `project`.
 * The live lane is tested on Linux x86_64; macOS/Windows are unverified for
   this option for this candidate.

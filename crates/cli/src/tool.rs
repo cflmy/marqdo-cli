@@ -252,7 +252,7 @@ fn validate_requirements(requires: &Requirements) -> Result<(), String> {
         (
             "observation",
             requires.observation,
-            crate::execution_events::SCHEMA_VERSION,
+            crate::observation::SCHEMA_VERSION,
         ),
     ] {
         if let Some(requested) = requested {

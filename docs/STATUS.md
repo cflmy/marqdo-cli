@@ -32,6 +32,14 @@ minimum. Linux x86_64 on glibc 2.39 is the candidate platform. The
 candidate SHA before publication. The release record below refers to the
 published beta.
 
+## Current protocol integration
+
+[ADR-0068](adr/0068-single-current-public-contracts.md) governs the work
+for [issue #8](https://git.cflmy.cn/cflmy/marqdo-cli/issues/8). Current
+developer inputs are [Analysis](../spec/analysis.md),
+[Observation](../spec/observation.md) and the [CLI Tool](../spec/cli-tool.md).
+The earlier release records below describe their tagged binaries.
+
 ## 0. Beta release record — `3.0.0-beta.1`
 
 ### 0.1 Product, version axes and scope
@@ -107,7 +115,7 @@ historical and superseded by the release-SHA manifest.
 This section records work **after** the `v3.0.0-beta.1` tag. It is not part of
 the tagged beta archive and no new release tag has been created. The design
 input is RFC-OBS-0001 (issue `#1`), the frozen decision is ADR-0059 and the
-normative contract is [`spec/execution-events-v1.md`](../spec/execution-events-v1.md).
+normative contract is [the beta-era event contract](https://git.cflmy.cn/cflmy/marqdo-cli/src/tag/v3.0.0-rc.2/spec/execution-events-v1.md).
 Executed evidence for this section is
 [`evidence/2026-11-22-execution-events-v1.md`](evidence/2026-11-22-execution-events-v1.md).
 
@@ -273,7 +281,7 @@ execution segment. Binding inference joins only reachable control exits.
 The [runnable example](../examples/control-flow.mq.md) uses ordinary Markdown
 list containers.
 
-[Analysis v3](../spec/analysis-v3.md) represents the loop transfer statements.
+[the shipped rc.2 Analysis contract](https://git.cflmy.cn/cflmy/marqdo-cli/src/tag/v3.0.0-rc.2/spec/analysis-v3.md) represents the loop transfer statements.
 Other documents continue to emit v2. Trace v2 and Execution Events v1 expose
 the new control events. The published beta evidence applies to its original
 SHA. The maintainer selected phase A for RC.2. List iteration
@@ -672,7 +680,7 @@ Consumer evidence:
 
 ```bash
 ./target/debug/marqdo check examples/multi-module/index.mq.md --refs --emit /tmp/a.json
-./target/debug/marqdo run examples/multi-module/index.mq.md --trace-file /tmp/t.json
+./target/debug/marqdo run examples/multi-module/index.mq.md --observation-file /tmp/observation.json
 python3 tests/consumers/analysis_consumer.py /tmp/a.json
 python3 tests/consumers/trace_consumer.py /tmp/a.json /tmp/t.json
 ```

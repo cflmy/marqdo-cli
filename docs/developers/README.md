@@ -32,7 +32,7 @@ markdown profile `marqdo.md.v1`.
    Trace v2.
 4. [extensions.md](extensions.md) — plugins, foreign kernels, resource
    providers, extension selection and lock v4.
-5. [analysis-trace.md](analysis-trace.md) — the public static/dynamic data
+5. [analysis-observation.md](analysis-observation.md) — the public static/dynamic data
    contracts, Execution Events v1 and digest binding.
 6. [compatibility.md](compatibility.md) — version axes, platform matrix and the
    prerelease policy.

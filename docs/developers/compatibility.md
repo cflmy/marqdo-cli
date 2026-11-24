@@ -38,7 +38,7 @@ Strict is Linux-only and probe-gated. Plugin/provider worker transports are not
 OS sandboxes. `pure`/`project` are execution modes, not security boundaries.
 Execution Events v1 is a live observation protocol: it is not a capability
 grant, values are off by default, and `--mode strict` currently refuses
-`--event-stream` explicitly (no downgrade).
+`--output jsonl` explicitly (no downgrade).
 
 ## Language compatibility
 

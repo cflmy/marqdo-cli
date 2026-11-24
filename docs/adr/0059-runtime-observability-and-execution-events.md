@@ -1,5 +1,8 @@
 # ADR-0059: Runtime observability and Execution Events v1
 
+> Historical. [ADR-0068](0068-single-current-public-contracts.md) supersedes
+> the public contracts described in this record.
+
 - **Status:** Accepted
 - **Date:** 2026-11-22
 - **Decision owners:** CLI, runtime and host maintainers

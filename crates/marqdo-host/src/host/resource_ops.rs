@@ -38,7 +38,6 @@ impl StdHost {
         rights: &[String],
         ctx: &ExecutionContext,
     ) -> Result<Value, RuntimeError> {
-        let started = Instant::now();
         let requested: BTreeSet<&str> = rights.iter().map(String::as_str).collect();
         if self.mode == SandboxMode::Strict {
             // stdio/stdout is the existing console channel already permitted by
@@ -89,14 +88,7 @@ impl StdHost {
                     "stdout" => self.resources.open_stdout(),
                     _ => unreachable!(),
                 };
-                self.record_semantic(
-                    "resource.open",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some(&format!("kind=stdio descriptor={descriptor}")),
-                );
-                self.record_resource_effect("resource.open", ctx, started, "ok");
+                self.observe_effect("resource.open", "ok", ctx);
                 Ok(Value::Resource(handle))
             }
             "file" => {
@@ -105,28 +97,14 @@ impl StdHost {
                     let (_, relative) = self.fs.resolve(descriptor, ctx.span)?;
                     let bytes = self.fs.read_bytes(descriptor, ctx.span)?;
                     let handle = self.resources.open_file(relative, bytes);
-                    self.record_semantic(
-                        "resource.open",
-                        None,
-                        Some(&ctx.module_id),
-                        ctx.span,
-                        Some("kind=file rights=read"),
-                    );
-                    self.record_resource_effect("resource.open", ctx, started, "ok");
+                    self.observe_effect("resource.open", "ok", ctx);
                     return Ok(Value::Resource(handle));
                 }
                 if requested == BTreeSet::from(["write"]) {
                     self.capabilities.check_write(descriptor, ctx.span)?;
                     let (_, relative) = self.fs.resolve(descriptor, ctx.span)?;
                     let handle = self.resources.open_file_writer(relative);
-                    self.record_semantic(
-                        "resource.open",
-                        None,
-                        Some(&ctx.module_id),
-                        ctx.span,
-                        Some("kind=file rights=write"),
-                    );
-                    self.record_resource_effect("resource.open", ctx, started, "ok");
+                    self.observe_effect("resource.open", "ok", ctx);
                     return Ok(Value::Resource(handle));
                 }
                 Err(RuntimeError::new(
@@ -184,14 +162,7 @@ impl StdHost {
                 let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
                 let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
                 let handle = self.resources.open_tcp(stream);
-                self.record_semantic(
-                    "resource.open",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some(&format!("kind=tcp host={host} port={port}")),
-                );
-                self.record_resource_effect("resource.open", ctx, started, "ok");
+                self.observe_effect("resource.open", "ok", ctx);
                 Ok(Value::Resource(handle))
             }
             "tls" => {
@@ -284,14 +255,7 @@ impl StdHost {
                         })?;
                 let stream = rustls::StreamOwned::new(connection, tcp);
                 let handle = self.resources.open_tls(stream);
-                self.record_semantic(
-                    "resource.open",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some(&format!("kind=tls host={host} port={port}")),
-                );
-                self.record_resource_effect("resource.open", ctx, started, "ok");
+                self.observe_effect("resource.open", "ok", ctx);
                 Ok(Value::Resource(handle))
             }
             "tcp-listener" => {
@@ -348,14 +312,7 @@ impl StdHost {
                     )
                 })?;
                 let handle = self.resources.open_tcp_listener(listener);
-                self.record_semantic(
-                    "resource.open",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some(&format!("kind=tcp-listener host={host} port={port}")),
-                );
-                self.record_resource_effect("resource.open", ctx, started, "ok");
+                self.observe_effect("resource.open", "ok", ctx);
                 Ok(Value::Resource(handle))
             }
             "udp" => {
@@ -416,14 +373,7 @@ impl StdHost {
                 let _ = socket.set_read_timeout(Some(Duration::from_secs(5)));
                 let _ = socket.set_write_timeout(Some(Duration::from_secs(5)));
                 let handle = self.resources.open_udp(socket);
-                self.record_semantic(
-                    "resource.open",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some(&format!("kind=udp host={host} port={port}")),
-                );
-                self.record_resource_effect("resource.open", ctx, started, "ok");
+                self.observe_effect("resource.open", "ok", ctx);
                 Ok(Value::Resource(handle))
             }
             other => {
@@ -447,14 +397,7 @@ impl StdHost {
                 let handle = self
                     .resources
                     .open_provider(provider, other, descriptor, rights, ctx.span)?;
-                self.record_semantic(
-                    "resource.open",
-                    None,
-                    Some(&ctx.module_id),
-                    ctx.span,
-                    Some(&format!("kind={other} provider={provider_name}")),
-                );
-                self.record_resource_effect("resource.open", ctx, started, "ok");
+                self.observe_effect("resource.open", "ok", ctx);
                 Ok(Value::Resource(handle))
             }
         }

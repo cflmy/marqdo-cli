@@ -1,8 +1,8 @@
-# Execution Events v1 fixtures
+# Observation fixtures
 
 These are the minimal executable fixtures from RFC-OBS-0001 §13 plus the
 schema-validation fixtures used by
-[`execution_events_consumer.py`](../../execution_events_consumer.py).
+[`observation_consumer.py`](../../observation_consumer.py).
 
 | File | Purpose |
 |---|---|
@@ -16,6 +16,6 @@ schema-validation fixtures used by
 The `.mq.md` files are inputs to the released CLI:
 
 ```bash
-marqdo run tests/consumers/fixtures/execution-events/basic.mq.md --event-stream jsonl
-python3 tests/consumers/execution_events_consumer.py /tmp/events.jsonl
+marqdo run tests/consumers/fixtures/observation/basic.mq.md --output jsonl
+python3 tests/consumers/observation_consumer.py /tmp/events.jsonl
 ```

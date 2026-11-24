@@ -264,8 +264,7 @@ def stage(stage_dir: Path, version: str, source_sha: str, target: str) -> dict:
         "stdlib": stdlib_info,
         "protocols": {
             "analysis": 3,
-            "trace": 2,
-            "execution_events": 1,
+            "observation": 1,
             "tool": 1,
             "plugin_abi": "1.x",
             "foreign_wire": 1,

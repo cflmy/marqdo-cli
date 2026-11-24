@@ -15,6 +15,8 @@
 //! Other platforms must keep this file compiling but run no provider
 //! assertions; the CLI itself fails closed with `ext.platform_unsupported`.
 #![cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[path = "support/observation.rs"]
+pub mod observation;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -417,17 +419,14 @@ fn json_of(output: &Output) -> serde_json::Value {
 }
 
 fn error_code(report: &serde_json::Value) -> String {
-    report
-        .get("error")
-        .and_then(|error| error.get("code"))
-        .or_else(|| report.get("code"))
-        .and_then(|code| code.as_str())
-        .unwrap_or("<missing error code>")
+    observation::terminal(report)["error"]["code"]
+        .as_str()
+        .expect("terminal error code")
         .to_string()
 }
 
 fn map_field<'a>(report: &'a serde_json::Value, name: &str) -> &'a serde_json::Value {
-    &report["value"]["entries"][name]
+    &observation::terminal(report)["value"]["entries"][name]
 }
 
 fn cc_available() -> bool {
@@ -469,7 +468,8 @@ fn prov_01_authorized_v2_worker_reads_five_bytes() {
             manifest.to_str().expect("utf-8 manifest path"),
             "--allow-provider",
             "demo.sensor",
-            "--json",
+            "--output",
+            "json",
         ],
         &marker,
     );
@@ -480,7 +480,7 @@ fn prov_01_authorized_v2_worker_reads_five_bytes() {
         "run failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(report["success"].as_bool().unwrap_or(false));
+    assert_eq!(report["run"]["status"], "ok");
     assert_eq!(map_field(&report, "count")["decimal"], "5");
     assert!(map_field(&report, "eof")["value"]
         .as_bool()
@@ -490,13 +490,14 @@ fn prov_01_authorized_v2_worker_reads_five_bytes() {
         .unwrap_or(false));
     // `hello` is in the Memory region the provider filled on the first byte.
     assert_eq!(map_field(&report, "data")["decimal"], "104");
-    assert_eq!(report["stdout"], "");
+    assert_eq!(observation::text(&report, "stdout.chunk"), "");
     // The Host recorded the real resource effect (not a synthetic success).
-    let trace = report["trace"].as_array().expect("trace array");
+    let trace = report["events"].as_array().expect("trace array");
     assert!(
         trace
             .iter()
-            .any(|entry| entry["op"] == "resource.open" && entry["result"] == "ok"),
+            .any(|entry| entry["payload"]["operation"] == "resource.open"
+                && entry["payload"]["result_code"] == "ok"),
         "missing resource.open trace: {trace:?}"
     );
     let marks = marker_text(&marker);
@@ -534,13 +535,14 @@ fn prov_02_without_grant_is_permission_denied_and_never_starts_the_worker() {
             "index.mq.md",
             "--provider",
             manifest.to_str().expect("utf-8 manifest path"),
-            "--json",
+            "--output",
+            "json",
         ],
         &marker,
     );
     assert_eq!(output.status.code(), Some(1));
     let report = json_of(&output);
-    assert!(!report["success"].as_bool().unwrap_or(true));
+    assert_eq!(report["run"]["status"], "rejected");
     assert_eq!(error_code(&report), "permission.denied");
     assert!(
         !marker.exists(),
@@ -562,7 +564,8 @@ fn prov_03_grant_without_manifest_is_never_discovered() {
             "index.mq.md",
             "--allow-provider",
             "demo.sensor",
-            "--json",
+            "--output",
+            "json",
         ],
         &marker,
     );
@@ -603,7 +606,8 @@ fn prov_04_duplicate_kind_across_providers_is_rejected_before_spawn() {
             "demo.one",
             "--allow-provider",
             "demo.two",
-            "--json",
+            "--output",
+            "json",
         ],
         &marker,
     );
@@ -636,7 +640,8 @@ fn prov_05_one_provider_serves_two_non_reserved_kinds() {
             manifest.to_str().expect("utf-8 manifest path"),
             "--allow-provider",
             "demo.multi",
-            "--json",
+            "--output",
+            "json",
         ],
         &marker,
     );
@@ -647,7 +652,9 @@ fn prov_05_one_provider_serves_two_non_reserved_kinds() {
         String::from_utf8_lossy(&output.stderr)
     );
     let report = json_of(&output);
-    let items = report["value"]["items"].as_array().expect("list result");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list result");
     assert_eq!(items[0]["decimal"], "5");
     assert_eq!(items[1]["decimal"], "2");
     assert!(items[2]["value"].as_bool().unwrap_or(false));
@@ -691,7 +698,8 @@ fn prov_06_reserved_core_kinds_are_rejected() {
                 manifest.to_str().expect("utf-8 manifest path"),
                 "--allow-provider",
                 "demo.reserved",
-                "--json",
+                "--output",
+                "json",
             ],
             &marker,
         );
@@ -734,7 +742,8 @@ fn prov_07_digest_symlink_and_traversal_fail_before_spawn() {
             digest_manifest.to_str().expect("utf-8 path"),
             "--allow-provider",
             "demo.sensor",
-            "--json",
+            "--output",
+            "json",
         ],
         &marker,
     );
@@ -772,7 +781,8 @@ fn prov_07_digest_symlink_and_traversal_fail_before_spawn() {
             symlink_manifest.to_str().expect("utf-8 path"),
             "--allow-provider",
             "demo.sensor",
-            "--json",
+            "--output",
+            "json",
         ],
         &marker,
     );
@@ -803,7 +813,8 @@ fn prov_07_digest_symlink_and_traversal_fail_before_spawn() {
             traversal_manifest.to_str().expect("utf-8 path"),
             "--allow-provider",
             "demo.sensor",
-            "--json",
+            "--output",
+            "json",
         ],
         &marker,
     );
@@ -838,7 +849,8 @@ fn prov_08_missing_current_target_is_no_matching_artifact() {
             manifest.to_str().expect("utf-8 path"),
             "--allow-provider",
             "demo.sensor",
-            "--json",
+            "--output",
+            "json",
         ],
         &marker,
     );
@@ -873,7 +885,8 @@ fn prov_09_v1_manifest_is_unsupported_without_migration() {
             manifest.to_str().expect("utf-8 path"),
             "--allow-provider",
             "demo.sensor",
-            "--json",
+            "--output",
+            "json",
         ],
         &marker,
     );
@@ -910,7 +923,8 @@ fn prov_10_pure_and_strict_preflight_refuse_provider_flags() {
             manifest_arg,
             "--allow-provider",
             "demo.sensor",
-            "--json",
+            "--output",
+            "json",
         ],
         &marker,
     );
@@ -932,7 +946,8 @@ fn prov_10_pure_and_strict_preflight_refuse_provider_flags() {
             manifest_arg,
             "--allow-provider",
             "demo.sensor",
-            "--json",
+            "--output",
+            "json",
         ],
         &marker,
     );
@@ -953,7 +968,8 @@ fn prov_10_pure_and_strict_preflight_refuse_provider_flags() {
             manifest_arg,
             "--allow-provider",
             "*",
-            "--json",
+            "--output",
+            "json",
         ],
         &marker,
     );
@@ -992,7 +1008,8 @@ fn prov_13_missing_sibling_helper_is_worker_unavailable_without_path_fallback() 
             manifest.to_str().expect("utf-8 path"),
             "--allow-provider",
             "demo.sensor",
-            "--json",
+            "--output",
+            "json",
         ])
         .current_dir(fixture.path())
         .env("PATH", path)
@@ -1007,7 +1024,9 @@ fn prov_13_missing_sibling_helper_is_worker_unavailable_without_path_fallback() 
     );
     let report = json_of(&output);
     assert_eq!(error_code(&report), "ext.worker_unavailable");
-    let message = report["error"]["message"].as_str().unwrap_or_default();
+    let message = observation::terminal(&report)["error"]["message"]
+        .as_str()
+        .unwrap_or_default();
     assert!(
         message.contains("marqdo-provider-worker") && message.contains("missing"),
         "{message}"

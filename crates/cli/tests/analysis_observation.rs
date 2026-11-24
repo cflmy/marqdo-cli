@@ -1,5 +1,8 @@
-//! Public Analysis and Trace black-box contracts (spec/analysis.md,
-//! spec/trace-v1.md).
+//! Public Analysis and Observation black-box contracts (spec/analysis.md,
+//! spec/observation.md).
+
+#[path = "support/observation.rs"]
+pub mod observation;
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -271,7 +274,7 @@ print(1)
 }
 
 #[test]
-fn trace_v2_budget_truncates_long_loops_without_failing_the_run() {
+fn snapshot_budget_truncates_long_loops_without_failing_the_run() {
     let dir = TempDir::new("trace-budget");
     write(
         dir.path(),
@@ -284,9 +287,9 @@ fn trace_v2_budget_truncates_long_loops_without_failing_the_run() {
         &[
             "run",
             "index.mq.md",
-            "--trace-file",
+            "--observation-file",
             trace_path.to_str().unwrap(),
-            "--trace-max-events",
+            "--observe-max-events",
             "20",
         ],
     );
@@ -298,14 +301,18 @@ fn trace_v2_budget_truncates_long_loops_without_failing_the_run() {
     );
     let trace: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&trace_path).unwrap()).unwrap();
-    assert_eq!(trace["schema_version"], 2);
+    assert_eq!(trace["schema_version"], 1);
     assert_eq!(trace["run"]["status"], "ok");
-    assert_eq!(trace["limits"]["max_events"], 20);
-    assert_eq!(trace["truncated"]["reason"], "event_budget");
-    assert_eq!(trace["truncated"]["limit"], 20);
+    assert_eq!(
+        trace["events"][0]["payload"]["limits"]["max_observation_events"],
+        20
+    );
+    assert_eq!(trace["capture"]["truncated"]["reason"], "event_budget");
+    assert_eq!(trace["capture"]["truncated"]["limit"], 20);
     let events = trace["events"].as_array().unwrap();
-    assert!(events.len() <= 21, "events: {}", events.len());
-    assert_eq!(events.last().unwrap()["kind"], "trace.truncated");
+    assert_eq!(events.len(), 24);
+    assert_eq!(events[22]["kind"], "observation.truncated");
+    assert_eq!(events[23]["kind"], "run.completed");
     let mut previous = None;
     for event in events {
         let seq = event["seq"].as_u64().unwrap();
@@ -331,7 +338,7 @@ fn failed_check_removes_stale_analysis() {
 }
 
 #[test]
-fn trace_records_calls_effects_and_status_without_secrets() {
+fn snapshot_records_calls_effects_and_status_without_secrets() {
     let dir = TempDir::new("trace");
     write(dir.path(), "index.mq.md", PROGRAM);
     let trace_path = dir.path().join("trace.json");
@@ -340,7 +347,7 @@ fn trace_records_calls_effects_and_status_without_secrets() {
         &[
             "run",
             "index.mq.md",
-            "--trace-file",
+            "--observation-file",
             trace_path.to_str().unwrap(),
         ],
     );
@@ -356,15 +363,16 @@ fn trace_records_calls_effects_and_status_without_secrets() {
         "values must not be recorded"
     );
     let trace: serde_json::Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(trace["schema"], "marqdo.trace");
-    assert_eq!(trace["schema_version"], 2);
+    assert_eq!(trace["schema"], "marqdo.observation");
+    assert_eq!(trace["schema_version"], 1);
     assert_eq!(trace["run"]["status"], "ok");
-    assert_eq!(trace["run"]["entry"], "root:default::index.mq.md::main");
+    assert_eq!(
+        trace["events"][1]["payload"]["entry"],
+        "root:default::index.mq.md::main"
+    );
     let events = trace["events"].as_array().unwrap();
-    assert!(events
-        .iter()
-        .any(|event| event["kind"] == "call.enter"
-            && event["module_id"] == "root:default::index.mq.md"));
+    assert!(events.iter().any(|event| event["kind"] == "call.enter"
+        && event["payload"]["module_id"] == "root:default::index.mq.md"));
     assert!(events.iter().any(|event| event["kind"] == "effect"));
     assert!(events.iter().any(|event| event["kind"] == "call.exit"));
     let mut previous = None;
@@ -384,14 +392,18 @@ fn trace_records_calls_effects_and_status_without_secrets() {
         &[
             "run",
             "bad.mq.md",
-            "--trace-file",
+            "--observation-file",
             error_trace.to_str().unwrap(),
         ],
     );
     assert_eq!(output.status.code(), Some(1));
     let trace: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&error_trace).unwrap()).unwrap();
-    assert_eq!(trace["run"]["status"], "runtime.division_by_zero");
+    assert_eq!(trace["run"]["status"], "error");
+    assert_eq!(
+        trace["events"].as_array().unwrap().last().unwrap()["payload"]["error"]["code"],
+        "runtime.division_by_zero"
+    );
 }
 
 #[test]
@@ -453,12 +465,13 @@ fn multi_arm_branch_preserves_analysis_and_carrier_positions() {
                 "分类",
                 "--arg",
                 &format!("数值={input}"),
-                "--json",
+                "--output",
+                "json",
             ],
         );
         assert!(output.status.success(), "{output:?}");
         let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-        assert_eq!(result["value"]["decimal"], expected);
+        assert_eq!(observation::terminal(&result)["value"]["decimal"], expected);
     }
 }
 

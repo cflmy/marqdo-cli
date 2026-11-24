@@ -178,13 +178,6 @@ impl<'a> Interpreter<'a> {
         if self.depth + 1 > 0 {
             self.host.check_stack(self.depth + 1, call_span)?;
         }
-        self.host.record_semantic(
-            "call.enter",
-            Some(&trace_id),
-            Some(&trace_module),
-            call_span,
-            None,
-        );
         let bound = match self.bind_args(function, args, call_span) {
             Ok(bound) => bound,
             Err(mut error) => {
@@ -245,13 +238,6 @@ impl<'a> Interpreter<'a> {
             Ok(Some(_)) => "return",
             Err(error) => error.code(),
         };
-        self.host.record_semantic(
-            "call.exit",
-            Some(&trace_id),
-            Some(&trace_module),
-            call_span,
-            Some(status),
-        );
         let close = self
             .host
             .observation_end_frame(frame_id, status, &trace_module, call_span);
@@ -428,13 +414,6 @@ impl<'a> Interpreter<'a> {
                         (Flow::Continue(*span), LoopTransfer::Continue)
                     };
                     let module = frame.function.module.canonical();
-                    self.host.record_semantic(
-                        transfer.event_kind(),
-                        Some(&frame.function.to_string()),
-                        Some(&module),
-                        Some(*span),
-                        None,
-                    );
                     if self.observe {
                         self.host
                             .observe_runtime(RuntimeObservation::LoopTransfer {
@@ -449,13 +428,6 @@ impl<'a> Interpreter<'a> {
                 Stmt::Return { value, span } => {
                     let value = self.eval_expr(value, frame)?;
                     let module = frame.function.module.canonical();
-                    self.host.record_semantic(
-                        "return",
-                        Some(&frame.function.to_string()),
-                        Some(&module),
-                        Some(*span),
-                        Some(value.type_name()),
-                    );
                     if self.observe {
                         self.host.observe_runtime(RuntimeObservation::Return {
                             frame_id: frame.id,
@@ -480,13 +452,6 @@ impl<'a> Interpreter<'a> {
                             ));
                         };
                         let module = frame.function.module.canonical();
-                        self.host.record_semantic(
-                            "branch.eval",
-                            Some(&frame.function.to_string()),
-                            Some(&module),
-                            Some(arm.condition_span),
-                            Some(if condition { "true" } else { "false" }),
-                        );
                         if self.observe {
                             self.host.observe_runtime(RuntimeObservation::BranchEval {
                                 frame_id: frame.id,
@@ -519,13 +484,6 @@ impl<'a> Interpreter<'a> {
                         ));
                     };
                     let module = frame.function.module.canonical();
-                    self.host.record_semantic(
-                        "loop.iteration",
-                        Some(&frame.function.to_string()),
-                        Some(&module),
-                        Some(*condition_span),
-                        Some(if value { "continue" } else { "exit" }),
-                    );
                     if self.observe {
                         self.host
                             .observe_runtime(RuntimeObservation::LoopIteration {
@@ -594,15 +552,7 @@ impl<'a> Interpreter<'a> {
             ));
         };
         self.memory.write(handle, &offset, byte, span)?;
-        let module = frame.function.module.canonical();
-        self.host.record_semantic(
-            "memory.write",
-            Some(&frame.function.to_string()),
-            Some(&module),
-            span,
-            Some("byte"),
-        );
-        Ok(())
+        self.observe_memory_effect("memory.write", &frame.function.module, span)
     }
 
     fn eval_args(
@@ -905,17 +855,21 @@ impl<'a> Interpreter<'a> {
         &mut self.memory
     }
 
-    /// Record a semantic event for a builtin that is not a host operation.
-    pub(crate) fn record_memory_event(
+    /// Publish a committed local memory operation without its data or address.
+    pub(crate) fn observe_memory_effect(
         &mut self,
-        kind: &str,
+        operation: &str,
         module: &ModuleId,
         span: Option<Span>,
-        detail: &str,
-    ) {
-        let module = module.canonical();
-        self.host
-            .record_semantic(kind, None, Some(&module), span, Some(detail));
+    ) -> Result<(), RuntimeError> {
+        if self.observe {
+            self.host.observe_runtime(RuntimeObservation::Effect {
+                operation,
+                module_id: &module.canonical(),
+                span,
+            })?;
+        }
+        Ok(())
     }
 
     /// Open a resource/stream through the host boundary.

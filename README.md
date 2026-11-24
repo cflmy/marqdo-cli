@@ -67,7 +67,7 @@ marqdo init demo
 cd demo
 marqdo check index.mq.md
 marqdo run index.mq.md            # executes ## @exec main
-marqdo run index.mq.md --event-stream jsonl   # live Execution Events v1 NDJSON
+marqdo run index.mq.md --output jsonl        # live Observation JSON Lines
 marqdo inspect index.mq.md --ast
 marqdo inspect index.mq.md --signature
 marqdo call index.mq.md main
@@ -232,11 +232,10 @@ rules are [`RFC-LANG-0002`](docs/architecture/RFC-LANG-0002-unified-semantics.md
   target-triple + sha256 artifact verification, native and isolated worker
   transports, brokered `fs.read`, and explicitly trusted in-process calls
   (`--plugin --trust-native-plugin --allow-plugin`). A C ABI is not a sandbox.
-* **Public protocols** — Analysis [v2](spec/analysis-v2.md)/[v3](spec/analysis-v3.md) and Trace v2 with JSON Schemas and
-  independent Python consumers; Tool Protocol v1 with arbitrary command names,
-  SemVer negotiation and whole-bundle digest verification; **Execution Events
-  v1** (`run/call --event-stream jsonl`) for live stdout/stderr, call frames and
-  explicitly selected, bounded values (post-beta addition, ADR-0059).
+* **Public protocols** — [Analysis](spec/analysis.md) projects static facts.
+  [Observation](spec/observation.md) delivers the same run as live JSONL or
+  a JSON snapshot. [CLI Tool](spec/cli-tool.md) installs independently built
+  commands with exact protocol requirements and verifies their entire bundle.
 
 Run everything:
 
@@ -356,15 +355,15 @@ tests/                        conformance/negative corpus (see tests/README.md)
 * [`docs/adr/`](docs/adr/) — accepted decisions (crate graph, inert executables,
   `ref` ambiguity, strict refusal, AST normalization, CLI contract, BigInt/wire,
   package identity, callable resolution, plugin export routing, capability
-  broker, kernel providers, generic CLI tools, plugin-handle authority, public Analysis/Trace v1).
+  broker, kernel providers, generic CLI tools, plugin-handle authority, public contract replacement).
 * Specs: [`markdown-profile.md`](spec/markdown-profile.md),
   [`mapping.md`](spec/mapping.md), [`expression.ebnf`](spec/expression.ebnf),
   [`evaluation.md`](spec/evaluation.md), [`references.md`](spec/references.md),
   [`value-wire.md`](spec/value-wire.md), [`security.md`](spec/security.md),
   [`package-format.md`](spec/package-format.md),
   [`plugin-abi.md`](spec/plugin-abi.md), [`math.md`](spec/math.md),
-  [`foreign.md`](spec/foreign.md), [`tool-v1.md`](spec/tool-v1.md),
-  [`analysis-v2.md`](spec/analysis-v2.md), [`trace-v2.md`](spec/trace-v2.md);
+  [`foreign.md`](spec/foreign.md), [`cli-tool.md`](spec/cli-tool.md),
+  [`analysis.md`](spec/analysis.md), [`observation.md`](spec/observation.md);
   JSON Schemas in [`spec/schemas/`](spec/schemas/).
 * [`tests/README.md`](tests/README.md) — conformance corpus and `UPDATE_GOLDENS`
   workflow.
@@ -432,7 +431,7 @@ marqdo run kernel/demo.mq.md \
 marqdo run provider/demo.mq.md \
   --provider provider/build/provider.json --allow-provider demo.sensor
 
-# 5. Independent CLI Tool consuming only public Analysis v2
+# 5. Independent CLI Tool consuming public Analysis
 marqdo tool install tool/tool.json
 marqdo inspect-ext tool/demo.mq.md
 ```

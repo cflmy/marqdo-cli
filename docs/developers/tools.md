@@ -5,7 +5,7 @@ product command. A tool is a **separate executable** registered by the user; the
 CLI only dispatches unknown top-level commands to registered tools and never
 scans `PATH` for a guessed name.
 
-Normative contract: [`../../spec/tool-v1.md`](../../spec/tool-v1.md)
+Normative contract: [`../../spec/cli-tool.md`](../../spec/cli-tool.md)
 (implemented and frozen for protocol v1).
 
 ## 1. Package layout
@@ -106,7 +106,7 @@ stream to its own SSE/websocket transport; the CLI never implements HTTP/SSE.
 This option is unavailable under `--mode strict` in the current tree and the
 tool must surface that refusal instead of pretending real-time support.
 
-See [analysis-trace.md](analysis-trace.md) for fields and digest rules. Do not
+See [analysis-observation.md](analysis-observation.md) for fields and digest rules. Do not
 depend on `inspect --ir`: that JSON is not a frozen cross-repository protocol.
 The `view` tool renders the **original Markdown**, not the Analysis JSON; the
 Analysis is an index, not a replacement for the source text.

@@ -1,5 +1,8 @@
 //! CM-A08 table stdlib module tests.
 
+#[path = "support/observation.rs"]
+pub mod observation;
+
 use std::path::Path;
 use std::process::Command;
 
@@ -14,7 +17,7 @@ fn repo_root() -> std::path::PathBuf {
 
 fn run_table_self_test() -> serde_json::Value {
     let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
-        .args(["run", "tests/table.mq.md", "--json"])
+        .args(["run", "tests/table.mq.md", "--output", "json"])
         .current_dir(repo_root().join("stdlib"))
         .env("MARQDO_STDLIB_DIR", repo_root().join("stdlib"))
         .output()
@@ -35,8 +38,10 @@ fn rows(value: &serde_json::Value) -> &Vec<serde_json::Value> {
 #[test]
 fn stdlib_table_algorithms_rebuild_without_mutating_inputs() {
     let report = run_table_self_test();
-    assert_eq!(report["success"], true);
-    let items = report["value"]["items"].as_array().expect("list");
+    assert_eq!(report["run"]["status"], "ok");
+    let items = observation::terminal(&report)["value"]["items"]
+        .as_array()
+        .expect("list");
     assert_eq!(items.len(), 9);
 
     assert_eq!(items[0]["header"], serde_json::json!(["分数"]));

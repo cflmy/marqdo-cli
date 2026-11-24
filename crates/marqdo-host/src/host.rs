@@ -7,7 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use marqdo_plugin_abi::{
     ErrorKind as PluginErrorKind, LoadedPlugin, PluginError, PluginKind, PluginManifest,
@@ -31,11 +31,9 @@ use crate::provider_worker::WorkerResourceProvider;
 use crate::resource::{
     is_core_resource_kind, ResourceProvider, ResourceRead, ResourceTable, SharedResourceProvider,
 };
-use crate::trace::{EffectTrace, SemanticEvent, TraceBudget, TraceEntry, TraceState};
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
 
 mod dispatch;
-mod effects;
 mod providers;
 mod resource_ops;
 mod resource_requests;
@@ -182,29 +180,10 @@ pub trait Host {
     /// Take the buffered program output.
     fn take_output(&mut self) -> Vec<u8>;
 
-    /// Recorded effects.
-    fn trace(&self) -> &[TraceEntry];
-
-    /// Record one semantic event (Trace v1). Default: ignored.
-    fn record_semantic(
-        &mut self,
-        _kind: &str,
-        _function_id: Option<&str>,
-        _module_id: Option<&str>,
-        _span: Option<Span>,
-        _detail: Option<&str>,
-    ) {
-    }
-
-    /// Recorded semantic events. Default: empty.
-    fn semantic_events(&self) -> &[SemanticEvent] {
-        &[]
-    }
-
     /// Whether the host has an installed observation sink.
     ///
     /// The default host is inert; the interpreter uses this to skip building
-    /// any observation event when the run has no `--event-stream`.
+    /// any observation event when there is no capture destination.
     fn observation_enabled(&self) -> bool {
         false
     }
@@ -252,8 +231,6 @@ pub struct StdHost {
     pub budget: Budget,
     /// Filesystem view.
     pub fs: ProjectFs,
-    /// Effect trace.
-    pub trace: EffectTrace,
     /// Maximum wall-clock time for one foreign kernel call.
     pub foreign_timeout: Duration,
     /// Maximum captured bytes per foreign stream.
@@ -280,9 +257,6 @@ pub struct StdHost {
     resources: ResourceTable,
     /// Registered in-process providers keyed by resource kind (ADR-0033).
     resource_providers: BTreeMap<String, (String, SharedResourceProvider)>,
-    semantic_events: Vec<SemanticEvent>,
-    next_event_seq: u64,
-    trace_state: TraceState,
     observation: Option<ObservationState>,
     observation_error: Option<String>,
 }
@@ -331,7 +305,6 @@ impl StdHost {
             capabilities,
             budget: Budget::default(),
             fs: ProjectFs::new(project_root),
-            trace: EffectTrace::default(),
             foreign_timeout: Duration::from_secs(10),
             foreign_output_limit: 1024 * 1024,
             kernel_registry: marqdo_foreign::KernelRegistry::builtin(),
@@ -346,9 +319,6 @@ impl StdHost {
             stderr: Vec::new(),
             resources: ResourceTable::new(),
             resource_providers: BTreeMap::new(),
-            semantic_events: Vec::new(),
-            next_event_seq: 0,
-            trace_state: TraceState::default(),
             observation: None,
             observation_error: None,
         }
@@ -502,22 +472,6 @@ impl StdHost {
         exports
     }
 
-    /// Recorded semantic events (Trace v1).
-    pub fn semantic_events(&self) -> &[SemanticEvent] {
-        &self.semantic_events
-    }
-
-    /// Trace capacity state for the writer.
-    pub fn trace_state(&self) -> &TraceState {
-        &self.trace_state
-    }
-
-    /// Override the trace event/byte budget.
-    pub fn with_trace_budget(mut self, budget: TraceBudget) -> Self {
-        self.trace_state.budget = budget;
-        self
-    }
-
     /// Audited plugin capability decisions.
     pub fn capability_audit(&self) -> Vec<CapabilityAudit> {
         self.broker_audit
@@ -534,13 +488,6 @@ impl StdHost {
         self.kernel_registry.register(descriptor).map_err(|error| {
             RuntimeError::new(ErrorCategory::KernelUnavailable, None, error.to_string())
         })
-    }
-
-    /// Enable effect tracing.
-    pub fn with_trace(mut self) -> Self {
-        self.trace = EffectTrace::enabled();
-        self.trace_state.enabled = true;
-        self
     }
 
     /// Install the typed observation sink and policy (RFC-OBS-0001).
@@ -617,8 +564,13 @@ impl StdHost {
         result_code: &str,
         ctx: &ExecutionContext,
     ) {
+        let frame_id = self
+            .observation
+            .as_ref()
+            .and_then(ObservationState::parent_frame);
         let result = self.emit_observation(
             ObservationEvent::Effect {
+                frame_id,
                 operation,
                 result_code,
                 module_id: &ctx.module_id,
@@ -777,26 +729,8 @@ impl Host for StdHost {
         max_bytes: usize,
         ctx: &ExecutionContext,
     ) -> Result<ResourceRead, RuntimeError> {
-        let started = Instant::now();
-        let kind = self.resources.kind(handle, ctx.span)?;
         let read = self.resources.read(handle, max_bytes, ctx.span)?;
-        self.record_semantic(
-            "resource.read",
-            None,
-            Some(&ctx.module_id),
-            ctx.span,
-            Some(&format!(
-                "kind={kind} count={} eof={}",
-                read.bytes.len(),
-                read.eof
-            )),
-        );
-        self.record_resource_effect(
-            "resource.read",
-            ctx,
-            started,
-            &format!("kind={kind} count={}", read.bytes.len()),
-        );
+        self.observe_effect("resource.read", "ok", ctx);
         Ok(read)
     }
 
@@ -806,7 +740,6 @@ impl Host for StdHost {
         bytes: &[u8],
         ctx: &ExecutionContext,
     ) -> Result<usize, RuntimeError> {
-        let started = Instant::now();
         let kind = self.resources.kind(handle, ctx.span)?;
         let stdio = self.resources.stdio_name(handle, ctx.span)?;
         let count = self.resources.write(handle, bytes, ctx.span)?;
@@ -829,19 +762,7 @@ impl Host for StdHost {
                 self.emit_observation(event, true)?;
             }
         }
-        self.record_semantic(
-            "resource.write",
-            None,
-            Some(&ctx.module_id),
-            ctx.span,
-            Some(&format!("kind={kind} count={count}")),
-        );
-        self.record_resource_effect(
-            "resource.write",
-            ctx,
-            started,
-            &format!("kind={kind} count={count}"),
-        );
+        self.observe_effect("resource.write", "ok", ctx);
         Ok(count)
     }
 
@@ -850,29 +771,11 @@ impl Host for StdHost {
         handle: ResourceHandle,
         ctx: &ExecutionContext,
     ) -> Result<(), RuntimeError> {
-        let started = Instant::now();
-        let pending = self.resources.pending_file_write(handle, ctx.span)?;
-        let count = match pending {
-            Some((relative, bytes)) => {
-                self.fs.write_bytes(&relative, &bytes, ctx.span)?;
-                bytes.len()
-            }
-            None => 0,
-        };
+        if let Some((relative, bytes)) = self.resources.pending_file_write(handle, ctx.span)? {
+            self.fs.write_bytes(&relative, &bytes, ctx.span)?;
+        }
         self.resources.close(handle, ctx.span)?;
-        self.record_semantic(
-            "resource.close",
-            None,
-            Some(&ctx.module_id),
-            ctx.span,
-            Some(&format!("flushed_bytes={count}")),
-        );
-        self.record_resource_effect(
-            "resource.close",
-            ctx,
-            started,
-            &format!("flushed_bytes={count}"),
-        );
+        self.observe_effect("resource.close", "ok", ctx);
         Ok(())
     }
 
@@ -881,16 +784,8 @@ impl Host for StdHost {
         handle: ResourceHandle,
         ctx: &ExecutionContext,
     ) -> Result<Value, RuntimeError> {
-        let started = Instant::now();
         let accepted = self.resources.accept(handle, ctx.span)?;
-        self.record_semantic(
-            "resource.accept",
-            None,
-            Some(&ctx.module_id),
-            ctx.span,
-            Some("kind=tcp-listener"),
-        );
-        self.record_resource_effect("resource.accept", ctx, started, "ok");
+        self.observe_effect("resource.accept", "ok", ctx);
         let mut map = BTreeMap::new();
         map.insert("ok".to_string(), Value::Bool(true));
         map.insert("value".to_string(), Value::Resource(accepted));
@@ -990,6 +885,14 @@ impl Host for StdHost {
             return Ok(());
         }
         match event {
+            RuntimeObservation::Effect {
+                operation,
+                module_id,
+                span,
+            } => {
+                self.observe_effect(operation, "ok", &ExecutionContext::new(module_id, span));
+                Ok(())
+            }
             RuntimeObservation::Return {
                 frame_id,
                 value_type,
@@ -1129,37 +1032,6 @@ impl Host for StdHost {
 
     fn take_output(&mut self) -> Vec<u8> {
         std::mem::take(&mut self.output)
-    }
-
-    fn trace(&self) -> &[TraceEntry] {
-        self.trace.entries()
-    }
-
-    fn record_semantic(
-        &mut self,
-        kind: &str,
-        function_id: Option<&str>,
-        module_id: Option<&str>,
-        span: Option<Span>,
-        detail: Option<&str>,
-    ) {
-        let estimate = TraceState::estimate(kind, function_id, module_id, detail, None);
-        if !self.trace_state.accept(estimate) {
-            return;
-        }
-        let seq = self.next_seq();
-        self.semantic_events.push(SemanticEvent {
-            seq,
-            kind: kind.to_string(),
-            function_id: function_id.map(str::to_string),
-            module_id: module_id.map(str::to_string),
-            span,
-            detail: detail.map(str::to_string),
-        });
-    }
-
-    fn semantic_events(&self) -> &[SemanticEvent] {
-        &self.semantic_events
     }
 }
 

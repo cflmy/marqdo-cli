@@ -61,16 +61,16 @@ jobs:
           ./target/debug/marqdo check examples/multi-module/index.mq.md --refs \
             --emit /tmp/marqdo-analysis.json
           ./target/debug/marqdo run examples/multi-module/index.mq.md \
-            --trace-file /tmp/marqdo-analysis-trace.json
+            --observation-file /tmp/marqdo-observation.json
           python3 tests/consumers/analysis_consumer.py /tmp/marqdo-analysis.json
-          python3 tests/consumers/trace_consumer.py \
-            /tmp/marqdo-analysis.json /tmp/marqdo-analysis-trace.json
+          python3 tests/consumers/observation_consumer.py --snapshot \
+            /tmp/marqdo-observation.json --analysis /tmp/marqdo-analysis.json
           ./target/debug/marqdo run examples/hello.mq.md \
-            --trace-file /tmp/marqdo-trace.json
+            --observation-file /tmp/marqdo-hello-observation.json
           python3 - <<'PY'
           import json
-          json.load(open("/tmp/marqdo-trace.json"))
-          print("trace parses")
+          json.load(open("/tmp/marqdo-hello-observation.json"))
+          print("snapshot parses")
           PY
           ./target/debug/marqdo run examples/packages-multi-version/index.mq.md
           ./target/debug/marqdo run examples/kernel-mock/demo.mq.md \
@@ -108,21 +108,34 @@ jobs:
           ./target/debug/marqdo check examples/multi-module/index.mq.md --refs \
             --emit /tmp/analysis-simple.json
           ./target/debug/marqdo run examples/multi-module/index.mq.md \
-            --trace-file /tmp/trace-v2.json
+            --observation-file /tmp/observation.json
           python3 tests/consumers/validate_protocols.py \
-            /tmp/analysis-simple.json /tmp/trace-v2.json examples/tool-unknown-name/tool.json
+            /tmp/analysis-simple.json /tmp/observation.json examples/tool-unknown-name/tool.json
           python3 tests/consumers/analysis_consumer.py /tmp/analysis-simple.json
-          python3 tests/consumers/trace_consumer.py \
-            /tmp/analysis-simple.json /tmp/trace-v2.json
+          python3 tests/consumers/observation_consumer.py --snapshot \
+            /tmp/observation.json --analysis /tmp/analysis-simple.json
           ./target/debug/marqdo check tests/conformance/semantics/85-nested-loop-control.mq.md \
             --emit /tmp/analysis-control.json
           ./target/debug/marqdo run tests/conformance/semantics/85-nested-loop-control.mq.md \
-            --event-stream jsonl --trace-file /tmp/control-trace-v2.json > /tmp/control-events.jsonl
+            --output jsonl --observation-file /tmp/control-observation.json > /tmp/control-events.jsonl
           python3 tests/consumers/validate_protocols.py \
-            /tmp/analysis-control.json /tmp/control-trace-v2.json examples/tool-unknown-name/tool.json
+            /tmp/analysis-control.json /tmp/control-observation.json examples/tool-unknown-name/tool.json
           python3 tests/consumers/analysis_consumer.py /tmp/analysis-control.json --require-transfers
-          python3 tests/consumers/trace_consumer.py /tmp/analysis-control.json /tmp/control-trace-v2.json
-          python3 tests/consumers/execution_events_consumer.py /tmp/control-events.jsonl
+          python3 tests/consumers/observation_consumer.py --snapshot /tmp/control-observation.json --analysis /tmp/analysis-control.json
+          python3 tests/consumers/observation_consumer.py /tmp/control-events.jsonl \
+            --analysis /tmp/analysis-control.json --validate-schema
+          python3 - <<'PY'
+          import json, pathlib
+          events = [json.loads(line) for line in pathlib.Path("/tmp/control-events.jsonl").read_bytes().splitlines()]
+          snapshot = json.loads(pathlib.Path("/tmp/control-observation.json").read_bytes())
+          assert snapshot["events"] == events
+          PY
+          cp /tmp/analysis-control.json /tmp/analysis-stale.json
+          printf ' ' >> /tmp/analysis-stale.json
+          if python3 tests/consumers/observation_consumer.py /tmp/control-events.jsonl \
+              --analysis /tmp/analysis-stale.json; then
+            exit 1
+          fi
 
   cross-platform:
     name: runtime contract (${{ matrix.os }})
@@ -154,7 +167,7 @@ jobs:
               workspace-tests.log "Workspace tests on ${{ matrix.os }}"
           fi
           exit "$status"
-      - name: Portable CLI, analysis and trace smoke
+      - name: Portable CLI, Analysis and Observation smoke
         shell: bash
         run: |
           set -e
@@ -162,9 +175,9 @@ jobs:
             --refs --emit /tmp/marqdo-portable-analysis.json
           python3 tests/consumers/analysis_consumer.py /tmp/marqdo-portable-analysis.json
           cargo run -q -p marqdo-cli -- run examples/multi-module/index.mq.md \
-            --trace-file /tmp/marqdo-portable-trace.json
-          python3 tests/consumers/trace_consumer.py \
-            /tmp/marqdo-portable-analysis.json /tmp/marqdo-portable-trace.json
+            --observation-file /tmp/marqdo-portable-observation.json
+          python3 tests/consumers/observation_consumer.py --snapshot \
+            /tmp/marqdo-portable-observation.json --analysis /tmp/marqdo-portable-analysis.json
       - name: Strict isolation is unavailable and must fail closed
         shell: bash
         run: |
@@ -180,16 +193,16 @@ jobs:
         run: |
           set -euo pipefail
           set +e
-          json=$(cargo run -q -p marqdo-cli -- run examples/hello.mq.md --mode strict --json)
+          json=$(cargo run -q -p marqdo-cli -- run examples/hello.mq.md --mode strict --output json)
           code=$?
           set -e
           test "$code" -eq 1
           JSON_DOC="$json" python3 - <<'PY'
           import json, os
           document = json.loads(os.environ["JSON_DOC"])
-          assert document["success"] is False, document
-          assert document["command"] == "run", document
-          assert document["code"] == "strict.probe_unavailable", document
+          assert document["schema"] == "marqdo.observation", document
+          assert document["run"]["status"] == "rejected", document
+          assert document["events"][-1]["payload"]["error"]["code"] == "strict.probe_unavailable", document
           PY
 
   frozen-extensions:

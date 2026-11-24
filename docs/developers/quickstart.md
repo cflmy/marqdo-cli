@@ -48,7 +48,7 @@ marqdo call index.mq.md main
 ```
 
 `run` executes the entry function (`main` by default) and prints program output;
-`call` prints the returned value. Use `--json` for machine-readable
+`call` prints the returned value. Use `--output json` for machine-readable
 results (`{"command":"run","success":true,...}`), including embedded program
 stdout and diagnostics.
 
@@ -76,8 +76,8 @@ stdout and diagnostics.
 
 ```bash
 marqdo check index.mq.md --json
-marqdo run index.mq.md --json
-marqdo call index.mq.md main --json
+marqdo run index.mq.md --output json
+marqdo call index.mq.md main --output json
 ```
 
 ## 5. Where next
@@ -85,6 +85,6 @@ marqdo call index.mq.md main --json
 - Publish/consume a pure library: [libraries.md](libraries.md).
 - Build an external tool: [tools.md](tools.md).
 - Plugins, kernels, providers: [extensions.md](extensions.md).
-- Analysis/Trace consumers: [analysis-trace.md](analysis-trace.md).
+- Analysis/Trace consumers: [analysis-observation.md](analysis-observation.md).
 - Version axes and platform support: [compatibility.md](compatibility.md).
 - Beta limitations: [release-limits.md](release-limits.md).

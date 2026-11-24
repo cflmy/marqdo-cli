@@ -37,12 +37,13 @@ docker run --rm --network none --user 65534:65534 \
     ./marqdo run examples/hello.mq.md | grep -F "你好，Marqdo"
     ./marqdo check examples/multi-module/index.mq.md --emit /tmp/analysis.json
     ./marqdo check examples/control-flow.mq.md --emit /tmp/control-analysis.json
+    grep -Eq "\"schema_version\"[[:space:]]*:[[:space:]]*3" /tmp/analysis.json
     grep -Eq "\"schema_version\"[[:space:]]*:[[:space:]]*3" /tmp/control-analysis.json
     test "$(./marqdo call examples/control-flow.mq.md main)" = 5
     ./marqdo call examples/math-library-demo.mq.md main
     test "$(./marqdo call examples/factorial.mq.md 阶乘 --arg n=5)" = 120
-    ./marqdo run tests/consumers/fixtures/execution-events/basic.mq.md \
-        --event-stream jsonl >/tmp/events.jsonl
+    ./marqdo run tests/consumers/fixtures/observation/basic.mq.md \
+        --output jsonl >/tmp/events.jsonl
     tail -n 1 /tmp/events.jsonl | grep -Eq "\"kind\"[[:space:]]*:[[:space:]]*\"run.completed\""
     mv stdlib stdlib.hidden
     if ./marqdo run examples/hello.mq.md >/tmp/missing-stdlib.log 2>&1; then

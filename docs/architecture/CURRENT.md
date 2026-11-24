@@ -27,14 +27,6 @@ replace `spec/` or a recorded test log.
 > [`spec/extension-selection.md`](../../spec/extension-selection.md),
 > [`spec/resource-provider-v2.md`](../../spec/resource-provider-v2.md).
 >
-> **Post-baseline observability (ADR-0059, RFC-OBS-0001).** After the tagged
-> baseline the tree adds Execution Events v1: a typed host observation facade,
-> real-commit stdout/stderr chunks, run-unique call frames and explicitly
-> selected bounded values over `run/call --event-stream jsonl`. Analysis v2 and
-> Trace v2 are unchanged. This is locally tested on the post-baseline tree
-> ([`../STATUS.md`](../STATUS.md) §0.5) and is not part of the tagged beta
-> archive or its same-SHA evidence.
->
 > **Post-baseline core/extension boundary (RFC-EXT-0003, ADR-0060–0063).** The
 > core call surface no longer owns the domain math kernel (`math.*` removed;
 > `crates/marqdo-math` deleted; ADR-0061), sibling heading mode inheritance is
@@ -58,13 +50,36 @@ replace `spec/` or a recorded test log.
 > **Structured control flow (RFC-CTRL-0005).**
 > [ADR-0067](../adr/0067-structured-control-flow.md) extends the payload parser
 > and branch mapper, adds nearest-loop execution transfers and makes binding
-> inference path-sensitive. Analysis chooses v2 or v3 according to the
-> statements it emits. The interpreter owns the transfers and reports them
-> through the existing observation facade.
+> inference path-sensitive. Analysis projects the same branch and loop
+> structure for every module. The interpreter reports transfers through Host
+> observation.
 
-Protocol architecture and pre-stable replacement rules are recorded in
-[ADR-0068](../adr/0068-single-current-public-contracts.md). Check the
-[implementation status](../STATUS.md) for rollout and release evidence.
+## Public boundaries and pre-stable changes
+
+[ADR-0068](../adr/0068-single-current-public-contracts.md) records the policy
+for replacing public interfaces before the first stable release.
+
+| Boundary | Owner | Current contract |
+|---|---|---|
+| Static facts | CLI Analysis projection of the prepared project | [Analysis](../../spec/analysis.md) |
+| Runtime facts | Interpreter and Host observation sink | [Observation](../../spec/observation.md) |
+| Installed CLI commands | Generic Tool registry | [CLI Tool](../../spec/cli-tool.md) |
+| Runtime extensions | Plugin, Resource Provider and Foreign each enforce their own grants | [Plugin ABI](../../spec/plugin-abi.md), [Resource Provider](../../spec/resource-provider-v2.md), [Foreign](../../spec/foreign.md) |
+| Values and package identities | Value Wire and project lock | [Value Wire](../../spec/value-wire.md), [Extension selection and lock](../../spec/extension-selection.md) |
+
+`check --emit analysis.json` projects static facts from the prepared project.
+`run` and `call` execute the same prepared program through the CapabilityHost.
+`--output jsonl` provides live events and `--observation-file run.json` saves
+the same event sequence from that invocation. Consumers verify the exact
+Analysis bytes before marking execution spans in source.
+
+When replacing a contract, update its producer, specification, schema, real
+consumers, fixtures and CI in one integration. Every required field and format
+identifier should correspond to a check at the boundary. Reject obsolete
+inputs with a corrective action. Keep historical formats in Git. Review
+grants, budgets, file integrity, source attribution and privacy independently
+of the transport change. Check the [implementation status](../STATUS.md)
+for executed evidence and release gates.
 
 ## 1. Four state dimensions
 
@@ -74,7 +89,7 @@ platform".
 
 | Dimension | Current state | Source |
 |---|---|---|
-| Implemented | Rust workspace `3.0.0-beta.1`: RFC-LANG-0002 Markdown/frontend/IR, v2 statement parser, tree-walk runtime, `Memory`, capability host, Tool/Analysis/Trace, Plugin ABI, Foreign kernels, migrated bundled stdlib, CLI composition root; post-baseline Execution Events v1 (ADR-0059), core/extension boundary RFC-EXT-0003 (ADR-0060–0063: math domain API removed, one core resource-kind registry, reviewed `resource_request`, F-A foreign retained), heading annotations only **Proposed** | `Cargo.toml`, `crates/`, `stdlib/` |
+| Implemented | Rust workspace: RFC-LANG-0002 Markdown/frontend/IR, v2 statement parser, tree-walk runtime, `Memory`, capability host, Tool, Analysis and Observation, Plugin ABI, Foreign kernels, migrated bundled stdlib, CLI composition root; core/extension boundary RFC-EXT-0003 (ADR-0060–0063: math domain API removed, one core resource-kind registry, reviewed `resource_request`, F-A foreign retained), heading annotations only **Proposed** | `Cargo.toml`, `crates/`, `stdlib/` |
 | Tested locally | `cargo test --workspace --locked`, `cargo fmt --all -- --check`, `clippy -D warnings`, release archive smoke and an independent `ubuntu:24.04` cold-install run on the RFC-EXT-0003 tree (Linux x86_64); exact counts and logs are in `docs/STATUS.md` §0.6 and the RFC-EXT-0003 evidence file. Historical baselines stay in earlier sections. | `docs/STATUS.md` §0.6, `docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md` |
 | Bundled stdlib released | In-repo bundle `marqdo-stdlib@0.1.0`, SHA-256 digest verified before loading; it is **not** an external registry package | `stdlib/stdlib.json`, `stdlib/README.md` |
 | Multi-platform verified | Linux local gate is the only executed lane here; Windows/macOS native lanes are **UNVERIFIED**, and the GitHub security lane remains a **VM-only** gate | `docs/STATUS.md` §1, §4 |
@@ -96,7 +111,7 @@ execution: Value / MemoryStore / evaluator / budgets
   (computes; does not own stdout or file handles)
                      |
 controlled platform API: open/read/write/close + non-streaming requests
-  capability / budget / audit / trace
+  capability / budget / audit / observation
   stdio / file / tcp / OS adapters
   explicitly registered providers (in-process / worker / C ABI)
                      |
@@ -127,8 +142,8 @@ Layer rules:
 5. Callable Plugin and Resource Provider share one registry/authorization/audit
    mechanism, but keep different capability types.
 6. CLI policy/commands are `commands/{sandbox,run,check,inspect,init,package,tool}.rs`;
-   host open-path/providers/effects/dispatch are
-   `host/{resource_ops,providers,effects,dispatch}.rs`; process execution is
+   host open-path/providers/dispatch are
+   `host/{resource_ops,providers,dispatch}.rs`; process execution is
    `process.rs`. These are child modules, not new crates or a second backend.
 
 ## 3. Dependency direction and public contracts
@@ -150,7 +165,7 @@ review RFC, not a new crate per provider.
 | Public contract | API (`.mq.md`) | State | Tests |
 |---|---|---|---|
 | stdio stdin | `resource.open("stdio","stdin",["read"])`, `resource.read`, `resource.close`; one run-scoped cursor | implemented, read-only | `resource_streams`, `p2_closure`, `tests/conformance` |
-| Execution Events v1 | `run/call --event-stream jsonl`; `--observe-variable`, `--observe-parameter`, `--observe-text-values` | implemented P0/P1 (post-beta); P2 memory metadata deferred; strict refuses the option | `execution_events` CLI, `observation` host/runtime, `execution_events_consumer.py` |
+| Observation | `run/call --output jsonl`, `--output json` or `--observation-file PATH` | one event sequence and capture policy | `observation`, `analysis_observation`, `observation_consumer.py` |
 | stdio stdout | `resource.open("stdio","stdout",["write"])`, `resource.write`, `resource.close`; separate output budget | implemented | `stdlib_bundle`, `print_routing`, `resource_streams` |
 | stdio stderr | `resource.open("stdio","stderr",["write"])`; separate from stdout and CLI diagnostics | implemented | `resource_streams`, `stdlib_product` |
 | project file read | `resource.open("file", path, ["read"])`; path/grant checked; bounded | implemented, project mode | `resource_streams`, `stdlib_product` |
@@ -205,7 +220,7 @@ that a phase is complete.
 | P1 | `std:fs/file` read/write/copy, metadata/directory, append/read_at/walk are implemented; watch and binary offset reads remain open | open |
 | P1 | No file watch or binary `read_at` | open; future Resource Operation extension |
 | P1 | JSON/CSV product parsers are implemented with depth bound and multi-value/multi-row; no incremental streaming parser | open |
-| P1 | CLI split into `commands/{sandbox,run,check,inspect,init,package,tool}.rs`; host split into `host/{resource_ops,providers,effects,dispatch}.rs` plus `process.rs`; `commands.rs` keeps shared project/runtime helpers and `host.rs` keeps the `Host` trait methods and capability checks | split; shared helpers and trait methods remain by design |
+| P1 | CLI split into `commands/{sandbox,run,check,inspect,init,package,tool}.rs`; host split into `host/{resource_ops,providers,dispatch}.rs` plus `process.rs`; `commands.rs` keeps shared project/runtime helpers and `host.rs` keeps the `Host` trait methods and capability checks | split; shared helpers and trait methods remain by design |
 | P2 | HTTP/1.1 framing is byte-exact; HTTP/2, trailers and transfer decoding remain open | open |
 | P2 | DNS, UDP, TCP listener and TLS client endpoints are implemented; no TLS server/mTLS or custom-CA CLI | open |
 | P2 | `std:path`, pure+host regex, `std:datetime`, `std:clock`, `std:env`, `std:process`, `std:random` and gzip compression are implemented; no streaming/zstd/brotli | open |

@@ -76,11 +76,9 @@ fn encode(project: &LoadedProject) -> Result<Vec<u8>, String> {
         .map_err(|error| format!("cannot encode analysis: {error}"))
 }
 
-/// SHA-256 of the exact emitted Analysis bytes (Trace binds to this digest).
-pub fn digest(project: &LoadedProject) -> String {
-    encode(project)
-        .map(|bytes| sha256_hex(&bytes))
-        .unwrap_or_else(|_| sha256_hex(b""))
+/// SHA-256 of the exact emitted Analysis bytes.
+pub fn digest(project: &LoadedProject) -> Result<String, String> {
+    encode(project).map(|bytes| format!("sha256:{}", sha256_hex(&bytes)))
 }
 
 /// Atomically write the projection. An error must not leave a stale success
