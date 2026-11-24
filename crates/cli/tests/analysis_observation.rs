@@ -338,6 +338,31 @@ fn failed_check_removes_stale_analysis() {
 }
 
 #[test]
+fn check_that_cannot_load_the_project_removes_stale_analysis() {
+    let dir = TempDir::new("analysis-load-error");
+    write(dir.path(), "index.mq.md", "## @exec main\n\n`return 1`\n");
+    let target = dir.path().join("analysis.json");
+    let first = cli(
+        dir.path(),
+        &["check", "index.mq.md", "--emit", target.to_str().unwrap()],
+    );
+    assert_eq!(first.status.code(), Some(0), "{first:?}");
+    assert!(target.exists());
+
+    // The load failure happens before the compile-error cleanup branch, so the
+    // remove must also cover the prepare path.
+    let failed = cli(
+        dir.path(),
+        &["check", "missing.mq.md", "--emit", target.to_str().unwrap()],
+    );
+    assert_ne!(failed.status.code(), Some(0), "{failed:?}");
+    assert!(
+        !target.exists(),
+        "a load failure must not leave the previous Analysis in place"
+    );
+}
+
+#[test]
 fn snapshot_records_calls_effects_and_status_without_secrets() {
     let dir = TempDir::new("trace");
     write(dir.path(), "index.mq.md", PROGRAM);

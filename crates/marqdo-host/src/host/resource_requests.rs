@@ -516,7 +516,7 @@ impl StdHost {
                     _ => unreachable!(),
                 }
                 let result = self.fs.request(name, &paths, ctx.span)?;
-                self.observe_effect("resource.request", "ok", ctx);
+                self.observe_effect(&format!("fs.{name}"), "ok", ctx);
                 Ok(result)
             }
             _ => {

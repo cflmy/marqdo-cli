@@ -333,8 +333,39 @@ fn transport_error(error: TransportError) -> PluginError {
             "plugin.crashed",
             format!("worker frame I/O failed: {error}"),
         ),
+        // The shared transport classifies an over-limit or unencodable frame
+        // before anything is written. Keep the boundary-specific codes the
+        // plugin ABI has always reported instead of flattening them into
+        // `worker_frame_invalid`.
+        TransportError::Frame(FrameError::Encode(error)) => {
+            PluginError::wire("worker_encode_failed", error.to_string())
+        }
+        TransportError::Frame(FrameError::Length(length)) => PluginError::wire(
+            "worker_frame_too_large",
+            format!("worker frame is {length} bytes"),
+        ),
         TransportError::Frame(other) => {
             PluginError::wire("worker_frame_invalid", other.to_string())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn transport_errors_keep_the_boundary_specific_codes() {
+        let too_large = transport_error(TransportError::Frame(FrameError::Length(9 * 1024 * 1024)));
+        assert_eq!(too_large.code, "worker_frame_too_large");
+
+        let over_limit = transport_error(TransportError::Frame(FrameError::PartialPayload {
+            expected: 10,
+            actual: 3,
+        }));
+        assert_eq!(over_limit.code, "worker_frame_invalid");
+
+        let closed = transport_error(TransportError::Closed);
+        assert_eq!(closed.code, "plugin.crashed");
     }
 }

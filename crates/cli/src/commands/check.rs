@@ -11,7 +11,15 @@ pub fn check(
 ) -> i32 {
     let prepared = match prepare_project(file, json, plugins) {
         Ok(prepared) => prepared,
-        Err(code) => return code,
+        Err(code) => {
+            // A failed check never leaves a success artifact behind: a consumer
+            // must not be able to bind `run` to a previous Analysis after the
+            // project stopped loading or compiling.
+            if let Some(path) = emit {
+                let _ = std::fs::remove_file(path);
+            }
+            return code;
+        }
     };
     let mut project = prepared.loaded;
     if refs {

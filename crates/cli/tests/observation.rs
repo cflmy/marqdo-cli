@@ -878,3 +878,46 @@ fn loop_transfers_are_ordered_structural_events_with_source_spans() {
         assert_eq!(statement["span"], span);
     }
 }
+
+#[test]
+fn strict_mode_rejects_live_and_file_destinations_before_opening_a_stream() {
+    let dir = TempDir::new("strict-destinations");
+    dir.write("index.mq.md", BASIC);
+    let snapshot = dir.path().join("snapshot.json");
+    let snapshot_arg = snapshot.to_str().unwrap().to_string();
+
+    for args in [
+        vec![
+            "run",
+            "index.mq.md",
+            "--mode",
+            "strict",
+            "--output",
+            "jsonl",
+        ],
+        vec![
+            "run",
+            "index.mq.md",
+            "--mode",
+            "strict",
+            "--output",
+            "text",
+            "--observation-file",
+            snapshot_arg.as_str(),
+        ],
+    ] {
+        let output = cli(dir.path(), &args);
+        assert_eq!(output.status.code(), Some(2), "{args:?}: {output:?}");
+        assert!(
+            output.stdout.is_empty(),
+            "a rejected strict destination must not emit a partial stream: {}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("strict.unsupported_grant"), "{stderr}");
+        assert!(
+            !snapshot.exists(),
+            "a rejected strict destination must not publish a snapshot file"
+        );
+    }
+}

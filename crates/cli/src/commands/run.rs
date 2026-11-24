@@ -21,16 +21,25 @@ pub fn execute(
         );
         return 2;
     }
+    // Strict runs project code under the isolation supervisor, which owns
+    // stdout. A live JSONL stream or a file destination would bypass that
+    // supervisor, so reject the destination before any session is opened: an
+    // unsupported destination must never produce a partial stream.
+    if settings.mode == "strict"
+        && (observation.output == OutputFormat::Jsonl || observation.file.is_some())
+    {
+        return fail(
+            None,
+            "strict",
+            "strict.unsupported_grant",
+            "strict mode supports text and JSON snapshots on stdout; it rejects live or file destinations",
+            2,
+        );
+    }
     // Open before preparation so option, compile and authorization failures
     // can still publish a rejection on the requested observation destination.
-    let strict_destination_rejected = settings.mode == "strict"
-        && (observation.output == OutputFormat::Jsonl || observation.file.is_some());
-    let mut destinations = observation.clone();
-    if strict_destination_rejected {
-        destinations.file = None;
-    }
-    let events = if destinations.enabled() {
-        match ObservationSession::open(&destinations) {
+    let events = if observation.enabled() {
+        match ObservationSession::open(observation) {
             Ok(events) => Some(events),
             Err(error) => return transport_failure(&error),
         }
@@ -38,15 +47,6 @@ pub fn execute(
         None
     };
     let stream = events.as_ref();
-    if strict_destination_rejected {
-        return fail(
-            stream,
-            "strict",
-            "strict.unsupported_grant",
-            "strict mode supports text and JSON snapshots on stdout; it rejects live or file destinations",
-            2,
-        );
-    }
     let named_args = match named_args {
         Ok(args) => args,
         Err(message) => return fail(stream, "prepare", "cli.invalid_argument", &message, 2),

@@ -30,6 +30,9 @@ the [event schema](schemas/observation-event.schema.json) for the exact
 fields. Reject other format identifiers, unknown kinds and invalid payloads.
 
 - `stream.opened` is first, with producer, capture policy and budget limits.
+  The capture level is `base` (lifecycle only), `structural` (frame, branch,
+  loop and effect events) or `values` (explicitly selected names); the
+  snapshot `capture` metadata repeats the same level.
 - `run.started` binds an entry, mode and source. `source.root_id` and
   `source.analysis_digest` identify the exact Analysis JSON emitted by
   `check --emit` for the same project and static options. The digest is

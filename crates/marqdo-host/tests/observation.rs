@@ -462,3 +462,76 @@ fn value_encoding_is_selected_bounded_and_handle_safe() {
     assert_eq!(state, ValueState::Unsupported);
     assert!(value.is_none());
 }
+
+#[test]
+fn filesystem_operations_report_the_concrete_effect_name() {
+    let dir = std::env::temp_dir().join(format!(
+        "marqdo-host-fs-effect-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("data.txt"), b"x").unwrap();
+    std::fs::create_dir_all(dir.join("sub")).unwrap();
+    let events = Rc::new(RefCell::new(Vec::new()));
+    let mut host = StdHost::new(
+        SandboxMode::Project,
+        Capabilities::project().allow_read("**").allow_write("**"),
+        dir.clone(),
+    )
+    .with_observation(
+        ObservationConfig::default(),
+        Box::new(Recorder {
+            events: Rc::clone(&events),
+            fail: false,
+        }),
+    );
+    let ctx = context();
+    for (operation, args) in [
+        ("fs.exists", vec![Value::Text("data.txt".to_string())]),
+        ("fs.metadata", vec![Value::Text("data.txt".to_string())]),
+        ("fs.list", vec![Value::Text("sub".to_string())]),
+        ("fs.mkdir", vec![Value::Text("created".to_string())]),
+        ("fs.remove", vec![Value::Text("created".to_string())]),
+        (
+            "fs.rename",
+            vec![
+                Value::Text("data.txt".to_string()),
+                Value::Text("moved.txt".to_string()),
+            ],
+        ),
+    ] {
+        host.resource_request(operation, args, &ctx)
+            .unwrap_or_else(|error| panic!("{operation}: {error}"));
+    }
+    let operations: Vec<String> = events
+        .borrow()
+        .iter()
+        .filter_map(|event| match event {
+            Recorded::Effect {
+                operation,
+                result_code,
+            } => {
+                assert_eq!(result_code, "ok");
+                Some(operation.clone())
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        operations,
+        [
+            "fs.exists",
+            "fs.metadata",
+            "fs.list",
+            "fs.mkdir",
+            "fs.remove",
+            "fs.rename",
+        ],
+        "each filesystem request must report its concrete operation"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}

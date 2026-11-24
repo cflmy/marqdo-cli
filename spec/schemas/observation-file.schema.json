@@ -81,6 +81,7 @@
       "properties": {
         "level": {
           "enum": [
+            "base",
             "structural",
             "values"
           ]
