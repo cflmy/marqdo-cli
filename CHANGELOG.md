@@ -4,8 +4,9 @@ All notable changes to the Marqdo CLI workspace. Published prereleases:
 `3.0.0-beta.1` (2026-11-22, source
 `2c7c4f31e7a388d3fcfa717a77067e696ed13854`),
 `3.0.0-rc.1` (source `f7a5a7b0163bf5229ed09adfffd892f9899e6667`) and
-`3.0.0-rc.2` (source `9149ee40a48fcda692c5c112f66c465487d13dfb`); the next
-section collects changes for the current `3.0.0-rc.3` candidate. Current
+`3.0.0-rc.2` (source `9149ee40a48fcda692c5c112f66c465487d13dfb`) and
+`3.0.0-rc.3` (2026-11-24, source `1e2a045cc78bf40972181abb44e7117c56cf4401`); the section below is the current
+release record. Current
 protocol contracts are Analysis v3, Observation v1, CLI Tool revision 1,
 Plugin ABI v1, Foreign wire v1, Provider manifest v2 and lock v4; independent
 package versions (including the bundled stdlib `0.1.0`) are versioned
@@ -13,7 +14,7 @@ separately and do not follow the product version. Dates use ISO 8601.
 Older sections are release records: a retired option or spec they name is
 available at its tagged commit, not in the current tree.
 
-## 3.0.0-rc.3 (candidate)
+## 3.0.0-rc.3 (2026-11-24)
 
 - The Rust workspace, CLI version output and protocol producers report
   `3.0.0-rc.3`. The locked workspace requires Rust 1.89 and targets Linux
@@ -110,15 +111,20 @@ Migration for consumers:
 - `crates/cli/tests/architecture_boundaries.rs` forbids a second worker
   framing implementation and pins the workspace layer list;
   `docs_consistency` keeps one current overview and resolving links.
-- Same-SHA Linux CI, the deterministic archive build, the from-archive smoke,
-  the cold-install container check and the frozen external conformance suite
-  (fixtures at `015ff8ac15417b7ebbdb31ce2be2dab5362a1eba`) are recorded in the
-  per-gate evidence bound to the release SHA; see
-  [`docs/releasing.md`](docs/releasing.md) and [`docs/STATUS.md`](docs/STATUS.md).
-- The RC strict-L1 disposable-VM lane and the G4 shared-node comparison
-  (maintainer-approved `WARN` for this named RC, with the environment and
-  limits recorded in the release notes) complete the RC gate set; the archive
-  sha256 for the tagged SHA is published with the release assets.
+- Same-SHA Linux CI ([pipeline #80](https://ci.cflmy.cn/repos/1/pipeline/80)),
+  the archive build, the from-archive smoke, the cold-install container check
+  and the frozen external conformance suite (fixtures at
+  `015ff8ac15417b7ebbdb31ce2be2dab5362a1eba`, 7/7) are recorded in the
+  per-gate manifest
+  [`docs/evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json`](docs/evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json)
+  (`RC_RELEASE_CANDIDATE`).
+- The RC strict-L1 disposable-VM lane passed on the tagged SHA and the
+  published archive was re-verified in that guest; see
+  [`docs/evidence/2026-11-24-rc.3-release.md`](docs/evidence/2026-11-24-rc.3-release.md).
+  G4 is a maintainer-approved shared-node `WARN` for this named RC (three
+  paired runs, no p50 threshold breach), with the environment and limits in the
+  release notes. Release:
+  https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.3.
 
 ## 3.0.0-rc.2 (candidate)
 

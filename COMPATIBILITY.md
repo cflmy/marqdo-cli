@@ -1,12 +1,12 @@
 # Compatibility and support matrix
 
-Snapshot: candidate product version **`3.0.0-rc.3`** (prerelease). The last
-published prerelease is `3.0.0-rc.2` at source SHA
-`9149ee40a48fcda692c5c112f66c465487d13dfb`. This file records what was
+Snapshot: product version **`3.0.0-rc.3`** (prerelease, released on
+2026-11-24). Tag `v3.0.0-rc.3` at source SHA `1e2a045cc78bf40972181abb44e7117c56cf4401`. This file records what was
 actually verified and separates it from what is only implemented. The
 supported release platform is **Linux x86_64 (glibc 2.39)**; everything else is
 experimental and not claimed for this prerelease. Executed status and
-SHA-bound evidence are in [`docs/STATUS.md`](docs/STATUS.md) and under
+SHA-bound evidence are in [`docs/STATUS.md`](docs/STATUS.md), the
+[RC release evidence](docs/evidence/2026-11-24-rc.3-release.md) and under
 [`docs/evidence/`](docs/evidence/extension/README.md).
 
 The `3.0.0-rc.3` candidate includes the post-beta protocol convergence below.
@@ -117,7 +117,7 @@ portable/tested locally but the native platform lane has not run here;
 | Official stdlib public aliases (print de-magic; byte-identical output) | PASS | UNVERIFIED | UNVERIFIED |
 | Resource Provider v2 CLI (`--provider`/`--allow-provider`, worker helper) | PASS (linux/x86_64; real C sensor + helper) | **FAIL-CLOSED** (`ext.platform_unsupported`) | **UNSUPPORTED** |
 | Capability handler registry (`fs.read` handler, audit, unavailable) | PASS | UNVERIFIED | UNVERIFIED |
-| External conformance repository (`marqdo-extension-conformance`, frozen CLI) | PASS (`--release` binary sha256 `28e3776d…`, fixture repo `e4b7352c…`; see `docs/evidence/extension/6a7bb983.../manifest.json`) | UNVERIFIED | UNVERIFIED |
+| External conformance repository (`marqdo-extension-conformance`, frozen CLI) | PASS (7/7 categories against the published archive, fixture repo `015ff8ac…`; see the rc.3 evidence bundle) | UNVERIFIED | UNVERIFIED |
 | Analysis v3 + Observation v1 + Python consumers | PASS (same-SHA CI contract lane and archive smoke; independent consumers) | UNVERIFIED | UNVERIFIED |
 | CLI Tool revision 1 + independent consumers | PASS | UNVERIFIED | UNVERIFIED |
 | Native ABI (`plugin inspect`, trusted call) | PASS (C fixture) | UNVERIFIED (host-native fixture) | **UNSUPPORTED** |
@@ -194,12 +194,14 @@ the Windows C ABI/provider paths remain fail-closed.
 
 ## Release decision
 
-**`3.0.0-rc.3` prerelease candidate — Linux x86_64 only.** The RC profile in
-[`docs/MARQDO_3_0_PRERELEASE_PLAN.md`](docs/MARQDO_3_0_PRERELEASE_PLAN.md) §3 is
-used, not the stable profile: Linux is the only supported platform,
-macOS/Windows are declared UNSUPPORTED for this scope, strict L1 requires
-same-SHA disposable-VM evidence and G4 performance is recorded as a
-maintainer-approved shared-node `WARN` for this named RC. The aggregate decision
-and per-gate evidence are bound to the candidate SHA in
-[`docs/STATUS.md`](docs/STATUS.md) and the release assets. A prerelease does not
-imply stable `3.0.0` or LTS; the stable gate remains stricter and separate.
+**`3.0.0-rc.3` prerelease — released as a Linux x86_64 RC.** The RC profile in
+[`docs/MARQDO_3_0_PRERELEASE_PLAN.md`](docs/MARQDO_3_0_PRERELEASE_PLAN.md) §3 was
+used: Linux is the only supported platform, macOS/Windows are UNSUPPORTED for
+this scope, strict L1 has same-SHA disposable-VM evidence, and G4 performance is
+a maintainer-approved shared-node `WARN` for this named RC only. The aggregate
+decision and per-gate evidence are in
+[`docs/evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json`](docs/evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json)
+(`RC_RELEASE_CANDIDATE`) and the release assets; see
+[`docs/evidence/2026-11-24-rc.3-release.md`](docs/evidence/2026-11-24-rc.3-release.md).
+A prerelease does not imply stable `3.0.0` or LTS; the stable gate remains
+stricter and separate.

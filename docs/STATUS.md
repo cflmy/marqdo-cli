@@ -1,12 +1,15 @@
 # Marqdo Implementation Status
 
-Snapshot: **2026-11-24**, product version **`3.0.0-rc.3`** (prerelease
-candidate). Last published prerelease: `3.0.0-rc.2` at source SHA
-**`9149ee40a48fcda692c5c112f66c465487d13dfb`**; last published beta
-`3.0.0-beta.1` at **`2c7c4f31e7a388d3fcfa717a77067e696ed13854`**. The released
-platform is **Linux x86_64 (glibc 2.39)**. The RC gate aggregate for this
-candidate is bound to the candidate SHA; its binary hashes are in the archive's
-`RELEASE_INFO.json`. Do not copy a SHA from a plan.
+Snapshot: **2026-11-24**, product version **`3.0.0-rc.3`** (prerelease,
+released). Tag `v3.0.0-rc.3` at source SHA
+**`1e2a045cc78bf40972181abb44e7117c56cf4401`**; release:
+https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.3. The released
+platform is **Linux x86_64 (glibc 2.39)**. The same-SHA gate aggregate is
+[`evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json`](evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json)
+(decision `RC_RELEASE_CANDIDATE`); binary hashes are in the archive's
+`RELEASE_INFO.json`. Previous prereleases: `3.0.0-rc.2` at
+`9149ee40a48fcda692c5c112f66c465487d13dfb` and `3.0.0-beta.1` at
+`2c7c4f31e7a388d3fcfa717a77067e696ed13854`. Do not copy a SHA from a plan.
 
 Current architecture overview:
 [`architecture/CURRENT.md`](architecture/CURRENT.md).
@@ -149,13 +152,18 @@ A code review of the first candidate build found and closed these defects
   binary, and a docs-consistency gate now fails when a retired interface or a
   deleted spec path returns.
 
-Release status: this section records local Linux evidence and the same-SHA CI
-for the candidate. Publication additionally requires the RC profile gates in
-[`releasing.md`](releasing.md) — same-SHA disposable-VM strict L1, clean
-install, frozen extensions, version compatibility and G4 performance (the
-maintainer-approved shared-node `WARN` for this named RC). Those results are
-recorded in the evidence bound to the released SHA and in the release assets;
-an unavailable strict host is fail-closed, never a downgrade.
+Release status: **published as `v3.0.0-rc.3`**. The RC profile gates in
+[`releasing.md`](releasing.md) were executed on the tagged SHA: same-SHA Linux
+CI (formatted, clippy-clean, 607 workspace tests, contract lane, minimum Rust
+1.89, build lane with from-archive smoke and frozen extensions 7/7), the
+archive-only clean install, frozen external conformance against the published
+archive, version compatibility, a disposable-VM strict L1 PASS as non-root with
+the published archive re-verified in that guest, and three paired shared-node
+G4 runs whose maintainer-approved `WARN` is recorded for this named RC. The
+per-gate manifest, release notes and logs are in
+[`evidence/2026-11-24-rc.3-release.md`](evidence/2026-11-24-rc.3-release.md),
+[`evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json`](evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json) and the
+release assets. An unavailable strict host is fail-closed, never a downgrade.
 
 ## 0. Beta release record — `3.0.0-beta.1`
 

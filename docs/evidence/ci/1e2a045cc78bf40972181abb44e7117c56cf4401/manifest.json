@@ -1,0 +1,59 @@
+{
+  "schema": "marqdo.release-gates.v1",
+  "profile": "rc",
+  "target_sha": "1e2a045cc78bf40972181abb44e7117c56cf4401",
+  "recorded_utc": "2026-11-24T15:56:23Z",
+  "gates": {
+    "linux": {
+      "state": "PASS",
+      "tested_sha": "1e2a045cc78bf40972181abb44e7117c56cf4401",
+      "run_url": "https://ci.cflmy.cn/repos/1/pipeline/80",
+      "recorded_utc": "2026-11-24T15:56:23Z"
+    },
+    "strict_vm": {
+      "state": "PASS",
+      "tested_sha": "1e2a045cc78bf40972181abb44e7117c56cf4401",
+      "run_url": "https://git.cflmy.cn/cflmy/marqdo-cli/releases/download/v3.0.0-rc.3/rc3-verification.tar.gz",
+      "recorded_utc": "2026-11-24T15:56:23Z"
+    },
+    "extension": {
+      "state": "PASS",
+      "tested_sha": "1e2a045cc78bf40972181abb44e7117c56cf4401",
+      "run_url": "https://git.cflmy.cn/cflmy/marqdo-cli/releases/download/v3.0.0-rc.3/rc3-verification.tar.gz",
+      "recorded_utc": "2026-11-24T15:56:23Z"
+    },
+    "clean_install": {
+      "state": "PASS",
+      "tested_sha": "1e2a045cc78bf40972181abb44e7117c56cf4401",
+      "run_url": "https://git.cflmy.cn/cflmy/marqdo-cli/releases/download/v3.0.0-rc.3/rc3-verification.tar.gz",
+      "recorded_utc": "2026-11-24T15:56:23Z"
+    },
+    "version_compat": {
+      "state": "PASS",
+      "tested_sha": "1e2a045cc78bf40972181abb44e7117c56cf4401",
+      "run_url": "https://ci.cflmy.cn/repos/1/pipeline/80",
+      "recorded_utc": "2026-11-24T15:56:23Z"
+    },
+    "windows": {
+      "state": "UNSUPPORTED",
+      "tested_sha": "1e2a045cc78bf40972181abb44e7117c56cf4401",
+      "run_url": "linux-only-rc-scope-release-notes",
+      "recorded_utc": "2026-11-24T15:56:23Z"
+    },
+    "macos": {
+      "state": "UNSUPPORTED",
+      "tested_sha": "1e2a045cc78bf40972181abb44e7117c56cf4401",
+      "run_url": "linux-only-rc-scope-release-notes",
+      "recorded_utc": "2026-11-24T15:56:23Z"
+    },
+    "performance": {
+      "state": "WARN",
+      "tested_sha": "1e2a045cc78bf40972181abb44e7117c56cf4401",
+      "run_url": "https://git.cflmy.cn/cflmy/marqdo-cli/releases/download/v3.0.0-rc.3/rc3-verification.tar.gz",
+      "rc_shared_node_approval": "Maintainer approved the shared-node G4 WARN for v3.0.0-rc.3 on 2026-11-24 (RC only; a dedicated fixed node is planned for the next cycle); https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.3#performance",
+      "recorded_utc": "2026-11-24T15:56:23Z"
+    }
+  },
+  "release_decision": "RC_RELEASE_CANDIDATE",
+  "reasons": []
+}
