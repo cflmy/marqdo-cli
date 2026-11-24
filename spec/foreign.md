@@ -296,4 +296,4 @@ security negatives.
   remain authoritative and must not be skipped for a refactor.
 - Forbidden in both phases: persistent Python/Node sessions, Notebook-cell
   execution, `@python` heading auto-execution, and a second foreign runtime in View.
-  Streaming stays in Execution Events v1, not a second foreign network protocol.
+  Streaming stays in the Observation contract, not a second foreign network protocol.

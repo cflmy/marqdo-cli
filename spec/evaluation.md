@@ -333,8 +333,9 @@ refuses to run (see `security.md`).
 For a fixed source, mode, capabilities and budget, evaluation is
 deterministic. Stdout/stderr from host operations are separated: program
 stdout and program stderr are captured separately, diagnostics/traces go to the
-CLI stderr, and `--json` output never mixes with any program output. JSON
-reports `stdout` and `stderr` as separate strings.
+CLI stderr, and a machine destination never mixes program bytes with
+diagnostics. The Observation contract commits program bytes as separate
+`stdout.chunk` and `stderr.chunk` events.
 
 ## 8. Builtins v1
 

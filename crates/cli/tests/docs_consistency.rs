@@ -231,3 +231,72 @@ fn ci_configuration_uses_only_current_protocols() {
         }
     }
 }
+
+/// The current contract documents must describe the interface that exists.
+/// A retired option or a path to a deleted spec in `spec/` or the current
+/// developer guides is a release-record defect: consumers would implement a
+/// contract the binary does not accept. Historical ADRs, evidence and
+/// `docs/history/` keep their original text and are intentionally excluded.
+#[test]
+fn current_contract_documents_do_not_reference_retired_interfaces() {
+    let root = repo_root();
+    let mut files = vec![
+        "COMPATIBILITY.md".to_string(),
+        "README.md".to_string(),
+        "docs/ci.md".to_string(),
+        "docs/architecture/CURRENT.md".to_string(),
+    ];
+    for directory in ["spec", "docs/developers", "examples"] {
+        let base = root.join(directory);
+        let mut stack = vec![base];
+        while let Some(path) = stack.pop() {
+            for entry in std::fs::read_dir(&path).expect("read contract docs") {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    stack.push(path);
+                } else if path.extension().and_then(|ext| ext.to_str()) == Some("md") {
+                    files.push(
+                        path.strip_prefix(&root)
+                            .unwrap()
+                            .to_string_lossy()
+                            .to_string(),
+                    );
+                }
+            }
+        }
+    }
+    let retired = [
+        "--trace-file",
+        "--event-stream",
+        "EffectTrace",
+        "crates/marqdo-host/src/trace.rs",
+        "spec/trace-v1.md",
+        "spec/trace-v2.md",
+        "spec/execution-events-v1.md",
+        "spec/analysis-v1.md",
+        "spec/analysis-v2.md",
+        "spec/tool-v1.md",
+        "worker_frame_invalid for an over-limit",
+    ];
+    for relative in files {
+        let text = read(&root.join(&relative));
+        for (number, line) in text.lines().enumerate() {
+            for token in retired {
+                if !line.contains(token) {
+                    continue;
+                }
+                // A sentence that explicitly marks the interface as retired or
+                // removed is documentation of the migration, not a claim that
+                // it is available.
+                let explained = line.contains("retired")
+                    || line.contains("removed")
+                    || line.contains("no longer");
+                assert!(
+                    explained,
+                    "{relative}:{} still documents retired `{token}`",
+                    number + 1
+                );
+            }
+        }
+    }
+}

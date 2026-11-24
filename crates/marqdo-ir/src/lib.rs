@@ -491,7 +491,7 @@ pub struct Program {
     pub external_callables: Vec<callable::CallableDescriptor>,
     /// Resolved static call bindings (RFC-EXT-0001 §4.2, ADR-0054).
     ///
-    /// Internal IR: deliberately skipped on the wire so Analysis/Trace v2
+    /// Internal IR: deliberately skipped on the wire so Analysis v3/Observation v1
     /// consumers are unaffected. A prepared program always carries a complete
     /// table; the runtime never re-resolves names.
     #[serde(skip)]

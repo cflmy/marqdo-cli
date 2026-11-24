@@ -12,7 +12,7 @@ Normative implementation:
 | Host dispatch and per-op checks | `crates/marqdo-host/src/host.rs` |
 | Project-rooted filesystem | `crates/marqdo-host/src/fs.rs` |
 | Budgets | `crates/marqdo-host/src/budget.rs` |
-| Effect tracing | `crates/marqdo-host/src/trace.rs` |
+| Observation events (effects included) | `crates/marqdo-host/src/observe.rs`, `crates/cli/src/observation.rs` |
 | Foreign adapter | `crates/marqdo-host/src/kernels.rs` |
 | Foreign child processes | `crates/marqdo-foreign/src/lib.rs` |
 | Plugin loading / in-process plugin calls | `crates/marqdo-host/src/host.rs` (`load_plugin`, `op_plugin_invoke`), `crates/marqdo-plugin-abi/src/loader.rs` |
@@ -28,7 +28,7 @@ Normative implementation:
 |---|---|---|
 | `pure` | No external I/O; memory computation and budgets only. | **Enforced.** `Capabilities::pure()` = `console`, `math` only; every FS/foreign/plugin grant flag makes the CLI exit 2 with "pure mode prohibits external I/O grants". |
 | `project` | Operator-approved project resources under `CapabilityHost` + bounded resources. | **Enforced for the implemented operations.** Defaults equal `pure`; `--allow-read`, `--allow-write`, `--allow-net`, `--allow-env`, `--allow-process`, `--allow-random`, `--allow-foreign`, `--allow-plugin` add grants. `resource.open` supports stdin read, separate stdout/stderr write, granted project-file read/write (ADR-0025/0026/0040), granted in-process provider kinds (ADR-0033) and granted TCP/UDP/listener/TLS streams, including DNS names after an exact host grant (ADR-0034/0047/0048); process/device remain unsupported. Sandboxing is cooperative (in-process checks), not OS isolation; in-process providers are trusted, not sandboxed. |
-| `strict` | Untrusted documents under real OS isolation. | **Linux: enforced when the runtime probe passes (ADR-0021).** `resource.open` is **refused** in strict except for the existing `stdio/stdout` console channel (console grant); stdin/stderr, file/TCP/provider/process resources remain refused until a provider passes the isolation lane (CM-A11, ADR-0030/0034/0040). `PlatformCapabilities::detect()` runs a real Bubblewrap smoke test; success reports `Available { mechanism }`, failure reports `Unavailable { reason }`. Strict L1 supports the interpreter, console and the read-only bundled stdlib (published at `/run/marqdo-stdlib` for the Compat-C print chain); `--allow-read/--allow-write/--allow-net/--allow-env/--allow-process/--allow-random/--allow-foreign/--allow-plugin/--plugin/--trust-native-plugin/--kernel/--trace-file` are rejected with exit 2. macOS/Windows and Linux hosts without the mechanisms remain `Unavailable`; there is **no fallback** to an unrestricted process. |
+| `strict` | Untrusted documents under real OS isolation. | **Linux: enforced when the runtime probe passes (ADR-0021).** `resource.open` is **refused** in strict except for the existing `stdio/stdout` console channel (console grant); stdin/stderr, file/TCP/provider/process resources remain refused until a provider passes the isolation lane (CM-A11, ADR-0030/0034/0040). `PlatformCapabilities::detect()` runs a real Bubblewrap smoke test; success reports `Available { mechanism }`, failure reports `Unavailable { reason }`. Strict L1 supports the interpreter, console and the read-only bundled stdlib (published at `/run/marqdo-stdlib` for the Compat-C print chain); `--allow-read/--allow-write/--allow-net/--allow-env/--allow-process/--allow-random/--allow-foreign/--allow-plugin/--plugin/--trust-native-plugin/--kernel` are rejected with exit 2. macOS/Windows and Linux hosts without the mechanisms remain `Unavailable`; there is **no fallback** to an unrestricted process. |
 
 `marqdo inspect <file> --platform` prints the detection report, for example:
 
@@ -57,28 +57,32 @@ produces no IR and therefore cannot cause a host effect at all. No heading
 annotation, keyword or Markdown container can grant a file/network/process
 capability, and permission flags never change the AST→IR result.
 
-### 1.2 Strict failure and `--json` contract
+### 1.2 Strict failure and output contract
 
 Strict execution is a two-phase operation: detect, then launch. Availability
 observed by `inspect --platform` is a snapshot, not a permanent promise. The
 runtime therefore re-probes before launching; a failure after a successful
 probe is a refusal, never a fallback.
 
-`--json` consumers must receive **exactly one** JSON document on stdout for
-every outcome:
+A strict run supports text output and one `--output json` Observation snapshot
+on stdout. The verified child executes the program under the isolation
+supervisor and produces that one snapshot document itself; its stdout bytes and
+exit code are forwarded unchanged. A live JSONL stream and a file destination
+(`--observation-file`) are refused before launch with
+`strict.unsupported_grant` and exit 2: the supervisor owns the only channel and
+a rejected destination never emits a partial stream.
 
-* a verified child in `--json` mode produces that document itself and its
-  bytes and exit code are forwarded unchanged;
-* a control-plane failure (probe, supervisor spawn, namespace construction,
-  timeout, capture) produces one CLI error document
-  `{"command": ..., "success": false, "error": ..., "code": ...}`;
-* output that is empty or is not exactly one JSON document is rejected as
-  `strict.child_invalid`; raw supervisor text is never forwarded as program
-  stdout.
+The parent never executes project code. A control-plane failure (probe,
+supervisor spawn, namespace construction, timeout, capture) prints the
+diagnostic on stderr and, when a snapshot destination is active, finishes the
+parent's snapshot as `incomplete` without a terminal event; an empty or invalid
+child document is `strict.child_invalid` and raw supervisor text is never
+forwarded as program stdout. Consumers treat an incomplete delivery as no
+evidence about the final execution outcome.
 
 The stable codes are `strict.probe_unavailable`, `strict.spawn_failed`,
-`strict.namespace_failure`, `strict.timeout`, `strict.resource_limit`,
-`strict.child_invalid`, `strict.identity_invalid` and
+`strict.namespace_failure`, `strict.launch_failed`, `strict.timeout`,
+`strict.resource_limit`, `strict.child_invalid`, `strict.identity_invalid` and
 `strict.unsupported_grant` (ADR-0053). A marker alone never authorizes strict
 execution: Linux verifies the namespace/privilege identity, and every other
 platform rejects `MARQDO_STRICT_ACTIVE` outright (ADR-0053).
@@ -270,28 +274,32 @@ foreign child processes and worker plugins are terminated by the host (kill on
 timeout/output overflow). Native plugins are not OS-limited; the core no longer
 hosts an in-process math kernel.
 
-## 4. Effect tracing
+## 4. Effect observation
 
-`EffectTrace` records one entry per `Host::invoke` when enabled
-(`--trace`, or implicitly `--json` for `run`/`call`). Entry fields:
+An effect is one `effect` event in the current Observation contract
+([`observation.md`](observation.md)); it is emitted through the same
+`ObservationSink` as lifecycle events when a machine destination is active
+(`--output json`, `--output jsonl` or `--observation-file`). There is no
+`--trace` flag, no separate trace file and no trace array in another document.
+Event payload fields:
 
 ```json
-{"op":"print","module":"hello.mq.md","span":{"start":43,"end":57},
- "duration_micros":3,"result":"ok"}
+{"frame_id":"f1","operation":"print","result_code":"ok",
+ "module_id":"root:default::hello.mq.md","span":{"start":43,"end":57}}
 ```
 
-* `op` is the stable `HostOp::name()` (`foreign.run`, `foreign.call`,
-  `fs.read`, `fs.write`, `plugin.invoke`, ...); `resource.request` traces the
-  operation name in its semantic metadata instead of a `HostOp` variant;
-* `module` is the initiating module id; `span` is the call site when known;
-* `result` is `"ok"` or the failure code (for example
+* `operation` is the concrete host operation (`print`, `foreign.run`,
+  `fs.read`, `fs.write`, `plugin.invoke`, `resource.request`, ...); resource
+  operations report their concrete name (`fs.exists`, `fs.metadata`, ...);
+* `module_id` is the initiating module; `span` is the call site when known;
+* `result_code` is `"ok"` or the failure code (for example
   `permission.denied`);
 * argument values and file contents are **not** recorded, so ordinary secrets
-  do not leak into traces by design. Paths are also not recorded today.
-* In text mode trace entries are printed to stderr (`trace: ...`); in JSON
-  mode they are a `trace` array next to separate program `stdout`/`stderr`
-  strings. Program output is always separate from diagnostics/trace, and
-  `stdio/stderr` never shares the `stdout` buffer.
+  do not leak into the observation by design. Paths are not recorded either.
+* Program output is committed as `stdout.chunk`/`stderr.chunk` byte events and
+  never shares a buffer with diagnostics. An in-process native plugin is
+  refused in observation mode (`ext.observation_unsupported_native_plugin`)
+  because it can write directly to the inherited fds.
 
 ## 5. Foreign kernels: process isolation, not a sandbox
 
@@ -409,6 +417,7 @@ Neither command executes project code. Specifically:
    (ADR-0014, `value-wire.md` §4.1).
 7. Budgets do not cover all allocation paths (for example list/table growth
    inside the interpreter is bounded only by fuel and memory).
-8. `--json` run output includes the full program stdout string; that is the
-   program's own output, not a host secret, but it is embedded in the JSON
-   document consumers must parse.
+8. An Observation snapshot contains the program's own stdout and stderr bytes
+   as base64 byte events. That is the program's output, not a host secret, but
+   selected value observation and text consent lower confidentiality; consumers
+   must treat a snapshot like the program output it embeds.

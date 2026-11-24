@@ -240,9 +240,9 @@ Token lifecycle:
 ## 7. Error codes and exit codes
 
 Manifest/CLI option failures exit 2; load/verification/spawn failures exit 1;
-`permission.denied` exits 1. With `--json` the CLI emits exactly one JSON
-document with a `code` (nested under `error.code` for these structured
-errors).
+`permission.denied` exits 1. With a machine destination the CLI publishes
+exactly one terminal event: a `run.rejected` event whose `payload.error.code`
+carries the same code.
 
 | Code | Stage | Trigger |
 |---|---|---|

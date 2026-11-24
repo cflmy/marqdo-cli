@@ -38,6 +38,7 @@ has opted into this disclosure. Program output and explicit returned values
 can themselves contain sensitive data.
 
 Update integrations that previously used the retired run/call JSON,
-Trace or Execution Events options. Use the commands above, remove the old
+Trace, Execution Events or retired run/call options. Use the commands above,
+remove the old
 reader, and rebuild and reinstall the Tool with the
 [current manifest](../../spec/cli-tool.md).

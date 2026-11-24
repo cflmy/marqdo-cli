@@ -215,7 +215,7 @@ rules are [`RFC-LANG-0002`](docs/architecture/RFC-LANG-0002-unified-semantics.md
   `lock`, strict `sync --locked` with atomic `.marqdo/env` materialization.
   `run`/`call`/`check` never fetch or rewrite the lock.
 * **P4 security core** — capability-checked host operations, project-relative
-  FS globs with traversal rejection, budgets, effect trace, `pure`/`project`
+  FS globs with traversal rejection, budgets, Observation effect events, `pure`/`project`
   modes, and **Linux `strict` mode** using Bubblewrap namespaces, no-new-privs,
   capability dropping, rlimits, a wall-clock supervisor and child
   self-verification (ADR-0021). It is probe-gated and verified in a disposable
@@ -251,7 +251,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 * **Strict is Linux-only and L1-only.** `--mode strict` enables the
   Bubblewrap supervisor only when its runtime probe passes; otherwise it exits
   1. It supports pure Marqdo arithmetic and rejects Foreign, plugins, kernels,
-  external grants and trace files (exit 2). Worker plugins provide
+  external grants and live/file observation destinations (exit 2). Worker plugins provide
   crash/address-space isolation, not an OS sandbox, and are not allowed in
   strict.
 * **Native plugins run in-process** and require an explicit unsafe trust flag.

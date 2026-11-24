@@ -158,9 +158,10 @@ The following are **not** bounded by `WireLimits` in
 | Foreign kernel stdin | `{"wire_version":1,"kind":"request","input":<typed value or null>}` (`crates/marqdo-foreign/src/lib.rs`) | `input` is a `to_wire(value)` result, or JSON `null` when absent. |
 | Foreign typed return (`foreign.call`) | stdout must be exactly one typed value | decoded with `from_wire` and default limits. |
 
-The `--json` output of `run`/`call` embeds `"value": to_wire(outcome.value)`
-(`crates/cli/src/commands.rs`), so CLI JSON consumers see the same typed
-representation.
+The `run.completed` event of the current Observation snapshot embeds
+`"value": to_wire(outcome.value)` (`crates/cli/src/observation.rs`), so CLI
+consumers see the same typed representation. A result containing a
+non-transferable handle has a null value and names its type.
 
 ## 6. Compatibility rules
 

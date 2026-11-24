@@ -3,7 +3,7 @@
 //! The frontend resolves every statically visible call site exactly once and
 //! records the decision here. The runtime only dispatches by this table: it
 //! never re-resolves a qualified name and never guesses a plugin from a string
-//! prefix. The table is internal IR (not part of Analysis/Trace v2 wire
+//! prefix. The table is internal IR (not part of the Analysis/Observation wire
 //! contracts) and is deliberately skipped when a [`crate::Program`] is
 //! serialized.
 //!

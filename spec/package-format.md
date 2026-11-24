@@ -353,9 +353,12 @@ resolver.
 
 ## 7. JSON output
 
-`check`, `inspect`, `run`, `call`, `plugin inspect`, `add`, `remove`, `lock`
-and `sync` accept `--json` and print a single JSON object on stdout. Relevant
-package shapes:
+`check`, `inspect`, `plugin inspect`, `add`, `remove`, `lock` and `sync`
+accept `--json` and print a single JSON object on stdout. `run` and `call` use
+the observation destinations instead (`--output text|json|jsonl` and
+`--observation-file`), because one execution publishes one event sequence
+([observation.md](observation.md)); the retired `--json` flag is rejected.
+Relevant package shapes:
 
 * `lock`: `{"command":"lock","success":true,"packages":[...]}`
 * `sync`: `{"command":"sync","success":true,"locked":<bool>,"packages":[...]}`

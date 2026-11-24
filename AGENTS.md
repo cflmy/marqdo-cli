@@ -3,7 +3,7 @@
 **Start here:** read `docs/architecture/RFC-LANG-0002-unified-semantics.md` — it is the single current language authority — and its normative summary `spec/mapping.md` + `spec/expression.ebnf`. Then read `docs/DEVELOPMENT_BLUEPRINT.md` (architecture baseline; its language-mapping sections are historical), `docs/STATUS.md` (what is actually implemented, including the landed RFC-LANG-0002 migration), the relevant `spec/` files, `docs/adr/` for decisions at their date, `docs/contributor-guide.md`, and `tests/README.md` plus the conformance fixtures. Do not assume any current implementation or legacy Marqdo syntax is authoritative.
 
 For next-phase work, the authoritative release policy for the current
-`3.0.0-beta.1` line is `docs/MARQDO_3_0_PRERELEASE_PLAN.md` (beta gates,
+3.0 prerelease line is `docs/MARQDO_3_0_PRERELEASE_PLAN.md` (beta gates,
 REL-01..REL-05, version axes, LTS conditions). `docs/STABLE_RELEASE_IMPLEMENTATION.md`
 (stable gates G-A/G-B/G-C) is historical roadmap input for the later stable
 release; it does not override the 3.0 prerelease plan. Also read `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`

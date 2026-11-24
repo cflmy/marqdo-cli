@@ -49,8 +49,8 @@ Even when available:
   wire-incompatible kernels.
 * **CLI tools**: a tool is an ordinary user-authorized executable and does
   **not** inherit `pure`/`project`/`strict` guarantees from the documents it
-  reads. `MARQDO_BIN`, `MARQDO_TOOL_PROTOCOL`, `MARQDO_PROTOCOL_ANALYSIS` and
-  `MARQDO_PROTOCOL_TRACE` are the only helpers the CLI injects.
+  reads. `MARQDO_BIN` and `MARQDO_API_REVISION` are the only helpers the CLI
+  injects; version negotiation was removed.
 * **Extension selection** (`marqdo.yaml.extensions`, lock v4) is never
   authorization. `--allow-plugin`, `--allow-provider` and `--allow-foreign`
   are still required.
@@ -77,19 +77,19 @@ Archives are accompanied by SHA256 checksums and `RELEASE_INFO.json`
 integrity only; they are **not** a publisher signature. A digest obtained from
 an untrusted Git URL does not make the code trustworthy.
 
-## Execution Events v1
+## Observation
 
 * Implemented: live stdout/stderr chunks, lifecycle/terminal events, call
   instance ids, branch/loop/effect events, explicit bounded value observation.
 * Not implemented: memory region/budget metadata (OBS-06/P2), raw memory
   content, breakpoints/stepping/time travel, and a bidirectional debug
   protocol. Do not infer a debugger from this protocol.
-* `--mode strict` currently rejects `--output jsonl` explicitly; there is no
-  silent fallback to `project`.
+* `--mode strict` rejects `--output jsonl` and `--observation-file` before
+  launch; there is no silent fallback to `project`.
 * The live lane is tested on Linux x86_64; macOS/Windows are unverified for
   this option for this candidate.
-* In-process native plugins are rejected in event mode
-  (`ext.event_stream_unsupported_native_plugin`) because they share the process
+* In-process native plugins are rejected with an active machine destination
+  (`ext.observation_unsupported_native_plugin`) because they share the process
   and can write the protocol fd directly; worker plugins remain usable.
 * Observation lowers confidentiality when values are explicitly enabled. Text
   needs a second opt-in; View/agents must not enable these flags by default.

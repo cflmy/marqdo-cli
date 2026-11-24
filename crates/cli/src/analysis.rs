@@ -238,7 +238,7 @@ fn function_json(function: &Function) -> Value {
 
 /// Project an assignment place. Local targets keep the v1 string form; the new
 /// index target is an additive object so existing consumers that compare the
-/// local `target` string are unaffected (Analysis v2, ADR-0022).
+/// local `target` string are unaffected (Analysis v3, ADR-0022).
 fn place_json(place: &PlaceTarget) -> Value {
     match place {
         PlaceTarget::Local { name, .. } => Value::String(name.clone()),

@@ -1,17 +1,17 @@
 # Compatibility and support matrix
 
-Snapshot: product version **`3.0.0-beta.1`** (prerelease), branch `master`,
-tagged `v3.0.0-beta.1` at source SHA `2c7c4f31e7a388d3fcfa717a77067e696ed13854`. This file records what was actually verified and
-separates it from what is only implemented. The supported release platform is
-**Linux x86_64 (glibc)**; everything else is experimental and not claimed for
-this beta. Executed status and same-SHA evidence are in
-[`docs/STATUS.md`](docs/STATUS.md), and SHA-bound external evidence is under
-[`docs/evidence/extension/`](docs/evidence/extension/README.md).
+Snapshot: candidate product version **`3.0.0-rc.3`** (prerelease). The last
+published prerelease is `3.0.0-rc.2` at source SHA
+`9149ee40a48fcda692c5c112f66c465487d13dfb`. This file records what was
+actually verified and separates it from what is only implemented. The
+supported release platform is **Linux x86_64 (glibc 2.39)**; everything else is
+experimental and not claimed for this prerelease. Executed status and
+SHA-bound evidence are in [`docs/STATUS.md`](docs/STATUS.md) and under
+[`docs/evidence/`](docs/evidence/extension/README.md).
 
-The `3.0.0-rc.3` candidate targets Linux x86_64 on glibc 2.39 and
-includes the post-beta changes below. See the
-[RC acceptance procedure](docs/releasing.md). The platform evidence table
-records the beta and subsequent development verification.
+The `3.0.0-rc.3` candidate includes the post-beta protocol convergence below.
+See the [RC acceptance procedure](docs/releasing.md). The platform evidence
+table records the beta, rc.1/rc.2 and candidate verification.
 
 ## Language source syntax (breaking change)
 
@@ -65,9 +65,9 @@ evidence: [`docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md`](docs/evid
 | Heading Annotations v1 (H-05/H-07) | **Proposed, not implemented.** This build still rejects unknown `@foo` with `sem.invalid_mode_marker`; no annotation manifest, `annotation.unknown` or heading annotations projection exists yet. Target `3.1.x`; ADR-0060 and `spec/heading-annotations-v1.md`. |
 | Foreign removal F-B (H-02) | **Deferred, not claimed.** The one-shot permission-gated `foreign.*` primitive remains (F-A); its grants/digest/timeout/wire/output negatives are unchanged and must not be skipped. ADR-0063 and `spec/foreign.md` §8. |
 
-## Structured control flow (RFC-CTRL-0005, RC.2)
+## Structured control flow (RFC-CTRL-0005, RC.2 and later)
 
-The RC.2 candidate reserves `break` and `continue` only as complete
+The RC.2 and RC.3 candidates reserve `break` and `continue` only as complete
 payloads. An existing standalone identifier read can be written as
 `(break)` or `(continue)`. Calls, bindings, fields and identifiers within
 expressions retain their meaning. Two separate carriers containing `else` and
@@ -77,9 +77,9 @@ Parameter inference ignores reads after a definite transfer. When upgrading
 a caller that passed an argument inferred solely from unreachable code,
 remove the argument or keep it through an explicit `params(...)` declaration.
 
-`marqdo-lint 0.1.0` reads legacy Analysis v2 documents. Its control layout
-alignment for `else if` and its Analysis v3 support require an update in
-that tool.
+The current Analysis contract is `schema_version: 3` for every project, so an
+external tool that still reads Analysis v2 must be updated before it can
+consume this candidate's `check --emit` output.
 
 ## Public protocol versions
 
@@ -88,14 +88,13 @@ that tool.
 | Markdown profile | `marqdo.md.v1` | Frozen parser/options. The RFC-LANG-0002 mapping rewrite keeps this profile; the source-language break is tracked above, not by a new profile id. |
 | Language / CLI | `3.0.0-rc.3` (candidate) | SemVer prerelease: breaking changes inside the 3.0 beta line are allowed and announced in the changelog. The `.mq.md` source language changed incompatibly (RFC-LANG-0002); there is no old-syntax execution path or downgrade. CLI flags may change with a changelog note; `strict` refusal is contractual. |
 | `marqdo.lock` | v4 | v3 is rejected with an explicit `marqdo lock` migration error; v1/v2 are rejected with a relock instruction; `run`/`call`/`check` never rewrite or fetch the lock. `extensions:` records manifest/artifact identity (integrity, not publisher auth). |
-| Analysis | v2/v3 | Projects with loop transfers emit v3. Other projects emit v2. Consumers reject unknown majors. |
-| Trace | v2 | Binds to the exact Analysis bytes; unknown majors rejected. |
-| Execution Events | v1 | Live NDJSON for `run/call --event-stream jsonl`; independent version axis. Values are opt-in and bounded; unknown majors rejected. Not yet part of the tagged beta archive (post-beta addition). |
-| CLI Tool | v1 | Manifest schema, SemVer negotiation and whole-bundle digest are stable for v1. |
+| Analysis | v3 | One writer and one current major for every project, including projects without loop transfers. Consumers reject other majors; the retired v2 selector, schema and documents are gone (ADR-0068). |
+| Observation | v1 | One `run_id`/`seq` event sequence per execution, delivered as JSONL, JSON snapshot or file snapshot from the same run. Values are opt-in and bounded; consumers reject other identifiers (spec/observation.md). |
+| CLI Tool | revision 1 | `requires.api_revision` is one exact integer; `analysis`/`observation` are optional exact integers. Version arrays and intersection negotiation are rejected with a reinstall instruction. |
 | Plugin ABI | v1 | Struct layout/version negotiation frozen; `--trust-native-plugin` is required for in-process loading. The static manifest signature is authoritative; `run` reconciles loaded exports/signatures/owners/artifact digests exactly (`ext.plugin_binding_mismatch`); ABI v1 defaults are rejected. |
 | Resource Provider manifest | v2 | `schema_version: 2`, `abi: c-abi-1`, `transport: worker`; v1 is rejected (`ext.unsupported_provider_schema`), no silent migration. CLI `--provider`/`--allow-provider`; trusted worker, not an OS sandbox. The six core kinds come from one `marqdo_host::CORE_RESOURCE_KINDS` registry and are rejected as a provider name or kind (ADR-0062). |
 | Callable resolution | ADR-0054 | One registry + one binding pass; `check` and `run` bind the same `CallSiteKey`; no runtime name fallback. Import aliases colliding with builtin/plugin dotted namespaces are rejected. The `math` namespace is no longer a builtin namespace (ADR-0061). |
-| Analysis `calls[].state/target` | v2 (projection) | Now projected from the unique binding; official stdlib aliases appear as `function`. Schema/version unchanged; private binding table not serialized. |
+| Analysis `calls[].state/target` | v3 projection | Projected from the unique binding; official stdlib aliases appear as `function`. The private binding table is not serialized. |
 | Extension selection | lock v4 | `marqdo.yaml.extensions` only `./path` or `@alias/path`; declaration is not a grant; declared identity must match the lock (`ext.extension_lock_mismatch`). |
 | Foreign wire | v1 | One-shot request envelope; provider descriptors are explicit. |
 
@@ -119,9 +118,8 @@ portable/tested locally but the native platform lane has not run here;
 | Resource Provider v2 CLI (`--provider`/`--allow-provider`, worker helper) | PASS (linux/x86_64; real C sensor + helper) | **FAIL-CLOSED** (`ext.platform_unsupported`) | **UNSUPPORTED** |
 | Capability handler registry (`fs.read` handler, audit, unavailable) | PASS | UNVERIFIED | UNVERIFIED |
 | External conformance repository (`marqdo-extension-conformance`, frozen CLI) | PASS (`--release` binary sha256 `28e3776d…`, fixture repo `e4b7352c…`; see `docs/evidence/extension/6a7bb983.../manifest.json`) | UNVERIFIED | UNVERIFIED |
-| Analysis v2 / Trace v2 + Python consumers | PASS | UNVERIFIED | UNVERIFIED |
-| Execution Events v1 (`--event-stream jsonl`, P0/P1) | PASS locally (14 CLI contract tests + 8 host + 4 runtime; independent Python schema consumer); post-beta, not in the tagged archive | UNVERIFIED | UNVERIFIED |
-| Tool Protocol v1 + 3 independent consumers | PASS | UNVERIFIED | UNVERIFIED |
+| Analysis v3 + Observation v1 + Python consumers | PASS (same-SHA CI contract lane and archive smoke; independent consumers) | UNVERIFIED | UNVERIFIED |
+| CLI Tool revision 1 + independent consumers | PASS | UNVERIFIED | UNVERIFIED |
 | Native ABI (`plugin inspect`, trusted call) | PASS (C fixture) | UNVERIFIED (host-native fixture) | **UNSUPPORTED** |
 | Worker ABI + `fs.read` bridge | PASS (Unix) | UNVERIFIED | **UNSUPPORTED** (Unix-gated) |
 | Foreign Python/Node | PASS (system `python3`/`node`) | UNVERIFIED | UNVERIFIED |
@@ -149,14 +147,15 @@ the Windows C ABI/provider paths remain fail-closed.
   rlimits and wall-clock/output supervision; the child verifies `PID 1`,
   `NoNewPrivs`, `CapEff=0`, a non-initial uid map and no non-loopback network.
 - Refused before launch: `--allow-read`, `--allow-write`, `--allow-foreign`,
-  `--allow-plugin`, `--plugin`, `--trust-native-plugin`, `--kernel`,
-  `--trace-file`.
+  `--allow-plugin`, `--plugin`, `--trust-native-plugin`, `--kernel`;
+  `--output jsonl` and `--observation-file` are refused because the supervisor
+  owns the output channel.
 - Strict L2 (letting Worker/Foreign/native plugin run inside the sandbox) is
   not implemented and must not be inferred from L1 passing.
 
 ## Minimum environment
 
-- Rust 1.82+ (verified with 1.100.0).
+- Rust 1.89+ (locked minimum; verified with 1.100.0).
 - Linux/macOS: a C compiler for Native ABI fixtures; Python/Node only for
   Foreign kernels; `git` for Git dependencies.
 - `strict` additionally requires Bubblewrap and a kernel/environment that
@@ -175,7 +174,7 @@ the Windows C ABI/provider paths remain fail-closed.
 * The external conformance suite is a mandatory **additional** release gate
   (`docs/releasing.md` §7); it does not replace G3/G4/native lanes.
 
-## Explicitly unsupported in this beta
+## Explicitly unsupported in this prerelease
 
 - Pre-RFC `.mq.md` source syntax (Strong-execute / Emph-return / ordered-list
   branch / bullet-list loop / block-quote call / first code-span signature).
@@ -190,20 +189,17 @@ the Windows C ABI/provider paths remain fail-closed.
   sessions, and general-purpose CAS. The three `sample-*` tools are test
   fixtures for the generic Tool protocol, not product features.
 - Tagged Windows/macOS release archives: only the Linux x86_64 archive is
-  produced for `3.0.0-beta.1`. macOS/Windows native artifacts are not claimed;
-  the Windows lane is a Linux-hosted compile gate only.
+  produced for the 3.0 prerelease line. macOS/Windows native artifacts are not
+  claimed; the Windows lane is a Linux-hosted compile gate only.
 
 ## Release decision
 
-**`3.0.0-beta.1` prerelease — approved as a Linux x86_64 beta with explicitly
-recorded gaps.** The beta profile in
-[`docs/MARQDO_3_0_PRERELEASE_PLAN.md`](docs/MARQDO_3_0_PRERELEASE_PLAN.md) §3.1
-was used, not the stable profile: Linux is the only supported platform,
-macOS/Windows are declared unsupported/experimental, G4 is a Beta-only `WARN`
-on the fixed Woodpecker agent, and strict policy and frozen-binary conformance
-are recorded with same-SHA evidence in [`docs/STATUS.md`](docs/STATUS.md) and
-[`docs/evidence/ci/2c7c4f31e7a388d3fcfa717a77067e696ed13854/manifest.json`](docs/evidence/ci/2c7c4f31e7a388d3fcfa717a77067e696ed13854/manifest.json)
-(`BETA_RELEASE_CANDIDATE`). Release:
-https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-beta.1. Beta status
-does not imply stable `3.0.0` or LTS; the stable gate remains stricter and
-separate.
+**`3.0.0-rc.3` prerelease candidate — Linux x86_64 only.** The RC profile in
+[`docs/MARQDO_3_0_PRERELEASE_PLAN.md`](docs/MARQDO_3_0_PRERELEASE_PLAN.md) §3 is
+used, not the stable profile: Linux is the only supported platform,
+macOS/Windows are declared UNSUPPORTED for this scope, strict L1 requires
+same-SHA disposable-VM evidence and G4 performance is recorded as a
+maintainer-approved shared-node `WARN` for this named RC. The aggregate decision
+and per-gate evidence are bound to the candidate SHA in
+[`docs/STATUS.md`](docs/STATUS.md) and the release assets. A prerelease does not
+imply stable `3.0.0` or LTS; the stable gate remains stricter and separate.
