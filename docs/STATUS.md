@@ -107,10 +107,14 @@ observation_consumer.py stream.jsonl --analysis stale-analysis.json    rejected
 marqdo --version                                                       marqdo 3.0.0-rc.3
 ```
 
-Release status: the tree and developer inputs are ready for `3.0.0-rc.3`, but
-publication still requires the same-SHA CI pipeline plus archive/clean-install
-smoke bound to that SHA, as required by [`releasing.md`](releasing.md). Do not
-tag or publish from this local evidence alone.
+Release status: the tree and developer inputs are ready for `3.0.0-rc.3`. The
+built archive (source `291e521c`, sha256 `8a663dee…`) passed the from-archive
+smoke; the local evidence is
+[`evidence/2026-11-24-rc.3-protocol-convergence-local.md`](evidence/2026-11-24-rc.3-protocol-convergence-local.md).
+Publication still requires the same-SHA CI pipeline plus the clean-install
+container gate bound to that SHA, as required by
+[`releasing.md`](releasing.md). Do not tag or publish from local evidence
+alone.
 
 ## 0. Beta release record — `3.0.0-beta.1`
 
