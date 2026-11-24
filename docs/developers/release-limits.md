@@ -1,4 +1,4 @@
-# Marqdo 3.0.0-rc.2 — known limitations
+# Marqdo 3.0.0-rc.3 — known limitations
 
 This file ships in the release archive as `KNOWN_LIMITATIONS.md`. It is part of
 the release record: it defines the platform and feature scope for the release candidate.

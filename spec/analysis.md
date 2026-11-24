@@ -58,7 +58,7 @@ this load: declared version, content digest and package instance id. It is
 an Analysis artifact can only name a bundle whose bytes matched the manifest.
 
 `AnalysisDigest` is the lowercase hex SHA-256 of the exact UTF-8 bytes written
-by `check --emit` (pretty JSON). This is what Trace v2 binds to
+by `check --emit` (pretty JSON). This is what Observation binds to
 `source.analysis_digest`; an independent consumer can verify it by hashing the
 file. Diagnostics and any configuration options that change the projection are
 part of that digest.
@@ -121,9 +121,9 @@ never allocates a region or executes the write.
 
 ## 4. Resources
 
-`resources` is an array, not a count. v2 projects exactly the two resource
-kinds represented by `marqdo-ir::Resource`; it does not invent table, HTML or
-link resources.
+`resources` is an array, not a count. The projection includes exactly the
+resource kinds represented by `marqdo-ir::Resource`; it does not invent table,
+HTML or link resources.
 
 ```json
 {

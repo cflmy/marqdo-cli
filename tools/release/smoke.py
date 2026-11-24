@@ -3,13 +3,13 @@
 
 Extracts the archive into a fresh temporary directory and exercises the shipped
 binaries only (never the development source tree): version/help, check/run/call,
-lock/sync for a path dependency, Analysis v2/v3 and Trace v2 consumers, Tool
+lock/sync for a path dependency, Analysis and Observation consumers, Tool
 install/dispatch, native and worker plugin transports, foreign kernel, the
 Provider v2 worker (positive, unauthorized and missing-helper fail-closed), and
 strict mode when the host genuinely supports it.
 
 Usage:
-    python3 tools/release/smoke.py --archive dist/marqdo-3.0.0-rc.2-x86_64-unknown-linux-gnu.tar.gz
+    python3 tools/release/smoke.py --archive dist/marqdo-3.0.0-rc.3-x86_64-unknown-linux-gnu.tar.gz
 """
 
 from __future__ import annotations

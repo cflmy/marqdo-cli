@@ -8,7 +8,7 @@ this beta. Executed status and same-SHA evidence are in
 [`docs/STATUS.md`](docs/STATUS.md), and SHA-bound external evidence is under
 [`docs/evidence/extension/`](docs/evidence/extension/README.md).
 
-The `3.0.0-rc.2` candidate targets Linux x86_64 on glibc 2.39 and
+The `3.0.0-rc.3` candidate targets Linux x86_64 on glibc 2.39 and
 includes the post-beta changes below. See the
 [RC acceptance procedure](docs/releasing.md). The platform evidence table
 records the beta and subsequent development verification.
@@ -51,7 +51,7 @@ Consequences for compatibility:
 
 ## Post-`3.0.0-beta.1` boundary changes (RFC-EXT-0003)
 
-These landed after the beta tag and **are included in the `3.0.0-rc.2` candidate**; they are
+These landed after the beta tag and **are included in the `3.0.0-rc.3` candidate**; they are
 intentional beta-line incompatibilities. Frozen decisions: ADR-0060..0063; executed
 evidence: [`docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md`](docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md).
 
@@ -86,7 +86,7 @@ that tool.
 | Surface | Version | Compatibility rule |
 |---|---|---|
 | Markdown profile | `marqdo.md.v1` | Frozen parser/options. The RFC-LANG-0002 mapping rewrite keeps this profile; the source-language break is tracked above, not by a new profile id. |
-| Language / CLI | `3.0.0-rc.2` (candidate) | SemVer prerelease: breaking changes inside the 3.0 beta line are allowed and announced in the changelog. The `.mq.md` source language changed incompatibly (RFC-LANG-0002); there is no old-syntax execution path or downgrade. CLI flags may change with a changelog note; `strict` refusal is contractual. |
+| Language / CLI | `3.0.0-rc.3` (candidate) | SemVer prerelease: breaking changes inside the 3.0 beta line are allowed and announced in the changelog. The `.mq.md` source language changed incompatibly (RFC-LANG-0002); there is no old-syntax execution path or downgrade. CLI flags may change with a changelog note; `strict` refusal is contractual. |
 | `marqdo.lock` | v4 | v3 is rejected with an explicit `marqdo lock` migration error; v1/v2 are rejected with a relock instruction; `run`/`call`/`check` never rewrite or fetch the lock. `extensions:` records manifest/artifact identity (integrity, not publisher auth). |
 | Analysis | v2/v3 | Projects with loop transfers emit v3. Other projects emit v2. Consumers reject unknown majors. |
 | Trace | v2 | Binds to the exact Analysis bytes; unknown majors rejected. |

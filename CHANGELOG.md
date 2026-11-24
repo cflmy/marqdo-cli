@@ -5,10 +5,81 @@ All notable changes to the Marqdo CLI workspace. Product version
 `2c7c4f31e7a388d3fcfa717a77067e696ed13854`
 ([release](https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-beta.1));
 the next section collects post-beta
-changes. Protocol versions (Analysis v2, Trace v2, Tool v1, Plugin ABI v1,
-Foreign wire v1, Provider manifest v2, lock v4) and independent package
-versions (including the bundled stdlib `0.1.0`) are versioned separately and
-do not follow the product version. Dates use ISO 8601.
+changes. Current protocol contracts are Analysis, Observation, CLI Tool,
+Plugin ABI v1, Foreign wire v1, Provider manifest v2 and lock v4; independent
+package versions (including the bundled stdlib `0.1.0`) are versioned
+separately and do not follow the product version. Dates use ISO 8601.
+
+## 3.0.0-rc.3 (candidate)
+
+- The Rust workspace, CLI version output and protocol producers report
+  `3.0.0-rc.3`. The locked workspace requires Rust 1.89 and targets Linux
+  x86_64 on glibc 2.39.
+
+### Single current public contracts — issue #8 (breaking)
+
+Executed policy: [ADR-0068](docs/adr/0068-single-current-public-contracts.md) and
+[the protocol convergence policy](docs/architecture/PROTOCOL_CONVERGENCE_POLICY.md).
+This is a pre-stable replacement, not a compatibility release. Retired formats
+are rejected; there is no legacy reader, alias, fallback, negotiation or
+automatic migration.
+
+- **Analysis has one writer for every project.** `check --emit` always emits
+  `marqdo.analysis` `schema_version: 3`, including projects without
+  `break`/`continue`. The content-driven v2/v3 selector is deleted, and the
+  retired `spec/analysis-v*.md` documents and schemas are removed from the
+  current tree. Consumers no longer need to branch on the project content.
+- **Trace v2 and Execution Events v1 became one Observation contract.**
+  `run`/`call` emit one `marqdo.observation` `schema_version: 1` event sequence
+  per execution. `--output jsonl` streams those events, `--output json` and
+  `--observation-file PATH` publish an atomic snapshot of the same events from
+  the same execution. `run_id`, `seq`, frame identity, terminal semantics,
+  capture budgets and privacy rules are defined once in
+  [`spec/observation.md`](spec/observation.md). The retired `--json`,
+  `--trace-file` and `--event-stream` options are rejected.
+- **CLI Tool requirements are single exact values.** `tool.json` declares
+  `requires.api_revision` (required) plus optional exact `analysis` and
+  `observation` integers. Version arrays and intersection negotiation are
+  removed. Retired manifests and records are rejected with a remove/reinstall
+  instruction and are never rewritten.
+- **Plugin and resource-provider workers share one transport.** Framing,
+  bounded reads, deadlines, dead-worker quarantine and teardown live in
+  `marqdo-worker-ipc` ([`spec/worker-ipc.md`](spec/worker-ipc.md)); the invoke
+  vocabulary, grants, kind rights and error codes stay with each boundary.
+- **Extension descriptors and lock keep their current identifiers.** There is
+  no version renumbering without a shape change: plugin `abi: ^1.0`, provider
+  `schema_version: 2`, kernel `wire_version: 1` and lock v4 stay current.
+  Retired provider/kernel/plugin revisions and lock v1–v3 are rejected with an
+  explicit regeneration/reinstall instruction; no migrator runs.
+- **`spec/` now contains only current contracts.** Retired specifications are
+  available in Git history and tagged archives. ADRs covering retired public
+  contracts carry a Historical header.
+
+Migration for consumers:
+
+1. Re-run `marqdo check --emit` and read `marqdo.analysis` without a version
+   branch; verify `project`, module ids and source digests.
+2. Replace Trace/Event readers with an Observation reader; stream with
+   `--output jsonl` and/or read `--observation-file`. Verify `run_id`, `seq`,
+   source binding and the single terminal event.
+3. Rewrite `tool.json` to the exact current requirements, rebuild the tool and
+   `marqdo tool remove` + reinstall. Old registrations are not migrated.
+4. Rebuild/reinstall plugins, providers and kernels from their current
+   descriptors; re-run `marqdo lock` instead of reusing a retired lock.
+
+### Verification
+
+- `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D
+  warnings`, `cargo test --workspace --locked` pass on the candidate tree.
+- Independent consumers (`tests/consumers/analysis_consumer.py`,
+  `observation_consumer.py`, `validate_protocols.py`) validate real CLI output;
+  `tests/consumers/observation_consumer.py` checks that stream and snapshot are
+  the same event sequence.
+- `crates/cli/tests/architecture_boundaries.rs` forbids a second worker
+  framing implementation and pins the workspace layer list;
+  `docs_consistency` keeps one current overview and resolving links.
+- Release evidence for publication still requires the same-SHA CI pipeline and
+  archive smoke described in [`docs/releasing.md`](docs/releasing.md).
 
 ## 3.0.0-rc.2 (candidate)
 

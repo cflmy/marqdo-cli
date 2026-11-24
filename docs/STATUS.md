@@ -26,7 +26,7 @@ as current status.
 
 ## RC candidate
 
-The workspace reports `3.0.0-rc.2` and declares Rust 1.89 as its locked
+The workspace reports `3.0.0-rc.3` and declares Rust 1.89 as its locked
 minimum. Linux x86_64 on glibc 2.39 is the candidate platform. The
 [release procedure](releasing.md) requires a green manifest bound to the
 candidate SHA before publication. The release record below refers to the
@@ -67,6 +67,50 @@ pre-stable contracts in one breaking integration, with no compatibility layer:
 The `spec/` tree contains only current contracts; retired specifications are in
 Git history and tagged archives. The earlier release records below describe
 their tagged binaries and are not current protocol claims.
+
+## 0.9 Pre-stable protocol convergence — issue #8 (RC.3 candidate)
+
+The current tree replaces the retired protocols in place, with no compatibility
+path. Policy: [ADR-0068](adr/0068-single-current-public-contracts.md) and
+[the convergence policy](architecture/PROTOCOL_CONVERGENCE_POLICY.md). This
+section records commands executed on the candidate tree; it is local Linux
+evidence, not a same-SHA CI or archive gate.
+
+Executed 2026-11-24 on Linux x86_64 (workspace `3.0.0-rc.3`, Rust 1.93.1):
+
+```text
+cargo fmt --all -- --check                              PASS
+cargo clippy --workspace --all-targets -- -D warnings   PASS
+cargo test --workspace --locked                         PASS: 601 passed, 0 failed, 2 ignored
+cargo test -p marqdo-cli --test architecture_boundaries PASS: 12 passed
+cargo test -p marqdo-cli --test docs_consistency        PASS: 5 passed
+cargo test -p marqdo-cli --test observation             PASS: 15 passed
+cargo test -p marqdo-cli --test analysis_observation    PASS: 10 passed
+cargo test -p marqdo-cli --test tool_protocol           PASS: 7 passed
+cargo test -p marqdo-cli --test extension_selection     PASS: 14 passed
+cargo test -p marqdo-worker-ipc                         PASS: 5 passed
+```
+
+Black-box consumer run against the real `target/debug/marqdo`:
+
+```text
+check examples/multi-module/index.mq.md --refs --emit analysis.json   schema marqdo.analysis/3
+run examples/multi-module/index.mq.md --observation-file snap.json     schema marqdo.observation/1
+validate_protocols.py analysis.json snap.json tool.json                PASS (7 modules, 333 events)
+analysis_consumer.py analysis.json                                     PASS (32 functions)
+observation_consumer.py --snapshot snap.json --analysis analysis.json  PASS
+check tests/conformance/semantics/85-nested-loop-control.mq.md         PASS
+run ... --output jsonl --observation-file snapshot                     66 events
+observation_consumer.py stream.jsonl --validate-schema                 PASS (3 transfers)
+snapshot["events"] == stream lines                                     PASS
+observation_consumer.py stream.jsonl --analysis stale-analysis.json    rejected
+marqdo --version                                                       marqdo 3.0.0-rc.3
+```
+
+Release status: the tree and developer inputs are ready for `3.0.0-rc.3`, but
+publication still requires the same-SHA CI pipeline plus archive/clean-install
+smoke bound to that SHA, as required by [`releasing.md`](releasing.md). Do not
+tag or publish from this local evidence alone.
 
 ## 0. Beta release record — `3.0.0-beta.1`
 
