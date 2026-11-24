@@ -1,36 +1,62 @@
 {
   "normalized": {
-    "command": "run",
-    "stderr": "",
-    "stdout": "",
-    "success": true,
-    "value": {
-      "items": [
-        {
-          "decimal": "200",
-          "type": "int"
-        },
-        {
-          "type": "text",
-          "value": "OK"
-        },
-        {
-          "type": "text",
-          "value": "text/plain"
-        },
-        {
-          "type": "text",
-          "value": "hello world"
-        },
-        {
-          "type": "text",
-          "value": "GET /health HTTP/1.1\r\nAccept: text/plain\r\nHost: example.test\r\n\r\n"
-        }
-      ],
-      "type": "list"
+    "events": {
+      "by_kind": {
+        "branch.eval": 545,
+        "call.enter": 34,
+        "call.exit": 34,
+        "loop.iteration": 756,
+        "parameter.observed": 90,
+        "return": 34,
+        "run.completed": 1,
+        "run.started": 1,
+        "stream.opened": 1,
+        "variable.assigned": 1548
+      },
+      "count": 3044,
+      "sequence_sha256": "sha256:d394bf12395c193818794d34de4fef9f6a9048eb63235f30ce53a6785c4a2ab5"
+    },
+    "schema": "marqdo.observation",
+    "status": "ok",
+    "stderr": {
+      "bytes": 0,
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 0,
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "terminal": {
+      "status": "ok",
+      "value": {
+        "items": [
+          {
+            "decimal": "200",
+            "type": "int"
+          },
+          {
+            "type": "text",
+            "value": "OK"
+          },
+          {
+            "type": "text",
+            "value": "text/plain"
+          },
+          {
+            "type": "text",
+            "value": "hello world"
+          },
+          {
+            "type": "text",
+            "value": "GET /health HTTP/1.1\r\nAccept: text/plain\r\nHost: example.test\r\n\r\n"
+          }
+        ],
+        "type": "list"
+      },
+      "value_type": "List"
     }
   },
   "schema": "marqdo.perf.expected.v1",
-  "wire_sha256": "sha256:540f8dd9a2071d40c1f07d82961e0e0174822e123c828ffc5d2a06cc880052ed",
+  "wire_sha256": "sha256:1617796958d6b8e30c65884f26640f1072cde6037158e3abf0a196ecb9e39712",
   "workload": "http-parser"
 }

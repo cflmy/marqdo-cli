@@ -1,94 +1,120 @@
 {
   "normalized": {
-    "command": "run",
-    "stderr": "",
-    "stdout": "",
-    "success": true,
-    "value": {
-      "items": [
-        {
-          "header": [
-            "名称",
-            "分数"
-          ],
-          "rows": [
-            [
-              {
-                "type": "text",
-                "value": "甲"
-              },
-              {
-                "decimal": "87",
-                "type": "int"
-              }
+    "events": {
+      "by_kind": {
+        "branch.eval": 9,
+        "call.enter": 5,
+        "call.exit": 5,
+        "loop.iteration": 10,
+        "parameter.observed": 11,
+        "return": 5,
+        "run.completed": 1,
+        "run.started": 1,
+        "stream.opened": 1,
+        "variable.assigned": 35
+      },
+      "count": 83,
+      "sequence_sha256": "sha256:287e3f01941c53559c4113fceded4612a1f6c8ff44d2c19712aebf3c9034a172"
+    },
+    "schema": "marqdo.observation",
+    "status": "ok",
+    "stderr": {
+      "bytes": 0,
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 0,
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "terminal": {
+      "status": "ok",
+      "value": {
+        "items": [
+          {
+            "header": [
+              "名称",
+              "分数"
             ],
-            [
-              {
-                "type": "text",
-                "value": "乙"
-              },
-              {
-                "decimal": "92",
-                "type": "int"
-              }
+            "rows": [
+              [
+                {
+                  "type": "text",
+                  "value": "甲"
+                },
+                {
+                  "decimal": "87",
+                  "type": "int"
+                }
+              ],
+              [
+                {
+                  "type": "text",
+                  "value": "乙"
+                },
+                {
+                  "decimal": "92",
+                  "type": "int"
+                }
+              ],
+              [
+                {
+                  "type": "text",
+                  "value": "丙"
+                },
+                {
+                  "decimal": "71",
+                  "type": "int"
+                }
+              ]
             ],
-            [
-              {
-                "type": "text",
-                "value": "丙"
-              },
-              {
-                "decimal": "71",
-                "type": "int"
-              }
-            ]
-          ],
-          "type": "table"
-        },
-        {
-          "header": [
-            "名称",
-            "分数"
-          ],
-          "rows": [
-            [
-              {
-                "type": "text",
-                "value": "丙"
-              },
-              {
-                "decimal": "71",
-                "type": "int"
-              }
+            "type": "table"
+          },
+          {
+            "header": [
+              "名称",
+              "分数"
             ],
-            [
-              {
-                "type": "text",
-                "value": "甲"
-              },
-              {
-                "decimal": "87",
-                "type": "int"
-              }
+            "rows": [
+              [
+                {
+                  "type": "text",
+                  "value": "丙"
+                },
+                {
+                  "decimal": "71",
+                  "type": "int"
+                }
+              ],
+              [
+                {
+                  "type": "text",
+                  "value": "甲"
+                },
+                {
+                  "decimal": "87",
+                  "type": "int"
+                }
+              ],
+              [
+                {
+                  "type": "text",
+                  "value": "乙"
+                },
+                {
+                  "decimal": "92",
+                  "type": "int"
+                }
+              ]
             ],
-            [
-              {
-                "type": "text",
-                "value": "乙"
-              },
-              {
-                "decimal": "92",
-                "type": "int"
-              }
-            ]
-          ],
-          "type": "table"
-        }
-      ],
-      "type": "list"
+            "type": "table"
+          }
+        ],
+        "type": "list"
+      },
+      "value_type": "List"
     }
   },
   "schema": "marqdo.perf.expected.v1",
-  "wire_sha256": "sha256:12b61dcd9955cb7e137c705e51e29d58322d9525993681170f2dded48e94ee97",
+  "wire_sha256": "sha256:d09caebb0ee91b593a8798f67a082ee38c008ea41274eeef3c05b2a4236081d1",
   "workload": "table-sort"
 }

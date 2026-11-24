@@ -1,42 +1,69 @@
 {
   "normalized": {
-    "command": "run",
-    "stderr": "",
-    "stdout": "",
-    "success": true,
-    "value": {
-      "items": [
-        {
-          "entries": {
-            "ok": {
-              "type": "bool",
-              "value": true
+    "events": {
+      "by_kind": {
+        "branch.eval": 51,
+        "call.enter": 7,
+        "call.exit": 7,
+        "effect": 28,
+        "loop.iteration": 34,
+        "parameter.observed": 14,
+        "return": 7,
+        "run.completed": 1,
+        "run.started": 1,
+        "stream.opened": 1,
+        "variable.assigned": 66
+      },
+      "count": 217,
+      "sequence_sha256": "sha256:218b342c70a1388d8f9e5ba5843c828ea53fa01c31ddae171c023dd581423f3a"
+    },
+    "schema": "marqdo.observation",
+    "status": "ok",
+    "stderr": {
+      "bytes": 0,
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 0,
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "terminal": {
+      "status": "ok",
+      "value": {
+        "items": [
+          {
+            "entries": {
+              "ok": {
+                "type": "bool",
+                "value": true
+              },
+              "value": {
+                "decimal": "36",
+                "type": "int"
+              }
             },
-            "value": {
-              "decimal": "36",
-              "type": "int"
-            }
+            "type": "map"
           },
-          "type": "map"
-        },
-        {
-          "entries": {
-            "ok": {
-              "type": "bool",
-              "value": true
+          {
+            "entries": {
+              "ok": {
+                "type": "bool",
+                "value": true
+              },
+              "value": {
+                "decimal": "42",
+                "type": "int"
+              }
             },
-            "value": {
-              "decimal": "42",
-              "type": "int"
-            }
-          },
-          "type": "map"
-        }
-      ],
-      "type": "list"
+            "type": "map"
+          }
+        ],
+        "type": "list"
+      },
+      "value_type": "List"
     }
   },
   "schema": "marqdo.perf.expected.v1",
-  "wire_sha256": "sha256:418131f5780815da5716d84ed5c00269760a881856cce67e0f4c8b42d417c7ec",
+  "wire_sha256": "sha256:35b915e08c3f69fa0f6375565caaee21393a707d35852d03734b4b9c9643a5c0",
   "workload": "bytecode-vm"
 }

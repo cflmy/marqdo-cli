@@ -1,14 +1,42 @@
 {
   "normalized": {
-    "command": "run",
-    "stderr": "",
-    "stdout": "[\"文本\", 2, 1.5, [3, true], {a: 1, b: \"x\"}, None]\n[\"文本\", 2, 1.5, [3, true], {a: 1, b: \"x\"}, None]\nTable[名称 | 分数]{甲 | 87; 乙 | 92}\nTable[名称 | 分数]{甲 | 87; 乙 | 92}\n[Formula(\"a = 1\"), Code(\"text\", 9 bytes), FunctionRef(root:default::demo.mq.md::演示函数)]\n[Formula(\"a = 1\"), Code(\"text\", 9 bytes), FunctionRef(root:default::demo.mq.md::演示函数)]\n",
-    "success": true,
-    "value": {
-      "type": "none"
+    "events": {
+      "by_kind": {
+        "branch.eval": 1956,
+        "call.enter": 131,
+        "call.exit": 131,
+        "effect": 404,
+        "loop.iteration": 810,
+        "parameter.observed": 166,
+        "return": 131,
+        "run.completed": 1,
+        "run.started": 1,
+        "stdout.chunk": 6,
+        "stream.opened": 1,
+        "variable.assigned": 2533
+      },
+      "count": 6271,
+      "sequence_sha256": "sha256:e17ea3ebe3ecd40f9e619f06e3bd9d4370d34616caf02a6099bbffe0f686522d"
+    },
+    "schema": "marqdo.observation",
+    "status": "ok",
+    "stderr": {
+      "bytes": 0,
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 380,
+      "sha256": "sha256:4f5fcde6b4073511330c50f15bf07db13abc2cf0cf71de777e8e23ca870220fe"
+    },
+    "terminal": {
+      "status": "ok",
+      "value": {
+        "type": "none"
+      },
+      "value_type": "None"
     }
   },
   "schema": "marqdo.perf.expected.v1",
-  "wire_sha256": "sha256:80dfbfb894544b5cd4281999a67deaa9ce4fb19ef32d160fb4ee72dbd615d03c",
+  "wire_sha256": "sha256:7bed5196b8cd52d1de12561f445bc2271dd5e91ed9c4065ebf79d0cb22d8a826",
   "workload": "stdlib-print-demo"
 }

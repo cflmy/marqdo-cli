@@ -17,6 +17,8 @@ performance evidence.
 """
 
 import argparse
+import base64
+from collections import Counter
 import hashlib
 import json
 import os
@@ -64,8 +66,72 @@ def git_sha(repo: Path) -> str:
     return output(["git", "-C", str(repo), "rev-parse", "HEAD"]) or "unknown"
 
 
+OBSERVATION_SCHEMA = "marqdo.observation"
+# Run-specific or host-specific payload fields never contribute to correctness.
+VOLATILE_PAYLOAD_KEYS = {"file", "started_unix_ms"}
+
+
+def _stable(value):
+    """Drop run/host-specific data from an observation payload."""
+    if isinstance(value, dict):
+        return {
+            key: _stable(item)
+            for key, item in value.items()
+            if key not in VOLATILE_PAYLOAD_KEYS
+        }
+    if isinstance(value, list):
+        return [_stable(item) for item in value]
+    if isinstance(value, str):
+        return value.replace(str(ROOT), "<repo>")
+    return value
+
+
+def _committed_bytes(chunks: list[str]) -> dict:
+    data = b"".join(base64.b64decode(chunk) for chunk in chunks)
+    return {
+        "bytes": len(data),
+        "sha256": f"sha256:{hashlib.sha256(data).hexdigest()}",
+    }
+
+
 def normalize(document: dict) -> dict:
-    """Canonical subset used for correctness: no timings, no trace, no paths."""
+    """Canonical subset used for correctness: no timings, no run ids, no paths."""
+    if document.get("schema") == OBSERVATION_SCHEMA:
+        # Current `run`/`call --output json` snapshot: one execution event
+        # sequence. The run id, wall-clock start and absolute paths are
+        # per-invocation. Correctness pins the terminal status/result, the
+        # committed stdout/stderr bytes and the ordered event kinds (count,
+        # per-kind totals and a sequence digest) without storing thousands of
+        # structural payloads in the repository.
+        events = document.get("events") or []
+        kinds = [event.get("kind") or "" for event in events]
+        counts = Counter(kinds)
+        terminal = _stable(events[-1].get("payload")) if events else None
+        return {
+            "schema": OBSERVATION_SCHEMA,
+            "status": (document.get("run") or {}).get("status"),
+            "terminal": terminal,
+            "stdout": _committed_bytes(
+                [
+                    event["payload"]["data_base64"]
+                    for event in events
+                    if event.get("kind") == "stdout.chunk"
+                ]
+            ),
+            "stderr": _committed_bytes(
+                [
+                    event["payload"]["data_base64"]
+                    for event in events
+                    if event.get("kind") == "stderr.chunk"
+                ]
+            ),
+            "events": {
+                "count": len(events),
+                "sequence_sha256": "sha256:"
+                + hashlib.sha256("\n".join(kinds).encode("utf-8")).hexdigest(),
+                "by_kind": dict(sorted(counts.items())),
+            },
+        }
     payload = {}
     for key in ("command", "success", "value", "stdout", "stderr", "errors"):
         if key in document:

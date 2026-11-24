@@ -1,199 +1,225 @@
 {
   "normalized": {
-    "command": "run",
-    "stderr": "",
-    "stdout": "",
-    "success": true,
-    "value": {
-      "items": [
-        {
-          "entries": {
-            "next": {
-              "decimal": "20",
-              "type": "int"
-            },
-            "ok": {
-              "type": "bool",
-              "value": true
-            },
-            "value": {
-              "items": [
-                {
-                  "decimal": "1",
-                  "type": "int"
-                },
-                {
-                  "decimal": "23",
-                  "type": "int"
-                },
-                {
-                  "items": [
-                    {
-                      "decimal": "4",
-                      "type": "int"
-                    },
-                    {
-                      "decimal": "5",
-                      "type": "int"
-                    }
-                  ],
-                  "type": "list"
-                },
-                {
-                  "decimal": "-6",
-                  "type": "int"
-                }
-              ],
-              "type": "list"
-            }
-          },
-          "type": "map"
-        },
-        {
-          "entries": {
-            "code": {
-              "type": "text",
-              "value": "json.invalid_array"
-            },
-            "message": {
-              "type": "text",
-              "value": "数组缺少逗号或 ]"
-            },
-            "ok": {
-              "type": "bool",
-              "value": false
-            }
-          },
-          "type": "map"
-        },
-        {
-          "entries": {
-            "code": {
-              "type": "text",
-              "value": "json.unexpected_eof"
-            },
-            "message": {
-              "type": "text",
-              "value": "数组未闭合"
-            },
-            "ok": {
-              "type": "bool",
-              "value": false
-            }
-          },
-          "type": "map"
-        },
-        {
-          "entries": {
-            "next": {
-              "decimal": "35",
-              "type": "int"
-            },
-            "ok": {
-              "type": "bool",
-              "value": true
-            },
-            "value": {
-              "entries": {
-                "a": {
-                  "decimal": "1",
-                  "type": "int"
-                },
-                "b": {
-                  "items": [
-                    {
-                      "type": "bool",
-                      "value": true
-                    },
-                    {
-                      "type": "none"
-                    },
-                    {
-                      "type": "text",
-                      "value": "说\"好"
-                    }
-                  ],
-                  "type": "list"
-                }
+    "events": {
+      "by_kind": {
+        "branch.eval": 632,
+        "call.enter": 341,
+        "call.exit": 341,
+        "loop.iteration": 208,
+        "parameter.observed": 567,
+        "return": 341,
+        "run.completed": 1,
+        "run.started": 1,
+        "stream.opened": 1,
+        "variable.assigned": 700
+      },
+      "count": 3133,
+      "sequence_sha256": "sha256:cac83ea2856c09d105554b0e0d3bd1ed3d2541c19af51bddf236ab9b6e87f354"
+    },
+    "schema": "marqdo.observation",
+    "status": "ok",
+    "stderr": {
+      "bytes": 0,
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 0,
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "terminal": {
+      "status": "ok",
+      "value": {
+        "items": [
+          {
+            "entries": {
+              "next": {
+                "decimal": "20",
+                "type": "int"
               },
-              "type": "map"
-            }
-          },
-          "type": "map"
-        },
-        {
-          "entries": {
-            "next": {
-              "decimal": "6",
-              "type": "int"
-            },
-            "ok": {
-              "type": "bool",
-              "value": true
-            },
-            "value": {
-              "type": "text",
-              "value": "a\nb"
-            }
-          },
-          "type": "map"
-        },
-        {
-          "entries": {
-            "next": {
-              "decimal": "37",
-              "type": "int"
-            },
-            "ok": {
-              "type": "bool",
-              "value": true
-            },
-            "value": {
-              "items": [
-                {
-                  "decimal": "1",
-                  "type": "int"
-                },
-                {
-                  "type": "float",
-                  "value": 2.5
-                },
-                {
-                  "type": "float",
-                  "value": -300.0
-                },
-                {
-                  "type": "float",
-                  "value": 0.4
-                },
-                {
-                  "entries": {
-                    "a": {
-                      "type": "float",
-                      "value": 1.0
-                    }
+              "ok": {
+                "type": "bool",
+                "value": true
+              },
+              "value": {
+                "items": [
+                  {
+                    "decimal": "1",
+                    "type": "int"
                   },
-                  "type": "map"
-                },
-                {
-                  "type": "text",
-                  "value": "x"
-                }
-              ],
-              "type": "list"
-            }
+                  {
+                    "decimal": "23",
+                    "type": "int"
+                  },
+                  {
+                    "items": [
+                      {
+                        "decimal": "4",
+                        "type": "int"
+                      },
+                      {
+                        "decimal": "5",
+                        "type": "int"
+                      }
+                    ],
+                    "type": "list"
+                  },
+                  {
+                    "decimal": "-6",
+                    "type": "int"
+                  }
+                ],
+                "type": "list"
+              }
+            },
+            "type": "map"
           },
-          "type": "map"
-        },
-        {
-          "type": "text",
-          "value": "[1, 2.5, -300.0, 0.4, {\"a\": 1.0}, \"x\"]"
-        }
-      ],
-      "type": "list"
+          {
+            "entries": {
+              "code": {
+                "type": "text",
+                "value": "json.invalid_array"
+              },
+              "message": {
+                "type": "text",
+                "value": "数组缺少逗号或 ]"
+              },
+              "ok": {
+                "type": "bool",
+                "value": false
+              }
+            },
+            "type": "map"
+          },
+          {
+            "entries": {
+              "code": {
+                "type": "text",
+                "value": "json.unexpected_eof"
+              },
+              "message": {
+                "type": "text",
+                "value": "数组未闭合"
+              },
+              "ok": {
+                "type": "bool",
+                "value": false
+              }
+            },
+            "type": "map"
+          },
+          {
+            "entries": {
+              "next": {
+                "decimal": "35",
+                "type": "int"
+              },
+              "ok": {
+                "type": "bool",
+                "value": true
+              },
+              "value": {
+                "entries": {
+                  "a": {
+                    "decimal": "1",
+                    "type": "int"
+                  },
+                  "b": {
+                    "items": [
+                      {
+                        "type": "bool",
+                        "value": true
+                      },
+                      {
+                        "type": "none"
+                      },
+                      {
+                        "type": "text",
+                        "value": "说\"好"
+                      }
+                    ],
+                    "type": "list"
+                  }
+                },
+                "type": "map"
+              }
+            },
+            "type": "map"
+          },
+          {
+            "entries": {
+              "next": {
+                "decimal": "6",
+                "type": "int"
+              },
+              "ok": {
+                "type": "bool",
+                "value": true
+              },
+              "value": {
+                "type": "text",
+                "value": "a\nb"
+              }
+            },
+            "type": "map"
+          },
+          {
+            "entries": {
+              "next": {
+                "decimal": "37",
+                "type": "int"
+              },
+              "ok": {
+                "type": "bool",
+                "value": true
+              },
+              "value": {
+                "items": [
+                  {
+                    "decimal": "1",
+                    "type": "int"
+                  },
+                  {
+                    "type": "float",
+                    "value": 2.5
+                  },
+                  {
+                    "type": "float",
+                    "value": -300.0
+                  },
+                  {
+                    "type": "float",
+                    "value": 0.4
+                  },
+                  {
+                    "entries": {
+                      "a": {
+                        "type": "float",
+                        "value": 1.0
+                      }
+                    },
+                    "type": "map"
+                  },
+                  {
+                    "type": "text",
+                    "value": "x"
+                  }
+                ],
+                "type": "list"
+              }
+            },
+            "type": "map"
+          },
+          {
+            "type": "text",
+            "value": "[1, 2.5, -300.0, 0.4, {\"a\": 1.0}, \"x\"]"
+          }
+        ],
+        "type": "list"
+      },
+      "value_type": "List"
     }
   },
   "schema": "marqdo.perf.expected.v1",
-  "wire_sha256": "sha256:d6f795f43eb1ae4c3d2f04254b8135f71d717ef8a649efdf7785f172b5381011",
+  "wire_sha256": "sha256:c9833930c28ef238a606db40b33005338e75b83cf9ad98ffaa16f6d9f371a12a",
   "workload": "json-parser"
 }

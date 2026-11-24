@@ -10,6 +10,10 @@ workload whose wire output did not match the committed expected digest.
   `Cargo.lock` digest, `rustc -vV`, source SHA and profile.
 * Correctness comes first: every warmup run is parsed and hashed. A mismatch
   is `CORRECTNESS_FAIL`; its faster wall time is never reported.
+  `run`/`call` workloads request the current Observation snapshot
+  (`--output json`); the digest pins the terminal status/result, the committed
+  stdout/stderr byte digests and the ordered event-kind counts, never a run id
+  or a host path, so it is stable across invocations.
 * Approved-node release evidence needs at least 5 warmups and 20 samples per
   workload on a dedicated, stable node. A maintainer-approved shared-node
   RC comparison needs the same sample counts in at least three paired runs.

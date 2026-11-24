@@ -1,24 +1,40 @@
 {
   "normalized": {
-    "command": "call",
-    "diagnostics": [
-      {
-        "code": "sem.inferred_signature",
-        "column": 1,
-        "line": 3,
-        "message": "function signature was inferred; declare it with `params(...)`",
-        "severity": "warning"
-      }
-    ],
-    "stderr": "",
-    "stdout": "",
-    "success": true,
-    "value": {
-      "decimal": "120",
-      "type": "int"
+    "events": {
+      "by_kind": {
+        "branch.eval": 9,
+        "call.enter": 5,
+        "call.exit": 5,
+        "parameter.observed": 5,
+        "return": 5,
+        "run.completed": 1,
+        "run.started": 1,
+        "stream.opened": 1,
+        "variable.assigned": 4
+      },
+      "count": 36,
+      "sequence_sha256": "sha256:1c776fb38bbfa9cfb32e907385b18e75d84df3e62d96fee7859a739054513daf"
+    },
+    "schema": "marqdo.observation",
+    "status": "ok",
+    "stderr": {
+      "bytes": 0,
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 0,
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "terminal": {
+      "status": "ok",
+      "value": {
+        "decimal": "120",
+        "type": "int"
+      },
+      "value_type": "Int"
     }
   },
   "schema": "marqdo.perf.expected.v1",
-  "wire_sha256": "sha256:0cbd8ab0b0e9e671e7e54f707ff2de00181b2721924b7fdec998ff9611873275",
+  "wire_sha256": "sha256:34c724c5abc46f3c38875cf90c23e70e8f4048124a8571665f00f30bbbfab758",
   "workload": "factorial-run"
 }
