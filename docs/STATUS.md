@@ -34,11 +34,39 @@ published beta.
 
 ## Current protocol integration
 
-[ADR-0068](adr/0068-single-current-public-contracts.md) governs the work
-for [issue #8](https://git.cflmy.cn/cflmy/marqdo-cli/issues/8). Current
-developer inputs are [Analysis](../spec/analysis.md),
-[Observation](../spec/observation.md) and the [CLI Tool](../spec/cli-tool.md).
-The earlier release records below describe their tagged binaries.
+[ADR-0068](adr/0068-single-current-public-contracts.md) and the
+[single-contract policy](architecture/PROTOCOL_CONVERGENCE_POLICY.md) govern
+every public boundary. Current developer inputs are
+[Analysis](../spec/analysis.md), [Observation](../spec/observation.md) and the
+[CLI Tool](../spec/cli-tool.md); the shared persistent-worker transport is
+[worker-ipc](../spec/worker-ipc.md).
+
+Issue [#8](https://git.cflmy.cn/cflmy/marqdo-cli/issues/8) converged the
+pre-stable contracts in one breaking integration, with no compatibility layer:
+
+- Analysis has one writer and one current `schema_version` for every project,
+  including projects without loop transfers. The content-driven v2/v3 selector
+  and the retired `spec/analysis-v*.md` documents are gone.
+- Trace and Execution Events became one Observation event definition. One
+  execution emits one `run_id`/`seq` sequence; `--output jsonl` and
+  `--observation-file` deliver those same events, never a second execution or a
+  second numbering. The retired `--json`/`--trace-file`/`--event-stream`
+  options are rejected.
+- CLI Tool requirements are single exact integers (`api_revision`, optional
+  `analysis`, optional `observation`). Version arrays and intersection
+  negotiation are removed; retired registrations are rejected with a reinstall
+  instruction.
+- Plugin and resource-provider workers share one bounded framed transport
+  ([worker-ipc](../spec/worker-ipc.md)) while each boundary keeps its own
+  vocabulary, limits, capabilities and error codes.
+- Extension descriptors (plugin/provider/kernel) and lock v4 keep their current
+  format identifiers. Retired lock versions are rejected with an explicit
+  `marqdo lock` regeneration instruction; there is no migrator. Renumbering an
+  unchanged format was explicitly rejected.
+
+The `spec/` tree contains only current contracts; retired specifications are in
+Git history and tagged archives. The earlier release records below describe
+their tagged binaries and are not current protocol claims.
 
 ## 0. Beta release record — `3.0.0-beta.1`
 
@@ -47,9 +75,10 @@ The earlier release records below describe their tagged binaries.
 - Workspace/crate version, `marqdo --version` and Analysis `producer.version`
   are `3.0.0-beta.1`; `Cargo.lock` is committed and release builds use
   `--locked`.
-- Independent axes are unchanged: Analysis v2, Trace v2, Tool v1, Plugin ABI
+- At the tagged beta, the axes were Analysis v2, Trace v2, Tool v1, Plugin ABI
   v1, Foreign wire v1, Provider manifest v2, lock v4, markdown profile
-  `marqdo.md.v1`; bundled stdlib stays package version `0.1.0`.
+  `marqdo.md.v1`; bundled stdlib stayed package version `0.1.0`. Those are
+  historical identifiers, not current claims.
 - `project.marqdo` is enforced; prerelease SemVer rules are covered by tests
   (`>=3.0.0,<4.0.0` does not silently accept a beta core).
 - Only the Linux x86_64 archive is claimed. macOS/Windows are
@@ -110,7 +139,7 @@ exports reconcile exactly with the static manifest. The independent
 frozen-binary suite is the beta gate above; the older `6a7bb98` manifest is
 historical and superseded by the release-SHA manifest.
 
-## 0.5 Post-beta addition — Execution Events v1 (unreleased)
+## 0.5 Historical: post-beta Execution Events v1 (superseded by Observation)
 
 This section records work **after** the `v3.0.0-beta.1` tag. It is not part of
 the tagged beta archive and no new release tag has been created. The design
@@ -272,7 +301,7 @@ digests. The external lane ran from a temporary fixture checkout with Cargo
 absent from PATH. Archive SHA-256 is
 `8934bfc25c7b5526071eae6f24143ca3805ad3d7cc484626a4345b1deed430b2`.
 
-## 0.8 Structured control flow — RFC-CTRL-0005 (RC.2 candidate)
+## 0.8 Historical: structured control flow — RFC-CTRL-0005 (RC.2 snapshot)
 
 [ADR-0067](adr/0067-structured-control-flow.md) covers the phase A implementation.
 An `else if` carrier adds a condition arm to the existing branch IR.

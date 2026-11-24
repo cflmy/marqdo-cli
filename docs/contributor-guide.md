@@ -24,6 +24,7 @@ marqdo-cli/
 ├── docs/
 │   ├── DEVELOPMENT_BLUEPRINT.md   architecture baseline (language-mapping sections historical)
 │   ├── architecture/RFC-LANG-0002-unified-semantics.md  current language authority
+│   ├── architecture/PROTOCOL_CONVERGENCE_POLICY.md  one-current-contract rules + review checklist
 │   ├── STABLE_RELEASE_IMPLEMENTATION.md  authoritative next-phase/release plan
 │   ├── STATUS.md                  current evidence, work packages, blockers
 │   ├── migration/                 syntax-migration rules + file inventory
@@ -45,11 +46,13 @@ marqdo-cli/
 │   ├── security.md                modes, capabilities, budgets, trust
 │   ├── package-format.md          marqdo.yaml / marqdo.lock / init
 │   ├── plugin-abi.md              C ABI v1, SDK, host lifecycle
+│   ├── worker-ipc.md              shared persistent-worker framing/transport
 │   ├── math.md                    removed core math outlook + migration (ADR-0061)
 │   ├── foreign.md                 Python/Node kernel protocol
 │   ├── cli-tool.md                external command registration and dispatch
 │   ├── analysis.md                current static projection
-│   └── observation.md             live events and snapshots
+│   ├── observation.md             live events and snapshots
+│   └── cli-tool.md                external command registration and dispatch
 ├── crates/
 │   ├── marqdo-span/               Span, LineCol, LineIndex (leaf)
 │   ├── marqdo-value/              Value, diagnostics, errors, wire encoding

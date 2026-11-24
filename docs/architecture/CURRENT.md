@@ -258,10 +258,15 @@ that a phase is complete.
 5. When behavior or status changes, update code + tests + `docs/STATUS.md` +
    this file + an evidence file in the same change. A fixture/demo is not a
    published stdlib API.
+6. A public-boundary change must follow
+   [`PROTOCOL_CONVERGENCE_POLICY.md`](PROTOCOL_CONVERGENCE_POLICY.md): one
+   current contract, replace in place, reject retired inputs, no compatibility
+   path or version negotiation, and no version bump without a shape change.
 
 ## 7. References
 
 - [Architecture index](README.md) — RFC/ADR/evidence history.
+- [Protocol convergence policy](PROTOCOL_CONVERGENCE_POLICY.md) — one-contract rules, anti-patterns and review checklist.
 - [Implementation status](../STATUS.md) — executed state and blockers.
 - [Language/frontmatter blueprint](../DEVELOPMENT_BLUEPRINT.md) — design baseline; not current status.
 - [3.0 prerelease plan](../MARQDO_3_0_PRERELEASE_PLAN.md) — current release policy and beta gates.

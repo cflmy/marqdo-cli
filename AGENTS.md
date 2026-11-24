@@ -36,8 +36,9 @@ correctness and release evidence before expanding the surface.
 
 ## Pre-stable protocol changes
 
-Read [ADR-0068](docs/adr/0068-single-current-public-contracts.md) before changing
-a public boundary. Keep one current specification, producer and validator per
+Read [ADR-0068](docs/adr/0068-single-current-public-contracts.md) and the
+[single-contract convergence policy](docs/architecture/PROTOCOL_CONVERGENCE_POLICY.md)
+before changing a public boundary. Keep one current specification, producer and validator per
 boundary. Replace retired paths in the same integration, reject unsupported
 formats explicitly, and update independent consumers and release smoke tests.
 Keep old formats in Git history. Preserve authority, attribution and resource
