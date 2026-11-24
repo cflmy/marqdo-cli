@@ -1,4 +1,12 @@
 {
+  "measure_argv": [
+    "call",
+    "examples/factorial.mq.md",
+    "数学.阶乘",
+    "--arg",
+    "n=5"
+  ],
+  "measure_sha256": "sha256:97b912eb4a61df5f806ca6239dde3e1a4f51ad20aced1642cbb83dc510a5fa6b",
   "normalized": {
     "events": {
       "by_kind": {

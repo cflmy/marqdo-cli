@@ -1,4 +1,9 @@
 {
+  "measure_argv": [
+    "run",
+    "stdlib/demo.mq.md"
+  ],
+  "measure_sha256": "sha256:4f5fcde6b4073511330c50f15bf07db13abc2cf0cf71de777e8e23ca870220fe",
   "normalized": {
     "events": {
       "by_kind": {

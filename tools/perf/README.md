@@ -8,12 +8,16 @@ workload whose wire output did not match the committed expected digest.
 * Build one release binary with `cargo build --release --locked -p marqdo-cli`
   and keep it fixed for the whole run. The report records its SHA256, the
   `Cargo.lock` digest, `rustc -vV`, source SHA and profile.
-* Correctness comes first: every warmup run is parsed and hashed. A mismatch
-  is `CORRECTNESS_FAIL`; its faster wall time is never reported.
-  `run`/`call` workloads request the current Observation snapshot
-  (`--output json`); the digest pins the terminal status/result, the committed
-  stdout/stderr byte digests and the ordered event-kind counts, never a run id
-  or a host path, so it is stable across invocations.
+* Correctness comes first. Each workload has one correctness command and one
+  measurement command. For `run`/`call` the correctness command requests the
+  current Observation snapshot (`--output json`) and its digest pins the
+  terminal status/result, the committed stdout/stderr byte digests and the
+  ordered event-kind counts; the measurement command is the same program
+  without the opt-in observability destination, and every timed sample must
+  reproduce the committed text digest. A mismatch is `CORRECTNESS_FAIL`; its
+  faster wall time is never reported. Comparing the timed execution path
+  against the baseline execution path is the point: an opt-in protocol document
+  must not be billed as a product regression.
 * Approved-node release evidence needs at least 5 warmups and 20 samples per
   workload on a dedicated, stable node. A maintainer-approved shared-node
   RC comparison needs the same sample counts in at least three paired runs.

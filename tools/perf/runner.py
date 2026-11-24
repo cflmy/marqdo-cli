@@ -159,28 +159,37 @@ def expected_path(name: str) -> Path:
     return EXPECTED / f"{name}.json"
 
 
-def load_expected(name: str) -> str | None:
+def text_digest(data: bytes) -> str:
+    """Digest of measured text output with the checkout path normalised."""
+    normalized = data.replace(str(ROOT).encode(), b"<repo>")
+    return f"sha256:{hashlib.sha256(normalized).hexdigest()}"
+
+
+def load_expected(name: str) -> dict | None:
     path = expected_path(name)
     if not path.is_file():
         return None
-    return json.loads(path.read_text())["wire_sha256"]
+    return json.loads(path.read_text())
 
 
-def record_expected(name: str, document: dict) -> None:
+def record_expected(
+    name: str,
+    document: dict,
+    measure_stdout: bytes | None,
+    measure_argv: list[str] | None,
+) -> None:
     EXPECTED.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema": "marqdo.perf.expected.v1",
+        "workload": name,
+        "wire_sha256": wire_digest(document),
+        "normalized": normalize(document),
+    }
+    if measure_stdout is not None:
+        payload["measure_sha256"] = text_digest(measure_stdout)
+        payload["measure_argv"] = measure_argv
     expected_path(name).write_text(
-        json.dumps(
-            {
-                "schema": "marqdo.perf.expected.v1",
-                "workload": name,
-                "wire_sha256": wire_digest(document),
-                "normalized": normalize(document),
-            },
-            ensure_ascii=False,
-            sort_keys=True,
-            indent=2,
-        )
-        + "\n"
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
     )
 
 
@@ -308,62 +317,116 @@ def run_workload(
     prefix = []
     if cpu_list:
         prefix = [shutil.which("taskset") or "taskset", "-c", cpu_list]
-    argv = prefix + [str(binary)] + workload["argv"]
+    # Correctness and measurement are separate commands for run/call: the
+    # machine document (Observation snapshot) pins the full public contract,
+    # while timing copies the plain execution path so an opt-in observability
+    # contract is not compared against a summary document.
+    correctness_argv = prefix + [str(binary)] + workload["argv"]
+    measured_argv = prefix + [str(binary)] + (workload.get("measure_argv") or workload["argv"])
     env = dict(os.environ)
     env.pop("MARQDO_STDLIB_DIR", None)
     if not (binary.parent / "stdlib" / "stdlib.json").is_file():
         env["MARQDO_STDLIB_DIR"] = str(ROOT / "stdlib")
     env.setdefault("NO_COLOR", "1")
-    expected = load_expected(name)
+    expected_document = load_expected(name)
+    expected = expected_document.get("wire_sha256") if expected_document else None
+    expected_measure = (
+        expected_document.get("measure_sha256") if expected_document else None
+    )
     result = {
         "name": name,
         "kind": workload.get("kind", "run"),
         "source": workload["source"],
         "argv": workload["argv"],
     }
+    if workload.get("measure_argv"):
+        result["measure_argv"] = workload["measure_argv"]
     correctness = "VERIFIED"
     warmup_samples: list[dict] = []
     measured: list[dict] = []
-    # Correctness is checked on every warmup execution; a wrong result is never
-    # timed and can never become a "fast" regression sample.
-    for index in range(warmups + samples):
-        code, usage, wall, stdout, stderr = spawn_capture(
-            argv, ROOT, env, timeout
-        )
-        if code != 0:
-            correctness = "CORRECTNESS_FAIL"
-            result["error"] = (
-                f"exit {code}: {stderr.decode('utf-8', 'replace')[:500]}"
-            )
-            break
+    measure_stdout: bytes | None = None
+
+    # One correctness preflight per workload: the machine document must match
+    # the committed contract digest before anything is timed.
+    code, _usage, _wall, stdout, stderr = spawn_capture(
+        correctness_argv, ROOT, env, timeout
+    )
+    if code != 0:
+        correctness = "CORRECTNESS_FAIL"
+        result["error"] = f"exit {code}: {stderr.decode('utf-8', 'replace')[:500]}"
+    else:
         try:
             document = json.loads(stdout)
         except json.JSONDecodeError as error:
             correctness = "CORRECTNESS_FAIL"
             result["error"] = f"invalid JSON: {error}"
-            break
-        digest = wire_digest(document)
-        if record:
-            record_expected(name, document)
-            expected = digest
-        if expected is None:
-            correctness = "UNVERIFIED_NO_EXPECTED"
-        elif digest != expected:
-            correctness = "CORRECTNESS_FAIL"
-            result["error"] = (
-                f"wire digest mismatch: expected {expected}, got {digest}"
+            document = None
+        if document is not None:
+            digest = wire_digest(document)
+            if workload.get("measure_argv"):
+                code, _usage, _wall, measure_stdout, stderr = spawn_capture(
+                    measured_argv, ROOT, env, timeout
+                )
+                if code != 0:
+                    correctness = "CORRECTNESS_FAIL"
+                    result["error"] = (
+                        f"measurement probe exit {code}: "
+                        f"{stderr.decode('utf-8', 'replace')[:500]}"
+                    )
+                    document = None
+            if record and document is not None:
+                record_expected(
+                    name, document, measure_stdout, workload.get("measure_argv")
+                )
+                expected = digest
+                if measure_stdout is not None:
+                    expected_measure = text_digest(measure_stdout)
+            if document is not None:
+                if expected is None:
+                    correctness = "UNVERIFIED_NO_EXPECTED"
+                elif digest != expected:
+                    correctness = "CORRECTNESS_FAIL"
+                    result["error"] = (
+                        f"wire digest mismatch: expected {expected}, got {digest}"
+                    )
+                elif measure_stdout is not None:
+                    probe = text_digest(measure_stdout)
+                    if expected_measure is None:
+                        correctness = "UNVERIFIED_NO_EXPECTED"
+                    elif probe != expected_measure:
+                        correctness = "CORRECTNESS_FAIL"
+                        result["error"] = (
+                            "measurement output mismatch: expected "
+                            f"{expected_measure}, got {probe}"
+                        )
+
+    # Timing loop: only a verified workload contributes samples, and every
+    # sample's output must match the committed measurement digest.
+    if correctness == "VERIFIED":
+        for index in range(warmups + samples):
+            code, usage, wall, stdout, stderr = spawn_capture(
+                measured_argv, ROOT, env, timeout
             )
-            break
-        sample = {
-            "wall_ms": wall * 1000.0,
-            "user_ms": usage["user_ms"],
-            "sys_ms": usage["sys_ms"],
-            "max_rss_kb": usage["max_rss_kb"],
-        }
-        if index < warmups:
-            warmup_samples.append(sample)
-        else:
-            measured.append(sample)
+            if code != 0:
+                correctness = "CORRECTNESS_FAIL"
+                result["error"] = (
+                    f"exit {code}: {stderr.decode('utf-8', 'replace')[:500]}"
+                )
+                break
+            if expected_measure is not None and text_digest(stdout) != expected_measure:
+                correctness = "CORRECTNESS_FAIL"
+                result["error"] = "measurement output changed between samples"
+                break
+            sample = {
+                "wall_ms": wall * 1000.0,
+                "user_ms": usage["user_ms"],
+                "sys_ms": usage["sys_ms"],
+                "max_rss_kb": usage["max_rss_kb"],
+            }
+            if index < warmups:
+                warmup_samples.append(sample)
+            else:
+                measured.append(sample)
 
     result["correctness"] = correctness
     if correctness != "VERIFIED":

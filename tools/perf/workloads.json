@@ -23,6 +23,13 @@
         "n=5",
         "--output",
         "json"
+      ],
+      "measure_argv": [
+        "call",
+        "examples/factorial.mq.md",
+        "数学.阶乘",
+        "--arg",
+        "n=5"
       ]
     },
     {
@@ -34,6 +41,10 @@
         "tests/conformance/semantics/55-first-fit-free-list-allocator.mq.md",
         "--output",
         "json"
+      ],
+      "measure_argv": [
+        "run",
+        "tests/conformance/semantics/55-first-fit-free-list-allocator.mq.md"
       ]
     },
     {
@@ -45,6 +56,10 @@
         "tests/conformance/semantics/62-json-array-parser.mq.md",
         "--output",
         "json"
+      ],
+      "measure_argv": [
+        "run",
+        "tests/conformance/semantics/62-json-array-parser.mq.md"
       ]
     },
     {
@@ -56,6 +71,10 @@
         "tests/conformance/semantics/65-table-sort-stdlib.mq.md",
         "--output",
         "json"
+      ],
+      "measure_argv": [
+        "run",
+        "tests/conformance/semantics/65-table-sort-stdlib.mq.md"
       ]
     },
     {
@@ -67,6 +86,10 @@
         "tests/conformance/semantics/63-memory-bytecode-vm.mq.md",
         "--output",
         "json"
+      ],
+      "measure_argv": [
+        "run",
+        "tests/conformance/semantics/63-memory-bytecode-vm.mq.md"
       ]
     },
     {
@@ -78,6 +101,10 @@
         "tests/conformance/semantics/70-matrix-multiply.mq.md",
         "--output",
         "json"
+      ],
+      "measure_argv": [
+        "run",
+        "tests/conformance/semantics/70-matrix-multiply.mq.md"
       ]
     },
     {
@@ -89,6 +116,10 @@
         "tests/conformance/semantics/71-http-parser.mq.md",
         "--output",
         "json"
+      ],
+      "measure_argv": [
+        "run",
+        "tests/conformance/semantics/71-http-parser.mq.md"
       ]
     },
     {
@@ -100,6 +131,10 @@
         "stdlib/demo.mq.md",
         "--output",
         "json"
+      ],
+      "measure_argv": [
+        "run",
+        "stdlib/demo.mq.md"
       ]
     }
   ]

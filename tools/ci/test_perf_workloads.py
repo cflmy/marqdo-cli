@@ -80,6 +80,20 @@ class WorkloadCatalogueTest(unittest.TestCase):
                 self.assertIn("--json", argv)
 
 
+class DualCommandWorkloadTest(unittest.TestCase):
+    def test_run_and_call_workloads_separate_correctness_from_timing(self):
+        catalogue = json.loads(WORKLOADS.read_text(encoding="utf-8"))
+        for workload in catalogue["workloads"]:
+            if workload["kind"] not in ("run", "call"):
+                self.assertNotIn("measure_argv", workload)
+                continue
+            measure = workload.get("measure_argv")
+            self.assertIsNotNone(measure, f"{workload['name']} lacks measure_argv")
+            self.assertNotIn("--output", measure)
+            self.assertNotIn("--json", measure)
+            self.assertEqual(measure[0], workload["argv"][0])
+
+
 class DigestStabilityTest(unittest.TestCase):
     def setUp(self):
         self.runner = load_runner()
@@ -105,6 +119,13 @@ class DigestStabilityTest(unittest.TestCase):
         self.assertNotEqual(
             self.runner.wire_digest(document), self.runner.wire_digest(truncated)
         )
+
+    def test_measured_text_digest_ignores_the_checkout_path(self):
+        runner = self.runner
+        first = runner.text_digest(b"output 120\n")
+        second = runner.text_digest(b"output 120\n")
+        self.assertEqual(first, second)
+        self.assertNotEqual(first, runner.text_digest(b"output 121\n"))
 
     def test_check_document_keeps_the_command_digest(self):
         report = {
