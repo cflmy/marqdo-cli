@@ -11,9 +11,19 @@
   [development-credentials.md](development-credentials.md). Do not put tokens in
   pipeline files or commit messages.
 
-The default Docker pipeline runs on push and pull request:
+The default Docker pipeline runs on push and pull request. A fast `contract`
+lane exercises the public Analysis/Observation contracts through the real CLI
+and the independent Python consumers; the full `test` lane runs the Rust gates
+and the Windows cross-target compile check; `build` packages the archive, runs
+the from-archive smoke and the frozen external conformance suite.
 
 ```text
+contract:
+  cargo build --locked -p marqdo-cli -p marqdo-provider-worker
+  real CLI check/run over the Observation fixtures
+  analysis_consumer / observation_consumer / validate_protocols
+  stream==snapshot assertion and stale-Analysis rejection
+
 test:
   rustup component add clippy rustfmt
   apt install curl/ca-certificates/python3/python3-jsonschema + Node.js 22
