@@ -62,6 +62,10 @@ replace `spec/` or a recorded test log.
 > statements it emits. The interpreter owns the transfers and reports them
 > through the existing observation facade.
 
+Protocol architecture and pre-stable replacement rules are recorded in
+[ADR-0068](../adr/0068-single-current-public-contracts.md). Check the
+[implementation status](../STATUS.md) for rollout and release evidence.
+
 ## 1. Four state dimensions
 
 A claim is stated in exactly one of these dimensions. "Exists in the tree" is not

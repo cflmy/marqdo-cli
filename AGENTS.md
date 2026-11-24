@@ -34,6 +34,16 @@ correctness and release evidence before expanding the surface.
 10. Language semantics, package format, ABI, authorization defaults or public CLI behavior changes require an ADR + tests + spec updates.
 11. RFC-LANG-0002 is implemented by the frontend, `marqdo-expression`, IR lowering, runtime and the bundled stdlib. Keep `spec/`, implementation, fixtures, stdlib digest and docs in lockstep; there is no legacy mapper or per-file syntax switch to fall back to. Do not make a release claim beyond the evidence recorded in `docs/STATUS.md`.
 
+## Pre-stable protocol changes
+
+Read [ADR-0068](docs/adr/0068-single-current-public-contracts.md) before changing
+a public boundary. Keep one current specification, producer and validator per
+boundary. Replace retired paths in the same integration, reject unsupported
+formats explicitly, and update independent consumers and release smoke tests.
+Keep old formats in Git history. Preserve authority, attribution and resource
+limits during refactors. Confirm cross-repository and release evidence before
+closing a protocol replacement issue.
+
 ## Development workflow
 
 1. Identify the affected rule and cite RFC-LANG-0002 / `spec/mapping.md` (or, for architecture-only changes, the relevant `docs/DEVELOPMENT_BLUEPRINT.md` section).
