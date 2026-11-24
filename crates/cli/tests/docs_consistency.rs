@@ -209,7 +209,11 @@ fn has_hex_sha(text: &str) -> bool {
 #[test]
 fn ci_configuration_uses_only_current_protocols() {
     let root = repo_root();
-    for relative in [".woodpecker/main.yml", ".github/workflows/ci.yml"] {
+    for relative in [
+        ".woodpecker/main.yml",
+        ".github/workflows/ci.yml",
+        "docs/ci.md",
+    ] {
         let text = read(&root.join(relative));
         for retired in [
             "--event-stream",
