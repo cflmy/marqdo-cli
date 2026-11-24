@@ -223,6 +223,11 @@ Token lifecycle:
 6. Provider error codes map to existing categories: `permission.denied`,
    `resource.closed`, `resource.exhausted`, `resource.unsupported`, otherwise
    `host.error`.
+7. Any transport failure — including a request frame that exceeds the 1 MiB
+   budget or a malformed reply — kills and reaps the helper. The peer is never
+   reused after a protocol error, so a program that sends an oversized request
+   must expect subsequent calls to that provider to fail closed rather than
+   silently truncate the payload.
 
 ## 6. Authorization
 

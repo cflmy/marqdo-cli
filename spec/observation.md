@@ -55,7 +55,9 @@ fields. Reject other format identifiers, unknown kinds and invalid payloads.
   Structural and selected-value events may stop at that point. Lifecycle
   and committed byte chunks remain subject to their own execution and
   output limits. The interpreter continues under unchanged program limits.
-- `run.completed` contains the explicit return using [Value Wire](value-wire.md).
+- Error locations in `run.failed` carry `module_id`, `relative_path`, `line` and
+`column`; a snapshot never embeds an absolute host path. `run.completed`
+contains the explicit return using [Value Wire](value-wire.md).
   A result containing a non-transferable handle has a null wire value and
   identifies its type. An explicit result, like a program print, can itself
   contain sensitive data. `run.failed` follows a started run and contains

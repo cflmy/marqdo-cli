@@ -989,22 +989,11 @@ fn runtime_error_in_imported_module_reports_that_module() {
     );
     assert_eq!(error["relative_path"], "physics.mq.md");
     assert!(
-        error["file"]
-            .as_str()
-            .unwrap_or_default()
-            .ends_with("physics.mq.md"),
-        "{}",
-        error["file"]
+        error.get("file").is_none(),
+        "a shareable snapshot must not embed an absolute host path: {error}"
     );
     let line = error["line"].as_u64().unwrap_or(0);
     assert!(line >= 5, "expected the failing statement line, got {line}");
-    assert!(
-        !error["file"]
-            .as_str()
-            .unwrap_or_default()
-            .ends_with("index.mq.md"),
-        "must not blame the entry file"
-    );
 
     let human = cli(dir.path(), &["run", "index.mq.md"]);
     assert_exit(&human, 1, "human rendering also fails");

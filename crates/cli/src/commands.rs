@@ -418,7 +418,8 @@ fn runtime_location_json(
         if let Some(located) = project.locate(module_id, span) {
             location["line"] = json!(located.line);
             location["column"] = json!(located.column);
-            location["file"] = json!(located.file.path.display().to_string());
+            // Attribution for a shareable snapshot is the project-relative
+            // path; an absolute host path is environment data, not contract.
             location["relative_path"] = json!(located.file.module_id.relative_path);
         }
     }
@@ -444,7 +445,6 @@ fn runtime_error_json(error: &RuntimeError, project: &LoadedProject) -> serde_js
         "span": location["span"],
         "line": location["line"],
         "column": location["column"],
-        "file": location["file"],
         "relative_path": location["relative_path"],
         "frames": frames,
     })

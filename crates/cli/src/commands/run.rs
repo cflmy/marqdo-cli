@@ -49,7 +49,7 @@ pub fn execute(
     let stream = events.as_ref();
     let named_args = match named_args {
         Ok(args) => args,
-        Err(message) => return fail(stream, "prepare", "cli.invalid_argument", &message, 2),
+        Err(message) => return fail(stream, "options", "cli.invalid_argument", &message, 2),
     };
     let options = PrepareOptions {
         plugins: settings.plugins.clone(),
