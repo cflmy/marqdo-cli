@@ -10,7 +10,15 @@ import pathlib
 import sys
 
 from jsonschema import Draft202012Validator
-from referencing import Registry, Resource
+
+try:
+    # jsonschema >= 4.18 resolves the external event schema through
+    # `referencing`. The CI image may ship an older jsonschema, so keep the
+    # standard resolver fallback: the public consumer must run on both.
+    from referencing import Registry, Resource
+except ImportError:  # pragma: no cover - exercised by the compatibility shim
+    Registry = None
+    Resource = None
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCHEMA_DIR = ROOT / "spec" / "schemas"
@@ -23,10 +31,23 @@ def load_schema(name):
     return schema
 
 
+EVENT_SCHEMA_ID = "https://marqdo.dev/schemas/observation-event.schema.json"
+
+
 def validator(schema):
     event = load_schema("observation-event.schema.json")
-    registry = Registry().with_resource(event["$id"], Resource.from_contents(event))
-    return Draft202012Validator(schema, registry=registry)
+    if Registry is not None:
+        registry = Registry().with_resource(EVENT_SCHEMA_ID, Resource.from_contents(event))
+        return Draft202012Validator(schema, registry=registry)
+    # jsonschema < 4.18 (Debian bookworm's python3-jsonschema).
+    from jsonschema import RefResolver
+
+    store = {
+        EVENT_SCHEMA_ID: event,
+        "observation-event.schema.json": event,
+    }
+    resolver = RefResolver.from_schema(schema, store=store)
+    return Draft202012Validator(schema, resolver=resolver)
 
 
 def require_valid(schema_name, document, label):
