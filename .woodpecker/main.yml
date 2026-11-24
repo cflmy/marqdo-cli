@@ -15,20 +15,39 @@ steps:
       - apt-get install -y --no-install-recommends nodejs
       - cargo fmt --all -- --check
       - cargo clippy --workspace --all-targets -- -D warnings
-      # The provider CLI tests resolve a real provider worker next to the CLI
-      # binary. Build it once so the test harness does not need a nested build.
-      - cargo build --locked -p marqdo-provider-worker
+      # Provider CLI tests resolve a real provider worker next to the CLI
+      # binary; both binaries are also used by the black-box gates below.
+      - cargo build --locked -p marqdo-cli -p marqdo-provider-worker
       - cargo test --workspace --locked
-      # Execution Events v1 black-box contract: a released-binary-shaped run
-      # validated by the independent Python consumer and the public schema.
-      - cargo run --quiet --locked -p marqdo-cli -- run tests/consumers/fixtures/execution-events/basic.mq.md --event-stream jsonl > /tmp/execution-events.jsonl
-      - python3 tests/consumers/execution_events_consumer.py /tmp/execution-events.jsonl
-      - ./target/debug/marqdo check examples/control-flow.mq.md --emit /tmp/control-analysis.json
-      - ./target/debug/marqdo run examples/control-flow.mq.md --event-stream jsonl --trace-file /tmp/control-trace.json > /tmp/control-events.jsonl
-      - python3 tests/consumers/analysis_v3_consumer.py /tmp/control-analysis.json
-      - python3 tests/consumers/validate_protocols.py /tmp/control-analysis.json /tmp/control-trace.json examples/tool-unknown-name/tool.json
-      - python3 tests/consumers/trace_consumer.py /tmp/control-analysis.json /tmp/control-trace.json
-      - python3 tests/consumers/execution_events_consumer.py /tmp/control-events.jsonl
+      # Observation black-box contract: one real execution feeds the JSONL
+      # stream and the JSON snapshot, and an independent consumer validates both.
+      - ./target/debug/marqdo check tests/consumers/fixtures/observation/basic.mq.md --emit /tmp/analysis.json
+      - ./target/debug/marqdo run tests/consumers/fixtures/observation/basic.mq.md --output jsonl --observation-file /tmp/observation.json > /tmp/observation.jsonl
+      - python3 tests/consumers/analysis_consumer.py /tmp/analysis.json
+      - python3 tests/consumers/observation_consumer.py /tmp/observation.jsonl --validate-schema
+      - python3 tests/consumers/observation_consumer.py --snapshot /tmp/observation.json --analysis /tmp/analysis.json
+      - ./target/debug/marqdo check tests/conformance/semantics/85-nested-loop-control.mq.md --emit /tmp/control-analysis.json
+      - ./target/debug/marqdo run tests/conformance/semantics/85-nested-loop-control.mq.md --output jsonl --observation-file /tmp/control-observation.json > /tmp/control-events.jsonl
+      - python3 tests/consumers/validate_protocols.py /tmp/control-analysis.json /tmp/control-observation.json examples/tool-unknown-name/tool.json
+      - python3 tests/consumers/analysis_consumer.py /tmp/control-analysis.json --require-transfers
+      - python3 tests/consumers/observation_consumer.py --snapshot /tmp/control-observation.json --analysis /tmp/control-analysis.json
+      - python3 tests/consumers/observation_consumer.py /tmp/control-events.jsonl --analysis /tmp/control-analysis.json --validate-schema
+      - |
+        set -eu
+        python3 - <<'PY'
+        import json, pathlib
+        events = [json.loads(line) for line in pathlib.Path("/tmp/control-events.jsonl").read_bytes().splitlines()]
+        snapshot = json.loads(pathlib.Path("/tmp/control-observation.json").read_text())
+        assert snapshot["events"] == events, "stream and snapshot must be one event sequence"
+        PY
+      - |
+        set -eu
+        cp /tmp/control-analysis.json /tmp/analysis-stale.json
+        printf ' ' >> /tmp/analysis-stale.json
+        if python3 tests/consumers/observation_consumer.py /tmp/control-events.jsonl --analysis /tmp/analysis-stale.json; then
+          echo "stale Analysis was accepted" >&2
+          exit 1
+        fi
       - cargo test -p marqdo-cli --test docs_consistency
       - cargo test -p marqdo-cli --test architecture_boundaries
       - python3 -m unittest discover -s tools/ci -p "test_*.py"
