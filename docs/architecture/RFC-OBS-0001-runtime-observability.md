@@ -1,9 +1,9 @@
 # RFC-OBS-0001: Runtime observability and real-time execution events
 
-> **Status:** Accepted and implemented at the level recorded in
-> [`docs/STATUS.md`](../STATUS.md); this file is the frozen design input.
-> The normative protocol contract is
-> [`spec/execution-events-v1.md`](../../spec/execution-events-v1.md).
+> **Status:** Historical design input. [ADR-0068](../adr/0068-single-current-public-contracts.md)
+> replaced Execution Events v1 and Trace v2 with the single current
+> [Observation contract](../../spec/observation.md); the retired spec named
+> below exists only in Git history and in tagged archives.
 >
 > **Source:** issue `#1` of `cflmy/marqdo-cli`, filed 2026-11-22 against
 > `master@eeea01d672c07b6be7d6444031d1619309dc88ab`. It is reproduced here so

@@ -6,8 +6,9 @@
 - **Source SHA:** `1d3dca7c1832eb9468e96384d9805a3812a303e4` (post-beta tree;
   the tagged beta is `2c7c4f31e7a388d3fcfa717a77067e696ed13854` and does **not**
   contain this feature).
-- **Normative contract:** [`spec/execution-events-v1.md`](../../spec/execution-events-v1.md),
-  schema `spec/schemas/execution-events-v1.schema.json`, decision
+- **Normative contract at that time:** `spec/execution-events-v1.md` (retired
+  by [ADR-0068](../adr/0068-single-current-public-contracts.md); the current
+  contract is [`spec/observation.md`](../../spec/observation.md)), decision
   [ADR-0059](../adr/0059-runtime-observability-and-execution-events.md).
 
 This file records commands actually executed on Linux x86_64 with Rust

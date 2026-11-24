@@ -1,20 +1,27 @@
 # Changelog
 
-All notable changes to the Marqdo CLI workspace. Product version
-`3.0.0-beta.1` was tagged on 2026-11-22 at source
-`2c7c4f31e7a388d3fcfa717a77067e696ed13854`
-([release](https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-beta.1));
-the next section collects post-beta
-changes. Current protocol contracts are Analysis, Observation, CLI Tool,
+All notable changes to the Marqdo CLI workspace. Published prereleases:
+`3.0.0-beta.1` (2026-11-22, source
+`2c7c4f31e7a388d3fcfa717a77067e696ed13854`),
+`3.0.0-rc.1` (source `f7a5a7b0163bf5229ed09adfffd892f9899e6667`) and
+`3.0.0-rc.2` (source `9149ee40a48fcda692c5c112f66c465487d13dfb`); the next
+section collects changes for the current `3.0.0-rc.3` candidate. Current
+protocol contracts are Analysis v3, Observation v1, CLI Tool revision 1,
 Plugin ABI v1, Foreign wire v1, Provider manifest v2 and lock v4; independent
 package versions (including the bundled stdlib `0.1.0`) are versioned
 separately and do not follow the product version. Dates use ISO 8601.
+Older sections are release records: a retired option or spec they name is
+available at its tagged commit, not in the current tree.
 
 ## 3.0.0-rc.3 (candidate)
 
 - The Rust workspace, CLI version output and protocol producers report
   `3.0.0-rc.3`. The locked workspace requires Rust 1.89 and targets Linux
   x86_64 on glibc 2.39.
+- **Licensing:** the workspace is now Apache-2.0 only. `Cargo.toml` declares
+  `license = "Apache-2.0"` and the dual-licensed `LICENSE-MIT` file is removed;
+  the archive ships `LICENSE-APACHE` only. This is a repository-licensing
+  change, not a protocol or language change.
 
 ### Single current public contracts — issue #8 (breaking)
 
@@ -36,7 +43,9 @@ automatic migration.
   the same execution. `run_id`, `seq`, frame identity, terminal semantics,
   capture budgets and privacy rules are defined once in
   [`spec/observation.md`](spec/observation.md). The retired `--json`,
-  `--trace-file` and `--event-stream` options are rejected.
+  `--trace-file`, `--event-stream` and `--trace` options are rejected, and the
+  in-process effect-trace document is gone: effects are `effect` observation
+  events.
 - **CLI Tool requirements are single exact values.** `tool.json` declares
   `requires.api_revision` (required) plus optional exact `analysis` and
   `observation` integers. Version arrays and intersection negotiation are
@@ -53,7 +62,30 @@ automatic migration.
   explicit regeneration/reinstall instruction; no migrator runs.
 - **`spec/` now contains only current contracts.** Retired specifications are
   available in Git history and tagged archives. ADRs covering retired public
-  contracts carry a Historical header.
+  contracts carry a Historical header. `docs/developers/analysis-trace.md` was
+  replaced by `analysis-observation.md`.
+- **CI is a protocol consumer.** A fast `contract` lane builds both shipped
+  binaries and drives the real CLI through the independent Python consumers,
+  while the full `test` lane runs fmt/clippy/tests/docs/architecture gates.
+  `tools/ci/verify_observation_stream.py` (checked in, unit-tested) asserts
+  that one run's JSONL stream and JSON snapshot are the same event sequence.
+
+### Review fixes after the first candidate build
+
+- A rejected strict observation destination no longer emits a partial JSONL
+  stream: `--output jsonl` and `--observation-file` are refused before any
+  session opens.
+- `check --emit` removes a previous Analysis artifact when the project cannot
+  be loaded, not only when it has compile errors.
+- Filesystem resource requests report their concrete effect operation
+  (`fs.exists`, `fs.metadata`, `fs.list`, `fs.mkdir`, `fs.remove`,
+  `fs.rename`) instead of a generic `resource.request`.
+- The shared worker transport preserves the plugin ABI frame codes
+  `worker_frame_too_large` and `worker_encode_failed`.
+- The event and snapshot schemas agree on the capture `level` enum.
+- The G4 workload catalogue uses `run`/`call --output json` and pins the
+  current snapshot in its correctness digest; the previously retired `--json`
+  flag made every non-check workload fail correctness verification.
 
 Migration for consumers:
 
@@ -78,13 +110,15 @@ Migration for consumers:
 - `crates/cli/tests/architecture_boundaries.rs` forbids a second worker
   framing implementation and pins the workspace layer list;
   `docs_consistency` keeps one current overview and resolving links.
-- Same-SHA Linux CI [pipeline #70](https://ci.cflmy.cn/repos/1/pipeline/70)
-  passed all lanes, produced archive sha256
-  `d6ef6297a7ba5297af758a0b00da5c6e0f4b69f40363afc4ddc180654e70ac37`, passed
-  the from-archive smoke and the frozen external conformance suite 7/7 with
-  fixtures at `015ff8ac15417b7ebbdb31ce2be2dab5362a1eba`.
-- Publication still requires the RC strict-VM and G4 performance evidence
-  described in [`docs/releasing.md`](docs/releasing.md).
+- Same-SHA Linux CI, the deterministic archive build, the from-archive smoke,
+  the cold-install container check and the frozen external conformance suite
+  (fixtures at `015ff8ac15417b7ebbdb31ce2be2dab5362a1eba`) are recorded in the
+  per-gate evidence bound to the release SHA; see
+  [`docs/releasing.md`](docs/releasing.md) and [`docs/STATUS.md`](docs/STATUS.md).
+- The RC strict-L1 disposable-VM lane and the G4 shared-node comparison
+  (maintainer-approved `WARN` for this named RC, with the environment and
+  limits recorded in the release notes) complete the RC gate set; the archive
+  sha256 for the tagged SHA is published with the release assets.
 
 ## 3.0.0-rc.2 (candidate)
 

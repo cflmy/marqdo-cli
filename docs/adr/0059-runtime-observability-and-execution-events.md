@@ -6,9 +6,10 @@
 - **Status:** Accepted
 - **Date:** 2026-11-22
 - **Decision owners:** CLI, runtime and host maintainers
-- **Inputs:** [RFC-OBS-0001](../architecture/RFC-OBS-0001-runtime-observability.md)
-  (issue `#1` of `cflmy/marqdo-cli`), [Trace v2](../../spec/trace-v2.md),
-  [Analysis v2](../../spec/analysis-v2.md), [Tool Protocol v1](../../spec/tool-v1.md)
+- **Inputs:** RFC-OBS-0001 (issue `#1` of `cflmy/marqdo-cli`), Trace v2,
+  Analysis v2 and Tool Protocol v1. Those documents were retired in place by
+  [ADR-0068](0068-single-current-public-contracts.md) and are available at
+  their tagged commits, not in the current `spec/` tree.
 
 ## Context
 

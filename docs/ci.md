@@ -18,52 +18,55 @@ and the Windows cross-target compile check; `build` packages the archive, runs
 the from-archive smoke and the frozen external conformance suite.
 
 ```text
-contract:
+contract (rust:1.100-bookworm, python3-jsonschema, both shipped binaries):
   cargo build --locked -p marqdo-cli -p marqdo-provider-worker
   real CLI check/run over the Observation fixtures
   analysis_consumer / observation_consumer / validate_protocols
-  stream==snapshot assertion and stale-Analysis rejection
+  stream==snapshot assertion (tools/ci/verify_observation_stream.py)
+  stale-Analysis rejection
 
-test:
-  rustup component add clippy rustfmt
-  apt install curl/ca-certificates/python3/python3-jsonschema + Node.js 22
+test (rust:1.100-bookworm, clippy/rustfmt, Node.js 22, MinGW, both binaries):
   cargo fmt --all -- --check
   cargo clippy --workspace --all-targets -- -D warnings
-  cargo build --locked -p marqdo-cli -p marqdo-provider-worker
+  cargo build --locked -p marqdo-provider-worker
   cargo test --workspace --locked
-  check + run tests/consumers/fixtures/observation/basic.mq.md
-  analysis_consumer.py / observation_consumer.py (stream + snapshot)
-  check + run the nested-loop control-flow conformance fixture
-  validate_protocols.py / analysis_consumer.py --require-transfers
-  observation_consumer.py (stream, snapshot, stale-Analysis rejection)
-  stream JSONL == snapshot events (tools/ci/verify_observation_stream.py)
-  cargo test -p marqdo-cli --test docs_consistency
-  cargo test -p marqdo-cli --test architecture_boundaries
-  cargo test -p marqdo-cli --test stdlib_product
+  docs_consistency / architecture_boundaries / stdlib_product
   python3 -m unittest discover -s tools/ci -p "test_*.py"
   rustup target add x86_64-pc-windows-gnu
   cargo check --workspace --all-targets --target x86_64-pc-windows-gnu
 
-build (depends on test):
+minimum-rust (rust:1.89-bookworm):
+  cargo check --locked --workspace --all-targets
+
+build (depends on test, minimum-rust, contract):
   cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
-  package + cold-install smoke (current Analysis/Observation contracts)
+  package the deterministic archive for $CI_COMMIT_SHA
+  from-archive smoke (tools/release/smoke.py)
+  frozen external conformance (tools/ci/run_frozen_extensions.sh, 7/7)
 ```
+
+A separate manual workflow, [`.woodpecker/performance.yml`](../.woodpecker/performance.yml),
+builds the beta baseline and the candidate archive on the shared Woodpecker
+agent and records the nine G4 comparisons. Its reports stay `SMOKE`; only the
+maintainer-approved RC `WARN` exception can use them (see
+[`releasing.md`](releasing.md) and [`performance.md`](performance.md)).
 
 The pipeline is a protocol consumer itself: it must exercise only the current
 Analysis and Observation contracts. `docs_consistency::ci_configuration_uses_only_current_protocols`
-fails if a retired option or consumer name returns.
+fails if a retired option or consumer name returns, and
+`current_contract_documents_do_not_reference_retired_interfaces` extends the
+same rule to `spec/` and the current developer guides.
 
 Node.js 22 is required because the optional foreign-kernel tests use ES-module
 syntax; Debian bookworm's Node 18 fails those tests.
 
 > **Language contract note.** `cargo test --workspace` includes conformance
 > fixtures that execute `.mq.md` source under
-> [RFC-LANG-0002](architecture/RFC-LANG-0002-unified-semantics.md). The
-> implementation, stdlib digest and corpus are green at `ffd1cc9`; a red
+> [RFC-LANG-0002](architecture/RFC-LANG-0002-unified-semantics.md). A red
 > executable-source suite is a real regression, not an expected migration
 > state. Do not "fix" it by restoring the old mapper or regenerating goldens;
-> see [`STATUS.md`](STATUS.md). The pipeline definition itself
-> (fmt/clippy/test/build, security lane, platform gaps) is unchanged.
+> see [`STATUS.md`](STATUS.md). The lanes above are the current definition; it
+> changes only with this document.
 
 ## What this pipeline does not cover
 
