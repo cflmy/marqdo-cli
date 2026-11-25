@@ -137,7 +137,7 @@
         "relative_path": {
           "type": "string",
           "minLength": 1,
-          "pattern": "^(?!/)(?!.*::)(?!.*(^|/)\\.\\.?(/|$))(?![A-Za-z]:)(?!.*\\\\)(?!.*//).*$"
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$)).*$"
         },
         "source_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "source": {"type": "string"},
