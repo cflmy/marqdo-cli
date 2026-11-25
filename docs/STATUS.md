@@ -108,7 +108,9 @@ Local development-container performance against the rc.3 archive binary on a
 not a dedicated-node G4 result.
 
 Same-SHA CI ([pipeline #89](https://ci.cflmy.cn/repos/1/pipeline/89)) is PASS
-for `e0645f3` on all four lanes; its build lane packaged the archive, ran the
+for the candidate code SHA `e0645f3` on all four lanes, and the follow-up
+CI/tooling tree `b1fc211` is fully green in
+[pipeline #91](https://ci.cflmy.cn/repos/1/pipeline/91); its build lane packaged the archive, ran the
 archive smoke and the frozen extension suite 7/7. A local same-SHA archive
 passed smoke and the archive-only Ubuntu 24.04 cold-install container, and the
 frozen suite passed 7/7 from a clean worktree. The gate aggregate is
