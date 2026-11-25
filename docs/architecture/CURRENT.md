@@ -4,7 +4,7 @@ Status: **current architecture overview**. This file summarises the tree as it
 is today. It is not a release promise, does not reopen a frozen ADR, and does not
 replace `spec/` or a recorded test log.
 
-- Baseline: `2c7c4f31e7a388d3fcfa717a77067e696ed13854` (2026-11-22, tagged `v3.0.0-beta.1`; same-SHA evidence in `../STATUS.md` and `../evidence/ci/2c7c4f31e7a388d3fcfa717a77067e696ed13854/manifest.json`).
+- Baseline: `1e2a045cc78bf40972181abb44e7117c56cf4401` (2026-11-24, tagged `v3.0.0-rc.3`; same-SHA evidence in `../STATUS.md` and `../evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json`). The `3.0.0-rc.4` candidate state is recorded in `../STATUS.md` §0.10.
 - Normative behavior: `spec/`; frozen decisions: `docs/adr/`; executed evidence: `docs/STATUS.md` and `docs/evidence/`.
 - This is the **single current overview**. Do not add a second running "current state" file;
   update this file, `docs/STATUS.md` and an evidence file together.
@@ -58,10 +58,14 @@ replace `spec/` or a recorded test log.
 
 [ADR-0068](../adr/0068-single-current-public-contracts.md) records the policy
 for replacing public interfaces before the first stable release.
+[ADR-0069](../adr/0069-public-analysis-boundary.md) closes the public Analysis
+boundary: the projection carries the exact source, document AST, complete
+heading scope, entry/snapshot identity and one shared document-link resolver,
+and the retired program-only fields and duplicate resolver have no active path.
 
 | Boundary | Owner | Current contract |
 |---|---|---|
-| Static facts | CLI Analysis projection of the prepared project | [Analysis](../../spec/analysis.md) |
+| Static facts | CLI Analysis projection of the prepared project: source, document AST, heading scopes, entry/snapshot identity, calls, resources and one document-link resolver | [Analysis](../../spec/analysis.md), [Markdown profile](../../spec/markdown-profile.md), [References](../../spec/references.md) |
 | Runtime facts | Interpreter and Host observation sink | [Observation](../../spec/observation.md) |
 | Installed CLI commands | Generic Tool registry | [CLI Tool](../../spec/cli-tool.md) |
 | Runtime extensions | Plugin, Resource Provider and Foreign each enforce their own grants | [Plugin ABI](../../spec/plugin-abi.md), [Resource Provider](../../spec/resource-provider-v2.md), [Foreign](../../spec/foreign.md) |
@@ -183,7 +187,7 @@ review RFC, not a new crate per provider.
 | `resource.request` | the reviewed operation allowlist (`process.run`, `regex.*`, `compress.*`, `random.bytes`, `env.get`, `clock.now`, `fs.*`) in `docs/architecture/resource-operations.md`; project mode + grants, ADR-0062 | implemented; **new domain operations forbidden**; architecture gate pins the list | `resource_streams`, `architecture_boundaries::resource_request_operation_allowlist_is_reviewed` |
 | core resource kinds | one `marqdo_host::CORE_RESOURCE_KINDS` registry used by CLI manifest validation and every host registration API | implemented; all six core kinds rejected as provider name/kind before registration (H-04) | `resource_streams`, `provider_manifest::every_core_kind_is_rejected_as_name_and_as_kind` |
 | `math.*` domain API | removed after `3.0.0-beta.1`; call is `symbol.unknown`; `Formula` stays inert; external pure package + optional ABI backend; `math.compute` stays a plugin capability category (H-01/H-11) | **removed** from `BUILTINS`/`HostOp`/host/runtime/workspace; `examples/math-library/`, `examples/math-backend/` | `math_library`, `conformance_semantics`, `architecture_boundaries::domain_math_kernel_is_not_part_of_the_core` |
-| Heading modes / annotations | `@exec`/`@knowledge` are the closed Core Modes; unmarked headings inherit the nearest ancestor (H-06); third-party heading annotations are **Proposed** metadata only, Analysis v3 unchanged (H-05/H-07) | core mode: implemented; annotations: Proposed/not implemented, target `3.1.x` | `heading_inheritance`, `units`, negative `sem.invalid_mode_marker`; future T-ANNO in `spec/heading-annotations-v1.md` |
+| Heading modes / annotations | `@exec`/`@knowledge` are the closed Core Modes; unmarked headings inherit the nearest ancestor (H-06); the same index is exposed in Analysis with parent/mode-origin/full-range facts; third-party heading annotations are **Proposed** metadata only (H-05/H-07) | core mode and public scope facts: implemented; annotations: Proposed/not implemented, target `3.1.x` | `heading_inheritance`, `units`, `analysis_boundary`, negative `sem.invalid_mode_marker`; future T-ANNO in `spec/heading-annotations-v1.md` |
 | Foreign F-A | permission-gated one-shot `foreign.run`/`foreign.call` + dynamic `KernelRegistry`; F-B removal deferred (H-02) | retained; no new language-specific builtin/HostOp; existing grants/digest/timeout/wire/output negatives unchanged | `marqdo-foreign/tests/kernels`, `smoke.py` foreign/kernel cases, `examples/kernel-mock` |
 | `std:data/json` | `json.解析/解析多个/格式化`; nested Value, 128-depth bound, recoverable errors | implemented (recursive, multi-value; no streaming) | `stdlib_product` |
 | `std:data/csv` | `csv.解析行/解析/格式化行/格式化`; quoted single/multi-row, CRLF, quoted newlines | implemented (no streaming) | `stdlib_product` |
@@ -200,6 +204,7 @@ review RFC, not a new crate per provider.
 | HTTP/1.1 | `stdlib/net/http.mq.md`: status/header/chunked-byte parse, request build | implemented over an already-authorized TCP stream; not a DNS/TLS client | `stdlib_http`, `http_over_tcp`, `stdlib_product` |
 | print / official stdlib aliases | `打印`/`print` are verified `stdlib.json` public aliases bound to `io.mq.md::写值`; ordinary Marqdo calls, no `print_override`, no runtime branch, no `HostOp::Print` | implemented (ADR-0058) | `stdlib_alias_routing`, `print_routing`, `stdlib_product` |
 | callable resolution | one registry + one `bind_program_calls` pass; `check`/`run`/`inspect`/Analysis share `CallSiteKey` bindings; plugin exports reconcile exactly with static manifests; no runtime name fallback | implemented (ADR-0054) | `callable_resolution`, `plugin_worker`, `analysis_observation` |
+| document references | one pure `document_refs` resolver over an explicit catalog; Analysis uses the loaded catalog and never opens a link, `--refs` may verify direct local targets; states distinguish unloaded/missing/ambiguous/external/outside-scope/invalid | implemented (ADR-0069) | `analysis_boundary`, `document_refs` unit tests, `view_consumer`, `lint_consumer`, `knowledge_consumer` |
 | resource provider v2 CLI | `--provider`/`--allow-provider` select and authorize a `provider.json` schema-2 `c-abi-1` worker artifact; manifest/artifact/grants/duplicate kinds verified before spawn; sibling helper only | implemented linux/x86_64; other platforms fail closed (ADR-0055) | `provider_cli` |
 | capability handlers | trusted handler registry executes granted capabilities under budget/audit; missing handler is `capability.unavailable`; `fs.read` is the first real handler | implemented (ADR-0057) | `capability_handlers` |
 | strict mode | only the pure/Math execution path and the built-in stdout console channel; project/foreign/plugin/tool/trace/file/network grants are rejected | implemented L1; L2 not implemented | `tests/security`, `resource_streams`, `stdlib_product` |

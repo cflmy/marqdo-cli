@@ -119,6 +119,14 @@ fn source_digest(source: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
+/// `sha256:<hex>` of exact bytes, the wire form used by Analysis snapshots.
+fn bytes_digest(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("sha256:{}", hex::encode(hasher.finalize()))
+}
+
 /// A resolved source location inside a loaded file.
 pub struct LocatedSource<'a> {
     /// The owning file.
@@ -167,6 +175,13 @@ pub struct LoadedProject {
     pub manifest: Option<Manifest>,
     /// Verified lock file, when present (lock v4).
     pub lock: Option<LockFile>,
+    /// SHA-256 of the exact `marqdo.lock` bytes captured while loading, or an
+    /// empty string when the project has no lock. Analysis must never re-read
+    /// the file: a later edit cannot change the snapshot the program used.
+    pub lock_digest: String,
+    /// SHA-256 of the exact `marqdo.yaml` bytes captured while loading, or an
+    /// empty string when there is no manifest.
+    pub manifest_digest: String,
     /// Resolved `marqdo.yaml.extensions` activation sources (static paths only).
     pub extension_sources: Vec<marqdo_package::ResolvedExtension>,
 }
@@ -201,29 +216,6 @@ impl LoadedProject {
             column: position.column,
         })
     }
-
-    /// Resolve a physical path to its loaded or statically addressable module.
-    pub fn module_id_for_path(&self, path: &Path) -> Option<ModuleId> {
-        let canonical = path.canonicalize().ok()?;
-        let mut best: Option<(&String, &PathBuf)> = None;
-        for (instance, root) in &self.packages {
-            if canonical.starts_with(root)
-                && best
-                    .as_ref()
-                    .map(|(_, current)| root.components().count() > current.components().count())
-                    .unwrap_or(true)
-            {
-                best = Some((instance, root));
-            }
-        }
-        let (instance, root) = best?;
-        let relative = canonical.strip_prefix(root).ok()?;
-        let mut parts = Vec::new();
-        for component in relative.components() {
-            parts.push(component.as_os_str().to_string_lossy().to_string());
-        }
-        Some(ModuleId::new(instance.clone(), parts.join("/")))
-    }
 }
 
 struct Loader {
@@ -251,19 +243,32 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
             .map(|parent| parent.to_path_buf())
             .unwrap_or_else(|| PathBuf::from(".")),
     };
-    let manifest = if root.join(MANIFEST_FILE).is_file() {
-        Some(Manifest::load(&root.join(MANIFEST_FILE))?)
+    // Read each snapshot input exactly once. The digest recorded in Analysis
+    // is computed from these bytes, not from a second read after preparation.
+    let manifest_path = root.join(MANIFEST_FILE);
+    let (manifest, manifest_digest) = if manifest_path.is_file() {
+        let bytes = std::fs::read(&manifest_path)
+            .map_err(|error| format!("cannot read {MANIFEST_FILE}: {error}"))?;
+        let yaml = String::from_utf8(bytes.clone())
+            .map_err(|error| format!("{MANIFEST_FILE} is not valid UTF-8: {error}"))?;
+        let manifest =
+            Manifest::from_yaml(&yaml).map_err(|error| format!("{MANIFEST_FILE}: {error}"))?;
+        (Some(manifest), bytes_digest(&bytes))
     } else {
-        None
+        (None, String::new())
     };
-    let lock = if root.join(LOCK_FILE).is_file() {
-        let lock = LockFile::load(&root.join(LOCK_FILE))
-            .map_err(|error| format!("{LOCK_FILE}: {error}"))?;
+    let lock_path = root.join(LOCK_FILE);
+    let (lock, lock_digest) = if lock_path.is_file() {
+        let bytes = std::fs::read(&lock_path)
+            .map_err(|error| format!("cannot read {LOCK_FILE}: {error}"))?;
+        let yaml = String::from_utf8(bytes.clone())
+            .map_err(|error| format!("{LOCK_FILE} is not valid UTF-8: {error}"))?;
+        let lock = LockFile::from_yaml(&yaml).map_err(|error| format!("{LOCK_FILE}: {error}"))?;
         if let Some(manifest) = &manifest {
             lock.validate_root(manifest)
                 .map_err(|error| format!("{LOCK_FILE}: {error}"))?;
         }
-        Some(lock)
+        (Some(lock), bytes_digest(&bytes))
     } else {
         if manifest
             .as_ref()
@@ -275,7 +280,7 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
                     .to_string(),
             );
         }
-        None
+        (None, String::new())
     };
     let resolver = PackageResolver::new(root.clone(), manifest.clone(), lock.clone());
     let entry_module = resolver.resolve_entry(&entry)?;
@@ -326,6 +331,8 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
         official_aliases,
         manifest,
         lock,
+        lock_digest,
+        manifest_digest,
         extension_sources,
     })
 }
@@ -681,5 +688,48 @@ fn collect_identifiers_expr(expr: &Expr, names: &mut std::collections::BTreeSet<
             }
         }
         Expr::Int(_) | Expr::Float(_) | Expr::Text(_) | Expr::Bool(_) | Expr::None => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    static COUNTER: AtomicU32 = AtomicU32::new(0);
+
+    fn temp_project(files: &[(&str, &str)]) -> PathBuf {
+        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let root =
+            std::env::temp_dir().join(format!("marqdo-loader-test-{}-{id}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        for (name, source) in files {
+            std::fs::write(root.join(name), source).unwrap();
+        }
+        root
+    }
+
+    #[test]
+    fn project_snapshot_digests_are_captured_once() {
+        let root = temp_project(&[
+            ("marqdo.yaml", "project:\n  name: snap\n  version: 0.1.0\n"),
+            ("index.mq.md", "## @exec main\n\n`return 1`\n"),
+        ]);
+        let entry = root.join("index.mq.md");
+        let project = load(&entry).expect("load project");
+        let manifest_bytes = std::fs::read(root.join("marqdo.yaml")).unwrap();
+        assert_eq!(project.manifest_digest, bytes_digest(&manifest_bytes));
+        assert!(project.lock_digest.is_empty());
+
+        // The snapshot is what the program used; editing the manifest after
+        // loading cannot change the recorded digest.
+        std::fs::write(
+            root.join("marqdo.yaml"),
+            "project:\n  name: snap\n  version: 0.2.0\n",
+        )
+        .unwrap();
+        assert_eq!(project.manifest_digest, bytes_digest(&manifest_bytes));
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

@@ -1,0 +1,32 @@
+{
+  "schema": "marqdo.extension-evidence",
+  "schema_version": 1,
+  "tested_sha": "e0645f376b03e31e342a6d3fb749a335f0840d1b",
+  "cli_binary_sha256": "a7306962689c635445a59043971ea2eb09298e01feeee81f0ba07b1f3e10306e",
+  "fixture_repo_sha": "015ff8ac15417b7ebbdb31ce2be2dab5362a1eba",
+  "os": "linux",
+  "arch": "x86_64",
+  "results": {
+    "callable_registry": "PASS",
+    "plugin_worker": "PASS",
+    "foreign_kernel": "PASS",
+    "resource_provider_cli": "PASS",
+    "package_pinned_git": "PASS",
+    "tool_analysis_consumer": "PASS",
+    "negative_security": "PASS"
+  },
+  "commands": [
+    "python3 /tmp/tmp.4rCUTQwVeO/fixtures/tests/run_all.py (cwd=/tmp/tmp.4rCUTQwVeO/fixtures)"
+  ],
+  "failures": [],
+  "unverified": [],
+  "provider_worker_sha256": "2d32fcfa4c6a04cb784dcb77ea4fae76a3f181708d962bb6adf7512b994e64bf",
+  "reference_applications": {
+    "HTTP status, POST and bounded framing": "PASS",
+    "URL validation and denial before connect": "PASS",
+    "TLS with an explicit local trust root": "PASS",
+    "live SSE visibility and caller close": "PASS",
+    "socket read timeout and teardown": "PASS",
+    "agent tool authority and two-turn provenance": "PASS"
+  }
+}

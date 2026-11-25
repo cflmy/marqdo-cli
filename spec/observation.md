@@ -39,6 +39,10 @@ fields. Reject other format identifiers, unknown kinds and invalid payloads.
   SHA-256 over the file bytes, including formatting. Before highlighting a
   source span, validate the binding, module source digest and original UTF-8
   half-open byte range. A changed source or Analysis invalidates attribution.
+  The static options that change the projection include the entry, `--plugin`,
+  load/extension selection and diagnostics; a `--refs` check adds diagnostics
+  and therefore emits different bytes. Run/call never copy `source`, the
+  document AST or link targets into runtime events; they only bind the digest.
 - `call.enter` identifies the call instance and its parent. `call.exit`
   closes that same instance. Call carriers belong to the caller module.
   Parameter spans identify declarations in the called module.

@@ -1,15 +1,16 @@
 # Marqdo Implementation Status
 
-Snapshot: **2026-11-24**, product version **`3.0.0-rc.3`** (prerelease,
-released). Tag `v3.0.0-rc.3` at source SHA
+Snapshot: **2026-11-25**, product version **`3.0.0-rc.4`** (prerelease
+candidate). The previous release is `3.0.0-rc.3` at source SHA
 **`1e2a045cc78bf40972181abb44e7117c56cf4401`**; release:
-https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.3. The released
-platform is **Linux x86_64 (glibc 2.39)**. The same-SHA gate aggregate is
+https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.3. The supported
+platform is **Linux x86_64 (glibc 2.39)**. The rc.3 same-SHA gate aggregate is
 [`evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json`](evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json)
-(decision `RC_RELEASE_CANDIDATE`); binary hashes are in the archive's
-`RELEASE_INFO.json`. Previous prereleases: `3.0.0-rc.2` at
-`9149ee40a48fcda692c5c112f66c465487d13dfb` and `3.0.0-beta.1` at
-`2c7c4f31e7a388d3fcfa717a77067e696ed13854`. Do not copy a SHA from a plan.
+(decision `RC_RELEASE_CANDIDATE`); its binary hashes are in that archive's
+`RELEASE_INFO.json`, not in the rc.4 candidate. Previous prereleases:
+`3.0.0-rc.2` at `9149ee40a48fcda692c5c112f66c465487d13dfb` and
+`3.0.0-beta.1` at `2c7c4f31e7a388d3fcfa717a77067e696ed13854`. Do not copy a
+SHA from a plan.
 
 Current architecture overview:
 [`architecture/CURRENT.md`](architecture/CURRENT.md).
@@ -28,11 +29,13 @@ as current status.
 
 ## RC candidate
 
-The workspace reports `3.0.0-rc.3` and declares Rust 1.89 as its locked
+The workspace reports `3.0.0-rc.4` and declares Rust 1.89 as its locked
 minimum. Linux x86_64 on glibc 2.39 is the candidate platform. The
 [release procedure](releasing.md) requires a green manifest bound to the
-candidate SHA before publication. The release record below refers to the
-published beta.
+candidate SHA before publication. A candidate is not a release: it must not be
+tagged or announced until the same-SHA CI, archive-only cold install, frozen
+external conformance, strict VM and performance gates are executed for that
+SHA. The release records below refer to their tagged binaries.
 
 ## Current protocol integration
 
@@ -69,6 +72,52 @@ pre-stable contracts in one breaking integration, with no compatibility layer:
 The `spec/` tree contains only current contracts; retired specifications are in
 Git history and tagged archives. The earlier release records below describe
 their tagged binaries and are not current protocol claims.
+
+## 0.10 Closed public Analysis boundary — issue #10 (RC.4 candidate)
+
+The candidate replaces the program-only Analysis projection in place under
+[ADR-0069](adr/0069-public-analysis-boundary.md): exact source and document
+AST, complete heading scopes and anchors, entry/manifest/lock/stdlib/extension
+snapshot identity, one shared document-link resolver with explicit states,
+calls with target kind/owner/reason, and an owner-only atomic `--emit` writer.
+The retired duplicate resolver and the post-preparation lock re-read are gone.
+Local evidence and raw numbers:
+[`evidence/2026-11-25-rc.4-analysis-boundary.md`](evidence/2026-11-25-rc.4-analysis-boundary.md).
+
+Executed 2026-11-25 in the local Linux x86_64 development container
+(workspace `3.0.0-rc.4`, Rust 1.100.0):
+
+```text
+cargo fmt --all -- --check                              PASS
+cargo clippy --workspace --all-targets -- -D warnings   PASS
+cargo test --workspace --locked                         PASS
+cargo test -p marqdo-cli --test analysis_boundary       PASS
+cargo test -p marqdo-cli --test analysis_observation    PASS
+cargo test -p marqdo-cli --test integration_cli         PASS
+cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker PASS
+python3 tests/consumers/analysis_consumer.py <artifact> PASS
+python3 tests/consumers/validate_protocols.py <analysis> <observation> <tool> PASS
+python3 tests/consumers/view_consumer.py <artifact> PASS
+python3 tests/consumers/lint_consumer.py <artifact> PASS
+python3 tests/consumers/knowledge_consumer.py <artifact...> PASS
+```
+
+Local development-container performance against the rc.3 archive binary on a
+101-module fixture (p95 ratio, peak-RSS ratio): no-emit `0.999 / 1.001`,
+`--emit` `1.210 / 1.186`, `--refs` `1.145 / 1.093`. These are smoke numbers,
+not a dedicated-node G4 result.
+
+Same-SHA CI ([pipeline #89](https://ci.cflmy.cn/repos/1/pipeline/89)) is PASS
+for the candidate code SHA `e0645f3` on all four lanes, and the follow-up
+CI/tooling tree `b1fc211` is fully green in
+[pipeline #91](https://ci.cflmy.cn/repos/1/pipeline/91); its build lane packaged the archive, ran the
+archive smoke and the frozen extension suite 7/7. A local same-SHA archive
+passed smoke and the archive-only Ubuntu 24.04 cold-install container, and the
+frozen suite passed 7/7 from a clean worktree. The gate aggregate is
+[`evidence/ci/e0645f376b03e31e342a6d3fb749a335f0840d1b/manifest.json`](evidence/ci/e0645f376b03e31e342a6d3fb749a335f0840d1b/manifest.json)
+and decides `DO_NOT_RELEASE`: the RC profile still requires a same-SHA strict
+VM PASS and an approved G4 node result, neither of which is available here. The
+rc.3 rows below remain the last published release evidence.
 
 ## 0.9 Pre-stable protocol convergence — issue #8 (RC.3 candidate)
 

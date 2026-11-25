@@ -1,15 +1,15 @@
 # Quickstart: install and run
 
-Product: `3.0.0-rc.3` (Linux x86_64 candidate). Install a **release archive**, not
+Product: `3.0.0-rc.4` (Linux x86_64 candidate). Install a **release archive**, not
 a source checkout, when you only consume Marqdo.
 
 ## 1. Install the archive
 
 ```bash
-sha256sum -c marqdo-3.0.0-rc.3-x86_64-unknown-linux-gnu.tar.gz.sha256
-tar -xzf marqdo-3.0.0-rc.3-x86_64-unknown-linux-gnu.tar.gz
-cd marqdo-3.0.0-rc.3-x86_64-unknown-linux-gnu
-./marqdo --version            # marqdo 3.0.0-rc.3
+sha256sum -c marqdo-3.0.0-rc.4-x86_64-unknown-linux-gnu.tar.gz.sha256
+tar -xzf marqdo-3.0.0-rc.4-x86_64-unknown-linux-gnu.tar.gz
+cd marqdo-3.0.0-rc.4-x86_64-unknown-linux-gnu
+./marqdo --version            # marqdo 3.0.0-rc.4
 ./marqdo --help
 ```
 

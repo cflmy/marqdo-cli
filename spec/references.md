@@ -16,7 +16,7 @@ Normative implementation:
 | Resource collection and attribution | `crates/marqdo-frontend/src/resources.rs` |
 | Executable payload → statement mapping | `crates/marqdo-frontend/src/map.rs` |
 | `ref(...)` runtime resolution | `crates/marqdo-runtime/src/builtins_impl.rs` |
-| Static link graph (`inspect --refs`) | `crates/cli/src/commands.rs` |
+| Static link graph (Analysis `references`, `check --refs`, `inspect --refs`) | `crates/cli/src/document_refs.rs` |
 | Cross-module call validation | `crates/marqdo-frontend/src/calls.rs` |
 
 This file complements [`mapping.md`](mapping.md) (AST roles) and
@@ -89,7 +89,10 @@ pub struct UnitId { pub module: ModuleId, pub path: Vec<String> }
   normalization. `## @exec main` has the semantic name `main`; the declaration
   is never part of a `UnitId`, `FunctionId` or anchor.
 * `Display` renders `<module>#<path joined by '/'>`; the root unit renders as
-  `<module>#`.
+  `<module>#`. A path segment escapes `%`, `/` and `#` as `%25`, `%2F` and
+  `%23`, so a single segment named `a/b` cannot collide with the two-level path
+  `a` -> `b`. Consumers must use the structured `UnitId.path` exposed by
+  Analysis and must never split a display id to recover hierarchy.
 * `UnitKind` is `root`, `namespace` (`#`), `function` (`##` Exec) or `section`
   (`###`+). A Knowledge H2 is an addressable knowledge unit, not a `function`.
   Sections are addressable but not callable.
@@ -124,6 +127,15 @@ to units (`crates/marqdo-frontend/src/units.rs::github_slug`):
 * anchors exist for navigation and `ref("#...")`; they are **not** identity.
   Internal ids stay canonical, so a heading rename is a link-breaking change
   but never changes the canonical unit path.
+
+## 2.5 One document-link resolver
+
+Analysis `references`, `check --refs` and `inspect --refs` use one pure
+resolver over an explicit catalog (`spec/analysis.md` §5). It never loads a
+module, binds a call or accesses the network. Ordinary Analysis uses only the
+loaded modules; the `--refs` checks may add directly referenced local files to
+a separate catalog for existence/anchor verification. The retired
+`commands.rs::resolve_link` algorithm does not exist.
 
 ## 3. Front matter imports
 

@@ -46,13 +46,20 @@ pub fn inspect(file: Option<&Path>, flags: &InspectFlags, json: bool, plugins: &
         if flags.ast {
             object.insert(
                 "ast".into(),
-                serde_json::to_value(&entry.analysis.document.root).unwrap_or_default(),
+                crate::analysis::document_projection(
+                    &entry.analysis.document.root,
+                    entry.source.len(),
+                ),
             );
         }
         if flags.units {
             object.insert(
                 "units".into(),
-                serde_json::to_value(&entry.analysis.units.units).unwrap_or_default(),
+                serde_json::to_value(crate::analysis::units_projection(
+                    &entry.analysis.units,
+                    entry.source.len(),
+                ))
+                .unwrap_or_default(),
             );
         }
         if flags.signature {
@@ -65,7 +72,9 @@ pub fn inspect(file: Option<&Path>, flags: &InspectFlags, json: bool, plugins: &
             );
         }
         if flags.refs {
-            object.insert("refs".into(), json!(refs_json(project)));
+            let (references, issues) = refs_json(&prepared, &entry.module_id);
+            object.insert("refs".into(), references);
+            object.insert("reference_issues".into(), issues);
         }
         if flags.platform {
             object.insert(
@@ -106,13 +115,21 @@ pub fn inspect(file: Option<&Path>, flags: &InspectFlags, json: bool, plugins: &
     if flags.ast {
         println!(
             "{}",
-            serde_json::to_string_pretty(&entry.analysis.document.root).unwrap_or_default()
+            serde_json::to_string_pretty(&crate::analysis::document_projection(
+                &entry.analysis.document.root,
+                entry.source.len()
+            ))
+            .unwrap_or_default()
         );
     }
     if flags.units {
         println!(
             "{}",
-            serde_json::to_string_pretty(&entry.analysis.units.units).unwrap_or_default()
+            serde_json::to_string_pretty(&crate::analysis::units_projection(
+                &entry.analysis.units,
+                entry.source.len()
+            ))
+            .unwrap_or_default()
         );
     }
     if flags.signature {
@@ -128,9 +145,14 @@ pub fn inspect(file: Option<&Path>, flags: &InspectFlags, json: bool, plugins: &
         );
     }
     if flags.refs {
+        let (references, issues) = refs_json(&prepared, &entry.module_id);
         println!(
             "{}",
-            serde_json::to_string_pretty(&refs_json(project)).unwrap_or_default()
+            serde_json::to_string_pretty(&json!({
+                "refs": references,
+                "reference_issues": issues,
+            }))
+            .unwrap_or_default()
         );
     }
     if flags.platform {
@@ -147,6 +169,41 @@ pub fn inspect(file: Option<&Path>, flags: &InspectFlags, json: bool, plugins: &
         );
     }
     0
+}
+
+/// Resolve the entry module's links through the one document resolver and the
+/// explicit `--refs` catalog. `inspect` never executes a target.
+fn refs_json(
+    prepared: &crate::project_prepare::PreparedProgram,
+    entry: &marqdo_ir::ModuleId,
+) -> (serde_json::Value, serde_json::Value) {
+    let report = crate::document_refs::references_for_project(
+        &prepared.loaded,
+        crate::document_refs::ReferenceMode::VerifyLocal,
+    );
+    let references: Vec<crate::analysis::ReferenceRecord> = report
+        .by_module
+        .get(entry)
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .map(crate::analysis::reference_projection)
+        .collect();
+    let references = serde_json::to_value(references).unwrap_or_default();
+    let issues = report
+        .issues
+        .iter()
+        .filter(|issue| &issue.module == entry)
+        .map(|issue| {
+            json!({
+                "code": issue.diagnostic.code,
+                "severity": if issue.diagnostic.is_error() { "error" } else { "warning" },
+                "span": issue.diagnostic.span.map(|span| json!({"start": span.start, "end": span.end})),
+                "message": issue.diagnostic.message,
+            })
+        })
+        .collect::<Vec<_>>();
+    (references, serde_json::Value::Array(issues))
 }
 
 /// Static extension identity projection for `inspect --extensions`.

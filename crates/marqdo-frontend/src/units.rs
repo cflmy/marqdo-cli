@@ -39,6 +39,16 @@ pub struct HeadingInfo {
     pub kind: UnitKind,
     /// Semantic mode declared or inherited by this heading.
     pub mode: SemanticMode,
+    /// How the effective mode was established.
+    pub mode_origin: ModeOrigin,
+    /// Unit that provided the effective mode (this unit, an explicit ancestor,
+    /// or the document root).
+    pub mode_source_unit_id: UnitId,
+    /// Nearest real ancestor unit (the root for a top-level heading).
+    pub parent_id: UnitId,
+    /// Complete section range: this heading through the next same-or-higher
+    /// heading, or the end of the source. It includes child headings.
+    pub full_span: Span,
 }
 
 /// A function range mapped from a level-2 heading.
@@ -95,6 +105,38 @@ impl UnitIndex {
             .iter()
             .find(|f| block_index >= f.body_start && block_index < f.body_end)
     }
+
+    /// Complete public range of one unit: the whole source for the root, the
+    /// heading-through-next-same-or-higher-heading range otherwise.
+    pub fn unit_range(&self, id: &UnitId) -> Option<Span> {
+        if id.path.is_empty() {
+            return self
+                .units
+                .iter()
+                .find(|unit| unit.id.path.is_empty())
+                .map(|unit| unit.span);
+        }
+        self.headings
+            .iter()
+            .find(|heading| heading.path == id.path)
+            .map(|heading| heading.full_span)
+    }
+
+    /// Innermost unit whose complete range contains `span`.
+    ///
+    /// Used for document links: the root covers the whole source, so a linked
+    /// span always has an owner. Ties prefer the deeper path, then the later
+    /// start (a child cannot be larger than its parent).
+    pub fn unit_containing_span(&self, span: Span) -> Option<UnitId> {
+        self.units
+            .iter()
+            .filter_map(|unit| {
+                let range = self.unit_range(&unit.id)?;
+                (range.start <= span.start && span.end <= range.end).then_some((unit, range))
+            })
+            .max_by_key(|(unit, range)| (unit.id.path.len(), range.start))
+            .map(|(unit, _)| unit.id.clone())
+    }
 }
 
 fn has_payload(node: &MdNode) -> bool {
@@ -114,6 +156,28 @@ pub enum SemanticMode {
     Knowledge,
     /// Executable region; only an Exec H2 is callable.
     Exec,
+}
+
+/// How a heading's effective mode was established.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModeOrigin {
+    /// The document root is Knowledge by default.
+    Default,
+    /// The ATX heading declares `@exec` or `@knowledge`.
+    Explicit,
+    /// The heading inherits the mode of an ancestor or the root.
+    Inherited,
+}
+
+impl ModeOrigin {
+    /// Stable public name used by Analysis.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ModeOrigin::Default => "default",
+            ModeOrigin::Explicit => "explicit",
+            ModeOrigin::Inherited => "inherited",
+        }
+    }
 }
 
 fn heading_declaration(
@@ -184,20 +248,22 @@ fn heading_declaration(
 /// Build the heading/function index for a parsed document.
 pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
     let mut index = UnitIndex::default();
+    let root_id = UnitId {
+        module: module.clone(),
+        path: Vec::new(),
+    };
     index.units.push(UnitInfo {
-        id: UnitId {
-            module: module.clone(),
-            path: Vec::new(),
-        },
+        id: root_id.clone(),
         level: 0,
         name: String::new(),
-        span: doc.root.span,
+        // The root covers the whole source, including a tolerated UTF-8 BOM.
+        span: Span::new(0, doc.source.len()),
         kind: UnitKind::Root,
         function: None,
     });
 
-    // Stack of (level, path, mode) for ancestors.
-    let mut stack: Vec<(u8, Vec<String>, SemanticMode)> = Vec::new();
+    // Stack of (level, path, mode, mode_source_unit_id) for ancestors.
+    let mut stack: Vec<(u8, Vec<String>, SemanticMode, UnitId)> = Vec::new();
     let mut seen: BTreeMap<(Vec<String>, String), Span> = BTreeMap::new();
     let mut current_namespace: Option<String> = None;
     let mut current_function: Option<FunctionId> = None;
@@ -224,7 +290,7 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
         // Resolve the ancestor scope before deriving the mode: remove every
         // same-or-higher-level heading first so a heading can only inherit from
         // its nearest *ancestor*, never from the previous sibling.
-        while let Some((parent_level, _, _)) = stack.last() {
+        while let Some((parent_level, _, _, _)) = stack.last() {
             if *parent_level >= level {
                 stack.pop();
             } else {
@@ -233,8 +299,12 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
         }
         let inherited = stack
             .last()
-            .map(|(_, _, mode)| *mode)
+            .map(|(_, _, mode, _)| *mode)
             .unwrap_or(SemanticMode::Knowledge);
+        let inherited_source = stack
+            .last()
+            .map(|(_, _, _, source)| source.clone())
+            .unwrap_or_else(|| root_id.clone());
         let mode = declared.unwrap_or(inherited);
         let raw_name = match declared_name {
             Some(name) => name,
@@ -254,12 +324,24 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
 
         let parent_path = stack
             .last()
-            .map(|(_, path, _)| path.clone())
+            .map(|(_, path, _, _)| path.clone())
             .unwrap_or_default();
+        let parent_id = UnitId {
+            module: module.clone(),
+            path: parent_path.clone(),
+        };
         let path = {
             let mut path = parent_path.clone();
             path.push(name.clone());
             path
+        };
+        let unit_id = UnitId {
+            module: module.clone(),
+            path: path.clone(),
+        };
+        let (mode_origin, mode_source_unit_id) = match declared {
+            Some(_) => (ModeOrigin::Explicit, unit_id.clone()),
+            None => (ModeOrigin::Inherited, inherited_source),
         };
 
         let key = (parent_path.clone(), name.clone());
@@ -304,6 +386,27 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
                 Some(namespace) => format!("{namespace}.{local}"),
                 None => local.clone(),
             };
+            // `.` separates namespace from local name in a FunctionId. A
+            // component that itself contains `.` would make two different
+            // definitions render the same public id; reject it explicitly
+            // instead of silently producing a non-injective identity.
+            let ambiguous = local.contains('.')
+                || current_namespace
+                    .as_deref()
+                    .map(|namespace| namespace.contains('.'))
+                    .unwrap_or(false);
+            if ambiguous {
+                index.diagnostics.push(
+                    Diagnostic::error(
+                        codes::SEM_AMBIGUOUS_IDENTITY,
+                        Some(child.span),
+                        "function or namespace name contains `.`, which is the namespace separator; the public function id would be ambiguous",
+                    )
+                    .with_hint(
+                        "rename the namespace or function so it does not contain a dot",
+                    ),
+                );
+            }
             let id = FunctionId {
                 module: module.clone(),
                 name: qualified,
@@ -327,10 +430,12 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
             path: path.clone(),
             kind,
             mode,
-        };
-        let unit_id = UnitId {
-            module: module.clone(),
-            path,
+            mode_origin,
+            mode_source_unit_id,
+            parent_id,
+            // Filled after all headings are known (the end is the next
+            // same-or-higher heading or EOF).
+            full_span: child.span,
         };
         index.units.push(UnitInfo {
             id: unit_id,
@@ -361,7 +466,26 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
             }
         }
         heading_infos.push(info.clone());
-        stack.push((level, info.path.clone(), mode));
+        stack.push((
+            level,
+            info.path.clone(),
+            mode,
+            info.mode_source_unit_id.clone(),
+        ));
+    }
+
+    // Complete section ranges: from this heading to the next heading of the
+    // same or a higher level, or EOF. Child headings are included.
+    let total = doc.source.len();
+    for position in 0..heading_infos.len() {
+        let level = heading_infos[position].level;
+        let start = heading_infos[position].span.start;
+        let end = heading_infos[position + 1..]
+            .iter()
+            .find(|candidate| candidate.level <= level)
+            .map(|candidate| candidate.span.start)
+            .unwrap_or(total);
+        heading_infos[position].full_span = Span::new(start, end.max(start));
     }
 
     // Function body ranges and spans.
@@ -622,6 +746,117 @@ mod tests {
             .expect("valid sibling heading");
         assert_eq!(normal.mode, SemanticMode::Knowledge);
         assert_eq!(normal.kind, UnitKind::Knowledge);
+    }
+
+    #[test]
+    fn full_spans_cover_sections_and_parent_edges_form_a_tree() {
+        let source = "# @knowledge 力学\n\n## @exec 计算力\n\n`return 1`\n\n### 细节\n\n正文\n\n## 说明\n\n结尾\n";
+        let index = index_of(source);
+        let by_name = |name: &str| {
+            index
+                .headings
+                .iter()
+                .find(|heading| heading.name == name)
+                .unwrap_or_else(|| panic!("missing heading {name}"))
+        };
+        let calc = by_name("计算力");
+        let detail = by_name("细节");
+        let note = by_name("说明");
+        // The function range includes its H3 child but not the next H2.
+        assert_eq!(calc.full_span.start, calc.span.start);
+        assert!(calc.full_span.end > detail.span.start);
+        assert_eq!(calc.full_span.end, note.span.start);
+        assert_eq!(detail.full_span.end, note.span.start);
+        assert_eq!(note.full_span.end, source.len());
+        assert_eq!(
+            detail.parent_id.path,
+            vec!["力学".to_string(), "计算力".to_string()]
+        );
+        assert_eq!(calc.parent_id.path, vec!["力学".to_string()]);
+        let root = &index.units[0];
+        assert_eq!(root.span, marqdo_span::Span::new(0, source.len()));
+        assert_eq!(
+            calc.parent_id,
+            index
+                .units
+                .iter()
+                .find(|u| u.name == "力学")
+                .unwrap()
+                .id
+                .clone()
+        );
+        assert_eq!(by_name("力学").parent_id, root.id);
+    }
+
+    #[test]
+    fn mode_origin_and_source_are_explicit() {
+        let index = index_of(
+            "# @knowledge 数学\n\n## @exec 计算\n\n### 细节\n\n`return 1`\n\n## 说明\n\n正文\n",
+        );
+        let by_name = |name: &str| {
+            index
+                .headings
+                .iter()
+                .find(|heading| heading.name == name)
+                .unwrap_or_else(|| panic!("missing heading {name}"))
+        };
+        let namespace = by_name("数学");
+        assert_eq!(namespace.mode_origin, ModeOrigin::Explicit);
+        assert_eq!(
+            namespace.mode_source_unit_id,
+            namespace_unit(&index, "数学")
+        );
+        let calc = by_name("计算");
+        assert_eq!(calc.mode_origin, ModeOrigin::Explicit);
+        assert_eq!(
+            calc.mode_source_unit_id.path,
+            vec!["数学".to_string(), "计算".to_string()]
+        );
+        let detail = by_name("细节");
+        assert_eq!(detail.mode_origin, ModeOrigin::Inherited);
+        assert_eq!(
+            detail.mode_source_unit_id.path,
+            calc.mode_source_unit_id.path
+        );
+        let note = by_name("说明");
+        assert_eq!(note.mode_origin, ModeOrigin::Inherited);
+        assert_eq!(note.mode_source_unit_id.path, vec!["数学".to_string()]);
+    }
+
+    fn namespace_unit(index: &UnitIndex, name: &str) -> UnitId {
+        index
+            .units
+            .iter()
+            .find(|unit| unit.name == name)
+            .map(|unit| unit.id.clone())
+            .expect("namespace unit")
+    }
+
+    #[test]
+    fn a_dot_in_a_function_component_is_rejected_as_an_ambiguous_identity() {
+        let index = index_of("# @knowledge a.b\n\n## @exec f\n\n`return 1`\n");
+        assert!(index
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "sem.ambiguous_identity"));
+        let index = index_of("## @exec a.b\n\n`return 1`\n");
+        assert!(index
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "sem.ambiguous_identity"));
+    }
+
+    #[test]
+    fn innermost_unit_owns_a_linked_span() {
+        let source = "前置说明。\n\n# @knowledge 数学\n\n## @exec 计算\n\n见[链接](#细节)。\n\n### 细节\n\n`return 1`\n";
+        let index = index_of(source);
+        let link_start = source.find("[链接]").unwrap();
+        let owner = index
+            .unit_containing_span(Span::new(link_start, link_start + 2))
+            .expect("owning unit");
+        assert_eq!(owner.path, vec!["数学".to_string(), "计算".to_string()]);
+        let root = index.unit_containing_span(Span::new(0, 1)).expect("root");
+        assert!(root.path.is_empty());
     }
 
     #[test]

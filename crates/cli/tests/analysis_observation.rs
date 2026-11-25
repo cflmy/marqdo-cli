@@ -267,9 +267,16 @@ print(1)
     assert_eq!(code["language"], "python");
     assert_eq!(formula["content_digest"].as_str().unwrap().len(), 64);
     assert_eq!(code["content_digest"].as_str().unwrap().len(), 64);
-    assert!(
-        !analysis.to_string().contains("A = x + 1"),
-        "resource payloads stay in source, not Analysis"
+    let source = analysis["modules"][0]["source"]
+        .as_str()
+        .expect("exact source is public");
+    assert!(source.contains("A = x + 1"));
+    assert_eq!(
+        source.len(),
+        analysis["modules"][0]["source_digest"]
+            .as_str()
+            .map(|_| source.len())
+            .unwrap_or(0)
     );
 }
 

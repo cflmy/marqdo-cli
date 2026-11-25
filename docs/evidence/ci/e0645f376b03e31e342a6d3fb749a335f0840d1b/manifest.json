@@ -1,0 +1,61 @@
+{
+  "schema": "marqdo.release-gates.v1",
+  "profile": "rc",
+  "target_sha": "e0645f376b03e31e342a6d3fb749a335f0840d1b",
+  "recorded_utc": "2026-11-25T03:46:11Z",
+  "gates": {
+    "linux": {
+      "state": "PASS",
+      "tested_sha": "e0645f376b03e31e342a6d3fb749a335f0840d1b",
+      "run_url": "https://ci.cflmy.cn/repos/1/pipeline/89",
+      "recorded_utc": "2026-11-25T03:46:11Z"
+    },
+    "extension": {
+      "state": "PASS",
+      "tested_sha": "e0645f376b03e31e342a6d3fb749a335f0840d1b",
+      "run_url": "docs/evidence/2026-11-25-rc.4-extension-manifest.json",
+      "recorded_utc": "2026-11-25T03:46:11Z"
+    },
+    "clean_install": {
+      "state": "PASS",
+      "tested_sha": "e0645f376b03e31e342a6d3fb749a335f0840d1b",
+      "run_url": "docs/evidence/2026-11-25-rc.4-cold-install.log",
+      "recorded_utc": "2026-11-25T03:46:11Z"
+    },
+    "version_compat": {
+      "state": "PASS",
+      "tested_sha": "e0645f376b03e31e342a6d3fb749a335f0840d1b",
+      "run_url": "https://ci.cflmy.cn/repos/1/pipeline/89",
+      "recorded_utc": "2026-11-25T03:46:11Z"
+    },
+    "windows": {
+      "state": "UNSUPPORTED",
+      "tested_sha": "e0645f376b03e31e342a6d3fb749a335f0840d1b",
+      "run_url": "COMPATIBILITY.md",
+      "recorded_utc": "2026-11-25T03:46:11Z"
+    },
+    "macos": {
+      "state": "UNSUPPORTED",
+      "tested_sha": "e0645f376b03e31e342a6d3fb749a335f0840d1b",
+      "run_url": "COMPATIBILITY.md",
+      "recorded_utc": "2026-11-25T03:46:11Z"
+    },
+    "performance": {
+      "state": "WARN",
+      "tested_sha": "e0645f376b03e31e342a6d3fb749a335f0840d1b",
+      "run_url": "docs/evidence/2026-11-25-rc.4-analysis-boundary.md",
+      "recorded_utc": "2026-11-25T03:46:11Z"
+    },
+    "strict_vm": {
+      "state": "UNVERIFIED",
+      "tested_sha": "e0645f376b03e31e342a6d3fb749a335f0840d1b",
+      "run_url": "docs/security-vm.md",
+      "recorded_utc": "2026-11-25T03:46:11Z"
+    }
+  },
+  "release_decision": "DO_NOT_RELEASE",
+  "reasons": [
+    "strict_vm: UNVERIFIED is not accepted; expected PASS",
+    "performance: WARN is not accepted; expected PASS"
+  ]
+}

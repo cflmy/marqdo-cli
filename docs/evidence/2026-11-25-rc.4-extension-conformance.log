@@ -1,0 +1,43 @@
+From https://git.cflmy.cn/cflmy/marqdo-extension-conformance
+ * branch            015ff8ac15417b7ebbdb31ce2be2dab5362a1eba -> FETCH_HEAD
+frozen CLI: /tmp/tmp.4rCUTQwVeO/install/marqdo-3.0.0-rc.4-x86_64-unknown-linux-gnu/marqdo sha256 a7306962689c635445a59043971ea2eb09298e01feeee81f0ba07b1f3e10306e
+[PASS] plugin_worker: plugin check is static and succeeds
+[PASS] plugin_worker: worker plugin executes three exports
+[PASS] callable_registry: missing plugin export is symbol.unknown
+[PASS] callable_registry: bad plugin args fail statically
+[PASS] negative_security: plugin without grant is permission.denied
+[PASS] negative_security: tampered plugin artifact fails before main
+[PASS] negative_security: check does not require the plugin artifact to exist
+[PASS] foreign_kernel: unknown language mocklang executes
+[PASS] negative_security: foreign kernel without grant is denied
+[PASS] resource_provider_cli: provider v2 reads five bytes through the CLI
+[PASS] negative_security: provider without grant is denied
+[PASS] negative_security: provider v1 schema is rejected without migration
+[PASS] negative_security: provider artifact digest tamper is rejected
+[PASS] negative_security: pure and strict modes reject provider flags
+[PASS] negative_security: strict mode rejects provider flags
+[PASS] tool_analysis_consumer: independent tool consumes the current Analysis
+[PASS] tool_analysis_consumer: registered tool command dispatches
+[PASS] negative_security: tool install rejects unknown entrypoint traversal
+[PASS] tool_analysis_consumer: tool remove unregisters
+[PASS] package_pinned_git: pinned Git .mq.md library runs from a separate repo
+[PASS] package_pinned_git: consumer runs the pinned dependency
+[PASS] package_pinned_git: verified cache still runs after moving the checkout and deleting the source
+[PASS] reference_applications: HTTP status, POST and bounded framing
+[PASS] reference_applications: URL validation and denial before connect
+[PASS] reference_applications: TLS with an explicit local trust root
+[PASS] reference_applications: live SSE visibility and caller close
+[PASS] reference_applications: socket read timeout and teardown
+[PASS] reference_applications: agent tool authority and two-turn provenance
+[PASS] negative_security: frozen CLI binary did not change
+[PASS] negative_security: frozen provider worker did not change
+{
+  "callable_registry": "PASS",
+  "plugin_worker": "PASS",
+  "foreign_kernel": "PASS",
+  "resource_provider_cli": "PASS",
+  "package_pinned_git": "PASS",
+  "tool_analysis_consumer": "PASS",
+  "negative_security": "PASS"
+}
+wrote extension evidence: /root/work/marqdo-cli/docs/evidence/2026-11-25-rc.4-extension-manifest.json

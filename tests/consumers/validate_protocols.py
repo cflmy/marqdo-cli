@@ -11,6 +11,9 @@ import sys
 
 from jsonschema import Draft202012Validator
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from analysis_consumer import InvalidAnalysis, validate as validate_analysis
+
 try:
     # jsonschema >= 4.18 resolves the external event schema through
     # `referencing`. The CI image may ship an older jsonschema, so keep the
@@ -62,6 +65,29 @@ def require_invalid(schema_name, document, label):
         raise SystemExit(f"{label}: expected schema validation to fail")
 
 
+def semantic_error(document):
+    try:
+        validate_analysis(document)
+    except InvalidAnalysis as error:
+        return str(error)
+    return None
+
+
+def require_rejected(schema_name, document, label):
+    """A mutation must be rejected by the schema or the semantic validator."""
+    schema_errors = list(validator(load_schema(schema_name)).iter_errors(document))
+    error = semantic_error(document)
+    if not schema_errors and error is None:
+        raise SystemExit(f"{label}: expected schema or semantic validation to fail")
+
+
+def drop(document, path):
+    parent = document
+    for key in path[:-1]:
+        parent = parent[key]
+    del parent[path[-1]]
+
+
 def main():
     if len(sys.argv) != 4:
         raise SystemExit(
@@ -74,8 +100,37 @@ def main():
 
     analysis_schema = "analysis.schema.json"
     require_valid(analysis_schema, analysis, "analysis")
+    error = semantic_error(analysis)
+    if error is not None:
+        raise SystemExit(f"analysis: semantic validation failed: {error}")
     require_valid("observation-file.schema.json", observation, "observation")
     require_valid("cli-tool.schema.json", tool, "tool")
+
+    # V01: every newly required field is load-bearing. Removing it must be
+    # rejected by the current schema or the semantic validator; an old
+    # same-revision artifact is not accepted.
+    required_paths = [
+        ["project", "entry_module_id"],
+        ["project", "manifest_digest"],
+        ["project", "extensions"],
+        ["modules", 0, "source"],
+        ["modules", 0, "document"],
+        ["modules", 0, "anchors"],
+        ["modules", 0, "units", 0, "path"],
+        ["modules", 0, "units", 0, "parent_id"],
+        ["modules", 0, "units", 0, "mode_origin"],
+        ["modules", 0, "units", 0, "mode_source_unit_id"],
+        ["modules", 0, "units", 0, "heading_span"],
+        ["modules", 0, "units", 0, "span"],
+        ["modules", 0, "functions"],
+        ["modules", 0, "references"],
+        ["modules", 0, "calls"],
+        ["modules", 0, "resources"],
+    ]
+    for path in required_paths:
+        bad = copy.deepcopy(analysis)
+        drop(bad, path)
+        require_rejected(analysis_schema, bad, "analysis missing " + "/".join(map(str, path)))
 
     # Negative mutations: structure, version and traversal must fail closed.
     bad = copy.deepcopy(analysis)
@@ -89,6 +144,81 @@ def main():
     bad = copy.deepcopy(analysis)
     bad["modules"][0]["resources"] = 3
     require_invalid(analysis_schema, bad, "analysis resources integer")
+
+    # V02/V03: tampered digests and spans must never be accepted.
+    bad = copy.deepcopy(analysis)
+    bad["modules"][0]["source"] = bad["modules"][0]["source"] + "x"
+    require_rejected(analysis_schema, bad, "analysis tampered source")
+
+    bad = copy.deepcopy(analysis)
+    bad["modules"][0]["source_digest"] = "0" * 64
+    require_rejected(analysis_schema, bad, "analysis tampered source digest")
+
+    bad = copy.deepcopy(analysis)
+    bad["modules"][0]["document"]["span"]["end"] = 10**12
+    require_rejected(analysis_schema, bad, "analysis out-of-range span")
+
+    bad = copy.deepcopy(analysis)
+    bad["modules"].append(copy.deepcopy(bad["modules"][0]))
+    require_rejected(analysis_schema, bad, "analysis duplicate module id")
+
+    # V04: heading tree and ownership invariants are semantic.
+    units = analysis["modules"][0]["units"]
+    if len(units) >= 3:
+        bad = copy.deepcopy(analysis)
+        bad_units = bad["modules"][0]["units"]
+        bad_units[1]["parent_id"] = bad_units[2]["id"]
+        bad_units[2]["parent_id"] = bad_units[1]["id"]
+        require_rejected(analysis_schema, bad, "analysis parent cycle")
+        bad = copy.deepcopy(analysis)
+        bad["modules"][0]["units"][1]["mode_source_unit_id"] = "root:missing"
+        require_rejected(analysis_schema, bad, "analysis mode source outside ancestors")
+
+    # V05: call, reference and resource targets are semantic.
+    module = analysis["modules"][0]
+    function_ids = {fn["id"] for module_iter in analysis["modules"] for fn in module_iter["functions"]}
+    for call in module["calls"]:
+        if call["state"] == "function":
+            bad = copy.deepcopy(analysis)
+            for candidate in bad["modules"][0]["calls"]:
+                if candidate["span"] == call["span"] and candidate["function"] == call["function"]:
+                    candidate["target"] = "root:missing::missing"
+            require_rejected(analysis_schema, bad, "analysis missing call target")
+            break
+    references = [ref for module_iter in analysis["modules"] for ref in module_iter["references"]]
+    for reference in references:
+        if reference["state"] == "resolved" and reference["target_unit"] is not None:
+            bad = copy.deepcopy(analysis)
+            for module_iter in bad["modules"]:
+                for candidate in module_iter["references"]:
+                    if (
+                        candidate["span"] == reference["span"]
+                        and candidate["source"] == reference["source"]
+                    ):
+                        candidate["target_unit"] = "root:missing#missing"
+            require_rejected(analysis_schema, bad, "analysis missing reference unit")
+            break
+    for resource in module["resources"]:
+        bad = copy.deepcopy(analysis)
+        bad["modules"][0]["resources"][0]["content_digest"] = "0" * 64
+        require_rejected(analysis_schema, bad, "analysis tampered resource digest")
+        break
+
+    bad = copy.deepcopy(analysis)
+    bad["diagnostics"].append(
+        {
+            "module": module["id"],
+            "relative_path": module["relative_path"],
+            "span": None,
+            "line": None,
+            "column": None,
+            "severity": "error",
+            "code": "test.injected",
+            "message": "injected error",
+            "hints": [],
+        }
+    )
+    require_rejected(analysis_schema, bad, "analysis successful output with an error")
 
     bad = copy.deepcopy(observation)
     bad["events"][0]["seq"] = "zero"

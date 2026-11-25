@@ -663,7 +663,7 @@ fn inspect_outputs_ast_units_signatures_ir_and_refs() {
     assert_exit(&refs, 0, "inspect --refs");
     let value = json_stdout(&refs);
     let edges = value["refs"].as_array().expect("refs array");
-    assert!(edges.iter().any(|edge| edge["resolved"] == true));
+    assert!(edges.iter().any(|edge| edge["state"] == "resolved"));
 
     // A broken #anchor is reported as unresolved by `inspect --refs`.
     let dir = TempDir::new("refs");
@@ -677,7 +677,8 @@ fn inspect_outputs_ast_units_signatures_ir_and_refs() {
     let edges = value["refs"].as_array().expect("refs array");
     assert_eq!(edges.len(), 1);
     assert_eq!(edges[0]["url"], "#不存在的标题");
-    assert_eq!(edges[0]["resolved"], false);
+    assert_eq!(edges[0]["state"], "missing");
+    assert_eq!(edges[0]["target_unit"], serde_json::Value::Null);
 }
 
 #[test]
