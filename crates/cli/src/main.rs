@@ -7,6 +7,7 @@
 mod analysis;
 mod args;
 mod commands;
+mod document_refs;
 mod extension_descriptors;
 mod extension_selection;
 mod loader;

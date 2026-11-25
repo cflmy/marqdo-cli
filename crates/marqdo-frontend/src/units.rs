@@ -105,6 +105,38 @@ impl UnitIndex {
             .iter()
             .find(|f| block_index >= f.body_start && block_index < f.body_end)
     }
+
+    /// Complete public range of one unit: the whole source for the root, the
+    /// heading-through-next-same-or-higher-heading range otherwise.
+    pub fn unit_range(&self, id: &UnitId) -> Option<Span> {
+        if id.path.is_empty() {
+            return self
+                .units
+                .iter()
+                .find(|unit| unit.id.path.is_empty())
+                .map(|unit| unit.span);
+        }
+        self.headings
+            .iter()
+            .find(|heading| heading.path == id.path)
+            .map(|heading| heading.full_span)
+    }
+
+    /// Innermost unit whose complete range contains `span`.
+    ///
+    /// Used for document links: the root covers the whole source, so a linked
+    /// span always has an owner. Ties prefer the deeper path, then the later
+    /// start (a child cannot be larger than its parent).
+    pub fn unit_containing_span(&self, span: Span) -> Option<UnitId> {
+        self.units
+            .iter()
+            .filter_map(|unit| {
+                let range = self.unit_range(&unit.id)?;
+                (range.start <= span.start && span.end <= range.end).then_some((unit, range))
+            })
+            .max_by_key(|(unit, range)| (unit.id.path.len(), range.start))
+            .map(|(unit, _)| unit.id.clone())
+    }
 }
 
 fn has_payload(node: &MdNode) -> bool {
@@ -789,6 +821,19 @@ mod tests {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "sem.ambiguous_identity"));
+    }
+
+    #[test]
+    fn innermost_unit_owns_a_linked_span() {
+        let source = "# @knowledge 数学\n\n## @exec 计算\n\n见[链接](#细节)。\n\n### 细节\n\n`return 1`\n";
+        let index = index_of(source);
+        let link_start = source.find("[链接]").unwrap();
+        let owner = index
+            .unit_containing_span(Span::new(link_start, link_start + 2))
+            .expect("owning unit");
+        assert_eq!(owner.path, vec!["数学".to_string(), "计算".to_string()]);
+        let root = index.unit_containing_span(Span::new(0, 1)).expect("root");
+        assert!(root.path.is_empty());
     }
 
     #[test]
