@@ -117,8 +117,17 @@ pub struct FunctionId {
 
 impl fmt::Display for FunctionId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}::{}", self.module, self.name)
+        write!(f, "{}::{}", self.module, escape_function_name(&self.name))
     }
+}
+
+/// Escape the module/function delimiter inside a function name.
+///
+/// The canonical form is `<module>::<name>`; a name that itself contains `::`
+/// would make the delimiter ambiguous. Normal names are unchanged. `%` is
+/// escaped first so a literal `%3A%3A` cannot collide with an escaped `::`.
+pub fn escape_function_name(name: &str) -> String {
+    name.replace('%', "%25").replace("::", "%3A%3A")
 }
 
 /// Identity of an addressable heading range.
@@ -599,6 +608,26 @@ mod tests {
         assert!(module.entry().is_none());
         assert_eq!(module.import("geometry").unwrap().target, "@geometry");
         assert_eq!(module.id.to_string(), "root:default::index.mq.md");
+    }
+
+    #[test]
+    fn function_ids_escape_the_module_delimiter_inside_names() {
+        let module = ModuleId::from("index.mq.md");
+        let plain = FunctionId {
+            module: module.clone(),
+            name: "数学.计算".to_string(),
+        };
+        assert_eq!(plain.to_string(), "root:default::index.mq.md::数学.计算");
+        let dotted = FunctionId {
+            module: module.clone(),
+            name: "a::b".to_string(),
+        };
+        assert_eq!(dotted.to_string(), "root:default::index.mq.md::a%3A%3Ab");
+        let literal = FunctionId {
+            module,
+            name: "a%3A%3Ab".to_string(),
+        };
+        assert_ne!(literal.to_string(), dotted.to_string());
     }
 
     #[test]
