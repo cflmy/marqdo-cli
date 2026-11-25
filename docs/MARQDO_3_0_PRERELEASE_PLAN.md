@@ -38,7 +38,7 @@
 3. 冻结 CLI 的外部仓库黑盒验收在**发布 SHA**重新执行，至少 pure pinned-Git 包、Callable Worker、陌生 Foreign Kernel、Provider v2、Tool/Analysis/Trace、权限负例及工件改动负例全部 PASS；生成并校验 `docs/evidence/extension/<SHA>/manifest.json`。
 4. 冷安装、离线 `--version`/`--help`、`check/run/call`、lock/sync、Tool 安装与分发、Provider Worker 启动、错 SHA/错目标/未授权拒绝全部由发布归档中的**实际二进制**完成；不得依赖开发源码目录。
 5. **不得虚假宣传安全隔离。** 发布包若保留并开放 Linux `strict`，必须有该 SHA 的真实 G3 隔离负例证据；若暂无证据，需采用明确经过测试的 fail-closed 禁用方式并在公告中写 `strict: unsupported`。不允许仅改 README 却继续将未验证的 `strict` 描述为安全保障。Beta 的这一策略必须经维护者明确签字并由 CI 可复查。
-6. G4 基准不得造假；若当期固定节点仍是 WARN，可由维护者批准 **Beta-only WARN** 并公开环境和限制；必须通过 9 个正确性基准，不允许数值漂移或已确认的灾难性回退。
+6. G4 基准不得造假；若当期固定节点仍是 WARN，可由维护者批准 **Beta/RC-only WARN** 并公开环境和限制；必须通过正确性基准，不允许数值漂移或已确认的灾难性回退。RC 允许经维护者批准的共享节点 WARN；最终 stable/LTS 必须使用专用固定节点，该共享节点例外不延续到 LTS。
 7. 明确产品版本 `3.0.0-beta.1` 与协议独立版本；工具 SemVer 协商在真实测试版上可安装、拒绝不兼容范围、不会误把 `<1` 当成支持 3.x。
 8. `README`、`CHANGELOG`、`COMPATIBILITY`、`docs/STATUS`、`docs/releasing`、协议入口页、迁移说明，均更新至同一事实基线；无“未实现却声称已发布”或“已实现仍称 Proposed”的矛盾。
 9. 不发布未经实际构建/烟测的平台二进制；产物附 SHA256、SOURCE_SHA、构建工具链信息和已知限制。

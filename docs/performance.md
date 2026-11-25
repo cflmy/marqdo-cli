@@ -4,6 +4,15 @@ Status: the sampler and correctness corpus are implemented; **no release
 performance baseline exists yet**. Do not cite a development-container or
 TCG/QEMU number as a release gate.
 
+## Release-class policy
+
+- **RC candidates** may use a maintainer-approved shared node. The environment,
+  load, limits, paired baseline/candidate comparison and approval are recorded
+  in the release notes; the result remains `WARN`, never a dedicated-node PASS.
+- **Stable/LTS** releases require a dedicated fixed node and the full paired-run
+  protocol. The shared-node exception is RC-only and must not be reused for
+  LTS evidence.
+
 ## Three separate measurements
 
 | Class | Goal | Host |

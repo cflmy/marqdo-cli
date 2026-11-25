@@ -75,17 +75,19 @@ Use the frozen-SHA build and archive checks above. Additionally:
 
 - Strict L1 requires a same-SHA PASS on a disposable VM as a non-root user.
   Record the strict evidence and verify the archived binary on that guest.
-- Measure the packaged CLI on a dedicated fixed node with 5 warmups and
-  20 samples or more for each of the nine workloads. Compare against a
-  correctness-verified baseline on the same node, CPU affinity, governor,
-  kernel and toolchain. Record investigation and resolution for any p50
-  increase of at least 15% or median peak RSS increase of at least 20%.
-  A dedicated node is the default. For a prerelease approved by the
-  maintainer to use a shared node, take at least three paired beta/RC runs
-  under the same measured conditions and keep all reports. Verify all nine
-  workloads and investigate threshold breaches or unstable samples before
-  accepting a `WARN`. Record the approval, runner environment and limits in
-  the release notes. This exception applies to the named RC only.
+- Measure the packaged CLI with 5 warmups and 20 samples or more for each of
+  the nine workloads, or for the changed boundary's representative fixture when
+  the gate is scoped by an accepted ADR. Compare against a correctness-verified
+  baseline on the same node, CPU affinity, governor, kernel and toolchain.
+  Record investigation and resolution for any p50 increase of at least 15% or
+  median peak RSS increase of at least 20%.
+  **RC candidates may use a shared node.** The maintainer approves the shared
+  node for that named RC, the environment/load/limits and the comparison are
+  recorded in the release notes, and the result stays a `WARN`; it is never
+  promoted to a dedicated-node PASS. A final stable/LTS release requires a
+  dedicated fixed node with the full paired-run protocol; the shared-node
+  exception does not carry over to it. Verify correctness before timing and do
+  not accept results from an unmeasured or unexplained environment.
 - Version compatibility covers the locked Rust minimum, CLI and Analysis
   product identity, Tool/project prerelease ranges, and beta migration.
 - Use Ubuntu 24.04 (glibc 2.39) for the independent archive-only runtime
