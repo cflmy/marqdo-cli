@@ -1,5 +1,5 @@
 smoke: verified stdlib 0.1.0 tree=sha256:5407d3665ba2fe105820d0f1af5efaafa10c277a69eb819c3225719813c8c713 aliases=sha256:5f513c0fdbb3c1e9829be3c9fa23a2d1e89cb8510073fb5eb1e8e2f5265a83bb files=42
-smoke: archive version 3.0.0-rc.4, source e0645f376b03e31e342a6d3fb749a335f0840d1b
+smoke: archive version 3.0.0-rc.4, source 452e9a32bd9e40dba427d4180691c58bab74449e
 smoke: bundled stdlib missing -> fail-closed OK
 smoke: strict unsupported on this host; fail-closed refused: {'reason': 'bubblewrap cannot create the required namespaces: bwrap: No permissions to create a new namespace, likely because the kernel does not allow non-privileged user namespaces. See <https://deb.li/bubblewrap> or <file:///usr/share/doc/bubblewrap/README.Debian.gz>.', 'state': 'unavailable'}
 smoke: PASS

@@ -1,0 +1,15 @@
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+marqdo-3.0.0-rc.4-x86_64-unknown-linux-gnu.tar.gz: OK
+SOURCE_SHA=452e9a32bd9e40dba427d4180691c58bab74449e
+marqdo 3.0.0-rc.4
+available
+你好，Marqdo
+warning[sem.inferred_signature]: /home/dev/rc4-install/marqdo-3.0.0-rc.4-x86_64-unknown-linux-gnu/examples/factorial.mq.md:3:1: function signature was inferred; declare it with `params(...)`
+  ## @exec 阶乘
+  ^
+warning[sem.inferred_signature]: /project/factorial.mq.md:3:1: function signature was inferred; declare it with `params(...)`
+  ## @exec 阶乘
+  ^
+factorial=120
+checked 2 module(s): ok
+analysis=marqdo.analysis 3 3.0.0-rc.4

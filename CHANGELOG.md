@@ -14,11 +14,12 @@ separately and do not follow the product version. Dates use ISO 8601.
 Older sections are release records: a retired option or spec they name is
 available at its tagged commit, not in the current tree.
 
-## 3.0.0-rc.4 (2026-11-25, candidate)
+## 3.0.0-rc.4 (2026-11-25)
 
 - The Rust workspace, CLI version output and protocol producers report
   `3.0.0-rc.4`; the supported platform remains Linux x86_64 on glibc 2.39 and
-  the locked Rust minimum remains 1.89.
+  the locked Rust minimum remains 1.89. Released as tag `v3.0.0-rc.4` at
+  `452e9a32bd9e40dba427d4180691c58bab74449e`.
 
 ### Closed public Analysis boundary — issue #10 (breaking in place)
 

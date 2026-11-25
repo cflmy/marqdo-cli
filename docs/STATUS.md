@@ -1,7 +1,9 @@
 # Marqdo Implementation Status
 
-Snapshot: **2026-11-25**, product version **`3.0.0-rc.4`** (prerelease
-candidate). The previous release is `3.0.0-rc.3` at source SHA
+Snapshot: **2026-11-25**, product version **`3.0.0-rc.4`** (prerelease,
+released). Tag `v3.0.0-rc.4` at source SHA
+**`452e9a32bd9e40dba427d4180691c58bab74449e`**; release:
+https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.4. The previous release is `3.0.0-rc.3` at source SHA
 **`1e2a045cc78bf40972181abb44e7117c56cf4401`**; release:
 https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.3. The supported
 platform is **Linux x86_64 (glibc 2.39)**. The rc.3 same-SHA gate aggregate is
@@ -19,9 +21,11 @@ Authoritative release policy:
 evidence). Support matrix: [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
 Developer entry point: [`developers/README.md`](developers/README.md).
 
-This file records what was actually executed. "Implemented" does not mean
-"verified on every platform"; the evidence column says which commands were run
-and where. Status is generated from executed commands/logs; a gate row without a
+The rc.4 same-SHA gate aggregate is
+[`evidence/ci/452e9a32bd9e40dba427d4180691c58bab74449e/manifest.json`](evidence/ci/452e9a32bd9e40dba427d4180691c58bab74449e/manifest.json)
+(decision `RC_RELEASE_CANDIDATE`). This file records what was actually executed.
+"Implemented" does not mean "verified on every platform"; the evidence column
+says which commands were run and where. Status is generated from executed commands/logs; a gate row without a
 command, log or source path is a defect, not a state. Historical snapshots
 (including M0.5 and the pre-beta `0.1.0` candidate) are preserved under
 [`history/`](history/README.md) and [`evidence/`](evidence/) and must not be read
@@ -30,12 +34,10 @@ as current status.
 ## RC candidate
 
 The workspace reports `3.0.0-rc.4` and declares Rust 1.89 as its locked
-minimum. Linux x86_64 on glibc 2.39 is the candidate platform. The
-[release procedure](releasing.md) requires a green manifest bound to the
-candidate SHA before publication. A candidate is not a release: it must not be
-tagged or announced until the same-SHA CI, archive-only cold install, frozen
-external conformance, strict VM and performance gates are executed for that
-SHA. The release records below refer to their tagged binaries.
+minimum. Linux x86_64 on glibc 2.39 is the supported platform. The rc.4
+manifest is green on its SHA with the documented strict-VM PASS and a
+maintainer-approved shared-node performance `WARN`; stable/LTS still requires a
+dedicated fixed node. The release records below refer to their tagged binaries.
 
 ## Current protocol integration
 
@@ -73,7 +75,7 @@ The `spec/` tree contains only current contracts; retired specifications are in
 Git history and tagged archives. The earlier release records below describe
 their tagged binaries and are not current protocol claims.
 
-## 0.10 Closed public Analysis boundary — issue #10 (RC.4 candidate)
+## 0.10 Closed public Analysis boundary — issue #10 (RC.4 released)
 
 The candidate replaces the program-only Analysis projection in place under
 [ADR-0069](adr/0069-public-analysis-boundary.md): exact source and document
@@ -107,17 +109,18 @@ Local development-container performance against the rc.3 archive binary on a
 `--emit` `1.210 / 1.186`, `--refs` `1.145 / 1.093`. These are smoke numbers,
 not a dedicated-node G4 result.
 
-Same-SHA CI ([pipeline #89](https://ci.cflmy.cn/repos/1/pipeline/89)) is PASS
-for the candidate code SHA `e0645f3` on all four lanes, and the follow-up
-CI/tooling tree `b1fc211` is fully green in
-[pipeline #91](https://ci.cflmy.cn/repos/1/pipeline/91); its build lane packaged the archive, ran the
-archive smoke and the frozen extension suite 7/7. A local same-SHA archive
-passed smoke and the archive-only Ubuntu 24.04 cold-install container, and the
-frozen suite passed 7/7 from a clean worktree. The gate aggregate is
-[`evidence/ci/e0645f376b03e31e342a6d3fb749a335f0840d1b/manifest.json`](evidence/ci/e0645f376b03e31e342a6d3fb749a335f0840d1b/manifest.json)
-and decides `DO_NOT_RELEASE`: the RC profile still requires a same-SHA strict
-VM PASS and an approved G4 node result, neither of which is available here. The
-rc.3 rows below remain the last published release evidence.
+Same-SHA CI ([pipeline #94](https://ci.cflmy.cn/repos/1/pipeline/94)) is PASS
+for `452e9a3` on all four lanes; its build lane packaged the archive, ran smoke
+and the frozen extension suite 7/7. The local same-SHA archive passed smoke,
+the archive-only Ubuntu 24.04 cold-install container and frozen conformance
+7/7. Strict L1 PASS is recorded from a disposable QEMU/TCG VM as non-root
+`dev` (uid 1000), with the archived binary re-verified in that VM. Performance
+is a maintainer-approved shared-node `WARN` for this RC only; stable/LTS still
+requires a dedicated fixed node. The gate aggregate is
+[`evidence/ci/452e9a32bd9e40dba427d4180691c58bab74449e/manifest.json`](evidence/ci/452e9a32bd9e40dba427d4180691c58bab74449e/manifest.json)
+(`RC_RELEASE_CANDIDATE`). Release
+[notes and assets](https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.4).
+Downstream migration issues: `marqdo-view#6`, `marqdo-lint#4`.
 
 ## 0.9 Pre-stable protocol convergence — issue #8 (RC.3 candidate)
 

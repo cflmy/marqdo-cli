@@ -1,0 +1,35 @@
+{
+  "schema": "marqdo.strict-evidence.v1",
+  "tested_sha": "452e9a32bd9e40dba427d4180691c58bab74449e",
+  "tested_sha_source": "git-rev-parse",
+  "tested_sha_verified": true,
+  "source_archive_sha256": "sha256:3a6db40bb64779c932e101b97e83527669881a12a9c6639e9f694f71ec14fbcb",
+  "run": {
+    "command": "./tests/security/run-lane.sh",
+    "outcome": "PASS",
+    "runner_kind": "disposable-vm",
+    "run_url": "",
+    "runner_image_sha256": "sha256:7b90593f5532b49b7e3fe3d2743f0d1f0d822e5b07cebcd8e00c0df8069ecab9",
+    "lane_log": "/home/dev/evidence-452e9a32bd9e40dba427d4180691c58bab74449e/gc-lane.log",
+    "started_utc": "2026-11-25T06:03:57Z",
+    "finished_utc": "2026-11-25T06:05:19Z"
+  },
+  "environment": {
+    "uname": "Linux-7.0.0-43-generic-x86_64-with-glibc2.43",
+    "kernel": "7.0.0-43-generic",
+    "machine": "x86_64",
+    "cgroup2": "cgroup2 cgroup2 rw,nsdelegate,memory_recursiveprot,memory_hugetlb_accounting",
+    "container": "none",
+    "uid": 1000,
+    "user": "dev",
+    "root": false,
+    "bwrap_version": "bubblewrap 0.11.1",
+    "rustc": "rustc 1.100.0 (0ef1bc386 2026-11-09)",
+    "cargo": "cargo 1.100.0 (3acc79c0c 2026-11-05)",
+    "python": "3.14.4",
+    "cc": [
+      "cc (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    ],
+    "source_archive_sha256_matches": true
+  }
+}

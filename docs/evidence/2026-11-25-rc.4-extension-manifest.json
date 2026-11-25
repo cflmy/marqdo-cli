@@ -1,7 +1,7 @@
 {
   "schema": "marqdo.extension-evidence",
   "schema_version": 1,
-  "tested_sha": "e0645f376b03e31e342a6d3fb749a335f0840d1b",
+  "tested_sha": "452e9a32bd9e40dba427d4180691c58bab74449e",
   "cli_binary_sha256": "a7306962689c635445a59043971ea2eb09298e01feeee81f0ba07b1f3e10306e",
   "fixture_repo_sha": "015ff8ac15417b7ebbdb31ce2be2dab5362a1eba",
   "os": "linux",
@@ -16,7 +16,7 @@
     "negative_security": "PASS"
   },
   "commands": [
-    "python3 /tmp/tmp.4rCUTQwVeO/fixtures/tests/run_all.py (cwd=/tmp/tmp.4rCUTQwVeO/fixtures)"
+    "python3 /tmp/tmp.IyNn1tzjCW/fixtures/tests/run_all.py (cwd=/tmp/tmp.IyNn1tzjCW/fixtures)"
   ],
   "failures": [],
   "unverified": [],

@@ -1,10 +1,10 @@
 你好，Marqdo
 checked 2 module(s): ok
 checked 1 module(s): ok
-6
 warning[sem.inferred_signature]: /tmp/marqdo/marqdo-3.0.0-rc.4-x86_64-unknown-linux-gnu/examples/math-library/index.mq.md:5:1: function signature was inferred; declare it with `params(...)`
   ## @exec 最大公约数
   ^
+6
 warning[sem.inferred_signature]: /tmp/marqdo/marqdo-3.0.0-rc.4-x86_64-unknown-linux-gnu/examples/factorial.mq.md:3:1: function signature was inferred; declare it with `params(...)`
   ## @exec 阶乘
   ^

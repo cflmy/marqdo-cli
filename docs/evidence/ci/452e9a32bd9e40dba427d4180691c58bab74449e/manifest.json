@@ -1,0 +1,59 @@
+{
+  "schema": "marqdo.release-gates.v1",
+  "profile": "rc",
+  "target_sha": "452e9a32bd9e40dba427d4180691c58bab74449e",
+  "recorded_utc": "2026-11-25T06:13:39Z",
+  "gates": {
+    "linux": {
+      "state": "PASS",
+      "tested_sha": "452e9a32bd9e40dba427d4180691c58bab74449e",
+      "run_url": "https://ci.cflmy.cn/repos/1/pipeline/94",
+      "recorded_utc": "2026-11-25T06:13:39Z"
+    },
+    "extension": {
+      "state": "PASS",
+      "tested_sha": "452e9a32bd9e40dba427d4180691c58bab74449e",
+      "run_url": "docs/evidence/2026-11-25-rc.4-extension-manifest.json",
+      "recorded_utc": "2026-11-25T06:13:39Z"
+    },
+    "clean_install": {
+      "state": "PASS",
+      "tested_sha": "452e9a32bd9e40dba427d4180691c58bab74449e",
+      "run_url": "docs/evidence/2026-11-25-rc.4-cold-install.log",
+      "recorded_utc": "2026-11-25T06:13:39Z"
+    },
+    "version_compat": {
+      "state": "PASS",
+      "tested_sha": "452e9a32bd9e40dba427d4180691c58bab74449e",
+      "run_url": "https://ci.cflmy.cn/repos/1/pipeline/94",
+      "recorded_utc": "2026-11-25T06:13:39Z"
+    },
+    "windows": {
+      "state": "UNSUPPORTED",
+      "tested_sha": "452e9a32bd9e40dba427d4180691c58bab74449e",
+      "run_url": "COMPATIBILITY.md",
+      "recorded_utc": "2026-11-25T06:13:39Z"
+    },
+    "macos": {
+      "state": "UNSUPPORTED",
+      "tested_sha": "452e9a32bd9e40dba427d4180691c58bab74449e",
+      "run_url": "COMPATIBILITY.md",
+      "recorded_utc": "2026-11-25T06:13:39Z"
+    },
+    "strict_vm": {
+      "state": "PASS",
+      "tested_sha": "452e9a32bd9e40dba427d4180691c58bab74449e",
+      "run_url": "docs/evidence/2026-11-25-rc.4-strict-evidence.json",
+      "recorded_utc": "2026-11-25T06:13:39Z"
+    },
+    "performance": {
+      "state": "WARN",
+      "tested_sha": "452e9a32bd9e40dba427d4180691c58bab74449e",
+      "run_url": "docs/evidence/2026-11-25-rc.4-shared-node-performance.md",
+      "rc_shared_node_approval": "Maintainer cflmy approved shared-node performance WARN for v3.0.0-rc.4 on 2026-11-25; docs/evidence/2026-11-25-rc.4-shared-node-performance.md",
+      "recorded_utc": "2026-11-25T06:13:39Z"
+    }
+  },
+  "release_decision": "RC_RELEASE_CANDIDATE",
+  "reasons": []
+}

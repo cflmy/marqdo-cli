@@ -1,6 +1,6 @@
 From https://git.cflmy.cn/cflmy/marqdo-extension-conformance
  * branch            015ff8ac15417b7ebbdb31ce2be2dab5362a1eba -> FETCH_HEAD
-frozen CLI: /tmp/tmp.4rCUTQwVeO/install/marqdo-3.0.0-rc.4-x86_64-unknown-linux-gnu/marqdo sha256 a7306962689c635445a59043971ea2eb09298e01feeee81f0ba07b1f3e10306e
+frozen CLI: /tmp/tmp.IyNn1tzjCW/install/marqdo-3.0.0-rc.4-x86_64-unknown-linux-gnu/marqdo sha256 a7306962689c635445a59043971ea2eb09298e01feeee81f0ba07b1f3e10306e
 [PASS] plugin_worker: plugin check is static and succeeds
 [PASS] plugin_worker: worker plugin executes three exports
 [PASS] callable_registry: missing plugin export is symbol.unknown

@@ -1,0 +1,47 @@
+== adversarial helper matrix ==
+   Compiling marqdo-sandbox v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/marqdo-sandbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.92s
+     Running tests/security_linux.rs (target/debug/build/marqdo-sandbox/05fde20fe9d1e50b/out/security_linux-05fde20fe9d1e50b)
+
+running 7 tests
+test strict_child_cannot_escape_via_proc_or_privileges ... ok
+test strict_child_cannot_reach_the_network ... ok
+test strict_child_cannot_read_host_files_but_reads_the_project ... ok
+test strict_child_cannot_write_outside_or_into_the_project ... ok
+test strict_child_identity_is_unprivileged_and_namespaced ... ok
+test strict_supervisor_enforces_fd_and_process_limits ... ok
+test strict_supervisor_enforces_memory_cpu_and_output_limits ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.54s
+
+== build CLI ==
+   Compiling marqdo-span v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/marqdo-span)
+   Compiling marqdo-worker-ipc v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/marqdo-worker-ipc)
+   Compiling marqdo-sandbox v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/marqdo-sandbox)
+   Compiling marqdo-package v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/marqdo-package)
+   Compiling marqdo-value v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/marqdo-value)
+   Compiling marqdo-expression v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/marqdo-expression)
+   Compiling marqdo-markdown v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/marqdo-markdown)
+   Compiling marqdo-foreign v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/marqdo-foreign)
+   Compiling marqdo-plugin-abi v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/marqdo-plugin-abi)
+   Compiling marqdo-ir v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/marqdo-ir)
+   Compiling marqdo-host v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/marqdo-host)
+   Compiling marqdo-frontend v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/marqdo-frontend)
+   Compiling marqdo-runtime v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/marqdo-runtime)
+   Compiling marqdo-cli v3.0.0-rc.4 (/home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/crates/cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 34.76s
+strict mechanism: bubblewrap 0.11.1 (user/mount/PID/net/UTS/IPC namespaces + no-new-privs + rlimits)
+== positive CLI contract ==
+warning[sem.inferred_signature]: /home/dev/marqdo-452e9a32bd9e40dba427d4180691c58bab74449e/examples/factorial.mq.md:3:1: function signature was inferred; declare it with `params(...)`
+  ## @exec 阶乘
+  ^
+warning[sem.inferred_signature]: /project/factorial.mq.md:3:1: function signature was inferred; declare it with `params(...)`
+  ## @exec 阶乘
+  ^
+== strict language resources are console-only ==
+== external-execution surfaces are refused ==
+== @knowledge payloads stay inert under strict ==
+== forged active marker is rejected ==
+G-C security lane: PASS
+strict evidence: /home/dev/evidence-452e9a32bd9e40dba427d4180691c58bab74449e/strict-evidence.json
+strict evidence: /home/dev/evidence-452e9a32bd9e40dba427d4180691c58bab74449e/strict-evidence.json

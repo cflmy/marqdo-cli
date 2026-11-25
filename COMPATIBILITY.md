@@ -1,7 +1,10 @@
 # Compatibility and support matrix
 
-Snapshot: product version **`3.0.0-rc.4`** (prerelease candidate, 2026-11-25).
-The previous release is `3.0.0-rc.3` at source SHA
+Snapshot: product version **`3.0.0-rc.4`** (prerelease, released 2026-11-25).
+Tag `v3.0.0-rc.4` at source SHA
+`452e9a32bd9e40dba427d4180691c58bab74449e`; release
+https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.4. The previous
+release is `3.0.0-rc.3` at source SHA
 `1e2a045cc78bf40972181abb44e7117c56cf4401`; its evidence remains under
 [`docs/evidence/`](docs/evidence/2026-11-24-rc.3-release.md). This file records
 what was actually verified and separates it from what is only implemented. The
@@ -10,7 +13,7 @@ experimental and not claimed for this prerelease. Executed status and SHA-bound
 evidence are in [`docs/STATUS.md`](docs/STATUS.md) and
 [`docs/evidence/`](docs/evidence/).
 
-The `3.0.0-rc.4` candidate includes the post-beta protocol convergence and the
+The `3.0.0-rc.4` release includes the post-beta protocol convergence and the
 closed public Analysis boundary below. See the
 [RC acceptance procedure](docs/releasing.md). The platform evidence table
 records the beta, rc.1/rc.2/rc.3 and rc.4 candidate verification.
