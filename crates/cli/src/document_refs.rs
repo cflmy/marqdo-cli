@@ -528,6 +528,12 @@ pub fn resolve_link(
         .module_for(&source.instance, &candidate_path)
         .cloned()
     else {
+        // A plain local file can be verified to exist, but a fragment on it is
+        // not a Marqdo anchor: coverage remains unverified, never `missing`.
+        if !candidate_path.ends_with(".mq.md") && reference.fragment.is_some() {
+            reference.state = ReferenceState::NotLoaded;
+            return reference;
+        }
         let key = (source.instance.clone(), candidate_path.clone());
         if catalog.verified_files.contains(&key) {
             reference.state = ReferenceState::Resolved;

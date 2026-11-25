@@ -488,3 +488,106 @@ fn two_entries_keep_their_own_snapshot_context() {
         .ends_with("::second.mq.md"));
     assert_ne!(first["project"]["root_id"], second["project"]["root_id"]);
 }
+
+#[test]
+fn explicit_refs_verify_plain_files_reject_symlinks_and_never_guess_coverage() {
+    let dir = TempDir::new("refs-files");
+    dir.write("marqdo.yaml", "project:\n  name: files\n  version: 0.1.0\n");
+    dir.write("asset.pdf", "%PDF-1.4 not a program\n");
+    dir.write("notes.md", "# Notes\n\nplain markdown\n");
+    dir.write(
+        "index.mq.md",
+        "## @exec main\n\n[资产](./asset.pdf) [普通](./notes.md#notes) [越界](./%2e%2e/secret.mq.md)\n\n`return 1`\n",
+    );
+    #[cfg(unix)]
+    let _symlink = {
+        std::os::unix::fs::symlink("/etc/hostname", dir.path().join("escape.mq.md")).unwrap();
+        dir.write(
+            "symlink.mq.md",
+            "## @exec main\n\n[逃逸](./escape.mq.md)\n\n`return 1`\n",
+        );
+    };
+    #[cfg(not(unix))]
+    let _symlink = ();
+
+    let inspected = cli(dir.path(), &["inspect", "index.mq.md", "--refs", "--json"]);
+    assert!(inspected.status.success(), "{inspected:?}");
+    let value: serde_json::Value = serde_json::from_slice(&inspected.stdout).unwrap();
+    let refs = value["refs"].as_array().unwrap();
+    let by_url = |url: &str| {
+        refs.iter()
+            .find(|reference| reference["url"] == url)
+            .unwrap_or_else(|| panic!("missing {url}"))
+    };
+    assert_eq!(by_url("./asset.pdf")["state"], "resolved");
+    assert_eq!(by_url("./asset.pdf")["target_kind"], "file");
+    assert_eq!(by_url("./notes.md#notes")["state"], "not_loaded");
+    assert_eq!(by_url("./%2e%2e/secret.mq.md")["state"], "outside_scope");
+    let issues = value["reference_issues"].as_array().unwrap();
+    assert!(issues.iter().any(|issue| issue["code"] == "ref.invalid"));
+    assert!(issues.iter().any(|issue| issue["code"] == "ref.not_loaded"));
+
+    #[cfg(unix)]
+    {
+        let symlinked = cli(
+            dir.path(),
+            &["inspect", "symlink.mq.md", "--refs", "--json"],
+        );
+        assert!(symlinked.status.success(), "{symlinked:?}");
+        let value: serde_json::Value = serde_json::from_slice(&symlinked.stdout).unwrap();
+        assert_eq!(value["refs"][0]["state"], "not_loaded");
+        assert!(value["reference_issues"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|issue| issue["code"] == "ref.invalid"));
+    }
+}
+
+#[test]
+fn missing_unimported_program_is_an_explicit_refs_error_but_not_loaded_otherwise() {
+    let dir = TempDir::new("refs-missing");
+    dir.write(
+        "index.mq.md",
+        "## @exec main\n\n[不存在](./absent.mq.md#x)\n\n`return 1`\n",
+    );
+    let ordinary = emit(dir.path(), "index.mq.md", "ordinary.json", &[]);
+    assert!(ordinary.status.success(), "{ordinary:?}");
+    let analysis = analysis(dir.path(), "ordinary.json");
+    assert_eq!(
+        analysis["modules"][0]["references"][0]["state"],
+        "not_loaded"
+    );
+    let refs = emit(dir.path(), "index.mq.md", "refs.json", &["--refs"]);
+    assert_eq!(refs.status.code(), Some(1), "{refs:?}");
+    assert!(!dir.path().join("refs.json").exists());
+    assert!(String::from_utf8_lossy(&refs.stderr).contains("ref.unresolved"));
+}
+
+#[test]
+fn lock_digest_binds_the_prepared_lock_snapshot() {
+    let dir = TempDir::new("lock-digest");
+    dir.write("marqdo.yaml", "project:\n  name: lock\n  version: 0.1.0\n");
+    dir.write("index.mq.md", "## @exec main\n\n`return 1`\n");
+    let lock = cli(dir.path(), &["lock"]);
+    assert!(lock.status.success(), "{lock:?}");
+    let locked = emit(dir.path(), "index.mq.md", "locked.json", &[]);
+    assert!(locked.status.success(), "{locked:?}");
+    let lock_bytes = std::fs::read(dir.path().join("marqdo.lock")).unwrap();
+    let analysis = analysis(dir.path(), "locked.json");
+    assert_eq!(
+        analysis["project"]["lock_digest"],
+        format!("sha256:{}", digest(&lock_bytes))
+    );
+    let manifest_bytes = std::fs::read(dir.path().join("marqdo.yaml")).unwrap();
+    assert_eq!(
+        analysis["project"]["manifest_digest"],
+        format!("sha256:{}", digest(&manifest_bytes))
+    );
+
+    // A lock that no longer validates cannot leave a success artifact behind.
+    std::fs::write(dir.path().join("marqdo.lock"), "lock_version: 4\n").unwrap();
+    let failed = emit(dir.path(), "index.mq.md", "locked.json", &[]);
+    assert_ne!(failed.status.code(), Some(0), "{failed:?}");
+    assert!(!dir.path().join("locked.json").exists());
+}
