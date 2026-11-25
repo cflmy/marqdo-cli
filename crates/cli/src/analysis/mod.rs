@@ -950,6 +950,8 @@ fn validate(analysis: &Analysis) -> Result<(), String> {
         if module.document.get("kind").and_then(Value::as_str) != Some("document") {
             return Err(format!("{} document root has wrong kind", module.id));
         }
+        let mut ast_literals: BTreeMap<(usize, usize), (String, String)> = BTreeMap::new();
+        collect_ast_literals(&module.document, &mut ast_literals);
         let root_span = module.document.get("span").cloned().unwrap_or_default();
         if root_span.get("start").and_then(Value::as_u64) != Some(0)
             || root_span.get("end").and_then(Value::as_u64) != Some(source.len() as u64)
@@ -1182,6 +1184,31 @@ fn validate(analysis: &Analysis) -> Result<(), String> {
                 "formula" | "code" => {}
                 _ => return Err("unknown resource kind".to_string()),
             }
+            let Some((node_kind, literal)) =
+                ast_literals.get(&(resource.span.start, resource.span.end))
+            else {
+                return Err(format!(
+                    "resource `{}` span does not name an AST payload node",
+                    resource.id
+                ));
+            };
+            let expected = if resource.kind == "formula" {
+                node_kind == "math" || node_kind == "math_block"
+            } else {
+                node_kind == "code_block"
+            };
+            if !expected {
+                return Err(format!(
+                    "resource `{}` kind does not match its AST node",
+                    resource.id
+                ));
+            }
+            if resource.content_digest != sha256_hex(literal.as_bytes()) {
+                return Err(format!(
+                    "resource `{}` content_digest does not match the AST payload",
+                    resource.id
+                ));
+            }
         }
     }
     let module_ids: BTreeSet<&str> = analysis
@@ -1279,6 +1306,31 @@ fn validate_reference(
         other => return Err(format!("unknown reference state `{other}`")),
     }
     Ok(())
+}
+
+fn collect_ast_literals(node: &Value, index: &mut BTreeMap<(usize, usize), (String, String)>) {
+    let kind = node.get("kind").and_then(Value::as_str).unwrap_or_default();
+    if matches!(kind, "math" | "math_block" | "code_block") {
+        if let (Some(start), Some(end), Some(literal)) = (
+            node.get("span")
+                .and_then(|span| span.get("start"))
+                .and_then(Value::as_u64),
+            node.get("span")
+                .and_then(|span| span.get("end"))
+                .and_then(Value::as_u64),
+            node.get("literal").and_then(Value::as_str),
+        ) {
+            index.insert(
+                (start as usize, end as usize),
+                (kind.to_string(), literal.to_string()),
+            );
+        }
+    }
+    if let Some(children) = node.get("children").and_then(Value::as_array) {
+        for child in children {
+            collect_ast_literals(child, index);
+        }
+    }
 }
 
 fn validate_span(
