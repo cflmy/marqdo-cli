@@ -64,38 +64,6 @@ pub(super) fn prepare_project(
     }
 }
 
-/// `marqdo check`.
-fn validate_refs(project: &LoadedProject) -> Vec<FileDiagnostic> {
-    let mut diagnostics = Vec::new();
-    for file in project.files.values() {
-        let parent = file.path.parent().unwrap_or_else(|| Path::new("."));
-        let mut unresolved: Vec<marqdo_span::Span> = Vec::new();
-        file.analysis.document.root.walk(&mut |node| {
-            let marqdo_markdown::MdKind::Link { url, .. } = &node.kind else {
-                return;
-            };
-            let (resolved, _, _) = resolve_link(project, &file.analysis.units, parent, url);
-            if !resolved {
-                unresolved.push(node.span);
-            }
-        });
-        for span in unresolved {
-            diagnostics.push(FileDiagnostic {
-                module_id: file.module_id.clone(),
-                path: file.path.clone(),
-                source: file.source.clone(),
-                diagnostic: marqdo_value::Diagnostic::error(
-                    marqdo_value::codes::REF_UNRESOLVED,
-                    Some(span),
-                    "reference target could not be resolved",
-                )
-                .with_hint("fix the link target or add the missing heading/file"),
-            });
-        }
-    }
-    diagnostics
-}
-
 fn summary_json(project: &LoadedProject) -> serde_json::Value {
     let entry = project.entry_file();
     json!({
@@ -128,94 +96,6 @@ fn signatures_json(module: &marqdo_ir::Module) -> serde_json::Value {
             })
             .collect(),
     )
-}
-
-fn refs_json(project: &LoadedProject) -> serde_json::Value {
-    let entry = project.entry_file();
-    let parent = entry.path.parent().unwrap_or_else(|| Path::new("."));
-    let mut edges = Vec::new();
-    entry.analysis.document.root.walk(&mut |node| {
-        let marqdo_markdown::MdKind::Link { url, .. } = &node.kind else {
-            return;
-        };
-        let (resolved, target_module, target_unit) =
-            resolve_link(project, &entry.analysis.units, parent, url);
-        edges.push(json!({
-            "source": entry.module_id.to_string(),
-            "url": url,
-            "span": node.span,
-            "resolved": resolved,
-            "target_module": target_module,
-            "target_unit": target_unit,
-        }));
-    });
-    serde_json::Value::Array(edges)
-}
-
-fn resolve_link(
-    project: &LoadedProject,
-    units: &marqdo_frontend::UnitIndex,
-    parent: &Path,
-    url: &str,
-) -> (bool, Option<String>, Option<String>) {
-    if let Some(fragment) = url.strip_prefix('#') {
-        let unit = units.anchors.get(fragment).or_else(|| {
-            units
-                .units
-                .iter()
-                .find(|unit| unit.name == fragment)
-                .map(|unit| &unit.id)
-        });
-        return match unit {
-            Some(unit) => (
-                true,
-                Some(project.entry.to_string()),
-                Some(unit.to_string()),
-            ),
-            None => (false, None, None),
-        };
-    }
-    if url.starts_with("http://") || url.starts_with("https://") {
-        return (true, None, None);
-    }
-    let (path_part, fragment) = match url.split_once('#') {
-        Some((path, fragment)) => (path, Some(fragment)),
-        None => (url, None),
-    };
-    let candidate = parent.join(path_part);
-    let Ok(candidate) = candidate.canonicalize() else {
-        return (false, None, None);
-    };
-    let Some(module_id) = project.module_id_for_path(&candidate) else {
-        return (false, None, None);
-    };
-    let analyzed;
-    let target_units = match project.files.get(&module_id) {
-        Some(target_file) => &target_file.analysis.units,
-        None => {
-            // Links may reference documents that are not imported. Analyse the
-            // target statically for reference checking; nothing executes.
-            let Ok(source) = std::fs::read_to_string(&candidate) else {
-                return (false, None, None);
-            };
-            analyzed = marqdo_frontend::analyze_source(&module_id.to_string(), &source);
-            &analyzed.units
-        }
-    };
-    let Some(fragment) = fragment else {
-        return (true, Some(module_id.to_string()), None);
-    };
-    let resolved = target_units.anchors.get(fragment).or_else(|| {
-        target_units
-            .units
-            .iter()
-            .find(|unit| unit.name == fragment)
-            .map(|unit| &unit.id)
-    });
-    match resolved {
-        Some(unit) => (true, Some(module_id.to_string()), Some(unit.to_string())),
-        None => (false, Some(module_id.to_string()), None),
-    }
 }
 
 /// Machine-readable routing decision for one captured strict execution.

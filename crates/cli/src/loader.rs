@@ -216,29 +216,6 @@ impl LoadedProject {
             column: position.column,
         })
     }
-
-    /// Resolve a physical path to its loaded or statically addressable module.
-    pub fn module_id_for_path(&self, path: &Path) -> Option<ModuleId> {
-        let canonical = path.canonicalize().ok()?;
-        let mut best: Option<(&String, &PathBuf)> = None;
-        for (instance, root) in &self.packages {
-            if canonical.starts_with(root)
-                && best
-                    .as_ref()
-                    .map(|(_, current)| root.components().count() > current.components().count())
-                    .unwrap_or(true)
-            {
-                best = Some((instance, root));
-            }
-        }
-        let (instance, root) = best?;
-        let relative = canonical.strip_prefix(root).ok()?;
-        let mut parts = Vec::new();
-        for component in relative.components() {
-            parts.push(component.as_os_str().to_string_lossy().to_string());
-        }
-        Some(ModuleId::new(instance.clone(), parts.join("/")))
-    }
 }
 
 struct Loader {
@@ -274,8 +251,8 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
             .map_err(|error| format!("cannot read {MANIFEST_FILE}: {error}"))?;
         let yaml = String::from_utf8(bytes.clone())
             .map_err(|error| format!("{MANIFEST_FILE} is not valid UTF-8: {error}"))?;
-        let manifest = Manifest::from_yaml(&yaml)
-            .map_err(|error| format!("{MANIFEST_FILE}: {error}"))?;
+        let manifest =
+            Manifest::from_yaml(&yaml).map_err(|error| format!("{MANIFEST_FILE}: {error}"))?;
         (Some(manifest), bytes_digest(&bytes))
     } else {
         (None, String::new())
@@ -286,8 +263,7 @@ pub fn load(entry: &Path) -> Result<LoadedProject, String> {
             .map_err(|error| format!("cannot read {LOCK_FILE}: {error}"))?;
         let yaml = String::from_utf8(bytes.clone())
             .map_err(|error| format!("{LOCK_FILE} is not valid UTF-8: {error}"))?;
-        let lock = LockFile::from_yaml(&yaml)
-            .map_err(|error| format!("{LOCK_FILE}: {error}"))?;
+        let lock = LockFile::from_yaml(&yaml).map_err(|error| format!("{LOCK_FILE}: {error}"))?;
         if let Some(manifest) = &manifest {
             lock.validate_root(manifest)
                 .map_err(|error| format!("{LOCK_FILE}: {error}"))?;
@@ -724,10 +700,8 @@ mod tests {
 
     fn temp_project(files: &[(&str, &str)]) -> PathBuf {
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!(
-            "marqdo-loader-test-{}-{id}",
-            std::process::id()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("marqdo-loader-test-{}-{id}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         for (name, source) in files {

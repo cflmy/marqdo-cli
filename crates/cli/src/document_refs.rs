@@ -10,9 +10,9 @@
 //! All states are explicit: a local candidate outside the catalog is
 //! `not_loaded` (unverified), never `missing`.
 
-use std::collections::{BTreeMap, BTreeSet};
 use marqdo_span::Span;
 use marqdo_value::{codes, Diagnostic};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::loader::LoadedProject;
 
@@ -99,11 +99,18 @@ pub struct Reference {
 }
 
 impl Reference {
-    fn placeholder(source: &marqdo_ir::ModuleId, units: &UnitIndexView, url: &str, span: Span) -> Self {
-        let source_unit = units.unit_containing_span(span).unwrap_or_else(|| marqdo_ir::UnitId {
-            module: source.clone(),
-            path: Vec::new(),
-        });
+    fn placeholder(
+        source: &marqdo_ir::ModuleId,
+        units: &marqdo_frontend::UnitIndex,
+        url: &str,
+        span: Span,
+    ) -> Self {
+        let source_unit = units
+            .unit_containing_span(span)
+            .unwrap_or_else(|| marqdo_ir::UnitId {
+                module: source.clone(),
+                path: Vec::new(),
+            });
         Self {
             source: source.clone(),
             source_unit,
@@ -124,33 +131,10 @@ impl Reference {
 /// Facts needed to resolve a fragment in one document.
 #[derive(Debug, Clone)]
 pub struct ModuleFacts {
-    /// Canonical module identity.
-    pub module: marqdo_ir::ModuleId,
     /// Anchor map (same namespace as `UnitIndex.anchors`).
     pub anchors: BTreeMap<String, marqdo_ir::UnitId>,
     /// Exact canonical names in document order.
     pub names: BTreeMap<String, Vec<marqdo_ir::UnitId>>,
-    /// Complete unit ranges, root first.
-    pub ranges: Vec<(marqdo_ir::UnitId, Span)>,
-}
-
-/// Minimal source-unit view needed while collecting references.
-pub enum UnitIndexView<'a> {
-    /// The frontend heading index.
-    Index(&'a marqdo_frontend::UnitIndex),
-    /// Only a root unit was available.
-    Root(marqdo_ir::UnitId, Span),
-}
-
-impl UnitIndexView<'_> {
-    fn unit_containing_span(&self, span: Span) -> Option<marqdo_ir::UnitId> {
-        match self {
-            UnitIndexView::Index(index) => index.unit_containing_span(span),
-            UnitIndexView::Root(id, range) => {
-                (range.start <= span.start && span.end <= range.end).then(|| id.clone())
-            }
-        }
-    }
 }
 
 /// An explicit catalog of documents available to the resolver.
@@ -176,15 +160,18 @@ impl DocumentCatalog {
     }
 
     /// Add one analysed document's facts.
-    pub fn insert_module(&mut self, module: marqdo_ir::ModuleId, units: &marqdo_frontend::UnitIndex) {
+    pub fn insert_module(
+        &mut self,
+        module: marqdo_ir::ModuleId,
+        units: &marqdo_frontend::UnitIndex,
+    ) {
         let mut names: BTreeMap<String, Vec<marqdo_ir::UnitId>> = BTreeMap::new();
-        let mut ranges = Vec::with_capacity(units.units.len());
         for unit in &units.units {
             if !unit.name.is_empty() {
-                names.entry(unit.name.clone()).or_default().push(unit.id.clone());
-            }
-            if let Some(range) = units.unit_range(&unit.id) {
-                ranges.push((unit.id.clone(), range));
+                names
+                    .entry(unit.name.clone())
+                    .or_default()
+                    .push(unit.id.clone());
             }
         }
         self.path_index.insert(
@@ -194,10 +181,8 @@ impl DocumentCatalog {
         self.modules.insert(
             module.clone(),
             ModuleFacts {
-                module,
                 anchors: units.anchors.clone(),
                 names,
-                ranges,
             },
         );
     }
@@ -207,7 +192,8 @@ impl DocumentCatalog {
     }
 
     fn module_for(&self, instance: &str, relative_path: &str) -> Option<&marqdo_ir::ModuleId> {
-        self.path_index.get(&(instance.to_string(), relative_path.to_string()))
+        self.path_index
+            .get(&(instance.to_string(), relative_path.to_string()))
     }
 
     fn has_instance(&self, instance: &str) -> bool {
@@ -265,11 +251,15 @@ pub fn references_for_project(project: &LoadedProject, mode: ReferenceMode) -> R
             if !attempted.insert((instance.to_string(), path.to_string())) {
                 continue;
             }
-            if let Err(error) = extend_for_reference(project, &mut catalog, reference, &mut budget) {
+            if let Err(error) = extend_for_reference(project, &mut catalog, reference, &mut budget)
+            {
                 let mut diagnostic = Diagnostic::error(
                     codes::REF_INVALID,
                     Some(reference.span),
-                    format!("cannot verify reference target `{}`: {error}", reference.url),
+                    format!(
+                        "cannot verify reference target `{}`: {error}",
+                        reference.url
+                    ),
                 );
                 diagnostic = diagnostic.with_hint(
                     "fix the link target, or remove the broken link from the explicit refs check",
@@ -340,7 +330,10 @@ fn reference_issues(
                 ReferenceState::OutsideScope | ReferenceState::Invalid => (
                     "error",
                     codes::REF_INVALID,
-                    format!("reference `{}` is not a valid in-scope target", reference.url),
+                    format!(
+                        "reference `{}` is not a valid in-scope target",
+                        reference.url
+                    ),
                 ),
             };
             let hint = match reference.state {
@@ -412,15 +405,7 @@ fn collect_links(project: &LoadedProject) -> Vec<RawLink<'_>> {
 
 fn resolve_all(catalog: &DocumentCatalog, raw: &[RawLink<'_>]) -> Vec<Reference> {
     raw.iter()
-        .map(|link| {
-            resolve_link(
-                catalog,
-                link.module,
-                UnitIndexView::Index(link.units),
-                link.url,
-                link.span,
-            )
-        })
+        .map(|link| resolve_link(catalog, link.module, link.units, link.url, link.span))
         .collect()
 }
 
@@ -428,7 +413,7 @@ fn resolve_all(catalog: &DocumentCatalog, raw: &[RawLink<'_>]) -> Vec<Reference>
 pub fn resolve_link(
     catalog: &DocumentCatalog,
     source: &marqdo_ir::ModuleId,
-    units: UnitIndexView<'_>,
+    units: &marqdo_frontend::UnitIndex,
     url: &str,
     span: Span,
 ) -> Reference {
@@ -708,10 +693,10 @@ pub fn percent_decode(raw: &str) -> Result<String, String> {
             if index + 2 >= bytes.len() {
                 return Err("truncated percent escape".to_string());
             }
-            let high = hex_value(bytes[index + 1])
-                .ok_or_else(|| "invalid percent escape".to_string())?;
-            let low = hex_value(bytes[index + 2])
-                .ok_or_else(|| "invalid percent escape".to_string())?;
+            let high =
+                hex_value(bytes[index + 1]).ok_or_else(|| "invalid percent escape".to_string())?;
+            let low =
+                hex_value(bytes[index + 2]).ok_or_else(|| "invalid percent escape".to_string())?;
             out.push((high << 4) | low);
             index += 3;
         } else {
@@ -860,9 +845,7 @@ mod tests {
         let mut catalog = DocumentCatalog::default();
         for (id, source) in documents {
             let (module_id, analysis) = module(source, id);
-            catalog
-                .instances
-                .insert(module_id.instance.clone());
+            catalog.instances.insert(module_id.instance.clone());
             catalog.insert_module(module_id, &analysis.units);
         }
         catalog
@@ -874,13 +857,7 @@ mod tests {
         analysis: &marqdo_frontend::AnalysisResult,
         url: &str,
     ) -> Reference {
-        resolve_link(
-            catalog,
-            source,
-            UnitIndexView::Index(&analysis.units),
-            url,
-            Span::new(0, 1),
-        )
+        resolve_link(catalog, source, &analysis.units, url, Span::new(0, 1))
     }
 
     #[test]
@@ -915,9 +892,7 @@ mod tests {
         let target = "# @knowledge a\n\n## @knowledge A B\n\n# @knowledge b\n\n## @knowledge A B\n";
         let (target_id, target_analysis) = module(target, "theories.mq.md");
         let mut catalog = catalog_of(&[("index.mq.md", source), ("theories.mq.md", target)]);
-        catalog
-            .instances
-            .insert(target_id.instance.clone());
+        catalog.instances.insert(target_id.instance.clone());
         catalog.insert_module(target_id.clone(), &target_analysis.units);
         // The exact slug resolves deterministically to the first occurrence.
         let exact = resolve(&catalog, &module_id, &analysis, "./theories.mq.md#a-b");
@@ -937,9 +912,7 @@ mod tests {
         let target = "# @knowledge Namespace\n\n## @knowledge A B\n";
         let (target_id, target_analysis) = module(target, "targets.mq.md");
         let mut catalog = catalog_of(&[("index.mq.md", source), ("targets.mq.md", target)]);
-        catalog
-            .instances
-            .insert(target_id.instance.clone());
+        catalog.instances.insert(target_id.instance.clone());
         catalog.insert_module(target_id, &target_analysis.units);
         let reference = resolve(&catalog, &module_id, &analysis, "./targets.mq.md#A B");
         assert_eq!(reference.state, ReferenceState::Resolved, "{reference:?}");
@@ -988,10 +961,11 @@ mod tests {
         let (module_id, analysis) = module(source, "index.mq.md");
         let (target_id, target_analysis) =
             module("## @knowledge formula\n\n正文\n", "theory.mq.md");
-        let mut catalog = catalog_of(&[("index.mq.md", source), ("theory.mq.md", "## @knowledge formula\n\n正文\n")]);
-        catalog
-            .instances
-            .insert(target_id.instance.clone());
+        let mut catalog = catalog_of(&[
+            ("index.mq.md", source),
+            ("theory.mq.md", "## @knowledge formula\n\n正文\n"),
+        ]);
+        catalog.instances.insert(target_id.instance.clone());
         catalog.insert_module(target_id.clone(), &target_analysis.units);
         let reference = resolve(&catalog, &module_id, &analysis, "./theory.mq.md#formula");
         assert_eq!(reference.state, ReferenceState::Resolved);
@@ -1004,10 +978,11 @@ mod tests {
         let source = "## @exec main\n\n[x](./theory.mq.md#nope)\n";
         let (module_id, analysis) = module(source, "index.mq.md");
         let (target_id, target_analysis) = module("## @knowledge formula\n", "theory.mq.md");
-        let mut catalog = catalog_of(&[("index.mq.md", source), ("theory.mq.md", "## @knowledge formula\n")]);
-        catalog
-            .instances
-            .insert(target_id.instance.clone());
+        let mut catalog = catalog_of(&[
+            ("index.mq.md", source),
+            ("theory.mq.md", "## @knowledge formula\n"),
+        ]);
+        catalog.instances.insert(target_id.instance.clone());
         catalog.insert_module(target_id.clone(), &target_analysis.units);
         let reference = resolve(&catalog, &module_id, &analysis, "./theory.mq.md#nope");
         assert_eq!(reference.state, ReferenceState::Missing);
@@ -1019,6 +994,9 @@ mod tests {
         assert_eq!(percent_decode("%E8%AE%A1%E7%AE%97").unwrap(), "计算");
         assert_eq!(percent_decode("a%2520b").unwrap(), "a%20b");
         assert!(percent_decode("%zz").is_err());
-        assert_eq!(percent_decode("100%").unwrap_err(), "truncated percent escape");
+        assert_eq!(
+            percent_decode("100%").unwrap_err(),
+            "truncated percent escape"
+        );
     }
 }

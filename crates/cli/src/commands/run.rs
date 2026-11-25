@@ -58,12 +58,10 @@ pub fn execute(
         Ok(prepared) => prepared,
         Err(error) => return fail_prepare(stream, "prepare", &error),
     };
-    let extension_sources = prepared.loaded.extension_sources.clone();
-    let project = prepared.loaded;
-    let static_plugins = prepared.plugins;
-    if project.has_errors() {
+    if prepared.loaded.has_errors() {
         if let Some(stream) = stream {
-            let code = project
+            let code = prepared
+                .loaded
                 .diagnostics
                 .iter()
                 .find(|item| item.diagnostic.is_error())
@@ -77,10 +75,24 @@ pub fn execute(
                 return transport_failure(&error);
             }
         }
-        eprint!("{}", output::render_text(&project.diagnostics));
+        eprint!("{}", output::render_text(&prepared.loaded.diagnostics));
         eprintln!("error: refusing to run a project with compile errors");
         return 1;
     }
+    // Bind the Observation snapshot to the exact bytes of the ordinary
+    // Analysis for these static options. Build it before moving the prepared
+    // program apart, but only when an observation destination is requested.
+    let analysis_digest = if stream.is_some() {
+        match crate::analysis::digest(&prepared) {
+            Ok(digest) => Some(digest),
+            Err(error) => return fail(stream, "prepare", "cli.analysis_failed", &error, 1),
+        }
+    } else {
+        None
+    };
+    let extension_sources = prepared.loaded.extension_sources.clone();
+    let project = prepared.loaded;
+    let static_plugins = prepared.plugins;
     let warnings: Vec<FileDiagnostic> = project
         .diagnostics
         .iter()
@@ -342,15 +354,12 @@ pub fn execute(
     };
     if let Some(stream) = stream {
         let entry = format!("{}::{}", project.entry, function_name);
-        let analysis_digest = match crate::analysis::digest(&project) {
-            Ok(digest) => digest,
-            Err(error) => return fail(Some(stream), "prepare", "cli.analysis_failed", &error, 1),
-        };
+        let analysis_digest = analysis_digest.as_deref().unwrap_or_default();
         if let Err(error) = stream.started(
             &entry,
             mode.as_str(),
             &project.identity.root_id(),
-            &analysis_digest,
+            analysis_digest,
         ) {
             return transport_failure(&error);
         }
