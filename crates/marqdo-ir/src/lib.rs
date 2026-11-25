@@ -137,10 +137,29 @@ impl fmt::Display for UnitId {
             if index > 0 {
                 f.write_str("/")?;
             }
-            f.write_str(part)?;
+            f.write_str(&escape_identity_segment(part))?;
         }
         Ok(())
     }
+}
+
+/// Escape the structural separators of a canonical identity segment.
+///
+/// A unit display id is `<module>#<seg>/<seg>`. Escaping `%`, `/` and `#`
+/// inside each segment keeps the rendering injective: a single heading named
+/// `a/b` renders `a%2Fb`, never the two-level path `a` -> `b`. Headings that
+/// do not contain a separator keep their existing rendering.
+pub fn escape_identity_segment(segment: &str) -> String {
+    let mut out = String::with_capacity(segment.len());
+    for ch in segment.chars() {
+        match ch {
+            '%' => out.push_str("%25"),
+            '/' => out.push_str("%2F"),
+            '#' => out.push_str("%23"),
+            other => out.push(other),
+        }
+    }
+    out
 }
 
 /// Role of a heading range.
@@ -580,6 +599,32 @@ mod tests {
         assert!(module.entry().is_none());
         assert_eq!(module.import("geometry").unwrap().target, "@geometry");
         assert_eq!(module.id.to_string(), "root:default::index.mq.md");
+    }
+
+    #[test]
+    fn unit_ids_are_injective_across_separator_characters() {
+        let module = ModuleId::from("index.mq.md");
+        let one_segment = UnitId {
+            module: module.clone(),
+            path: vec!["a/b".to_string()],
+        };
+        let two_segments = UnitId {
+            module: module.clone(),
+            path: vec!["a".to_string(), "b".to_string()],
+        };
+        assert_ne!(one_segment.to_string(), two_segments.to_string());
+        assert!(one_segment.to_string().ends_with("#a%2Fb"));
+        assert!(two_segments.to_string().ends_with("#a/b"));
+        let hash = UnitId {
+            module: module.clone(),
+            path: vec!["a#b%c".to_string()],
+        };
+        assert_eq!(hash.to_string(), "root:default::index.mq.md#a%23b%25c");
+        let plain = UnitId {
+            module,
+            path: vec!["数学".to_string(), "计算力".to_string()],
+        };
+        assert_eq!(plain.to_string(), "root:default::index.mq.md#数学/计算力");
     }
 
     #[test]

@@ -53,6 +53,9 @@ pub mod codes {
     pub const SEM_NO_ENTRY_FUNCTION: &str = "sem.no_entry_function";
     /// A signature was inferred rather than declared.
     pub const SEM_INFERRED_SIGNATURE: &str = "sem.inferred_signature";
+    /// A canonical identity would be ambiguous (a separator appears inside a
+    /// component), so no injective public identity can be produced.
+    pub const SEM_AMBIGUOUS_IDENTITY: &str = "sem.ambiguous_identity";
     /// An executable payload failed to parse as an expression or statement.
     pub const EXPR_PARSE: &str = "expr.parse";
     /// A function name is referenced but no such function exists.
@@ -69,6 +72,12 @@ pub mod codes {
     pub const MODULE_CYCLE: &str = "module.cycle";
     /// A Markdown reference or link target cannot be resolved.
     pub const REF_UNRESOLVED: &str = "ref.unresolved";
+    /// A Markdown reference has several exact canonical-name candidates.
+    pub const REF_AMBIGUOUS: &str = "ref.ambiguous";
+    /// A Markdown reference is malformed or outside the allowed scope.
+    pub const REF_INVALID: &str = "ref.invalid";
+    /// A Markdown reference target was not verified by the current catalog.
+    pub const REF_NOT_LOADED: &str = "ref.not_loaded";
     /// The requested math operation is outside the supported subset.
     pub const MATH_UNSUPPORTED: &str = "math.unsupported";
     /// A foreign language kernel is not available on this machine.
