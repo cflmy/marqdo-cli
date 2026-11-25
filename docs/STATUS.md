@@ -107,8 +107,14 @@ Local development-container performance against the rc.3 archive binary on a
 `--emit` `1.210 / 1.186`, `--refs` `1.145 / 1.093`. These are smoke numbers,
 not a dedicated-node G4 result.
 
-Same-SHA CI, archive-only cold install, frozen external conformance, strict VM
-and dedicated-node performance are **not** recorded for this candidate yet. The
+Same-SHA CI ([pipeline #89](https://ci.cflmy.cn/repos/1/pipeline/89)) is PASS
+for `e0645f3` on all four lanes; its build lane packaged the archive, ran the
+archive smoke and the frozen extension suite 7/7. A local same-SHA archive
+passed smoke and the archive-only Ubuntu 24.04 cold-install container, and the
+frozen suite passed 7/7 from a clean worktree. The gate aggregate is
+[`evidence/ci/e0645f376b03e31e342a6d3fb749a335f0840d1b/manifest.json`](evidence/ci/e0645f376b03e31e342a6d3fb749a335f0840d1b/manifest.json)
+and decides `DO_NOT_RELEASE`: the RC profile still requires a same-SHA strict
+VM PASS and an approved G4 node result, neither of which is available here. The
 rc.3 rows below remain the last published release evidence.
 
 ## 0.9 Pre-stable protocol convergence — issue #8 (RC.3 candidate)

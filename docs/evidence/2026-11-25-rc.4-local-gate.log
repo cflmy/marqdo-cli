@@ -1,52 +1,98 @@
-rc.4 local gate 2026-11-25T03:16:36Z
+rc.4 final local gate 2026-11-25T03:40:44Z
+source_sha: e0645f376b03e31e342a6d3fb749a335f0840d1b
 platform: Linux 7.0.0-43-generic x86_64
 rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
-cargo: cargo 1.100.0 (3acc79c0c 2026-11-05)
 
 $ cargo fmt --all -- --check
 PASS
 
 $ cargo clippy --workspace --all-targets -- -D warnings
+   Compiling proc-macro2 v1.0.107
+    Checking serde_core v1.0.229
+    Checking zmij v1.0.23
+    Checking num-traits v0.2.19
+    Checking generic-array v0.14.7
+    Checking libc v0.2.191
+    Checking rustix v1.1.6
+    Checking crc32fast v1.5.5
+    Checking flate2 v1.1.11
+   Compiling phf_generator v0.14.0
+   Compiling quote v1.0.47
+   Compiling phf_codegen v0.14.0
+   Compiling comrak v1.0.0
+   Compiling syn v3.0.10
+    Checking block-buffer v0.10.4
+    Checking crypto-common v0.1.7
+    Checking num-integer v0.1.47
+    Checking digest v0.10.7
+    Checking sha2 v0.10.9
+    Checking getrandom v0.4.3
+    Checking getrandom v0.2.17
+    Checking ring v0.17.14
+    Checking tempfile v3.27.0
+    Checking serde_json v1.0.154
+    Checking rustls-webpki v0.103.17
+    Checking rcgen v0.13.2
+    Checking rustls v0.23.46
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.21
+   Compiling fearless_simd_macros v0.1.0
+   Compiling clap_derive v4.6.9
+    Checking memchr-n v0.1.10
+    Checking thiserror v2.0.21
+    Checking marqdo-worker-ipc v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-worker-ipc)
+    Checking marqdo-provider-worker v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-provider-worker)
+    Checking clap v4.6.9
+    Checking serde v1.0.229
+    Checking marqdo-span v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-span)
+    Checking num-bigint v0.4.8
+    Checking serde_yaml v0.9.34+deprecated
+    Checking marqdo-sandbox v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-sandbox)
+    Checking marqdo-markdown v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-markdown)
+    Checking marqdo-package v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-package)
+    Checking marqdo-value v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-value)
+    Checking marqdo-expression v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-expression)
+    Checking num-rational v0.4.2
+    Checking marqdo-plugin-abi v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-plugin-abi)
+    Checking marqdo-foreign v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-foreign)
+    Checking marqdo-ir v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-ir)
+    Checking marqdo-host v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-host)
+    Checking marqdo-plugin-sdk v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-plugin-sdk)
+    Checking marqdo-frontend v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-frontend)
+    Checking marqdo-runtime v3.0.0-rc.4 (/root/work/marqdo-cli/crates/marqdo-runtime)
+    Checking marqdo-cli v3.0.0-rc.4 (/root/work/marqdo-cli/crates/cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.53s
 PASS
 
 $ cargo test --workspace --locked
 PASS
-passed 632, failed 0, ignored 2
+passed 633, failed 0, ignored 2
 
 $ cargo test -p marqdo-cli --test architecture_boundaries
 test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
-
 $ cargo test -p marqdo-cli --test docs_consistency
 test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
-
 $ cargo test -p marqdo-cli --test analysis_observation
 test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
-
 $ cargo test -p marqdo-cli --test observation
-test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.26s
-
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.23s
 $ cargo test -p marqdo-cli --test tool_protocol
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.12s
-
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.09s
 $ cargo test -p marqdo-cli --test callable_resolution
 test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
-
 $ cargo test -p marqdo-cli --test heading_inheritance
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
-
 $ cargo test -p marqdo-cli --test conformance_ast
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
-
 $ cargo test -p marqdo-cli --test conformance_semantics
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.70s
-
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.69s
 $ cargo test -p marqdo-cli --test analysis_boundary
-test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.02s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.97s
 
 $ python3 -m unittest discover -s tools/ci -p test_*.py
-Ran 43 tests in 0.089s
+Ran 43 tests in 0.092s
 OK
 
 $ cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
-PASS
     Finished `release` profile [optimized] target(s) in 0.05s
+PASS
