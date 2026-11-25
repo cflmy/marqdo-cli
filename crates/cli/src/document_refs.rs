@@ -417,7 +417,7 @@ pub fn resolve_link(
     url: &str,
     span: Span,
 ) -> Reference {
-    let mut reference = Reference::placeholder(source, &units, url, span);
+    let mut reference = Reference::placeholder(source, units, url, span);
 
     // Empty destination and `#...` both address the current document.
     if url.is_empty() {

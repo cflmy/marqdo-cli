@@ -466,7 +466,12 @@ pub fn build_units(doc: &MarkdownDocument, module: &ModuleId) -> UnitIndex {
             }
         }
         heading_infos.push(info.clone());
-        stack.push((level, info.path.clone(), mode, info.mode_source_unit_id.clone()));
+        stack.push((
+            level,
+            info.path.clone(),
+            mode,
+            info.mode_source_unit_id.clone(),
+        ));
     }
 
     // Complete section ranges: from this heading to the next heading of the
@@ -763,13 +768,22 @@ mod tests {
         assert_eq!(calc.full_span.end, note.span.start);
         assert_eq!(detail.full_span.end, note.span.start);
         assert_eq!(note.full_span.end, source.len());
-        assert_eq!(detail.parent_id.path, vec!["力学".to_string(), "计算力".to_string()]);
+        assert_eq!(
+            detail.parent_id.path,
+            vec!["力学".to_string(), "计算力".to_string()]
+        );
         assert_eq!(calc.parent_id.path, vec!["力学".to_string()]);
         let root = &index.units[0];
         assert_eq!(root.span, marqdo_span::Span::new(0, source.len()));
         assert_eq!(
             calc.parent_id,
-            index.units.iter().find(|u| u.name == "力学").unwrap().id.clone()
+            index
+                .units
+                .iter()
+                .find(|u| u.name == "力学")
+                .unwrap()
+                .id
+                .clone()
         );
         assert_eq!(by_name("力学").parent_id, root.id);
     }
@@ -788,13 +802,22 @@ mod tests {
         };
         let namespace = by_name("数学");
         assert_eq!(namespace.mode_origin, ModeOrigin::Explicit);
-        assert_eq!(namespace.mode_source_unit_id, namespace_unit(&index, "数学"));
+        assert_eq!(
+            namespace.mode_source_unit_id,
+            namespace_unit(&index, "数学")
+        );
         let calc = by_name("计算");
         assert_eq!(calc.mode_origin, ModeOrigin::Explicit);
-        assert_eq!(calc.mode_source_unit_id.path, vec!["数学".to_string(), "计算".to_string()]);
+        assert_eq!(
+            calc.mode_source_unit_id.path,
+            vec!["数学".to_string(), "计算".to_string()]
+        );
         let detail = by_name("细节");
         assert_eq!(detail.mode_origin, ModeOrigin::Inherited);
-        assert_eq!(detail.mode_source_unit_id.path, calc.mode_source_unit_id.path);
+        assert_eq!(
+            detail.mode_source_unit_id.path,
+            calc.mode_source_unit_id.path
+        );
         let note = by_name("说明");
         assert_eq!(note.mode_origin, ModeOrigin::Inherited);
         assert_eq!(note.mode_source_unit_id.path, vec!["数学".to_string()]);
@@ -825,7 +848,7 @@ mod tests {
 
     #[test]
     fn innermost_unit_owns_a_linked_span() {
-        let source = "# @knowledge 数学\n\n## @exec 计算\n\n见[链接](#细节)。\n\n### 细节\n\n`return 1`\n";
+        let source = "前置说明。\n\n# @knowledge 数学\n\n## @exec 计算\n\n见[链接](#细节)。\n\n### 细节\n\n`return 1`\n";
         let index = index_of(source);
         let link_start = source.find("[链接]").unwrap();
         let owner = index
