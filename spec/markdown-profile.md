@@ -80,7 +80,11 @@ parses it exactly once with `serde_yaml`. Supported semantics:
 
 ## 5. AST view
 
-`marqdo inspect --ast --json` prints this tree:
+`marqdo inspect --ast --json` prints this tree, and `marqdo check --emit`
+projects the identical `modules[].document` shape with the same projector
+(`spec/analysis.md` §3.1). Neither is a second parser or a second long-lived
+AST. The root `document` span covers the whole source including a BOM; every
+span is a half-open UTF-8 byte offset into `modules[].source`.
 
 ```json
 {
