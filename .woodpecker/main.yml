@@ -29,14 +29,7 @@ steps:
         python3 tests/consumers/observation_consumer.py --snapshot --analysis /tmp/control-analysis.json /tmp/control-observation.json
         python3 tests/consumers/observation_consumer.py --validate-schema --analysis /tmp/control-analysis.json /tmp/control-events.jsonl
       - python3 tools/ci/verify_observation_stream.py /tmp/control-events.jsonl /tmp/control-observation.json
-      - |
-        set -eu
-        python3 -c 'import pathlib; p = pathlib.Path("/tmp/control-analysis.json"); pathlib.Path("/tmp/analysis-stale.json").write_bytes(p.read_bytes() + b" ")'
-        python3 tests/consumers/observation_consumer.py --analysis /tmp/analysis-stale.json /tmp/control-events.jsonl && {
-          echo "stale Analysis was accepted" >&2
-          exit 1
-        }
-        echo "stale Analysis rejected"
+      - python3 tools/ci/assert_stale_analysis.py /tmp/control-analysis.json /tmp/control-events.jsonl
 
   test:
     image: rust:1.100-bookworm
