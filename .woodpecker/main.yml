@@ -31,12 +31,11 @@ steps:
       - python3 tools/ci/verify_observation_stream.py /tmp/control-events.jsonl /tmp/control-observation.json
       - |
         set -eu
-        cp /tmp/control-analysis.json /tmp/analysis-stale.json
-        printf ' ' >> /tmp/analysis-stale.json
-        if python3 tests/consumers/observation_consumer.py --analysis /tmp/analysis-stale.json /tmp/control-events.jsonl; then
+        python3 -c 'import pathlib; p = pathlib.Path("/tmp/control-analysis.json"); pathlib.Path("/tmp/analysis-stale.json").write_bytes(p.read_bytes() + b" ")'
+        python3 tests/consumers/observation_consumer.py --analysis /tmp/analysis-stale.json /tmp/control-events.jsonl && {
           echo "stale Analysis was accepted" >&2
           exit 1
-        fi
+        }
         echo "stale Analysis rejected"
 
   test:
