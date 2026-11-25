@@ -1,0 +1,52 @@
+rc.4 local gate 2026-11-25T03:16:36Z
+platform: Linux 7.0.0-43-generic x86_64
+rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+cargo: cargo 1.100.0 (3acc79c0c 2026-11-05)
+
+$ cargo fmt --all -- --check
+PASS
+
+$ cargo clippy --workspace --all-targets -- -D warnings
+PASS
+
+$ cargo test --workspace --locked
+PASS
+passed 632, failed 0, ignored 2
+
+$ cargo test -p marqdo-cli --test architecture_boundaries
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+$ cargo test -p marqdo-cli --test docs_consistency
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+$ cargo test -p marqdo-cli --test analysis_observation
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+$ cargo test -p marqdo-cli --test observation
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.26s
+
+$ cargo test -p marqdo-cli --test tool_protocol
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.12s
+
+$ cargo test -p marqdo-cli --test callable_resolution
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+$ cargo test -p marqdo-cli --test heading_inheritance
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+$ cargo test -p marqdo-cli --test conformance_ast
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+$ cargo test -p marqdo-cli --test conformance_semantics
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.70s
+
+$ cargo test -p marqdo-cli --test analysis_boundary
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.02s
+
+$ python3 -m unittest discover -s tools/ci -p test_*.py
+Ran 43 tests in 0.089s
+OK
+
+$ cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
+PASS
+    Finished `release` profile [optimized] target(s) in 0.05s

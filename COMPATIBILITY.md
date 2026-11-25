@@ -1,17 +1,19 @@
 # Compatibility and support matrix
 
-Snapshot: product version **`3.0.0-rc.3`** (prerelease, released on
-2026-11-24). Tag `v3.0.0-rc.3` at source SHA `1e2a045cc78bf40972181abb44e7117c56cf4401`. This file records what was
-actually verified and separates it from what is only implemented. The
+Snapshot: product version **`3.0.0-rc.4`** (prerelease candidate, 2026-11-25).
+The previous release is `3.0.0-rc.3` at source SHA
+`1e2a045cc78bf40972181abb44e7117c56cf4401`; its evidence remains under
+[`docs/evidence/`](docs/evidence/2026-11-24-rc.3-release.md). This file records
+what was actually verified and separates it from what is only implemented. The
 supported release platform is **Linux x86_64 (glibc 2.39)**; everything else is
-experimental and not claimed for this prerelease. Executed status and
-SHA-bound evidence are in [`docs/STATUS.md`](docs/STATUS.md), the
-[RC release evidence](docs/evidence/2026-11-24-rc.3-release.md) and under
-[`docs/evidence/`](docs/evidence/extension/README.md).
+experimental and not claimed for this prerelease. Executed status and SHA-bound
+evidence are in [`docs/STATUS.md`](docs/STATUS.md) and
+[`docs/evidence/`](docs/evidence/).
 
-The `3.0.0-rc.3` candidate includes the post-beta protocol convergence below.
-See the [RC acceptance procedure](docs/releasing.md). The platform evidence
-table records the beta, rc.1/rc.2 and candidate verification.
+The `3.0.0-rc.4` candidate includes the post-beta protocol convergence and the
+closed public Analysis boundary below. See the
+[RC acceptance procedure](docs/releasing.md). The platform evidence table
+records the beta, rc.1/rc.2/rc.3 and rc.4 candidate verification.
 
 ## Language source syntax (breaking change)
 
@@ -51,7 +53,7 @@ Consequences for compatibility:
 
 ## Post-`3.0.0-beta.1` boundary changes (RFC-EXT-0003)
 
-These landed after the beta tag and **are included in the `3.0.0-rc.3` candidate**; they are
+These landed after the beta tag and **are included in the `3.0.0-rc.4` candidate**; they are
 intentional beta-line incompatibilities. Frozen decisions: ADR-0060..0063; executed
 evidence: [`docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md`](docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md).
 
@@ -86,7 +88,7 @@ consume this candidate's `check --emit` output.
 | Surface | Version | Compatibility rule |
 |---|---|---|
 | Markdown profile | `marqdo.md.v1` | Frozen parser/options. The RFC-LANG-0002 mapping rewrite keeps this profile; the source-language break is tracked above, not by a new profile id. |
-| Language / CLI | `3.0.0-rc.3` (candidate) | SemVer prerelease: breaking changes inside the 3.0 beta line are allowed and announced in the changelog. The `.mq.md` source language changed incompatibly (RFC-LANG-0002); there is no old-syntax execution path or downgrade. CLI flags may change with a changelog note; `strict` refusal is contractual. |
+| Language / CLI | `3.0.0-rc.4` (candidate) | SemVer prerelease: breaking changes inside the 3.0 beta line are allowed and announced in the changelog. The `.mq.md` source language changed incompatibly (RFC-LANG-0002); there is no old-syntax execution path or downgrade. CLI flags may change with a changelog note; `strict` refusal is contractual. |
 | `marqdo.lock` | v4 | v3 is rejected with an explicit `marqdo lock` migration error; v1/v2 are rejected with a relock instruction; `run`/`call`/`check` never rewrite or fetch the lock. `extensions:` records manifest/artifact identity (integrity, not publisher auth). |
 | Analysis | v3 | One writer and one current major for every project, including projects without loop transfers. Consumers reject other majors; the retired v2 selector, schema and documents are gone (ADR-0068). |
 | Observation | v1 | One `run_id`/`seq` event sequence per execution, delivered as JSONL, JSON snapshot or file snapshot from the same run. Values are opt-in and bounded; consumers reject other identifiers (spec/observation.md). |
@@ -194,7 +196,7 @@ the Windows C ABI/provider paths remain fail-closed.
 
 ## Release decision
 
-**`3.0.0-rc.3` prerelease — released as a Linux x86_64 RC.** The RC profile in
+**`3.0.0-rc.4` prerelease — released as a Linux x86_64 RC.** The RC profile in
 [`docs/MARQDO_3_0_PRERELEASE_PLAN.md`](docs/MARQDO_3_0_PRERELEASE_PLAN.md) §3 was
 used: Linux is the only supported platform, macOS/Windows are UNSUPPORTED for
 this scope, strict L1 has same-SHA disposable-VM evidence, and G4 performance is

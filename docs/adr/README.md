@@ -66,3 +66,7 @@ Files: `0001`–`0050`, plus:
 * [0066](0066-structured-tasks-v1.md) — proposed task isolation, bounded
   communication and cancellation;
 * [0067](0067-structured-control-flow.md) — multi-arm branches and nearest-loop transfers.
+* [0068](0068-single-current-public-contracts.md) — one current contract per
+  pre-stable public boundary, replaced in place;
+* [0069](0069-public-analysis-boundary.md) — one public Analysis projection for
+  independent document, lint and knowledge consumers.

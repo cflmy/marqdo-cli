@@ -6,9 +6,9 @@ This page summarizes the public support policy. The authoritative matrix is
 
 ## Version axes (do not conflate)
 
-| Axis | `3.0.0-rc.3` value | Change rule |
+| Axis | `3.0.0-rc.4` value | Change rule |
 |---|---|---|
-| Product / CLI | `3.0.0-rc.3` (candidate) | SemVer prerelease. See `CHANGELOG.md` for changes from the beta. |
+| Product / CLI | `3.0.0-rc.4` (candidate) | SemVer prerelease. See `CHANGELOG.md` for changes from the beta. |
 | Analysis | v3 | One writer and one current major for every project. New major for incompatible changes; consumers reject unknown majors. |
 | Observation | v1 | One `run_id`/`seq` event sequence per execution; JSONL, JSON snapshot and file snapshot come from the same run. New major for incompatible required-field/ordering/redaction changes. |
 | CLI Tool | revision 1 | Exact `requires.api_revision` plus optional exact `analysis`/`observation` integers; no version arrays or negotiation. |
@@ -41,7 +41,7 @@ values are off by default, and `--mode strict` refuses `--output jsonl` and
 
 ## Language compatibility
 
-`3.0.0-rc.3` implements RFC-LANG-0002 only. Pre-RFC `.mq.md` source
+`3.0.0-rc.4` implements RFC-LANG-0002 only. Pre-RFC `.mq.md` source
 (Strong-execute / Emph-return / ordered-list branch / bullet-list loop /
 block-quote call / first code-span signature) is **not executable**; there is no
 `--legacy`, syntax switch or downgrade path. Migration is a rewrite task

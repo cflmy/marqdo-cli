@@ -438,10 +438,13 @@ untrusted input.
 
 ## 7. Failure and exit semantics
 
-`check` keeps its CLI contract: success `0`; static diagnostic errors `1`;
-argument, load/IO or output failures `2`. `--json` is a check diagnostic
-summary, not a second Analysis writer. `--emit` is the only full Analysis
-writer.
+`check` keeps its existing CLI contract: success `0`; static diagnostic
+errors and verified lock/extension load failures `1`; argument errors, a
+missing/unreadable entry document and output-publication failures `2`. This
+matches the current implementation and the other commands; this contract change
+does not reclassify a missing `ENTRY` as a static diagnostic. `--json` is a
+check diagnostic summary, not a second Analysis writer. `--emit` is the only
+full Analysis writer.
 
 A failed check publishes no success artifact. It may remove a previous artifact
 at the caller-specified output path only when that path is not an input source,

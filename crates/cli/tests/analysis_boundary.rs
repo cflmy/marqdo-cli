@@ -500,15 +500,13 @@ fn explicit_refs_verify_plain_files_reject_symlinks_and_never_guess_coverage() {
         "## @exec main\n\n[资产](./asset.pdf) [普通](./notes.md#notes) [越界](./%2e%2e/secret.mq.md)\n\n`return 1`\n",
     );
     #[cfg(unix)]
-    let _symlink = {
+    {
         std::os::unix::fs::symlink("/etc/hostname", dir.path().join("escape.mq.md")).unwrap();
         dir.write(
             "symlink.mq.md",
             "## @exec main\n\n[逃逸](./escape.mq.md)\n\n`return 1`\n",
         );
-    };
-    #[cfg(not(unix))]
-    let _symlink = ();
+    }
 
     let inspected = cli(dir.path(), &["inspect", "index.mq.md", "--refs", "--json"]);
     assert!(inspected.status.success(), "{inspected:?}");

@@ -209,7 +209,7 @@ counts, harness responsibilities and known observations.
 
 ## 5. Coding conventions
 
-* Rust edition 2021, `rust-version = 1.89`, workspace version `3.0.0-rc.3`.
+* Rust edition 2021, `rust-version = 1.89`, workspace version `3.0.0-rc.4`.
 * `unsafe` is forbidden in pure crates (for example `marqdo-expression` uses
   `#![forbid(unsafe_code)]`); the ABI/loader crates contain the only
   `unsafe` code and every block has a SAFETY comment explaining the contract.

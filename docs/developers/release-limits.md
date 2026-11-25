@@ -1,4 +1,4 @@
-# Marqdo 3.0.0-rc.3 — known limitations
+# Marqdo 3.0.0-rc.4 — known limitations
 
 This file ships in the release archive as `KNOWN_LIMITATIONS.md`. It is part of
 the release record: it defines the platform and feature scope for the release candidate.
@@ -57,7 +57,7 @@ Even when available:
 
 ## Compatibility and versioning
 
-* `3.0.0-rc.3` is a **prerelease**. The changelog lists changes from the beta.
+* `3.0.0-rc.4` is a **prerelease**. The changelog lists changes from the beta.
 * The product version is independent of protocol versions: Analysis,
   Observation, CLI Tool, Plugin ABI v1, Foreign wire v1, Provider manifest v2
   and lock v4 keep their own identifiers.

@@ -14,6 +14,51 @@ separately and do not follow the product version. Dates use ISO 8601.
 Older sections are release records: a retired option or spec they name is
 available at its tagged commit, not in the current tree.
 
+## 3.0.0-rc.4 (2026-11-25, candidate)
+
+- The Rust workspace, CLI version output and protocol producers report
+  `3.0.0-rc.4`; the supported platform remains Linux x86_64 on glibc 2.39 and
+  the locked Rust minimum remains 1.89.
+
+### Closed public Analysis boundary — issue #10 (breaking in place)
+
+Executed policy: [ADR-0069](docs/adr/0069-public-analysis-boundary.md), replacing
+`marqdo.analysis` revision 3 in place under ADR-0068. There is no old reader,
+version negotiation or fallback; a same-revision artifact that lacks a current
+required field is rejected and must be regenerated.
+
+- **Document facts are public.** `modules[].source` carries the exact UTF-8
+  source already read by the loader and `modules[].document` is the canonical
+  Markdown AST in the public shape shared with `inspect --ast`. Consumers no
+  longer parse Markdown a second time or read package-cache paths.
+- **Heading scope is one index.** Units expose the structured `path`, parent,
+  effective mode, mode origin and source unit, the heading span and the complete
+  section span. The root covers the whole source including a BOM. Exec H2
+  function ownership stays explicit.
+- **Entry and snapshot identity are explicit.** `project.entry_module_id`,
+  captured `manifest_digest`/`lock_digest`, stdlib identity and the static
+  extension identities used by preparation are part of the artifact. The
+  post-preparation lock re-read and its silent empty digest on IO failure are
+  gone.
+- **One document-link resolver.** Analysis `references`, `check --refs` and
+  `inspect --refs` share one pure resolver and explicit catalogs. It reports
+  `resolved`, `not_loaded`, `missing`, `ambiguous`, `external`, `outside_scope`
+  or `invalid`; ordinary Analysis never opens a link target and a same-document
+  anchor names the real source module. The duplicate `commands.rs` resolver is
+  deleted.
+- **Calls stay bound once.** Static call records keep the single prepared
+  binding table and now expose target kind, exact function/builtin/plugin target
+  and a reason for unresolved calls. Plugin targets carry only their verified
+  static owner; no plugin function is fabricated.
+- **Output is private and atomic.** `--emit` writes owner-only exclusive bytes
+  through a temporary file and rename, and refuses to overwrite a loaded source,
+  manifest, lock file, directory, symlink or hard link to an input.
+- **Independent consumers are the gate.** The Python Analysis consumer performs
+  semantic validation in addition to JSON Schema; mutation fixtures reject
+  missing current fields, tampered source/digests/spans, cycles, wrong owners
+  and invalid reference/nullability combinations. View-, lint- and
+  knowledge-like fixtures drive the real installed CLI.
+
 ## 3.0.0-rc.3 (2026-11-24)
 
 - The Rust workspace, CLI version output and protocol producers report
