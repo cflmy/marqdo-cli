@@ -120,10 +120,11 @@ Deliberately **UNVERIFIED** here: Windows/macOS native lanes, strict VM, WASM
 probe (target std not installed; `E0463`, not a forbidden native dependency)
 and performance/RSS. RC.4 evidence is not reused.
 
-Remaining, separately owned work: stdlib Bundle Phase B (issue #11/#12),
-SDK physical repository after S07/S08, regex/compression replacement under
-ADR-0062, foreign F-B (ADR-0063), platform and strict evidence, and the Engine/
-Native Host split only if the ADR-0071 reopening conditions appear.
+Remaining, separately owned work at that snapshot: stdlib Bundle Phase B (issue #11/#12),
+SDK physical repository after S07/S08 (**superseded by §0.13 — the split was
+reverted and the remote repository deleted**), regex/compression replacement
+under ADR-0062, foreign F-B (ADR-0063), platform and strict evidence, and the
+Engine/Native Host split only if the ADR-0071 reopening conditions appear.
 
 ## 0.13 Plugin SDK remains in the CLI workspace — split reverted (unreleased candidate)
 

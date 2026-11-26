@@ -44,9 +44,10 @@ The logical ADR-0071 boundaries are unchanged.
 | Engine differential | `python3 tools/ci/check_engine_boundary.py` | PASS |
 | Tools unit tests | `python3 -m unittest discover -s tools/ci -p "test_*.py"` | PASS |
 
-The remote CI run for the final `master` commit is recorded by the pipeline on
-that commit; this file is updated by the same integration when the run exists.
-No split repository, mirror or submodule exists after the deletion.
+Remote CI on the code commit `98d256f`: Woodpecker push pipeline **#112**
+success (contract/test/minimum-rust/build) and Gitea commit status `success`.
+This evidence-only follow-up does not change code, lock or protocol bytes. No
+split repository, mirror or submodule exists after the deletion.
 
 ## Current architecture facts
 
