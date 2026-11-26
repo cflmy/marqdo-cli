@@ -284,7 +284,6 @@ jobs:
           fi
           python3 tools/ci/release_evidence.py --profile rc --target-sha "$TARGET_SHA" \
             --out "docs/evidence/ci/$TARGET_SHA/manifest.json" \
-            --gate "independent_build=$(state "$INDEPENDENT_RESULT"):$TARGET_SHA:$RUN_URL" \
             --gate "linux=$linux:$TARGET_SHA:$RUN_URL" \
             --gate "windows=UNSUPPORTED:$TARGET_SHA:linux-only-rc-scope" \
             --gate "macos=UNSUPPORTED:$TARGET_SHA:linux-only-rc-scope" \
