@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -109,17 +110,27 @@ def fetch_root(pin: dict, cache: Path) -> Path:
 
 
 def build_bundle(root: Path, out: Path) -> Path:
-    if out.exists():
-        raise FetchError(f"output already exists: {out}")
+    """Build the Bundle; an existing output is reused only after verification.
+
+    CI jobs share one workspace, so a parallel or earlier job may already have
+    materialized the same pinned Bundle. The output is built in a temporary
+    sibling and moved into place atomically; a mismatch is rebuilt, never used.
+    """
+    temp = out.with_name(out.name + ".partial-" + str(os.getpid()))
+    if temp.exists():
+        shutil.rmtree(temp)
     run(
         [
             sys.executable,
             str(root / "scripts" / "build-stdlib.py"),
             "--out",
-            str(out),
+            str(temp),
         ],
         cwd=root,
     )
+    if out.exists():
+        shutil.rmtree(out)
+    temp.rename(out)
     return out
 
 
@@ -152,6 +163,14 @@ def main(argv: list[str]) -> int:
     cache = Path(args.cache).resolve()
     try:
         pin = load_pin()
+        if out.is_dir():
+            try:
+                verify(pin, out)
+            except (FetchError, OSError, json.JSONDecodeError):
+                pass
+            else:
+                print(out)
+                return 0
         root = fetch_root(pin, cache)
         bundle = build_bundle(root, out)
         verify(pin, bundle)

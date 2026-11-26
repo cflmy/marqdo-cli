@@ -17,22 +17,7 @@ steps:
       - cargo build --locked -p marqdo-cli -p marqdo-provider-worker
       - python3 tools/ci/check_dependency_boundaries.py
       - python3 tools/ci/fetch_ecosystem_bundle.py --out target/ecosystem-stdlib
-      - |
-        set -eux
-        export MARQDO_STDLIB_DIR="$PWD/target/ecosystem-stdlib"
-        ./target/debug/marqdo check tests/consumers/fixtures/observation/basic.mq.md --emit /tmp/analysis.json
-        ./target/debug/marqdo run tests/consumers/fixtures/observation/basic.mq.md --output jsonl --observation-file /tmp/observation.json > /tmp/observation.jsonl
-        python3 tests/consumers/analysis_consumer.py /tmp/analysis.json
-        python3 tests/consumers/observation_consumer.py --validate-schema /tmp/observation.jsonl
-        python3 tests/consumers/observation_consumer.py --snapshot --analysis /tmp/analysis.json /tmp/observation.json
-        ./target/debug/marqdo check tests/conformance/semantics/85-nested-loop-control.mq.md --emit /tmp/control-analysis.json
-        ./target/debug/marqdo run tests/conformance/semantics/85-nested-loop-control.mq.md --output jsonl --observation-file /tmp/control-observation.json > /tmp/control-events.jsonl
-        python3 tests/consumers/validate_protocols.py /tmp/control-analysis.json /tmp/control-observation.json examples/tool-unknown-name/tool.json
-        python3 tests/consumers/analysis_consumer.py /tmp/control-analysis.json --require-transfers
-        python3 tests/consumers/observation_consumer.py --snapshot --analysis /tmp/control-analysis.json /tmp/control-observation.json
-        python3 tests/consumers/observation_consumer.py --validate-schema --analysis /tmp/control-analysis.json /tmp/control-events.jsonl
-      - python3 tools/ci/verify_observation_stream.py /tmp/control-events.jsonl /tmp/control-observation.json
-      - python3 tools/ci/assert_stale_analysis.py /tmp/control-analysis.json /tmp/control-events.jsonl
+      - MARQDO_TEST_STDLIB_BUNDLE="$PWD/target/ecosystem-stdlib" bash tools/ci/contract_lane.sh
 
   test:
     image: rust:1.100-bookworm

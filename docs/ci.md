@@ -22,7 +22,7 @@ Bundle, runs the from-archive smoke and the frozen external conformance suite.
 ```text
 contract (rust:1.100-bookworm, python3-jsonschema, both shipped binaries):
   cargo build --locked -p marqdo-cli -p marqdo-provider-worker
-  real CLI check/run over the Observation fixtures
+  bash tools/ci/contract_lane.sh (real CLI check/run over the Observation fixtures)
   analysis_consumer / observation_consumer / validate_protocols
   stream==snapshot assertion (tools/ci/verify_observation_stream.py)
   stale-Analysis rejection

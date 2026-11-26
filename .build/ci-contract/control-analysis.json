@@ -1,0 +1,940 @@
+{
+  "schema": "marqdo.analysis",
+  "schema_version": 3,
+  "producer": {
+    "name": "marqdo",
+    "version": "3.0.0-rc.4",
+    "markdown_profile": "marqdo.md.v1"
+  },
+  "project": {
+    "root_id": "sha256:68fe7f20571673eda2078779c82fb2457f109e6c31da95b8b91b0513acb0fe15",
+    "identity_kind": "workspace_snapshot",
+    "entry_module_id": "root:default::85-nested-loop-control.mq.md",
+    "lock_digest": "",
+    "manifest_digest": "",
+    "stdlib": {
+      "version": "0.2.0",
+      "digest": "sha256:db905508dde89763b9d43b47fc5d52c6a1d5445a91f3c86a550ced43e8aac9d7",
+      "instance_id": "std:marqdo-stdlib@0.2.0#db905508dde89763b9d43b47fc5d52c6a1d5445a91f3c86a550ced43e8aac9d7"
+    },
+    "extensions": []
+  },
+  "modules": [
+    {
+      "id": "root:default::85-nested-loop-control.mq.md",
+      "package_instance_id": "root:default",
+      "relative_path": "85-nested-loop-control.mq.md",
+      "source_digest": "f0d654a033937dd5ab963cb021a155e2e01f05fc3a865af9907ebabbbc5a9b24",
+      "source": "## @exec main\n\n`外 = 0`\n\n`合计 = 0`\n\n`while 外 < 3`\n\n`外 = 外 + 1`\n\n`内 = 0`\n\n`while 内 < 4`\n\n`内 = 内 + 1`\n\n`if 内 == 1`\n\n`continue`\n\n`else if 内 == 3`\n\n`break`\n\n`end`\n\n`合计 = 合计 + 外`\n\n`end`\n\n`if 外 == 2`\n\n`continue`\n\n`end`\n\n`合计 = 合计 + 10`\n\n`end`\n\n`return 合计`\n",
+      "document": {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "text",
+                "literal": "@exec main",
+                "span": {
+                  "end": 13,
+                  "start": 3
+                }
+              }
+            ],
+            "kind": "heading",
+            "level": 2,
+            "setext": false,
+            "span": {
+              "end": 13,
+              "start": 0
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "外 = 0",
+                "span": {
+                  "end": 24,
+                  "start": 15
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 24,
+              "start": 15
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "合计 = 0",
+                "span": {
+                  "end": 38,
+                  "start": 26
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 38,
+              "start": 26
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "while 外 < 3",
+                "span": {
+                  "end": 55,
+                  "start": 40
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 55,
+              "start": 40
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "外 = 外 + 1",
+                "span": {
+                  "end": 72,
+                  "start": 57
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 72,
+              "start": 57
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "内 = 0",
+                "span": {
+                  "end": 83,
+                  "start": 74
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 83,
+              "start": 74
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "while 内 < 4",
+                "span": {
+                  "end": 100,
+                  "start": 85
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 100,
+              "start": 85
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "内 = 内 + 1",
+                "span": {
+                  "end": 117,
+                  "start": 102
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 117,
+              "start": 102
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "if 内 == 1",
+                "span": {
+                  "end": 132,
+                  "start": 119
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 132,
+              "start": 119
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "continue",
+                "span": {
+                  "end": 144,
+                  "start": 134
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 144,
+              "start": 134
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "else if 内 == 3",
+                "span": {
+                  "end": 164,
+                  "start": 146
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 164,
+              "start": 146
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "break",
+                "span": {
+                  "end": 173,
+                  "start": 166
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 173,
+              "start": 166
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "end",
+                "span": {
+                  "end": 180,
+                  "start": 175
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 180,
+              "start": 175
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "合计 = 合计 + 外",
+                "span": {
+                  "end": 205,
+                  "start": 182
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 205,
+              "start": 182
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "end",
+                "span": {
+                  "end": 212,
+                  "start": 207
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 212,
+              "start": 207
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "if 外 == 2",
+                "span": {
+                  "end": 227,
+                  "start": 214
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 227,
+              "start": 214
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "continue",
+                "span": {
+                  "end": 239,
+                  "start": 229
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 239,
+              "start": 229
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "end",
+                "span": {
+                  "end": 246,
+                  "start": 241
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 246,
+              "start": 241
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "合计 = 合计 + 10",
+                "span": {
+                  "end": 270,
+                  "start": 248
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 270,
+              "start": 248
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "end",
+                "span": {
+                  "end": 277,
+                  "start": 272
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 277,
+              "start": 272
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "kind": "code",
+                "literal": "return 合计",
+                "span": {
+                  "end": 294,
+                  "start": 279
+                },
+                "ticks": 1
+              }
+            ],
+            "kind": "paragraph",
+            "span": {
+              "end": 294,
+              "start": 279
+            }
+          }
+        ],
+        "kind": "document",
+        "span": {
+          "end": 295,
+          "start": 0
+        }
+      },
+      "units": [
+        {
+          "id": "root:default::85-nested-loop-control.mq.md#",
+          "path": [],
+          "parent_id": null,
+          "kind": "root",
+          "name": "",
+          "level": 0,
+          "mode": "knowledge",
+          "mode_origin": "default",
+          "mode_source_unit_id": "root:default::85-nested-loop-control.mq.md#",
+          "heading_span": null,
+          "span": {
+            "start": 0,
+            "end": 295
+          },
+          "function": null
+        },
+        {
+          "id": "root:default::85-nested-loop-control.mq.md#main",
+          "path": [
+            "main"
+          ],
+          "parent_id": "root:default::85-nested-loop-control.mq.md#",
+          "kind": "function",
+          "name": "main",
+          "level": 2,
+          "mode": "exec",
+          "mode_origin": "explicit",
+          "mode_source_unit_id": "root:default::85-nested-loop-control.mq.md#main",
+          "heading_span": {
+            "start": 0,
+            "end": 13
+          },
+          "span": {
+            "start": 0,
+            "end": 295
+          },
+          "function": "root:default::85-nested-loop-control.mq.md::main"
+        }
+      ],
+      "anchors": [
+        {
+          "anchor": "main",
+          "unit_id": "root:default::85-nested-loop-control.mq.md#main"
+        }
+      ],
+      "functions": [
+        {
+          "id": "root:default::85-nested-loop-control.mq.md::main",
+          "unit_id": "root:default::85-nested-loop-control.mq.md#main",
+          "local_name": "main",
+          "namespace": null,
+          "span": {
+            "start": 0,
+            "end": 294
+          },
+          "heading_span": {
+            "start": 0,
+            "end": 13
+          },
+          "signature": {
+            "kind": "inferred",
+            "params": []
+          },
+          "effects": [
+            "unknown"
+          ],
+          "body": [
+            {
+              "kind": "assign",
+              "span": {
+                "end": 24,
+                "start": 15
+              },
+              "target": "外",
+              "value": {
+                "kind": "literal",
+                "span": {
+                  "end": 0,
+                  "start": 0
+                },
+                "type": "int",
+                "value": "0"
+              }
+            },
+            {
+              "kind": "assign",
+              "span": {
+                "end": 38,
+                "start": 26
+              },
+              "target": "合计",
+              "value": {
+                "kind": "literal",
+                "span": {
+                  "end": 0,
+                  "start": 0
+                },
+                "type": "int",
+                "value": "0"
+              }
+            },
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "span": {
+                    "end": 72,
+                    "start": 57
+                  },
+                  "target": "外",
+                  "value": {
+                    "kind": "binary",
+                    "left": {
+                      "kind": "variable",
+                      "name": "外",
+                      "span": {
+                        "end": 67,
+                        "start": 64
+                      }
+                    },
+                    "op": "add",
+                    "right": {
+                      "kind": "literal",
+                      "span": {
+                        "end": 0,
+                        "start": 0
+                      },
+                      "type": "int",
+                      "value": "1"
+                    },
+                    "span": {
+                      "end": 71,
+                      "start": 64
+                    }
+                  }
+                },
+                {
+                  "kind": "assign",
+                  "span": {
+                    "end": 83,
+                    "start": 74
+                  },
+                  "target": "内",
+                  "value": {
+                    "kind": "literal",
+                    "span": {
+                      "end": 0,
+                      "start": 0
+                    },
+                    "type": "int",
+                    "value": "0"
+                  }
+                },
+                {
+                  "body": [
+                    {
+                      "kind": "assign",
+                      "span": {
+                        "end": 117,
+                        "start": 102
+                      },
+                      "target": "内",
+                      "value": {
+                        "kind": "binary",
+                        "left": {
+                          "kind": "variable",
+                          "name": "内",
+                          "span": {
+                            "end": 112,
+                            "start": 109
+                          }
+                        },
+                        "op": "add",
+                        "right": {
+                          "kind": "literal",
+                          "span": {
+                            "end": 0,
+                            "start": 0
+                          },
+                          "type": "int",
+                          "value": "1"
+                        },
+                        "span": {
+                          "end": 116,
+                          "start": 109
+                        }
+                      }
+                    },
+                    {
+                      "arms": [
+                        {
+                          "body": [
+                            {
+                              "kind": "continue",
+                              "span": {
+                                "end": 144,
+                                "start": 134
+                              }
+                            }
+                          ],
+                          "condition": {
+                            "kind": "binary",
+                            "left": {
+                              "kind": "variable",
+                              "name": "内",
+                              "span": {
+                                "end": 126,
+                                "start": 123
+                              }
+                            },
+                            "op": "eq",
+                            "right": {
+                              "kind": "literal",
+                              "span": {
+                                "end": 0,
+                                "start": 0
+                              },
+                              "type": "int",
+                              "value": "1"
+                            },
+                            "span": {
+                              "end": 131,
+                              "start": 123
+                            }
+                          },
+                          "condition_span": {
+                            "end": 132,
+                            "start": 119
+                          },
+                          "span": {
+                            "end": 132,
+                            "start": 119
+                          }
+                        },
+                        {
+                          "body": [
+                            {
+                              "kind": "break",
+                              "span": {
+                                "end": 173,
+                                "start": 166
+                              }
+                            }
+                          ],
+                          "condition": {
+                            "kind": "binary",
+                            "left": {
+                              "kind": "variable",
+                              "name": "内",
+                              "span": {
+                                "end": 158,
+                                "start": 155
+                              }
+                            },
+                            "op": "eq",
+                            "right": {
+                              "kind": "literal",
+                              "span": {
+                                "end": 0,
+                                "start": 0
+                              },
+                              "type": "int",
+                              "value": "3"
+                            },
+                            "span": {
+                              "end": 163,
+                              "start": 155
+                            }
+                          },
+                          "condition_span": {
+                            "end": 164,
+                            "start": 146
+                          },
+                          "span": {
+                            "end": 164,
+                            "start": 146
+                          }
+                        }
+                      ],
+                      "kind": "branch",
+                      "span": {
+                        "end": 132,
+                        "start": 119
+                      }
+                    },
+                    {
+                      "kind": "assign",
+                      "span": {
+                        "end": 205,
+                        "start": 182
+                      },
+                      "target": "合计",
+                      "value": {
+                        "kind": "binary",
+                        "left": {
+                          "kind": "variable",
+                          "name": "合计",
+                          "span": {
+                            "end": 198,
+                            "start": 192
+                          }
+                        },
+                        "op": "add",
+                        "right": {
+                          "kind": "variable",
+                          "name": "外",
+                          "span": {
+                            "end": 204,
+                            "start": 201
+                          }
+                        },
+                        "span": {
+                          "end": 204,
+                          "start": 192
+                        }
+                      }
+                    }
+                  ],
+                  "condition": {
+                    "kind": "binary",
+                    "left": {
+                      "kind": "variable",
+                      "name": "内",
+                      "span": {
+                        "end": 95,
+                        "start": 92
+                      }
+                    },
+                    "op": "lt",
+                    "right": {
+                      "kind": "literal",
+                      "span": {
+                        "end": 0,
+                        "start": 0
+                      },
+                      "type": "int",
+                      "value": "4"
+                    },
+                    "span": {
+                      "end": 99,
+                      "start": 92
+                    }
+                  },
+                  "condition_span": {
+                    "end": 100,
+                    "start": 85
+                  },
+                  "kind": "loop",
+                  "span": {
+                    "end": 100,
+                    "start": 85
+                  }
+                },
+                {
+                  "arms": [
+                    {
+                      "body": [
+                        {
+                          "kind": "continue",
+                          "span": {
+                            "end": 239,
+                            "start": 229
+                          }
+                        }
+                      ],
+                      "condition": {
+                        "kind": "binary",
+                        "left": {
+                          "kind": "variable",
+                          "name": "外",
+                          "span": {
+                            "end": 221,
+                            "start": 218
+                          }
+                        },
+                        "op": "eq",
+                        "right": {
+                          "kind": "literal",
+                          "span": {
+                            "end": 0,
+                            "start": 0
+                          },
+                          "type": "int",
+                          "value": "2"
+                        },
+                        "span": {
+                          "end": 226,
+                          "start": 218
+                        }
+                      },
+                      "condition_span": {
+                        "end": 227,
+                        "start": 214
+                      },
+                      "span": {
+                        "end": 227,
+                        "start": 214
+                      }
+                    }
+                  ],
+                  "kind": "branch",
+                  "span": {
+                    "end": 227,
+                    "start": 214
+                  }
+                },
+                {
+                  "kind": "assign",
+                  "span": {
+                    "end": 270,
+                    "start": 248
+                  },
+                  "target": "合计",
+                  "value": {
+                    "kind": "binary",
+                    "left": {
+                      "kind": "variable",
+                      "name": "合计",
+                      "span": {
+                        "end": 264,
+                        "start": 258
+                      }
+                    },
+                    "op": "add",
+                    "right": {
+                      "kind": "literal",
+                      "span": {
+                        "end": 0,
+                        "start": 0
+                      },
+                      "type": "int",
+                      "value": "10"
+                    },
+                    "span": {
+                      "end": 269,
+                      "start": 258
+                    }
+                  }
+                }
+              ],
+              "condition": {
+                "kind": "binary",
+                "left": {
+                  "kind": "variable",
+                  "name": "外",
+                  "span": {
+                    "end": 50,
+                    "start": 47
+                  }
+                },
+                "op": "lt",
+                "right": {
+                  "kind": "literal",
+                  "span": {
+                    "end": 0,
+                    "start": 0
+                  },
+                  "type": "int",
+                  "value": "3"
+                },
+                "span": {
+                  "end": 54,
+                  "start": 47
+                }
+              },
+              "condition_span": {
+                "end": 55,
+                "start": 40
+              },
+              "kind": "loop",
+              "span": {
+                "end": 55,
+                "start": 40
+              }
+            },
+            {
+              "kind": "return",
+              "span": {
+                "end": 294,
+                "start": 279
+              },
+              "value": {
+                "kind": "variable",
+                "name": "合计",
+                "span": {
+                  "end": 293,
+                  "start": 287
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "imports": [],
+      "references": [],
+      "calls": [],
+      "resources": []
+    }
+  ],
+  "diagnostics": []
+}
