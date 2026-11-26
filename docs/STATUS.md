@@ -112,12 +112,13 @@ Executed in this environment (Linux x86_64, Rust 1.100): formatting, clippy,
 locked workspace tests (**636 passed / 0 failed / 2 ignored**;
 baseline `4bbefc9` 633 passed / 0 failed / 2 ignored, so no regression), docs/architecture gates, dependency gate, engine
 differential gate and SDK gate PASS. The Windows GNU cross-target compile check
-passes; it is not a native Windows runtime claim. Deliberately **UNVERIFIED**
-here: minimum Rust 1.89, Windows/macOS native lanes, strict VM, WASM probe
-(target std not installed; `E0463`, not a forbidden native dependency),
-performance/RSS, frozen external conformance and release archive `G05`. The CI
-lanes own those checks; none is claimed as PASS from this candidate. RC.4
-evidence is not reused.
+passes; it is not a native Windows runtime claim. Woodpecker PR pipeline #101
+for code SHA `9b4f0a0` is **success**, including the `build` step (release
+archive from that SHA, archive smoke, frozen external conformance) and the
+`minimum-rust` lane; that is same-candidate CI evidence, not a release tag.
+Deliberately **UNVERIFIED** here: Windows/macOS native lanes, strict VM, WASM
+probe (target std not installed; `E0463`, not a forbidden native dependency)
+and performance/RSS. RC.4 evidence is not reused.
 
 Remaining, separately owned work: stdlib Bundle Phase B (issue #11/#12),
 SDK physical repository after S07/S08, regex/compression replacement under

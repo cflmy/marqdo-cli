@@ -282,6 +282,7 @@ that a phase is complete.
 | P0 | **Language syntax migration**: RFC-LANG-0002 single contract | **closed at `9c1723d`**; implementation, stdlib digest, examples and fixtures green; platform/strict evidence remains separate |
 | P0 | Stdlib release is a bundle in this repo; extraction is deferred (ADR-0039) | accepted, keep in repo |
 | P0 | Documentation drift between `STATUS.md`, the architecture index and the evidence | being fixed by this migration and the docs gate |
+| P1 | Domain service ownership ledger (issue #13 §7): host-held `regex.*` and `compress.*` are ADR-0062 services, not a precedent for new domain operations | **DEFERRED** to the responsible `marqdo-ext-regex`/`marqdo-ext-archive` replacement issues; old entries stay until a real replacement passes authorization/negative tests |
 | P1 | `std:fs/file` read/write/copy, metadata/directory, append/read_at/walk are implemented; watch and binary offset reads remain open | open |
 | P1 | No file watch or binary `read_at` | open; future Resource Operation extension |
 | P1 | JSON/CSV product parsers are implemented with depth bound and multi-value/multi-row; no incremental streaming parser | open |
