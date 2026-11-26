@@ -11,6 +11,7 @@ members = [
     "crates/marqdo-plugin-abi",
     "crates/marqdo-provider-worker",
     "crates/marqdo-worker-ipc",
+    "crates/marqdo-plugin-sdk",
     "crates/marqdo-host",
     "crates/marqdo-host-contract",
     "crates/marqdo-runtime",

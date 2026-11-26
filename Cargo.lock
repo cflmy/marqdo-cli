@@ -562,6 +562,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "marqdo-plugin-sdk"
+version = "3.0.0-rc.4"
+dependencies = [
+ "marqdo-plugin-abi",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "marqdo-provider-worker"
 version = "3.0.0-rc.4"
 dependencies = [

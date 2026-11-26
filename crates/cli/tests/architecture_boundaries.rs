@@ -687,22 +687,18 @@ fn plugin_contract_carries_no_native_execution() {
             "native host must own plugin `{module}`"
         );
     }
-    // ADR-0072: the SDK is an independent repository pinned to a contract
-    // revision. It must not be reintroduced as a second in-workspace copy.
-    assert!(
-        !root.join("crates/marqdo-plugin-sdk").exists(),
-        "the plugin SDK moved to cflmy/marqdo-plugin-sdk (ADR-0072)"
-    );
-    let manifest = read(&root.join("Cargo.toml"));
-    assert!(
-        !manifest.contains("marqdo-plugin-sdk"),
-        "the plugin SDK must not return as a CLI workspace member"
-    );
-    let current = read(&root.join("docs/architecture/CURRENT.md"));
-    assert!(
-        current.contains("cflmy/marqdo-plugin-sdk") && current.contains("ADR-0072"),
-        "CURRENT.md must name the independent SDK repository decision"
-    );
+    let sdk = read(&root.join("crates/marqdo-plugin-sdk/Cargo.toml"));
+    for forbidden in [
+        "marqdo-host",
+        "marqdo-cli",
+        "libloading",
+        "marqdo-worker-ipc",
+    ] {
+        assert!(
+            !sdk.contains(forbidden),
+            "the plugin SDK must not depend on `{forbidden}`"
+        );
+    }
 }
 
 /// E01/E04: the independent embedding consumer is a real package outside the

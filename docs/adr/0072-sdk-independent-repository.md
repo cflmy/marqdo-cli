@@ -1,6 +1,8 @@
 # ADR-0072 — Independent `marqdo-plugin-sdk` repository
 
-Status: **Accepted** (2026-11-26).
+Status: **Superseded by [ADR-0073](0073-sdk-stays-in-cli-workspace.md)**
+(2026-11-26). The independent repository was deleted and the SDK returned to
+the CLI workspace; this document is kept as decision history only.
 
 Complements [ADR-0071](0071-engine-host-contract-boundary.md) and implements the
 SDK follow-up tracked by issue [#15](https://git.cflmy.cn/cflmy/marqdo-cli/issues/15)

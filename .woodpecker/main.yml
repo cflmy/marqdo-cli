@@ -50,6 +50,7 @@ steps:
       - cargo test -p marqdo-cli --test architecture_boundaries
       - python3 tools/ci/check_dependency_boundaries.py
       - python3 tools/ci/check_engine_boundary.py
+      - python3 tools/ci/check_plugin_sdk.py
       - python3 -m unittest discover -s tools/ci -p "test_*.py"
       - cargo test -p marqdo-cli --test stdlib_product
       # Windows compile gate: runtime lanes are native on GitHub; this catches

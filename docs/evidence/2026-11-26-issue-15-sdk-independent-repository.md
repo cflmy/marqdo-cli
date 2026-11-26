@@ -1,5 +1,11 @@
 # Evidence — issue #15 independent `marqdo-plugin-sdk` repository
 
+> **Superseded.** This snapshot records the (later reverted) ADR-0072 split.
+> The SDK is back in the CLI workspace under
+> [ADR-0073](../adr/0073-sdk-stays-in-cli-workspace.md); the remote repository
+> was deleted. See `2026-11-26-issue-15-sdk-split-reverted.md`. Do not read this
+> file as current architecture.
+
 Date: 2026-11-26 (Asia/Shanghai)
 Tracking issue: <https://git.cflmy.cn/cflmy/marqdo-cli/issues/15>
 Decision: [ADR-0072](../adr/0072-sdk-independent-repository.md)
