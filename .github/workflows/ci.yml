@@ -221,7 +221,8 @@ jobs:
           cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
           version="$(cargo metadata --no-deps --format-version 1 --offline \
             | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"]=="marqdo-cli"))')"
-          python3 tools/release/package.py --source-sha "$GITHUB_SHA" --version "$version"
+          python3 tools/release/package.py --source-sha "$GITHUB_SHA" --version "$version" \
+            --stdlib-dir stdlib --bundle-pin tools/stdlib/bundle-pin.json
           python3 tools/release/smoke.py --archive dist/marqdo-*.tar.gz
           tools/ci/run_frozen_extensions.sh dist/marqdo-*.tar.gz "$GITHUB_SHA" dist/frozen-extension-evidence.json
       - uses: actions/upload-artifact@v4

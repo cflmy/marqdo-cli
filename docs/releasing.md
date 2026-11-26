@@ -116,7 +116,8 @@ The archive is built deterministically from a clean tree at `SOURCE_SHA`:
 version="$(cargo metadata --no-deps --format-version 1 --offline \
   | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"]=="marqdo-cli"))')"
 sha="$(git rev-parse HEAD)"
-python3 tools/release/package.py --version "$version" --source-sha "$sha"
+python3 tools/release/package.py --version "$version" --source-sha "$sha" \
+  --stdlib-dir stdlib --bundle-pin tools/stdlib/bundle-pin.json
 # dist/marqdo-<version>-x86_64-unknown-linux-gnu.tar.gz(+.sha256)
 ```
 
@@ -128,9 +129,15 @@ and self-test), `LICENSE-APACHE`, `README.md`, `CHANGELOG.md`, `COMPATIBILITY.md
 artifacts so the examples run without a compiler) and `tests/consumers/`.
 
 `RELEASE_INFO.json` records the stdlib `name`, `version`, `tree_digest`,
-`aliases_digest`, `file_count` and `files`. `package.py` recomputes both digests
-with the same canonical algorithm as the runtime and refuses to package a mismatch
-with `stdlib/stdlib.json` (RFC-EXT-0003 H-08 / T-PKG-04).
+`aliases_digest`, `file_count` and `files`, plus `stdlib.source` (kind,
+repository, commit, path) when `--bundle-pin` is given. `--stdlib-dir` is a
+required build input and names the unpacked Bundle root; `package.py` verifies
+its manifest and recomputes both digests with the same canonical algorithm as
+the runtime, and fails on a missing directory, a missing `stdlib.json`, a
+tree/alias digest mismatch or a pin mismatch before it stages anything
+(ADR-0070, RFC-EXT-0003 H-08 / T-PKG-04). The pin itself is resolved and
+verified by `python3 tools/stdlib/bundle.py`; tests, the performance runner and
+release CI use the same resolver instead of an implicit checkout path.
 The `protocols.analysis` field identifies the default Analysis major.
 `protocols.analysis_versions` lists all majors the archive can emit.
 The archive smoke exercises a published example and a consumer for each major. The bundled stdlib is a

@@ -4,7 +4,13 @@
 The archive is deterministic (sorted entries, commit timestamp, uid/gid 0) and
 contains the CLI, the provider worker helper (same directory, same target), the
 licenses/changelog/compatibility matrix, the public specs, the developer docs,
-the runnable examples and the public protocol consumers.
+the runnable examples, the public protocol consumers and the stdlib Bundle that
+`--stdlib-dir` names.
+
+The stdlib Bundle is one required, explicit build input (ADR-0070): a missing
+directory, missing manifest, tree/alias digest mismatch or pin mismatch fails
+before anything is staged. An optional `--bundle-pin` also records the pinned
+source commit in `RELEASE_INFO.json.stdlib.source`.
 
 It refuses to package a dirty tree, a version that does not match the Cargo
 workspace, or a HEAD that differs from `--source-sha`, and it fails if the
@@ -16,7 +22,9 @@ Usage (from the repository root, after
 
     python3 tools/release/package.py \
         --source-sha "$(git rev-parse HEAD)" \
-        --version 3.0.0-rc.4
+        --version 3.0.0-rc.4 \
+        --stdlib-dir stdlib \
+        --bundle-pin tools/stdlib/bundle-pin.json
 """
 
 from __future__ import annotations
@@ -34,13 +42,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 BINARIES = ("marqdo", "marqdo-provider-worker")
-STDLIB = ROOT / "stdlib"
+PRODUCT_STDLIB_FILES = ("stdlib.json", "io.mq.md", "io/console.mq.md")
 EXAMPLES_WITH_BUILD = (
     "plugin-demo",
     "plugin-multi-export",
     "provider-demo",
     "math-backend",
 )
+
+sys.path.insert(0, str(ROOT / "tools" / "stdlib"))
+import bundle as stdlib_bundle  # noqa: E402
 
 
 def fail(message: str) -> "NoReturn":
@@ -64,81 +75,51 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def sha256_bytes(*chunks: bytes) -> str:
-    digest = hashlib.sha256()
-    for chunk in chunks:
-        digest.update(chunk)
-    return "sha256:" + digest.hexdigest()
+def stdlib_tree_digest(root: Path) -> str:
+    """Canonical stdlib tree digest, byte-identical to the CLI loader.
 
-
-def stdlib_tree_digest(root: Path = STDLIB) -> str:
-    """Canonical stdlib tree digest, byte-identical to
-    `marqdo_cli::stdlib::tree_digest`: sorted `*.mq.md` relative POSIX paths,
-    `path + NUL + bytes + NUL`."""
-    paths = sorted(
-        (path.relative_to(root).as_posix(), path)
-        for path in root.rglob("*.mq.md")
-        if path.is_file()
-    )
-    return sha256_bytes(
-        *(
-            chunk
-            for relative, path in paths
-            for chunk in (relative.encode(), b"\0", path.read_bytes(), b"\0")
-        )
-    )
+    The algorithm lives in `tools/stdlib/bundle.py` (ADR-0070); `root` is the
+    explicit `--stdlib-dir` input, never an implicit checkout path.
+    """
+    return stdlib_bundle.tree_digest(root)
 
 
 def stdlib_aliases_digest(manifest: dict) -> str:
     """Canonical public-alias digest, byte-identical to the CLI loader."""
-    chunks: list[bytes] = []
-    aliases = sorted(
-        manifest.get("public_aliases", []),
-        key=lambda alias: (alias["target_module"], alias["target_function"]),
-    )
-    for alias in aliases:
-        chunks.append(alias["target_module"].encode())
-        chunks.append(b"\0")
-        chunks.append(alias["target_function"].encode())
-        chunks.append(b"\0")
-        for name in sorted(alias["public_names"]):
-            chunks.append(name.encode())
-            chunks.append(b"\0")
-    return sha256_bytes(*chunks)
+    return stdlib_bundle.aliases_digest(manifest)
 
 
-def verify_stdlib() -> dict:
-    """Validate the shipped stdlib tree and return the RELEASE_INFO record."""
-    manifest_path = STDLIB / "stdlib.json"
-    if not manifest_path.is_file():
-        fail(f"missing bundled stdlib manifest {manifest_path}")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    tree = stdlib_tree_digest()
-    aliases = stdlib_aliases_digest(manifest)
-    if tree != manifest.get("digest"):
-        fail(f"stdlib tree digest {tree} does not match stdlib.json digest {manifest.get('digest')}")
-    if aliases != manifest.get("aliases_digest"):
-        fail(
-            f"stdlib alias digest {aliases} does not match stdlib.json "
-            f"aliases_digest {manifest.get('aliases_digest')}"
-        )
-    required = ["stdlib.json", "io.mq.md", "io/console.mq.md"]
-    files = sorted(
-        path.relative_to(STDLIB).as_posix()
-        for path in STDLIB.rglob("*")
-        if path.is_file()
-    )
-    for name in required:
-        if name not in files:
-            fail(f"bundled stdlib is missing required file {name}")
-    return {
-        "name": manifest.get("name"),
-        "version": manifest.get("version"),
-        "tree_digest": tree,
-        "aliases_digest": aliases,
-        "file_count": len(files),
-        "files": files,
-    }
+def verify_stdlib(root: Path, pin_path: Path | None = None) -> dict:
+    """Validate the explicit Bundle root and return the RELEASE_INFO record."""
+    root = Path(root)
+    try:
+        record = stdlib_bundle.verify(root)
+        stdlib_bundle.require_files(record, PRODUCT_STDLIB_FILES)
+        if record["aliases_digest"] is None:
+            raise stdlib_bundle.BundleError(
+                f"{root / 'stdlib.json'} declares no aliases_digest"
+            )
+        info = {
+            "name": record["name"],
+            "version": record["version"],
+            "tree_digest": record["tree_digest"],
+            "aliases_digest": record["aliases_digest"],
+            "file_count": record["file_count"],
+            "files": record["files"],
+        }
+        if pin_path is not None:
+            pin = stdlib_bundle.load_pin(pin_path)
+            stdlib_bundle.verify_pin(record, pin)
+            source = pin["source"]
+            info["source"] = {
+                "kind": source.get("kind"),
+                "repository": source.get("repository"),
+                "commit": source.get("commit"),
+                "path": source.get("path"),
+            }
+        return info
+    except stdlib_bundle.BundleError as error:
+        fail(str(error))
 
 
 def host_target() -> str:
@@ -206,7 +187,14 @@ def copy_tree(source: Path, destination: Path) -> None:
     shutil.copytree(source, destination, dirs_exist_ok=True)
 
 
-def stage(stage_dir: Path, version: str, source_sha: str, target: str) -> dict:
+def stage(
+    stage_dir: Path,
+    version: str,
+    source_sha: str,
+    target: str,
+    stdlib_dir: Path,
+    stdlib_info: dict,
+) -> dict:
     stage_dir.mkdir(parents=True)
     release_dir = ROOT / "target" / "release"
     for name in BINARIES:
@@ -226,7 +214,7 @@ def stage(stage_dir: Path, version: str, source_sha: str, target: str) -> dict:
 
     # The bundled stdlib is a required runtime artifact, not a build-machine
     # side effect: copy the verified tree next to the binary (ADR/SPEC H-08).
-    copy_tree(STDLIB, stage_dir / "stdlib")
+    copy_tree(stdlib_dir, stage_dir / "stdlib")
 
     # Examples without local build output, then the freshly built extension
     # artifacts so a clean install can run every example without a compiler.
@@ -242,7 +230,6 @@ def stage(stage_dir: Path, version: str, source_sha: str, target: str) -> dict:
     shutil.copy2(limitations, stage_dir / "KNOWN_LIMITATIONS.md")
 
     commit_time = int(git("show", "-s", "--format=%ct", "HEAD"))
-    stdlib_info = verify_stdlib()
     binaries = {
         name: {
             "sha256": sha256_file(stage_dir / name),
@@ -326,6 +313,8 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--stdlib-dir", required=True)
+    parser.add_argument("--bundle-pin", default=None)
     parser.add_argument("--target", default=None)
     parser.add_argument("--out-dir", default=str(ROOT / "dist"))
     parser.add_argument("--skip-example-build", action="store_true")
@@ -335,6 +324,10 @@ def main(argv: list[str]) -> int:
         ch not in "0123456789abcdef" for ch in args.source_sha
     ):
         fail("--source-sha must be a full lowercase 40-character commit SHA")
+    stdlib_dir = Path(args.stdlib_dir)
+    stdlib_info = verify_stdlib(
+        stdlib_dir, Path(args.bundle_pin) if args.bundle_pin else None
+    )
     check_clean(args.source_sha)
     version = workspace_version()
     if version != args.version:
@@ -349,7 +342,7 @@ def main(argv: list[str]) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     stage_dir = out_dir / f"marqdo-{version}-{target}"
     shutil.rmtree(stage_dir, ignore_errors=True)
-    staged = stage(stage_dir, version, args.source_sha, target)
+    staged = stage(stage_dir, version, args.source_sha, target, stdlib_dir, stdlib_info)
     archive = out_dir / f"marqdo-{version}-{target}.tar.gz"
     archive.unlink(missing_ok=True)
     make_archive(stage_dir, archive, staged["commit_time"])
