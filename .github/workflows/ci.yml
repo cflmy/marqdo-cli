@@ -19,6 +19,8 @@ jobs:
           components: rustfmt, clippy
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+      - name: Verify the pinned stdlib Bundle
+        run: python3 tools/stdlib/bundle.py
       - name: Formatting
         run: cargo fmt --all -- --check
       - name: Clippy
@@ -41,7 +43,10 @@ jobs:
         run: cargo test -p marqdo-cli --test architecture_boundaries
       - name: CI evidence tool tests
         run: python3 -m unittest discover -s tools/ci -p "test_*.py"
-      - name: Whole stdlib product tests
+      - name: Whole stdlib product tests (explicit pinned Bundle)
+        env:
+          MARQDO_TEST_STDLIB_BUNDLE: ${{ github.workspace }}/stdlib
+          MARQDO_TEST_BUNDLE_PIN: ${{ github.workspace }}/tools/stdlib/bundle-pin.json
         run: cargo test -p marqdo-cli --test stdlib_product
       - name: Validate public JSON schemas
         run: |
@@ -92,6 +97,16 @@ jobs:
             --plugin examples/plugin-multi-export/build \
             --trust-native-plugin \
             --allow-plugin demo.solver
+
+  independent-build:
+    name: independent CLI/worker build (no stdlib source)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build from a copy without stdlib and run a language-only program
+        run: python3 tools/ci/independent_build.py
 
   schema:
     name: schema instance validation + consumers
@@ -240,7 +255,7 @@ jobs:
 
   release-evidence:
     name: release evidence manifest
-    needs: [test, schema, cross-platform, frozen-extensions]
+    needs: [test, schema, cross-platform, frozen-extensions, independent-build]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -253,6 +268,7 @@ jobs:
           LINUX_RESULT: ${{ needs.test.result }}
           SCHEMA_RESULT: ${{ needs.schema.result }}
           EXTENSIONS_RESULT: ${{ needs.frozen-extensions.result }}
+          INDEPENDENT_RESULT: ${{ needs.independent-build.result }}
         run: |
           set -euo pipefail
           state() {
@@ -263,11 +279,12 @@ jobs:
             esac
           }
           linux="$(state "$LINUX_RESULT")"
-          if [ "$(state "$SCHEMA_RESULT")" != "PASS" ] || [ "$(state "$EXTENSIONS_RESULT")" != "PASS" ]; then
+          if [ "$(state "$SCHEMA_RESULT")" != "PASS" ] || [ "$(state "$EXTENSIONS_RESULT")" != "PASS" ] || [ "$(state "$INDEPENDENT_RESULT")" != "PASS" ]; then
             linux="FAIL"
           fi
           python3 tools/ci/release_evidence.py --profile rc --target-sha "$TARGET_SHA" \
             --out "docs/evidence/ci/$TARGET_SHA/manifest.json" \
+            --gate "independent_build=$(state "$INDEPENDENT_RESULT"):$TARGET_SHA:$RUN_URL" \
             --gate "linux=$linux:$TARGET_SHA:$RUN_URL" \
             --gate "windows=UNSUPPORTED:$TARGET_SHA:linux-only-rc-scope" \
             --gate "macos=UNSUPPORTED:$TARGET_SHA:linux-only-rc-scope" \

@@ -27,6 +27,11 @@ workload whose wire output did not match the committed expected digest.
   governor, CPU affinity and toolchain. For an approved-node comparison
   it also requires an approved, correctness-verified MEASURED baseline.
   Record competing load and investigate differences before sign-off.
+* One explicit Bundle: `--stdlib-dir` (default: the pinned Bundle) is verified
+  against `tools/stdlib/bundle-pin.json`, and every workload receives it as
+  `MARQDO_STDLIB_DIR`. The report records the Bundle name, version, tree/alias
+  digests and source commit. A bad input or digest mismatch fails before any
+  workload runs; there is no checkout fallback (ADR-0070).
 * Avoid TCG/QEMU for final performance numbers; use native or KVM with fixed
   CPU affinity (`--cpu-list`) and an administrator-approved governor.
 * The suggested investigation thresholds are p50 +15% and peak RSS +20%; they

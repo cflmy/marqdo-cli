@@ -27,9 +27,12 @@ dominated by emulation and is not comparable with native or KVM.
 ## Tool
 
 `tools/perf/runner.py` (schema `marqdo.perf.v2`) builds one release binary,
-records its SHA256/Cargo.lock/rustc/source SHA, verifies every workload's exact
-wire digest **before** timing, then reports warmups/samples, p50, p95, MAD,
-CPU user/sys, peak RSS and the environment manifest. See
+records its SHA256/Cargo.lock/rustc/source SHA, resolves one pinned stdlib
+Bundle (name, version, tree/alias digests, source commit) and passes it to every
+workload as `MARQDO_STDLIB_DIR`, verifies every workload's exact wire digest
+**before** timing, then reports warmups/samples, p50, p95, MAD, CPU user/sys,
+peak RSS and the environment manifest. A bad Bundle input or digest mismatch
+fails before any workload runs; there is no checkout fallback (ADR-0070). See
 [`tools/perf/README.md`](../tools/perf/README.md).
 
 Rules enforced by the tool:

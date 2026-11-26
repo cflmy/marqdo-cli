@@ -38,6 +38,9 @@ EXPECTED = ROOT / "tools" / "perf" / "expected"
 SCHEMA = "marqdo.perf.v2"
 MIN_WARMUPS = 5
 MIN_SAMPLES = 20
+
+sys.path.insert(0, str(ROOT / "tools" / "stdlib"))
+import bundle as stdlib_bundle  # noqa: E402
 P50_REGRESSION = 0.15
 RSS_REGRESSION = 0.20
 
@@ -312,6 +315,7 @@ def run_workload(
     record: bool,
     timeout: float,
     cpu_list: str,
+    stdlib_dir: Path,
 ) -> dict:
     name = workload["name"]
     prefix = []
@@ -325,8 +329,9 @@ def run_workload(
     measured_argv = prefix + [str(binary)] + (workload.get("measure_argv") or workload["argv"])
     env = dict(os.environ)
     env.pop("MARQDO_STDLIB_DIR", None)
-    if not (binary.parent / "stdlib" / "stdlib.json").is_file():
-        env["MARQDO_STDLIB_DIR"] = str(ROOT / "stdlib")
+    # One explicit, pinned Bundle for every workload; no sibling or checkout
+    # fallback (ADR-0070).
+    env["MARQDO_STDLIB_DIR"] = str(stdlib_dir)
     env.setdefault("NO_COLOR", "1")
     expected_document = load_expected(name)
     expected = expected_document.get("wire_sha256") if expected_document else None
@@ -514,6 +519,8 @@ def compare_baseline(report: dict, baseline: dict) -> list[dict]:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", default=str(ROOT / "target" / "release" / "marqdo"))
+    parser.add_argument("--stdlib-dir", default=None)
+    parser.add_argument("--bundle-pin", default=str(ROOT / "tools" / "stdlib" / "bundle-pin.json"))
     parser.add_argument("--no-build", action="store_true")
     parser.add_argument("--warmups", type=int, default=MIN_WARMUPS)
     parser.add_argument("--samples", type=int, default=MIN_SAMPLES)
@@ -527,6 +534,13 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--out", default="")
     parser.add_argument("--allow-smoke", action="store_true")
     args = parser.parse_args(argv)
+
+    try:
+        stdlib_dir, stdlib_record, stdlib_pin = stdlib_bundle.resolve(
+            args.stdlib_dir, Path(args.bundle_pin)
+        )
+    except stdlib_bundle.BundleError as error:
+        raise SystemExit(f"perf: error: {error}") from error
 
     if args.samples < 1 or args.warmups < 0:
         raise SystemExit("samples must be >= 1 and warmups >= 0")
@@ -571,6 +585,7 @@ def main(argv: list[str]) -> int:
             args.record_expected,
             args.timeout,
             args.cpu_list,
+            stdlib_dir,
         )
         results.append(result)
         print(
@@ -589,6 +604,14 @@ def main(argv: list[str]) -> int:
     report = {
         "schema": SCHEMA,
         "source_sha": source_sha,
+        "stdlib": {
+            "name": stdlib_record["name"],
+            "version": stdlib_record["version"],
+            "tree_digest": stdlib_record["tree_digest"],
+            "aliases_digest": stdlib_record["aliases_digest"],
+            "source_commit": stdlib_pin["source"].get("commit"),
+            "root": str(stdlib_dir),
+        },
         "platform_id": args.platform_id,
         "environment_approved": bool(args.approved_node),
         "binary": {

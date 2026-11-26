@@ -39,6 +39,7 @@ steps:
       - apt-get install -y --no-install-recommends curl ca-certificates python3 python3-jsonschema build-essential gcc-mingw-w64-x86-64
       - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
       - apt-get install -y --no-install-recommends nodejs
+      - python3 tools/stdlib/bundle.py
       - cargo fmt --all -- --check
       - cargo clippy --workspace --all-targets -- -D warnings
       # Provider CLI tests resolve a real provider worker next to the CLI
@@ -48,11 +49,18 @@ steps:
       - cargo test -p marqdo-cli --test docs_consistency
       - cargo test -p marqdo-cli --test architecture_boundaries
       - python3 -m unittest discover -s tools/ci -p "test_*.py"
-      - cargo test -p marqdo-cli --test stdlib_product
+      - MARQDO_TEST_STDLIB_BUNDLE="$PWD/stdlib" MARQDO_TEST_BUNDLE_PIN="$PWD/tools/stdlib/bundle-pin.json" cargo test -p marqdo-cli --test stdlib_product
       # Windows compile gate: runtime lanes are native on GitHub; this catches
       # cfg/compile regressions on the Linux CI without a Windows runner.
       - rustup target add x86_64-pc-windows-gnu
       - cargo check --workspace --all-targets --target x86_64-pc-windows-gnu
+
+  independent-build:
+    image: rust:1.100-bookworm
+    commands:
+      - apt-get update
+      - apt-get install -y --no-install-recommends ca-certificates git python3
+      - python3 tools/ci/independent_build.py
 
   minimum-rust:
     image: rust:1.89-bookworm
@@ -71,6 +79,7 @@ steps:
       # only supported transport and resolution is a sibling-of-CLI lookup.
       - cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
       - test -x target/release/marqdo-provider-worker
+      - python3 tools/stdlib/bundle.py
       # Build the deterministic archive from this exact commit and cold-install
       # smoke-test it; the package script refuses a dirty tree or wrong SHA.
       - |

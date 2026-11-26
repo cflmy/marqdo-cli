@@ -14,8 +14,10 @@
 The default Docker pipeline runs on push and pull request. A fast `contract`
 lane exercises the public Analysis/Observation contracts through the real CLI
 and the independent Python consumers; the full `test` lane runs the Rust gates
-and the Windows cross-target compile check; `build` packages the archive, runs
-the from-archive smoke and the frozen external conformance suite.
+and the Windows cross-target compile check; `independent-build` exports the
+commit without `stdlib/` and proves both shipped binaries still build and run a
+language-only program; `build` packages the archive from the pinned stdlib
+Bundle, runs the from-archive smoke and the frozen external conformance suite.
 
 ```text
 contract (rust:1.100-bookworm, python3-jsonschema, both shipped binaries):
@@ -26,21 +28,29 @@ contract (rust:1.100-bookworm, python3-jsonschema, both shipped binaries):
   stale-Analysis rejection
 
 test (rust:1.100-bookworm, clippy/rustfmt, Node.js 22, MinGW, both binaries):
+  python3 tools/stdlib/bundle.py            (verify the pinned Bundle)
   cargo fmt --all -- --check
   cargo clippy --workspace --all-targets -- -D warnings
   cargo build --locked -p marqdo-provider-worker
   cargo test --workspace --locked
   docs_consistency / architecture_boundaries / stdlib_product
+  stdlib_product again with MARQDO_TEST_STDLIB_BUNDLE + MARQDO_TEST_BUNDLE_PIN
   python3 -m unittest discover -s tools/ci -p "test_*.py"
   rustup target add x86_64-pc-windows-gnu
   cargo check --workspace --all-targets --target x86_64-pc-windows-gnu
+
+independent-build (rust:1.100-bookworm, git, python3):
+  git archive HEAD, remove stdlib/, no ecosystem checkout
+  cargo build --locked -p marqdo-cli -p marqdo-provider-worker
+  language-only check/call through the built CLI
+  stdlib-dependent run must fail closed; no stdlib/ next to the binary
 
 minimum-rust (rust:1.89-bookworm):
   cargo check --locked --workspace --all-targets
 
 build (depends on test, minimum-rust, contract):
   cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
-  package the deterministic archive for $CI_COMMIT_SHA
+  python3 tools/stdlib/bundle.py; package --stdlib-dir stdlib --bundle-pin ...
   from-archive smoke (tools/release/smoke.py)
   frozen external conformance (tools/ci/run_frozen_extensions.sh, 7/7)
 ```
@@ -93,6 +103,11 @@ syntax; Debian bookworm's Node 18 fails those tests.
   workspace tests so the provider CLI tests use the real helper, and adds a
   `cargo check --workspace --all-targets --target x86_64-pc-windows-gnu`
   compile gate (native Windows/macOS runtime lanes stay on the GitHub matrix).
+* **ADR-0070 explicit Bundle:** the `test` lane verifies
+  `tools/stdlib/bundle-pin.json` and runs the product suite once with an
+  explicit `MARQDO_TEST_STDLIB_BUNDLE`; the new `independent-build` lane builds
+  both binaries from a copy without `stdlib/` and requires the stdlib-dependent
+  program to fail closed.
 * The Woodpecker **build** lane and the GitHub **release-candidate** lane build
   `marqdo` **and** `marqdo-provider-worker` and package both as siblings; the
   provider transport resolves only that sibling (no PATH fallback), so an
