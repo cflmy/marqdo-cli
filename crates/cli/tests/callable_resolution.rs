@@ -4,6 +4,9 @@
 //! point is to prove that `check` and `run` share one static resolution and
 //! that the runtime never guesses a plugin from a dotted string prefix.
 #![cfg(unix)]
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
+
 #[path = "support/observation.rs"]
 pub mod observation;
 
@@ -49,7 +52,7 @@ fn repo() -> PathBuf {
 }
 
 fn cli(args: &[&str], dir: &Path) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    stdlib_support::cli_command()
         .args(args)
         .current_dir(dir)
         .output()

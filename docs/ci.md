@@ -29,7 +29,8 @@ contract (rust:1.100-bookworm, python3-jsonschema, both shipped binaries):
   dependency-direction gate (tools/ci/check_dependency_boundaries.py)
 
 test (rust:1.100-bookworm, clippy/rustfmt, Node.js 22, MinGW, both binaries):
-  python3 tools/stdlib/bundle.py            (verify the pinned Bundle)
+  python3 tools/ci/fetch_ecosystem_bundle.py (materialize the pinned ecosystem Bundle)
+  python3 tools/stdlib/bundle.py --stdlib-dir target/ecosystem-stdlib
   cargo fmt --all -- --check
   cargo clippy --workspace --all-targets -- -D warnings
   cargo build --locked -p marqdo-provider-worker
@@ -44,7 +45,7 @@ test (rust:1.100-bookworm, clippy/rustfmt, Node.js 22, MinGW, both binaries):
   cargo check --workspace --all-targets --target x86_64-pc-windows-gnu
 
 independent-build (rust:1.100-bookworm, git, python3):
-  git archive HEAD, remove stdlib/, no ecosystem checkout
+  git archive HEAD, no stdlib source tree exists, no ecosystem checkout
   cargo build --locked -p marqdo-cli -p marqdo-provider-worker
   language-only check/call through the built CLI
   stdlib-dependent run must fail closed; no stdlib/ next to the binary
@@ -54,7 +55,7 @@ minimum-rust (rust:1.89-bookworm):
 
 build (depends on test, minimum-rust, contract):
   cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
-  python3 tools/stdlib/bundle.py; package --stdlib-dir stdlib --bundle-pin ...
+  materialize the pinned Bundle; package --stdlib-dir target/ecosystem-stdlib --bundle-pin ...
   from-archive smoke (tools/release/smoke.py)
   frozen external conformance (tools/ci/run_frozen_extensions.sh, 7/7)
 ```
@@ -108,9 +109,9 @@ syntax; Debian bookworm's Node 18 fails those tests.
   `cargo check --workspace --all-targets --target x86_64-pc-windows-gnu`
   compile gate (native Windows/macOS runtime lanes stay on the GitHub matrix).
 * **ADR-0070 explicit Bundle:** the `test` lane verifies
-  `tools/stdlib/bundle-pin.json` and runs the product suite once with an
-  explicit `MARQDO_TEST_STDLIB_BUNDLE`; the new `independent-build` lane builds
-  both binaries from a copy without `stdlib/` and requires the stdlib-dependent
+  `tools/stdlib/bundle-pin.json`, materializes the pinned ecosystem Bundle and
+  runs the product suite with an explicit `MARQDO_TEST_STDLIB_BUNDLE`; the
+  `independent-build` lane builds both binaries with no Bundle checkout and requires the stdlib-dependent
   program to fail closed.
 * The Woodpecker **build** lane and the GitHub **release-candidate** lane build
   `marqdo` **and** `marqdo-provider-worker` and package both as siblings; the

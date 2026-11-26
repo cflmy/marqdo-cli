@@ -2,12 +2,12 @@
 //!
 //! These checks pin the documented layering: the engine depends on the neutral
 //! Host contract (never the native host), the plugin ABI contract carries no
-//! loader/worker execution side, the bundled stdlib stays in this repository,
-//! `std:` import targets resolve only inside the bundle, and the host keeps the
+//! loader/worker execution side, the stdlib Bundle is an explicit ecosystem
+//! input rather than an in-repo source tree, `std:` import targets resolve only
+//! inside the bundle, and the host keeps the
 //! documented stdio/file/TCP resource endpoints. They are source and digest
 //! checks, not an OS-sandbox proof; `tools/ci/check_dependency_boundaries.py`
 //! adds the Cargo-metadata graph gate.
-
 #[path = "support/stdlib.rs"]
 pub mod stdlib_support;
 
@@ -140,24 +140,36 @@ fn engine_depends_on_the_neutral_host_contract_only() {
 }
 
 #[test]
-fn bundled_stdlib_stays_in_this_repository_and_matches_its_digest() {
-    let root = stdlib_support::bundle_dir();
-    // Phase A (ADR-0070): the pinned Bundle is still the checkout tree. Phase B
-    // replaces this assertion when the ecosystem Bundle becomes the input.
-    assert_eq!(
-        root,
-        repo_root().join("stdlib").canonicalize().unwrap(),
-        "the Phase A stdlib pin must resolve to the in-repo stdlib tree"
+fn stdlib_sources_live_in_the_ecosystem_not_in_this_repository() {
+    // Phase B (ADR-0070): the in-repo source tree is gone. The accepted Bundle
+    // identity is the ecosystem pin; product tests consume an explicit, verified
+    // Bundle (CI materializes it with tools/ci/fetch_ecosystem_bundle.py).
+    assert!(
+        !repo_root().join("stdlib").exists(),
+        "Phase B must not carry an in-repo stdlib source tree"
     );
+    let pin = stdlib_support::BundlePin::committed();
+    assert!(
+        pin.source_path.is_none(),
+        "the accepted Bundle pin must name the ecosystem source, not a vendored path"
+    );
+    assert_eq!(pin.name, "marqdo-stdlib");
+    assert_eq!(pin.version, "0.2.0");
+    assert_eq!(pin.source_commit.len(), 40);
+    let root = stdlib_support::bundle_dir();
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(root.join("stdlib.json")).unwrap()).unwrap();
-    assert_eq!(manifest["name"], "marqdo-stdlib");
-    assert_eq!(manifest["version"], "0.1.0");
+    assert_eq!(manifest["name"], pin.name);
+    assert_eq!(manifest["version"], pin.version);
     let declared = manifest["digest"].as_str().expect("digest string");
+    assert_eq!(
+        declared, pin.tree_digest,
+        "the resolved Bundle must match the pin"
+    );
     let actual = format!("sha256:{}", tree_digest(&root).unwrap());
     assert_eq!(
         actual, declared,
-        "stdlib digest mismatch; regenerate it with tools/pack-stdlib.py and commit the digest"
+        "stdlib digest mismatch; rebuild the Bundle from the pinned ecosystem gitlinks"
     );
 }
 

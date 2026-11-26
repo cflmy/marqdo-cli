@@ -4,6 +4,8 @@
 //! stdout line stream exactly like an external consumer. They cover the P0
 //! envelope/lifecycle/byte-fidelity contract and the P1 frame/value policy,
 //! plus snapshot equivalence, truncation, live delivery and a broken pipe.
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
 
 use std::fs;
 use std::io::{BufRead, BufReader, Read};
@@ -51,7 +53,7 @@ impl Drop for TempDir {
 }
 
 fn cli(dir: &Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    stdlib_support::cli_command()
         .args(args)
         .current_dir(dir)
         .output()
@@ -670,7 +672,7 @@ fn live_chunks_arrive_while_the_program_is_still_running() {
     let dir = TempDir::new("live");
     let source = "## @exec main\n\n`打印(\"READY\")`\n\n`i = 0`\n\n`while i < 2000000`\n\n`i = i + 1`\n\n`end`\n\n`打印(\"FINISH\")`\n\n`return i`\n";
     dir.write("index.mq.md", source);
-    let mut child = Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    let mut child = stdlib_support::cli_command()
         .args([
             "run",
             "index.mq.md",
@@ -723,7 +725,7 @@ fn broken_pipe_makes_the_run_fail_instead_of_running_forever() {
     let dir = TempDir::new("pipe");
     let source = "## @exec main\n\n`打印(\"START\")`\n\n`i = 0`\n\n`while i < 5000000`\n\n`i = i + 1`\n\n`end`\n\n`return i`\n";
     dir.write("index.mq.md", source);
-    let mut child = Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    let mut child = stdlib_support::cli_command()
         .args([
             "run",
             "index.mq.md",

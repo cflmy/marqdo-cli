@@ -1,5 +1,7 @@
 //! Public Analysis and Observation black-box contracts (spec/analysis.md,
 //! spec/observation.md).
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
 
 #[path = "support/observation.rs"]
 pub mod observation;
@@ -34,12 +36,8 @@ impl Drop for TempDir {
     }
 }
 
-fn binary() -> &'static str {
-    env!("CARGO_BIN_EXE_marqdo")
-}
-
 fn cli(dir: &Path, args: &[&str]) -> Output {
-    Command::new(binary())
+    stdlib_support::cli_command()
         .args(args)
         .current_dir(dir)
         .output()

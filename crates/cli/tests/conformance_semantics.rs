@@ -18,10 +18,10 @@
 //! Developer note: `UPDATE_SEMANTICS_GOLDENS=1` rewrites `value`/`stdout` from
 //! the implementation. Never use it without hand-checking every rewritten
 //! expectation; the checked-in goldens were reviewed individually.
-
-use std::fs;
 #[path = "support/stdlib.rs"]
 pub mod stdlib_support;
+
+use std::fs;
 
 use std::path::{Path, PathBuf};
 

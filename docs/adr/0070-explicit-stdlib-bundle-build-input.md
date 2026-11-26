@@ -1,6 +1,7 @@
 # ADR-0070 — One explicit stdlib Bundle build input (Phase A)
 
-Status: **Accepted for implementation on the 3.0 prerelease line** (2026-11-26).
+Status: **Phase A accepted and implemented (2026-11-26); Phase B accepted and
+implemented on the 3.0 prerelease line (2026-11-27).**
 Relates to: issue
 [#11](https://git.cflmy.cn/cflmy/marqdo-cli/issues/11), ADR-0028 (bundled
 stdlib and `std:` imports), ADR-0039 (deferred extraction), ADR-0058 (public
@@ -98,6 +99,31 @@ requires the accepted component commits of ecosystem issue #2 and the extension
 replacement evidence named by issue #11. This ADR records the Phase A input
 boundary only; it does not authorize deleting sources or changing `std:`
 semantics.
+
+## Phase B implementation (2026-11-27)
+
+The gate above was met by ecosystem issue #9's candidate combination, so the
+pin and CI changed and the sources were removed:
+
+* `tools/stdlib/bundle-pin.json` names
+  `source.kind = "ecosystem"`, `repository = cflmy/marqdo`, the exact root
+  commit that pins the component gitlinks, and the accepted digests. The pin no
+  longer records a vendored `source.path`.
+* `crates/cli/src/stdlib.rs` has no compile-time source fallback in any build
+  profile; discovery is `MARQDO_STDLIB_DIR` then the installed sibling Bundle.
+* The in-repo `stdlib/` tree is deleted. Module sources, self-tests and domain
+  behaviour tests live in the component repositories.
+* `tools/ci/fetch_ecosystem_bundle.py` materializes the pinned Bundle from the
+  ecosystem root commit + stdlib gitlinks and verifies it against the pin;
+  Woodpecker and GitHub CI use it before product tests, packaging and
+  performance lanes.
+* Product tests (`crates/cli/tests/stdlib_product.rs`) verify the CLI's own
+  responsibility against the external Bundle: required public surface,
+  `std:` execution and official alias routing. Composition fixtures whose
+  ownership is the ecosystem (Table split, print-format equivalence) live in
+  the root Bundle acceptance; removed CLI tests were not replaced by mocks.
+* A missing `MARQDO_TEST_STDLIB_BUNDLE` fails the product lane closed; the
+  product contract never reads a sibling source tree.
 
 ## Consequences
 

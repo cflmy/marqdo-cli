@@ -45,11 +45,10 @@ pub struct StdlibBundle {
 impl StdlibBundle {
     /// Discover the bundle.
     ///
-    /// Order: `MARQDO_STDLIB_DIR` (explicit, fail if invalid), a `stdlib`
-    /// directory next to the executable, and finally — **debug builds only** — the
-    /// compile-time source tree. A release binary never falls back to a build
-    /// machine path: the release archive must ship a verified `stdlib/` next to
-    /// the binary (RFC-EXT-0003 H-08, ADR).
+    /// Order: `MARQDO_STDLIB_DIR` (explicit, fail if invalid) then a `stdlib`
+    /// directory next to the executable. The official Bundle is an installed
+    /// artifact next to the binary (RFC-EXT-0003 H-08, ADR-0070); there is no
+    /// compile-time source-tree fallback in any build profile.
     pub fn discover() -> Result<Option<Self>, String> {
         let override_dir = std::env::var_os(STDLIB_DIR_ENV).map(PathBuf::from);
         let exe_dir = std::env::current_exe()
@@ -72,22 +71,12 @@ impl StdlibBundle {
     }
 
     /// Discover from the directory that holds the executable, without the explicit
-    /// environment override. Release builds do not read the source tree.
+    /// environment override. Only the installed sibling Bundle is considered.
     fn discover_from_exe_dir(exe_dir: Option<PathBuf>) -> Result<Option<Self>, String> {
         if let Some(parent) = exe_dir {
             let candidate = parent.join("stdlib");
             if candidate.is_dir() {
                 return Self::load(candidate).map(Some);
-            }
-        }
-        #[cfg(debug_assertions)]
-        {
-            let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("..")
-                .join("..")
-                .join("stdlib");
-            if dev.is_dir() {
-                return Self::load(dev).map(Some);
             }
         }
         Ok(None)

@@ -13,11 +13,13 @@ steps:
     image: rust:1.100-bookworm
     commands:
       - apt-get update
-      - apt-get install -y --no-install-recommends ca-certificates python3 python3-jsonschema
+      - apt-get install -y --no-install-recommends ca-certificates git python3 python3-jsonschema
       - cargo build --locked -p marqdo-cli -p marqdo-provider-worker
       - python3 tools/ci/check_dependency_boundaries.py
+      - python3 tools/ci/fetch_ecosystem_bundle.py --out target/ecosystem-stdlib
       - |
         set -eux
+        export MARQDO_STDLIB_DIR="$PWD/target/ecosystem-stdlib"
         ./target/debug/marqdo check tests/consumers/fixtures/observation/basic.mq.md --emit /tmp/analysis.json
         ./target/debug/marqdo run tests/consumers/fixtures/observation/basic.mq.md --output jsonl --observation-file /tmp/observation.json > /tmp/observation.jsonl
         python3 tests/consumers/analysis_consumer.py /tmp/analysis.json
@@ -37,23 +39,24 @@ steps:
     commands:
       - rustup component add clippy rustfmt
       - apt-get update
-      - apt-get install -y --no-install-recommends curl ca-certificates python3 python3-jsonschema build-essential gcc-mingw-w64-x86-64
+      - apt-get install -y --no-install-recommends curl ca-certificates git python3 python3-jsonschema build-essential gcc-mingw-w64-x86-64
       - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
       - apt-get install -y --no-install-recommends nodejs
-      - python3 tools/stdlib/bundle.py
+      - python3 tools/ci/fetch_ecosystem_bundle.py --out target/ecosystem-stdlib
+      - python3 tools/stdlib/bundle.py --stdlib-dir target/ecosystem-stdlib
       - cargo fmt --all -- --check
       - cargo clippy --workspace --all-targets -- -D warnings
       # Provider CLI tests resolve a real provider worker next to the CLI
       # binary. Build it once so the test harness does not need a nested build.
       - cargo build --locked -p marqdo-provider-worker
-      - cargo test --workspace --locked
-      - cargo test -p marqdo-cli --test docs_consistency
-      - cargo test -p marqdo-cli --test architecture_boundaries
+      - MARQDO_TEST_STDLIB_BUNDLE="$PWD/target/ecosystem-stdlib" cargo test --workspace --locked
+      - MARQDO_TEST_STDLIB_BUNDLE="$PWD/target/ecosystem-stdlib" cargo test -p marqdo-cli --test docs_consistency
+      - MARQDO_TEST_STDLIB_BUNDLE="$PWD/target/ecosystem-stdlib" cargo test -p marqdo-cli --test architecture_boundaries
       - python3 tools/ci/check_dependency_boundaries.py
       - python3 tools/ci/check_engine_boundary.py
       - python3 tools/ci/check_plugin_sdk.py
-      - python3 -m unittest discover -s tools/ci -p "test_*.py"
-      - MARQDO_TEST_STDLIB_BUNDLE="$PWD/stdlib" MARQDO_TEST_BUNDLE_PIN="$PWD/tools/stdlib/bundle-pin.json" cargo test -p marqdo-cli --test stdlib_product
+      - MARQDO_TEST_STDLIB_BUNDLE="$PWD/target/ecosystem-stdlib" python3 -m unittest discover -s tools/ci -p "test_*.py"
+      - MARQDO_TEST_STDLIB_BUNDLE="$PWD/target/ecosystem-stdlib" cargo test -p marqdo-cli --test stdlib_product
       # Windows compile gate: runtime lanes are native on GitHub; this catches
       # cfg/compile regressions on the Linux CI without a Windows runner.
       - rustup target add x86_64-pc-windows-gnu
@@ -83,7 +86,8 @@ steps:
       # only supported transport and resolution is a sibling-of-CLI lookup.
       - cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
       - test -x target/release/marqdo-provider-worker
-      - python3 tools/stdlib/bundle.py
+      - python3 tools/ci/fetch_ecosystem_bundle.py --out target/ecosystem-stdlib
+      - python3 tools/stdlib/bundle.py --stdlib-dir target/ecosystem-stdlib
       # Build the deterministic archive from this exact commit and cold-install
       # smoke-test it; the package script refuses a dirty tree or wrong SHA.
       - |
@@ -91,7 +95,7 @@ steps:
         version="$(cargo metadata --no-deps --format-version 1 --offline \
           | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"]=="marqdo-cli"))')"
         python3 tools/release/package.py --source-sha "$CI_COMMIT_SHA" --version "$version" \
-          --stdlib-dir stdlib --bundle-pin tools/stdlib/bundle-pin.json
+          --stdlib-dir target/ecosystem-stdlib --bundle-pin tools/stdlib/bundle-pin.json
         python3 tools/release/smoke.py --archive dist/marqdo-*.tar.gz
         tools/ci/run_frozen_extensions.sh dist/marqdo-*.tar.gz "$CI_COMMIT_SHA" dist/frozen-extension-evidence.json
         cat dist/frozen-extension-evidence.json

@@ -193,6 +193,31 @@ This is an architecture correction, not a product/protocol change. Decision:
 - ADR-0072 and the old issue-#15 evidence carry Superseded banners. The remote
   replica is gone; Git history retains the decision/implementation record.
 
+## 0.14 External ecosystem stdlib Bundle — issue #11 Phase B (unreleased candidate)
+
+Phase B finishes the extraction ADR-0070 prepared: this repository has **no**
+`stdlib/` source tree and no compile-time source fallback. The accepted Bundle
+identity is the ecosystem pin:
+`marqdo-stdlib@0.2.0`, source `cflmy/marqdo@48189243f7`, tree digest
+`sha256:db905508...`, aliases digest `sha256:5f513c0f...` (17 modules, no
+component self-tests). `tools/stdlib/bundle.py` requires an explicit
+`--stdlib-dir`/`MARQDO_TEST_STDLIB_BUNDLE` for the accepted Bundle;
+`tools/ci/fetch_ecosystem_bundle.py` materializes it from the pinned root
+commit and component gitlinks.
+
+Moved with their ownership: module self-tests and domain behaviour tests live
+in the component repositories (six std repos, `marqdo-ext-http`,
+`marqdo-ext-regex`, `marqdo-ext-archive`); the CLI product lane now verifies
+the accepted Bundle's public surface and official `print`/`打印` routing
+(`tests/product-stdlib/`), and the Table-split / print-format composition
+assertions live in the root Bundle acceptance. The generic TCP endpoint
+round-trip stays a CLI test (`tcp_round_trip.rs`); the HTTP-over-TCP domain
+test moves to the HTTP package owner.
+
+Runtime discovery is now only `MARQDO_STDLIB_DIR` then the installed sibling
+`stdlib/` (no debug fallback). Bundle release packaging still ships the Bundle
+next to the CLI, so installed behaviour is unchanged.
+
 ## 0.10 Closed public Analysis boundary — issue #10 (RC.4 released)
 
 The candidate replaces the program-only Analysis projection in place under

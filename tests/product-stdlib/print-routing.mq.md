@@ -1,6 +1,6 @@
 ---
 import:
-  io: "./io.mq.md"
+  io: "std:io"
 ---
 
 ## @exec 演示函数

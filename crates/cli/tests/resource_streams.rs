@@ -1,11 +1,13 @@
 //! End-to-end resource stream tests through the CLI.
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
 
 #[path = "support/observation.rs"]
 pub mod observation;
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+use std::process::{Output, Stdio};
 
 struct TempDir(PathBuf);
 
@@ -30,7 +32,7 @@ impl Drop for TempDir {
 }
 
 fn cli(dir: &Path, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    stdlib_support::cli_command()
         .args(args)
         .current_dir(dir)
         .output()
@@ -38,7 +40,7 @@ fn cli(dir: &Path, args: &[&str]) -> Output {
 }
 
 fn cli_with_stdin(dir: &Path, args: &[&str], input: &[u8]) -> Output {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    let mut child = stdlib_support::cli_command()
         .args(args)
         .current_dir(dir)
         .stdin(Stdio::piped())

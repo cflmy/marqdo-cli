@@ -117,7 +117,7 @@ version="$(cargo metadata --no-deps --format-version 1 --offline \
   | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"]=="marqdo-cli"))')"
 sha="$(git rev-parse HEAD)"
 python3 tools/release/package.py --version "$version" --source-sha "$sha" \
-  --stdlib-dir stdlib --bundle-pin tools/stdlib/bundle-pin.json
+  --stdlib-dir target/ecosystem-stdlib --bundle-pin tools/stdlib/bundle-pin.json
 # dist/marqdo-<version>-x86_64-unknown-linux-gnu.tar.gz(+.sha256)
 ```
 

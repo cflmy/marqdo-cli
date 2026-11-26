@@ -1,6 +1,8 @@
 //! Package instance identity, transitive imports, pinned Git and environment
 //! materialization (M0.6 R1/R5).
 #![cfg(unix)]
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -32,12 +34,8 @@ impl Drop for TempDir {
     }
 }
 
-fn binary() -> &'static str {
-    env!("CARGO_BIN_EXE_marqdo")
-}
-
 fn cli(dir: &Path, args: &[&str]) -> Output {
-    Command::new(binary())
+    stdlib_support::cli_command()
         .args(args)
         .current_dir(dir)
         .output()

@@ -12,6 +12,8 @@ jobs:
   test:
     name: fmt + clippy + test (Linux x86_64)
     runs-on: ubuntu-latest
+    env:
+      MARQDO_TEST_STDLIB_BUNDLE: ${{ github.workspace }}/target/ecosystem-stdlib
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -19,8 +21,10 @@ jobs:
           components: rustfmt, clippy
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+      - name: Materialize the pinned ecosystem stdlib Bundle
+        run: python3 tools/ci/fetch_ecosystem_bundle.py --out target/ecosystem-stdlib
       - name: Verify the pinned stdlib Bundle
-        run: python3 tools/stdlib/bundle.py
+        run: python3 tools/stdlib/bundle.py --stdlib-dir target/ecosystem-stdlib
       - name: Formatting
         run: cargo fmt --all -- --check
       - name: Clippy
@@ -50,9 +54,6 @@ jobs:
       - name: CI evidence tool tests
         run: python3 -m unittest discover -s tools/ci -p "test_*.py"
       - name: Whole stdlib product tests (explicit pinned Bundle)
-        env:
-          MARQDO_TEST_STDLIB_BUNDLE: ${{ github.workspace }}/stdlib
-          MARQDO_TEST_BUNDLE_PIN: ${{ github.workspace }}/tools/stdlib/bundle-pin.json
         run: cargo test -p marqdo-cli --test stdlib_product
       - name: Validate public JSON schemas
         run: |
@@ -235,6 +236,8 @@ jobs:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Materialize the pinned ecosystem stdlib Bundle
+        run: python3 tools/ci/fetch_ecosystem_bundle.py --out target/ecosystem-stdlib
       - name: Build and check the frozen archive
         shell: bash
         run: |
@@ -243,7 +246,7 @@ jobs:
           version="$(cargo metadata --no-deps --format-version 1 --offline \
             | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"]=="marqdo-cli"))')"
           python3 tools/release/package.py --source-sha "$GITHUB_SHA" --version "$version" \
-            --stdlib-dir stdlib --bundle-pin tools/stdlib/bundle-pin.json
+            --stdlib-dir target/ecosystem-stdlib --bundle-pin tools/stdlib/bundle-pin.json
           python3 tools/release/smoke.py --archive dist/marqdo-*.tar.gz
           tools/ci/run_frozen_extensions.sh dist/marqdo-*.tar.gz "$GITHUB_SHA" dist/frozen-extension-evidence.json
       - uses: actions/upload-artifact@v4

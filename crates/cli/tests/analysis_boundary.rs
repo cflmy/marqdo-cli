@@ -3,6 +3,8 @@
 //! These drive the real CLI binary: exact source/AST/scope projection, explicit
 //! reference states, output safety, Observation digest binding, independent
 //! consumers and schema/semantic mutation rejection.
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -50,12 +52,8 @@ impl Drop for TempDir {
     }
 }
 
-fn binary() -> &'static str {
-    env!("CARGO_BIN_EXE_marqdo")
-}
-
 fn cli(dir: &Path, args: &[&str]) -> Output {
-    Command::new(binary())
+    stdlib_support::cli_command()
         .args(args)
         .current_dir(dir)
         .output()

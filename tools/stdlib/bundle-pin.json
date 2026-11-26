@@ -2,14 +2,14 @@
   "schema": "marqdo.stdlib-bundle-pin",
   "schema_version": 1,
   "name": "marqdo-stdlib",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "source": {
-    "kind": "in-repo",
-    "repository": "cflmy/marqdo-cli",
-    "commit": "2cbde54602c07f62a62f341400bc9cb4764a93f8",
-    "path": "stdlib",
-    "note": "Phase A (ADR-0070): the pinned Bundle is the checkout tree at this commit. Phase B replaces this record with the accepted ecosystem Bundle commit and digest; do not change it in the same commit as test fixtures."
+    "kind": "ecosystem",
+    "repository": "cflmy/marqdo",
+    "commit": "48189243f747d5f73d5a38a565010e64e2db74e7",
+    "producer": "scripts/build-stdlib.py",
+    "note": "Phase B (ADR-0070): the accepted Bundle is assembled by the ecosystem root commit that pins the component gitlinks. No stdlib source tree exists in this repository."
   },
-  "tree_digest": "sha256:5407d3665ba2fe105820d0f1af5efaafa10c277a69eb819c3225719813c8c713",
+  "tree_digest": "sha256:db905508dde89763b9d43b47fc5d52c6a1d5445a91f3c86a550ced43e8aac9d7",
   "aliases_digest": "sha256:5f513c0fdbb3c1e9829be3c9fa23a2d1e89cb8510073fb5eb1e8e2f5265a83bb"
 }

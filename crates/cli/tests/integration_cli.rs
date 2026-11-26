@@ -8,6 +8,8 @@
 //!
 //! Temporary directories live under the OS temp directory and are removed on
 //! drop; the repository itself is never modified.
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
 
 #[path = "support/observation.rs"]
 pub mod observation;
@@ -75,7 +77,7 @@ impl Drop for TempDir {
 
 /// Run the CLI in `dir`.
 fn cli(dir: &Path, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    stdlib_support::cli_command()
         .args(args)
         .current_dir(dir)
         .output()
@@ -84,7 +86,7 @@ fn cli(dir: &Path, args: &[&str]) -> Output {
 
 /// Run the CLI in `dir` with one extra environment variable.
 fn cli_env(dir: &Path, args: &[&str], key: &str, value: &str) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    stdlib_support::cli_command()
         .args(args)
         .current_dir(dir)
         .env(key, value)

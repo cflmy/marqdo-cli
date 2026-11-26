@@ -2,6 +2,8 @@
 //!
 //! The tool fixture is compiled with rustc from `tests/fixtures/tool_echo.rs`
 //! rather than a shell script, so these tests run on Windows and macOS too.
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -36,12 +38,8 @@ impl Drop for TempDir {
     }
 }
 
-fn binary() -> &'static str {
-    env!("CARGO_BIN_EXE_marqdo")
-}
-
 fn cli(home: &Path, args: &[&str]) -> Output {
-    Command::new(binary())
+    stdlib_support::cli_command()
         .args(args)
         .env("MARQDO_TOOL_HOME", home)
         .output()
@@ -157,7 +155,7 @@ fn independent_sample_tools_consume_public_analysis_and_observation() {
     let trace = dir.path().join("trace.json");
     let root = repo_root();
 
-    let check = Command::new(binary())
+    let check = stdlib_support::cli_command()
         .args([
             "check",
             "examples/multi-module/index.mq.md",
@@ -169,7 +167,7 @@ fn independent_sample_tools_consume_public_analysis_and_observation() {
         .output()
         .expect("run check");
     assert!(check.status.success(), "check failed: {}", stderr(&check));
-    let run = Command::new(binary())
+    let run = stdlib_support::cli_command()
         .args([
             "run",
             "examples/multi-module/index.mq.md",
@@ -354,7 +352,7 @@ fn tampered_binary_and_path_hijack_are_not_executed() {
         permissions.set_mode(0o755);
         std::fs::set_permissions(&hijack, permissions).unwrap();
     }
-    let output = Command::new(binary())
+    let output = stdlib_support::cli_command()
         .arg("hijack")
         .env("MARQDO_TOOL_HOME", &home)
         .env("PATH", &path_dir)

@@ -15,6 +15,9 @@
 //! Other platforms must keep this file compiling but run no provider
 //! assertions; the CLI itself fails closed with `ext.platform_unsupported`.
 #![cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
+
 #[path = "support/observation.rs"]
 pub mod observation;
 
@@ -400,7 +403,7 @@ fn marker_text(path: &Path) -> String {
 }
 
 fn run_cli(dir: &Path, args: &[&str], marker: &Path) -> Output {
-    Command::new(cli_binary())
+    stdlib_support::cli_command()
         .args(args)
         .current_dir(dir)
         .env(MARKER_ENV, marker)

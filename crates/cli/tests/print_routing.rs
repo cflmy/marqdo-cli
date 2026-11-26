@@ -1,7 +1,9 @@
 //! Compat-B `打印` routing tests (ADR-0030).
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
 
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::Output;
 
 struct TempDir(PathBuf);
 
@@ -25,7 +27,7 @@ impl Drop for TempDir {
 }
 
 fn cli(dir: &Path, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    stdlib_support::cli_command()
         .args(args)
         .current_dir(dir)
         .output()

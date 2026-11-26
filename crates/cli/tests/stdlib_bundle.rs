@@ -1,10 +1,8 @@
 //! Bundled stdlib (`std:`) and frozen-CLI closure tests (CM-A10).
-
 #[path = "support/stdlib.rs"]
 pub mod stdlib_support;
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 fn binary() -> &'static str {
     env!("CARGO_BIN_EXE_marqdo")
@@ -15,7 +13,7 @@ fn stdlib_dir() -> PathBuf {
 }
 
 fn run(dir: &Path, stdlib: &Path, args: &[&str]) -> std::process::Output {
-    Command::new(binary())
+    stdlib_support::cli_command()
         .args(args)
         .current_dir(dir)
         .env("MARQDO_STDLIB_DIR", stdlib)

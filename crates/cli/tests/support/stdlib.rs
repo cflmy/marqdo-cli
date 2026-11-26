@@ -42,7 +42,9 @@ pub struct BundlePin {
     pub name: String,
     pub version: String,
     pub source_commit: String,
-    pub source_path: PathBuf,
+    /// None for the accepted ecosystem Bundle (Phase B): it is not vendored in
+    /// this repository, so product tests require an explicit verified Bundle.
+    pub source_path: Option<PathBuf>,
     pub tree_digest: String,
     pub aliases_digest: String,
 }
@@ -70,17 +72,39 @@ impl BundlePin {
         let source = value
             .get("source")
             .unwrap_or_else(|| panic!("Bundle pin {} has no source object", path.display()));
-        let source_path = source
-            .get("path")
+        let source_kind = source
+            .get("kind")
             .and_then(serde_json::Value::as_str)
-            .unwrap_or_else(|| panic!("Bundle pin {} has no source.path", path.display()));
-        validate_relative(source_path)
-            .unwrap_or_else(|error| panic!("Bundle pin {} source.path: {error}", path.display()));
+            .unwrap_or("in-repo");
+        let source_path = match source_kind {
+            "in-repo" => {
+                let declared = source
+                    .get("path")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_else(|| {
+                        panic!("in-repo Bundle pin {} has no source.path", path.display())
+                    });
+                validate_relative(declared).unwrap_or_else(|error| {
+                    panic!("Bundle pin {} source.path: {error}", path.display())
+                });
+                Some(PathBuf::from(declared))
+            }
+            "ecosystem" => {
+                for field in ["repository", "commit"] {
+                    required_str(source, field, path);
+                }
+                None
+            }
+            other => panic!(
+                "Bundle pin {} has unknown source.kind {other:?}",
+                path.display()
+            ),
+        };
         Self {
             name: required_str(&value, "name", path),
             version: required_str(&value, "version", path),
             source_commit: required_str(source, "commit", path),
-            source_path: PathBuf::from(source_path),
+            source_path,
             tree_digest: required_str(&value, "tree_digest", path),
             aliases_digest: required_str(&value, "aliases_digest", path),
         }
@@ -117,9 +141,16 @@ impl Bundle {
     pub fn pinned() -> Self {
         let pin = BundlePin::committed();
         let explicit = std::env::var_os(BUNDLE_ENV).map(PathBuf::from);
-        let root = explicit
-            .clone()
-            .unwrap_or_else(|| repo_root().join(&pin.source_path));
+        let root = match (explicit.clone(), pin.source_path.as_ref()) {
+            (Some(path), _) => path,
+            (None, Some(relative)) => repo_root().join(relative),
+            (None, None) => panic!(
+                "the accepted stdlib Bundle is not vendored in this repository; set \
+                 {BUNDLE_ENV} to a Bundle produced from the pinned ecosystem commit {} \
+                 (tools/ci/fetch_ecosystem_bundle.py)",
+                pin.source_commit
+            ),
+        };
         let bundle = Self::verify(&root).unwrap_or_else(|error| match &explicit {
             Some(_) => panic!(
                 "{BUNDLE_ENV} does not name a valid stdlib Bundle at {}: {error}",
@@ -250,6 +281,26 @@ pub fn bundle() -> &'static Bundle {
 /// Bundle root for fixtures and `MARQDO_STDLIB_DIR`.
 pub fn bundle_dir() -> PathBuf {
     bundle().root().to_path_buf()
+}
+
+/// Bundle root when one is configured, without failing tests that do not need
+/// the standard library (Phase B has no in-repo source tree).
+pub fn try_bundle_dir() -> Option<PathBuf> {
+    let pin = BundlePin::committed();
+    if let Some(explicit) = std::env::var_os(BUNDLE_ENV) {
+        return Some(PathBuf::from(explicit));
+    }
+    pin.source_path.map(|relative| repo_root().join(relative))
+}
+
+/// A real CLI command that names the verified Bundle explicitly when one is
+/// configured; spawned programs never rely on a compile-time source fallback.
+pub fn cli_command() -> std::process::Command {
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_marqdo"));
+    if let Some(root) = try_bundle_dir() {
+        command.env("MARQDO_STDLIB_DIR", root);
+    }
+    command
 }
 
 /// Content digest over all `.mq.md` files: sorted relative path, NUL, bytes, NUL.

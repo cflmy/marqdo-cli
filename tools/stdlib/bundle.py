@@ -217,8 +217,18 @@ def load_pin(path: Path = PIN_PATH) -> dict:
             f"Bundle pin {path} must be {PIN_SCHEMA} schema_version {PIN_SCHEMA_VERSION}"
         )
     source = pin.get("source")
-    if not isinstance(source, dict) or not isinstance(source.get("path"), str):
-        raise BundleError(f"Bundle pin {path} has no source.path")
+    if not isinstance(source, dict):
+        raise BundleError(f"Bundle pin {path} has no source object")
+    kind = source.get("kind")
+    if kind in ("in-repo", "test"):
+        if not isinstance(source.get("path"), str) or not source["path"]:
+            raise BundleError(f"Bundle pin {path} has no source.path")
+    elif kind == "ecosystem":
+        for field in ("repository", "commit"):
+            if not isinstance(source.get(field), str) or not source[field]:
+                raise BundleError(f"Bundle pin {path} has no source.{field}")
+    else:
+        raise BundleError(f"Bundle pin {path} has unknown source.kind: {kind!r}")
     for field in ("name", "version", "tree_digest", "aliases_digest"):
         if not isinstance(pin.get(field), str) or not pin[field]:
             raise BundleError(f"Bundle pin {path} has no non-empty `{field}`")
@@ -248,8 +258,15 @@ def resolve(
     default location is valid; there is no fallback.
     """
     pin = load_pin(pin_path)
+    source = pin["source"]
     if explicit is None:
-        root = ROOT / pin["source"]["path"]
+        if source.get("kind") not in ("in-repo", "test") or "path" not in source:
+            raise BundleError(
+                "the accepted Bundle is not vendored in this repository; pass an "
+                "explicit --stdlib-dir or MARQDO_TEST_STDLIB_BUNDLE produced from "
+                f"{source.get('repository')}@{source.get('commit')}"
+            )
+        root = ROOT / source["path"]
     else:
         root = Path(explicit)
     record = verify(root)

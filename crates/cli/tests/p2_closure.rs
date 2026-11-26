@@ -1,13 +1,11 @@
 //! RFC-CM P2 closure lane: C01–C06/C11/C12 in a pure, no-Foreign/no-Plugin host.
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
 
 #[path = "support/observation.rs"]
 pub mod observation;
 
-#[path = "support/stdlib.rs"]
-pub mod stdlib_support;
-
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -75,7 +73,7 @@ fn p2_algorithms_run_in_a_pure_no_foreign_no_plugin_host() {
                 "{criterion} fixture {name} uses forbidden host shortcut `{forbidden}`"
             );
         }
-        let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
+        let output = stdlib_support::cli_command()
             .args([
                 "run",
                 path.to_str().unwrap(),
@@ -111,41 +109,6 @@ fn p2_algorithms_run_in_a_pure_no_foreign_no_plugin_host() {
 }
 
 #[test]
-fn p2_stdlib_table_also_runs_in_pure_mode() {
-    let bundle = stdlib_support::bundle_dir();
-    let path = bundle.join("tests").join("table.mq.md");
-    let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
-        .args([
-            "run",
-            path.to_str().unwrap(),
-            "--mode",
-            "pure",
-            "--output",
-            "json",
-        ])
-        .current_dir(&bundle)
-        .env("MARQDO_STDLIB_DIR", &bundle)
-        .output()
-        .expect("run table self-test");
-    assert_eq!(
-        output.status.code(),
-        Some(0),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json");
-    assert_eq!(report["run"]["status"], "ok");
-    let items = observation::terminal(&report)["value"]["items"]
-        .as_array()
-        .expect("table test list");
-    assert_eq!(items.len(), 9);
-    assert_eq!(
-        items[8]["value"],
-        "| 名称 | 分数 |\n| --- | --- |\n| 甲 | 87 |\n| 乙 | 92 |\n| 丙 | 71 |"
-    );
-}
-
-#[test]
 fn foreign_and_plugin_shortcuts_are_unavailable_in_the_pure_lane() {
     let dir = tempfile::tempdir().unwrap();
     let foreign = dir.path().join("foreign.mq.md");
@@ -154,7 +117,7 @@ fn foreign_and_plugin_shortcuts_are_unavailable_in_the_pure_lane() {
         "## @knowledge 代码\n\n```python\nprint(1)\n```\n\n## @exec main\n\n`return foreign.call(ref(\"#代码\"), None)`\n",
     )
     .unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    let output = stdlib_support::cli_command()
         .args([
             "run",
             foreign.to_str().unwrap(),
@@ -180,7 +143,7 @@ fn foreign_and_plugin_shortcuts_are_unavailable_in_the_pure_lane() {
         "## @exec main\n\n`plugin.invoke(\"missing.export\", {})`\n\n`return None`\n",
     )
     .unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    let output = stdlib_support::cli_command()
         .args([
             "run",
             plugin.to_str().unwrap(),

@@ -1,5 +1,7 @@
 //! Isolated plugin worker transport (ADR-0010).
 #![cfg(unix)]
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -118,7 +120,7 @@ fn write_manifest(dir: &Path, sha: &str) {
 }
 
 fn run(dir: &Path) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    stdlib_support::cli_command()
         .args([
             "run",
             dir.join("doc.mq.md").to_str().unwrap(),
@@ -167,7 +169,7 @@ fn worker_crash_is_isolated_from_the_host() {
         "{stderr}"
     );
     // The host process survived and still runs a native Marqdo program.
-    let survivor = Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    let survivor = stdlib_support::cli_command()
         .args(["run", "examples/hello.mq.md"])
         .current_dir(repo())
         .output()
@@ -235,7 +237,7 @@ fn write_capability_manifest(dir: &Path, sha: &str) {
 }
 
 fn run_capability(dir: &Path, allow_read: bool) -> Output {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_marqdo"));
+    let mut command = stdlib_support::cli_command();
     command.args([
         "run",
         dir.join("doc.mq.md").to_str().unwrap(),

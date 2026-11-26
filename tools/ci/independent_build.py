@@ -2,7 +2,7 @@
 """Prove the CLI and Provider Worker build without any stdlib source (ADR-0070).
 
 The script exports one committed revision with `git archive`, removes the
-`stdlib/` tree (there is no ecosystem checkout either), builds
+source tree (there is no ecosystem checkout either), builds
 `marqdo-cli` + `marqdo-provider-worker` with `--locked`, and then:
 
 * runs a language-only program through the freshly built CLI (`check` + `call`);
@@ -126,15 +126,11 @@ def main(argv: list[str]) -> int:
     source = work / "source"
     try:
         source_sha = export_revision(repo, args.source, source)
-        stdlib = source / "stdlib"
-        if not stdlib.is_dir():
+        if (source / "stdlib").exists():
             raise BuildError(
-                "the exported revision has no stdlib/ tree; the lane must remove a "
-                "real Bundle to prove the build does not need it"
+                "Phase B forbids an in-repo stdlib source tree; the independent "
+                "build lane proves the CLI compiles with no Bundle checkout at all"
             )
-        shutil.rmtree(stdlib)
-        if stdlib.exists():
-            raise BuildError(f"failed to remove {stdlib}")
 
         env = os.environ.copy()
         env.pop("MARQDO_STDLIB_DIR", None)
@@ -195,7 +191,7 @@ def main(argv: list[str]) -> int:
             "target_dir": str(target),
             "binaries": binaries,
             "checks": {
-                "stdlib_source_removed": True,
+                "stdlib_source_absent": True,
                 "language_only_check": "PASS",
                 "language_only_call": "PASS:3",
                 "stdlib_dependent_missing_bundle": "PASS",

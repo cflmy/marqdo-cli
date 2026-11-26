@@ -1,6 +1,6 @@
 ---
 import:
-  数据表: "std:data/table"
+  数据表: "std:collections/table"
 ---
 
 ## @exec 转表

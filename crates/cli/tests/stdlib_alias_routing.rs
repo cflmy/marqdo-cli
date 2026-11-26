@@ -4,12 +4,11 @@
 //! in the verified `stdlib.json` metadata. There is no `print_override`, no
 //! runtime name special case and no hard-coded per-function scan.
 #![cfg(unix)]
-
 #[path = "support/stdlib.rs"]
 pub mod stdlib_support;
 
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::Output;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -39,7 +38,7 @@ impl Drop for TempDir {
 }
 
 fn cli(args: &[&str], dir: &Path, env: &[(&str, &Path)]) -> Output {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_marqdo"));
+    let mut command = stdlib_support::cli_command();
     command.args(args).current_dir(dir);
     for (key, value) in env {
         command.env(key, value);

@@ -111,13 +111,14 @@ class BundleResolverTest(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.dir = Path(self.tmp.name)
 
-    def test_repository_bundle_matches_the_pin(self) -> None:
-        root, record, pin = self.bundle.resolve()
-        self.assertEqual(root, (ROOT / "stdlib").resolve())
-        self.assertEqual(record["tree_digest"], pin["tree_digest"])
-        self.assertEqual(record["aliases_digest"], pin["aliases_digest"])
-        self.assertEqual(record["name"], "marqdo-stdlib")
-        self.assertIn("io.mq.md", record["files"])
+    def test_accepted_ecosystem_pin_requires_an_explicit_bundle(self) -> None:
+        pin = self.bundle.load_pin()
+        self.assertEqual(pin["source"]["kind"], "ecosystem")
+        self.assertNotIn("path", pin["source"])
+        with self.assertRaisesRegex(
+            self.bundle.BundleError, "not vendored in this repository"
+        ):
+            self.bundle.resolve(None, ROOT / "tools/stdlib/bundle-pin.json")
 
     def test_explicit_valid_bundle_still_has_to_match_the_pin(self) -> None:
         other = self.dir / "other-bundle"
@@ -188,11 +189,26 @@ class BundleResolverTest(unittest.TestCase):
         with self.assertRaisesRegex(self.bundle.BundleError, "schema_version"):
             self.bundle.load_pin(pin_path)
 
-    def test_cli_prints_the_resolved_path(self) -> None:
+    def test_cli_prints_the_resolved_explicit_path(self) -> None:
+        bundle = self.dir / "explicit"
+        manifest = make_bundle(bundle)
+        pin_path = self.dir / "explicit-pin.json"
+        write_pin(pin_path, manifest, str(bundle))
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
-            self.assertEqual(self.bundle.main(["--print-path"]), 0)
-        self.assertEqual(Path(stdout.getvalue().strip()), (ROOT / "stdlib").resolve())
+            self.assertEqual(
+                self.bundle.main(
+                    [
+                        "--stdlib-dir",
+                        str(bundle),
+                        "--pin",
+                        str(pin_path),
+                        "--print-path",
+                    ]
+                ),
+                0,
+            )
+        self.assertEqual(Path(stdout.getvalue().strip()), bundle.resolve())
 
     def test_cli_fails_for_an_invalid_explicit_input(self) -> None:
         stderr = io.StringIO()
@@ -297,17 +313,22 @@ class PackStdlibTest(unittest.TestCase):
                 archive.extractfile("io.mq.md").read(), (bundle / "io.mq.md").read_bytes()
             )
 
-    def test_repository_bundle_packs_against_the_committed_pin(self) -> None:
+    def test_explicit_bundle_packs_against_a_matching_pin(self) -> None:
+        bundle = self.dir / "pack-bundle"
+        manifest = make_bundle(bundle)
+        pin_path = self.dir / "pack-pin.json"
+        write_pin(pin_path, manifest, str(bundle))
         out = self.dir / "out"
         self.assertEqual(
             self.run_pack(
-                "--stdlib-dir", str(ROOT / "stdlib"), "--out-dir", str(out),
-                "--bundle-pin", str(ROOT / "tools/stdlib/bundle-pin.json"),
+                "--stdlib-dir", str(bundle), "--out-dir", str(out),
+                "--bundle-pin", str(pin_path),
             ),
             0,
         )
-        descriptor = json.loads((out / "marqdo-stdlib-0.1.0.json").read_text())
-        manifest = json.loads((ROOT / "stdlib/stdlib.json").read_text())
+        descriptor = json.loads(
+            (out / f"marqdo-stdlib-{manifest['version']}.json").read_text()
+        )
         self.assertEqual(descriptor["tree_digest"], manifest["digest"])
         self.assertEqual(descriptor["aliases_digest"], manifest["aliases_digest"])
 

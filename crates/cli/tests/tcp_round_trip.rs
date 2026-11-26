@@ -1,4 +1,6 @@
-//! C10/P5: a `.mq.md` HTTP client over the TCP resource endpoint.
+//! C10/P5: a `.mq.md` program round-trips bytes over the TCP resource endpoint.
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
 
 #[path = "support/observation.rs"]
 pub mod observation;
@@ -6,7 +8,6 @@ pub mod observation;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::path::Path;
-use std::process::Command;
 
 struct TempDir(std::path::PathBuf);
 
@@ -30,7 +31,11 @@ impl Drop for TempDir {
 }
 
 #[test]
-fn mqmd_http_client_parses_a_response_from_a_tcp_stream() {
+fn a_marqdo_program_round_trips_bytes_over_the_tcp_resource() {
+    // The CLI owns the TCP resource endpoint; the HTTP domain module now lives in
+    // the explicit `marqdo-ext-http` package, so this test exercises the generic
+    // endpoint directly instead of importing a domain module that is not part of
+    // the default Bundle.
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     let server = std::thread::spawn(move || {
@@ -39,17 +44,14 @@ fn mqmd_http_client_parses_a_response_from_a_tcp_stream() {
         let count = stream.read(&mut request).unwrap();
         assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET / HTTP/1.1\r\n"));
         stream
-            .write_all(
-                b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\nhello",
-            )
+            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello")
             .unwrap();
     });
 
-    let dir = TempDir::new("client");
+    let dir = TempDir::new("roundtrip");
     let program = format!(
         r#"---
 import:
-  http: "std:net/http"
   编码: "std:text"
 ---
 
@@ -57,7 +59,7 @@ import:
 
 `流 = resource.open("tcp", "{address}", ["read", "write"])`
 
-`请求 = http.构建请求("GET", "/", [["Host", "example.test"]], "")`
+`请求 = "GET / HTTP/1.1\r\nHost: example.test\r\n\r\n"`
 
 `请求内存 = memory.new(1, 1)`
 
@@ -85,13 +87,11 @@ import:
 
 `关闭 = resource.close(流)`
 
-`响应 = http.解析响应(响应文本)`
-
-`return [写入.ok, 读出.ok, 响应.状态, 响应.头["Content-Type"], 响应.体, 关闭.ok]`
+`return [写入.ok, 写入.value.count == 请求长度, 读出.ok, 数量 > 0, 响应文本, 关闭.ok]`
 "#
     );
     std::fs::write(dir.path().join("index.mq.md"), program).unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    let output = stdlib_support::cli_command()
         .args([
             "run",
             "index.mq.md",
@@ -101,15 +101,6 @@ import:
             "json",
         ])
         .current_dir(dir.path())
-        .env(
-            "MARQDO_STDLIB_DIR",
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .parent()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .join("stdlib"),
-        )
         .output()
         .expect("run marqdo");
     assert_eq!(
@@ -126,9 +117,12 @@ import:
         .expect("list");
     assert_eq!(items[0]["value"], true);
     assert_eq!(items[1]["value"], true);
-    assert_eq!(items[2]["decimal"], "200");
-    assert_eq!(items[3]["value"], "text/plain");
-    assert_eq!(items[4]["value"], "hello");
+    assert_eq!(items[2]["value"], true);
+    assert_eq!(items[3]["value"], true);
+    assert_eq!(
+        items[4]["value"],
+        "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello"
+    );
     assert_eq!(items[5]["value"], true);
     server.join().unwrap();
 }

@@ -64,18 +64,27 @@ cargo build -p marqdo-cli
 # binary: target/debug/marqdo  (or $CARGO_TARGET_DIR/debug/marqdo)
 ```
 
-The CLI and Provider Worker compile without the stdlib sources. A release is
-assembled from one explicit, verified Bundle (ADR-0070); the debug CLI still
-discovers the checkout's `stdlib/` for the development loop, and
-`MARQDO_STDLIB_DIR` is the explicit runtime override:
+The CLI and Provider Worker compile without any stdlib sources. The accepted
+standard-library Bundle is assembled by the ecosystem repository
+(`cflmy/marqdo`) from pinned component gitlinks; this repository has **no**
+`stdlib/` source tree and no compile-time source fallback (ADR-0070 Phase B).
+Every product test, package step and release names one explicit, verified
+Bundle; `MARQDO_STDLIB_DIR` remains the explicit runtime override and the
+installed `stdlib/` next to the binary is the default:
 
 ```bash
 cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
-python3 tools/stdlib/bundle.py --print-path
+# CI/maintainers materialize the exact pinned Bundle (commit + gitlinks):
+python3 tools/ci/fetch_ecosystem_bundle.py --out target/ecosystem-stdlib
+python3 tools/stdlib/bundle.py --stdlib-dir target/ecosystem-stdlib --print-path
 python3 tools/release/package.py --source-sha "$(git rev-parse HEAD)" \
-  --version <version> --stdlib-dir stdlib \
+  --version <version> --stdlib-dir target/ecosystem-stdlib \
   --bundle-pin tools/stdlib/bundle-pin.json
 ```
+
+Product tests and CI set `MARQDO_TEST_STDLIB_BUNDLE` to that materialized
+Bundle; without it the product lane fails closed instead of reaching a source
+tree.
 
 See [`docs/releasing.md`](docs/releasing.md) for the full procedure.
 
@@ -171,15 +180,17 @@ rules are [`RFC-LANG-0002`](docs/architecture/RFC-LANG-0002-unified-semantics.md
   `{ok:false,code,message}` as an ordinary Map, with a `.mq.md` first-fit
   free-list allocator demonstrating reuse, splitting and `alloc.no_space`
   recovery (ADR-0024). No `Result` type or exception syntax.
-* **Bundled stdlib + official print aliases (RFC-CM CM-A07/A10)** — offline
-  `stdlib/` with explicit `std:io`/`std:format`/`std:text` imports, SHA-256
-  digest verification, Analysis identity and a frozen-CLI closure test; the
+* **Bundled stdlib + official print aliases (RFC-CM CM-A07/A10)** — one
+  offline, ecosystem-assembled Bundle (component-owned module sources) with
+  explicit `std:io`/`std:format`/`std:text` imports, SHA-256 digest
+  verification, Analysis identity and a frozen-CLI closure test; the
   `.mq.md` print chain is the only execution path for `打印`/`print` on an official install (ADR-0031),
   covering all 15 value types; `HostOp::Print` and the legacy formatter are
   removed (ADR-0027/0028/0029/0030/0031).
-* **HTTP/1.1 framing in `.mq.md`** — `stdlib/net/http.mq.md` status/header/
-  chunked parsing and request construction; a loopback TCP test runs a real
-  exchange (ADR-0034; no TLS/host HTTP claim).
+* **HTTP/1.1 framing in `.mq.md`** — the `marqdo-ext-http` explicit Package
+  provides status/header/chunked parsing and request construction; the CLI
+  keeps the generic TCP endpoint and a loopback round-trip test (ADR-0034; no
+  TLS/host HTTP claim).
 * **Blocking TCP endpoint (RFC-CM P5 first slice)** — `resource.open("tcp",
   "<ip>:<port>", ["read","write"])` with exact IP grants, project mode and
   5-second timeouts; DNS/TLS/UDP/server sockets excluded (ADR-0034).
@@ -508,7 +519,7 @@ extensions. Lock v3 requires an explicit `marqdo lock` migration. See
 
 #### Official stdlib aliases, no print magic
 
-`打印`/`print` are declared in the verified `stdlib/stdlib.json`
+`打印`/`print` are declared in the accepted Bundle's verified `stdlib.json`
 (`public_aliases`, covered by `aliases_digest`) and bound as ordinary
 `Marqdo` calls to `io.mq.md::写值` (ADR-0058). There is no
 `Program.print_override`, no AST-wide print scan and no runtime print branch;

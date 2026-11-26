@@ -4,6 +4,8 @@
 //! sources, `marqdo lock` records their exact identity, and `check`/`run`
 //! compare the current declaration with the lock before using any extension.
 #![cfg(unix)]
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -47,7 +49,7 @@ fn repo() -> PathBuf {
 }
 
 fn cli(args: &[&str], dir: &Path) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_marqdo"))
+    stdlib_support::cli_command()
         .args(args)
         .current_dir(dir)
         .output()
