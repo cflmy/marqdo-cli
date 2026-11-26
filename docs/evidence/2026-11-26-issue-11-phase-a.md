@@ -16,7 +16,12 @@ Candidate commits (in order):
 | `422b9de` | `package.py --stdlib-dir/--bundle-pin`, `RELEASE_INFO.stdlib.source` |
 | `3a68260` | pinned test resolver, synthetic loader tests, product/conformance rewiring |
 | `ab6b6b1` | independent-build lane, perf Bundle pin, CI and docs |
-| this docs commit | STATUS/README/tests/CURRENT + this evidence |
+| `0e1efc7` | archive smoke/cold-install keep the language-only run after removing the Bundle |
+
+The documentation commit that adds this record also updates `STATUS.md`, the
+architecture overview, `README.md` and `tests/README.md`. CI follow-up commit
+`2acaaef` folds the `independent-build` job into the existing `linux` evidence
+gate (the release-evidence schema accepts only its declared gate names).
 
 Executed host: Linux x86_64 (glibc 2.43), `rustc 1.100.0 (0ef1bc386
 2026-11-09)`, `cargo 1.100.0 (3acc79c0c 2026-11-05)`, Python 3.14.4; the
