@@ -51,4 +51,5 @@ docker run --rm --network none --user 65534:65534 \
         exit 1
     fi
     grep -E "stdlib|symbol\.unknown|打印" /tmp/missing-stdlib.log
+    test "$(./marqdo call examples/factorial.mq.md 阶乘 --arg n=5)" = 120
 ' sh "$version" "$source_sha"

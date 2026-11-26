@@ -134,6 +134,7 @@ class ReleaseArchiveContractTest(unittest.TestCase):
         self.assertIn("verify_stdlib_bundle(install, info)", source)
         self.assertIn("verify_stdlib_bundle", source)
         self.assertIn("stdlib.hidden", source)
+        self.assertIn("language-only program runs without the bundled stdlib", source)
         self.assertIn("expected 6", source)
         self.assertIn("permission.denied", source)
 

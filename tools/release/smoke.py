@@ -281,6 +281,16 @@ def main(argv: list[str]) -> int:
             if "stdlib" not in message and "打印" not in message and "symbol.unknown" not in message:
                 fail(f"missing-stdlib failure is not explicit: {message!r}")
             print("smoke: bundled stdlib missing -> fail-closed OK")
+            # A program that uses only the language must still run.
+            language_only = runner.run(
+                ["call", "examples/factorial.mq.md", "阶乘", "--arg", "n=5"]
+            ).stdout.strip()
+            if language_only != "120":
+                fail(
+                    f"language-only call failed without the bundled stdlib: "
+                    f"{language_only!r}"
+                )
+            print("smoke: language-only program runs without the bundled stdlib")
         finally:
             hidden.rename(install / "stdlib")
         factor = runner.run(
