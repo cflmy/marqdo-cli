@@ -63,6 +63,21 @@ cargo build -p marqdo-cli
 # binary: target/debug/marqdo  (or $CARGO_TARGET_DIR/debug/marqdo)
 ```
 
+The CLI and Provider Worker compile without the stdlib sources. A release is
+assembled from one explicit, verified Bundle (ADR-0070); the debug CLI still
+discovers the checkout's `stdlib/` for the development loop, and
+`MARQDO_STDLIB_DIR` is the explicit runtime override:
+
+```bash
+cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
+python3 tools/stdlib/bundle.py --print-path
+python3 tools/release/package.py --source-sha "$(git rev-parse HEAD)" \
+  --version <version> --stdlib-dir stdlib \
+  --bundle-pin tools/stdlib/bundle-pin.json
+```
+
+See [`docs/releasing.md`](docs/releasing.md) for the full procedure.
+
 ## Quickstart
 
 ```bash

@@ -140,8 +140,11 @@ Layer rules:
    or a third-party plugin path.
 2. The platform layer owns I/O, clocks, entropy, sockets and file handles. It must
    not own JSON parsing, text formatting or memory allocation policy.
-3. The stdlib is `.mq.md` and ships in this repository. New ordinary algorithms
-   go to `stdlib/` + tests + docs; they do not become Rust builtins.
+3. The stdlib is `.mq.md` and ships in this repository during Phase A of
+   issue #11. New ordinary algorithms go to `stdlib/` + tests + docs; they do
+   not become Rust builtins. Packaging and product tests take it as one
+   explicit, pinned Bundle input (ADR-0070); Phase B moves the production
+   sources to the ecosystem assembly after issue #2 acceptance.
 4. The CLI selects inputs, resolves configuration, assembles the host and routes
    human/machine output. It is not a semantic policy centre.
 5. Callable Plugin and Resource Provider share one registry/authorization/audit
@@ -229,7 +232,7 @@ that a phase is complete.
 | Priority | Gap | State |
 |---|---|---|
 | P0 | **Language syntax migration**: RFC-LANG-0002 single contract | **closed at `9c1723d`**; implementation, stdlib digest, examples and fixtures green; platform/strict evidence remains separate |
-| P0 | Stdlib release is a bundle in this repo; extraction is deferred (ADR-0039) | accepted, keep in repo |
+| P0 | Stdlib extraction (issue #11): explicit `--stdlib-dir` + one pinned Bundle for tests/perf/release CI | **Phase A implemented** (ADR-0070); Phase B (ecosystem assembly, source removal) waits on ecosystem issue #2 and the extension replacement evidence |
 | P0 | Documentation drift between `STATUS.md`, the architecture index and the evidence | being fixed by this migration and the docs gate |
 | P1 | `std:fs/file` read/write/copy, metadata/directory, append/read_at/walk are implemented; watch and binary offset reads remain open | open |
 | P1 | No file watch or binary `read_at` | open; future Resource Operation extension |

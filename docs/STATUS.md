@@ -75,6 +75,47 @@ The `spec/` tree contains only current contracts; retired specifications are in
 Git history and tagged archives. The earlier release records below describe
 their tagged binaries and are not current protocol claims.
 
+## 0.11 Explicit stdlib Bundle input — issue #11 Phase A (unreleased)
+
+Phase A lands the build-input boundary only: the stdlib production sources and
+the debug source fallback are still in this repository, and Phase B (the
+ecosystem-assembled Bundle, source removal and `std:` replacement) is **not**
+claimed. Executed candidate:
+`ab6b6b1a23ec064fbc7de943c52befca18142a56`; bundle source commit
+`2cbde54602c07f62a62f341400bc9cb4764a93f8`.
+
+* `tools/stdlib/bundle-pin.json` pins `marqdo-stdlib@0.1.0` with tree digest
+  `sha256:5407d3665ba2fe105820d0f1af5efaafa10c277a69eb819c3225719813c8c713`
+  and alias digest
+  `sha256:5f513c0fdbb3c1e9829be3c9fa23a2d1e89cb8510073fb5eb1e8e2f5265a83bb`;
+  `tools/stdlib/bundle.py` is the single resolver/verifier.
+* `tools/pack-stdlib.py` and `tools/release/package.py` require
+  `--stdlib-dir` and accept `--bundle-pin`. A missing directory, missing
+  manifest, tree/alias digest mismatch, pin mismatch or symlink fails before
+  an archive is written; `RELEASE_INFO.json.stdlib.source` records the pinned
+  kind/repository/commit/path.
+* Product, performance and release lanes resolve that Bundle
+  (`crates/cli/tests/support/stdlib.rs`, `tools/perf/runner.py`). An explicit
+  `MARQDO_TEST_STDLIB_BUNDLE`/`--stdlib-dir` changes the location but must match
+  the pin; a bad override fails even when the default is valid. Loader unit
+  tests build small synthetic Bundles.
+* `tools/ci/independent_build.py` exports a clean copy without `stdlib/`,
+  builds `marqdo-cli` + `marqdo-provider-worker` with `--locked`, runs the
+  language-only `tests/independent/language-only.mq.md`, and requires a
+  stdlib-dependent run to fail closed with no sibling `stdlib/`. GitHub and
+  Woodpecker run the lane.
+* Archive smoke and cold-install keep the missing-Bundle failure and now also
+  require the language-only `factorial` call to succeed after the shipped
+  `stdlib/` is moved aside. Two packaging runs from the same input and
+  toolchain are byte-identical.
+
+Evidence:
+[`evidence/2026-11-26-issue-11-phase-a.md`](evidence/2026-11-26-issue-11-phase-a.md).
+Runtime discovery is unchanged: `MARQDO_STDLIB_DIR` (invalid values still fail
+hard), then `stdlib/` next to the executable, then the debug-only source
+fallback. Phase B is gated on ecosystem issue #2 and the extension replacement
+evidence named by issue #11.
+
 ## 0.10 Closed public Analysis boundary — issue #10 (RC.4 released)
 
 The candidate replaces the program-only Analysis projection in place under
@@ -356,6 +397,9 @@ ownership / core resource kinds), ADR-0063 (foreign F-A). Executed evidence:
   recompute both digests with the runtime algorithm and fail on mismatch; smoke
   removes the bundle and requires a fail-closed run (no source fallback). Release
   discovery only falls back to the compile-time source tree in debug builds.
+  Since issue #11 Phase A the Bundle is one required explicit build input
+  (`--stdlib-dir`) with a pinned identity and a recorded source commit
+  (ADR-0070); see §0.11.
 - **H-04 core resource kinds:** `marqdo_host::CORE_RESOURCE_KINDS` is the single
   registry used by the CLI manifest validator and every trusted host registration
   path; all six core kinds are rejected as a provider name and as a declared kind
@@ -683,9 +727,11 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   routed to the bundled stdlib (Compat-C, ADR-0030/0031); there is no legacy
   host formatter. `tools/pack-stdlib.py` additionally emits a byte-deterministic
   offline archive + descriptor as an extraction-ready artifact
-  ([evidence](evidence/2026-11-20-stdlib-package.md)). The stdlib intentionally
-  stays in this repository for now (ADR-0039); extraction is a future option
-  when size/release cadence requires it, not a pending gate.
+  ([evidence](evidence/2026-11-20-stdlib-package.md)). Issue #11 Phase A now
+  consumes the Bundle through one explicit `--stdlib-dir` and one pinned
+  identity (ADR-0070, §0.11); the production sources still stay in this
+  repository until Phase B, which is gated on ecosystem issue #2 and the
+  extension replacement evidence.
 - Resource streams (RFC-CM CM-A06, ADR-0025/0026/0040): opaque host-issued
   `Resource` handles with `resource.open/read/write/close`; bytes move only
   through `Memory`; stdin is read-only over one shared run cursor; stdout and
@@ -703,7 +749,8 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
   pins the workspace graph, `marqdo-runtime -> marqdo-host`, the bundled stdlib
   digest and the stdio/file/TCP endpoints; `crates/cli/tests/stdlib_product.rs`
   runs every public stdlib module (`clock/compress/console/csv/datetime/demo/env/format/fs/http/io/json/path/process/random/regex/stream/table/text/utf8`)
-  through `std:` imports over `stdlib/tests/*.mq.md`. `tools/pack-stdlib.py`
+  through `std:` imports over `stdlib/tests/*.mq.md` resolved from the pinned
+  Bundle (`crates/cli/tests/support/stdlib.rs`). `tools/pack-stdlib.py`
   now sorts `.mq.md` by the same relative path key as the CLI. Source/test baseline
   `0d40de7`; later docs-only commits keep code/test bytes identical. Evidence:
   [`docs-and-test-migration`](evidence/2026-11-21-docs-and-test-migration.md).

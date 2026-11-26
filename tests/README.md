@@ -53,6 +53,24 @@ Rust harnesses (all in `crates/cli/tests/`):
 | `integration_cli.rs` | Real CLI contract: `init`, `check`, `run`, `call`, `inspect`, `fmt`, multi-module imports/cycles, `lock`/`sync --locked`, plugin inspection and explicitly trusted plugin invocation. |
 | `execution_events.rs` | Execution Events v1 black-box contract: pure JSONL, seq/terminal ordering, byte-exact base64 chunks, live delivery before exit, value redaction/selection, trace coexistence, truncation, output budget and broken-pipe failure. |
 
+## Stdlib Bundle lanes (ADR-0070)
+
+The product lane consumes one pinned Bundle, never an implicit checkout path:
+
+* `tools/stdlib/bundle-pin.json` pins the Bundle name, version, source commit,
+  tree digest and alias digest; `tools/stdlib/bundle.py` resolves and verifies
+  it.
+* `crates/cli/tests/support/stdlib.rs` gives the product/conformance harnesses
+  the same Bundle. `MARQDO_TEST_STDLIB_BUNDLE` or `--stdlib-dir` changes the
+  location but the Bundle must still match the pin; `MARQDO_TEST_BUNDLE_PIN`
+  changes the pin file. A bad explicit input fails even when the default
+  location is valid.
+* Loader unit tests in `crates/cli/src/stdlib.rs` build small synthetic
+  Bundles, so loader logic does not depend on the product tree.
+* `tests/independent/language-only.mq.md` is the program
+  `tools/ci/independent_build.py` runs through a CLI built from a copy without
+  `stdlib/`; a stdlib-dependent program must fail closed in that copy.
+
 ## Running
 
 Use the workspace cargo cache/target as documented in `AGENTS.md`:
