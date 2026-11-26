@@ -49,8 +49,9 @@ release policy.
 CI: the source of truth is the Gitea remote
 [git.cflmy.cn/cflmy/marqdo-cli](https://git.cflmy.cn/cflmy/marqdo-cli) with
 Woodpecker at [ci.cflmy.cn](https://ci.cflmy.cn); [`.woodpecker/main.yml`](.woodpecker/main.yml)
-runs fmt, clippy, workspace tests with `--locked`, the Windows cross-target
-compile gate and a release build of both binaries. The strict OS-isolation lane
+runs fmt, clippy, workspace tests with `--locked`, the dependency-direction and
+engine-independence gates, the plugin SDK consumption gate, the Windows
+cross-target compile gate and a release build of both binaries. The strict OS-isolation lane
 requires the disposable VM described in [docs/ci.md](docs/ci.md); a GitHub
 mirror is not used as the authoritative lane for this beta.
 
@@ -294,17 +295,18 @@ crates/marqdo-ir              module/unit/function/statement IR, builtin table
 crates/marqdo-frontend        heading scopes, mapping, inference, static calls
 crates/marqdo-foreign         Python/Node one-shot kernel supervisor
 crates/marqdo-sandbox         mode parsing + platform isolation detection
-crates/marqdo-plugin-abi      C ABI v1 mirrors, manifest, artifacts, loader
-crates/marqdo-plugin-sdk      Rust plugin SDK and entry macro
-crates/marqdo-host            CapabilityHost, budgets, FS, foreign/plugin adapters, core resource kinds
-crates/marqdo-runtime         tree-walk interpreter
+crates/marqdo-host-contract   neutral Host trait, HostOp, context and runtime facts
+crates/marqdo-plugin-abi      public C ABI v1 contract: layout, wire envelope, errors
+crates/marqdo-plugin-sdk      Rust plugin SDK and entry macro (contract-only)
+crates/marqdo-host            Native Host: capability, resources, OS, plugin loader/worker
+crates/marqdo-runtime         tree-walk interpreter (depends only on the neutral contract)
 crates/marqdo-package         marqdo.yaml / marqdo.lock / root discovery
 crates/cli                    CLI composition root (binary `marqdo`)
 include/                      frozen plugin C ABI header
 spec/                         normative language/format/ABI specs
 docs/                         blueprint, ADRs, status, contributor guide
 examples/                     runnable documents + multi-module + plugin demo
-tests/                        conformance/negative corpus (see tests/README.md)
+tests/                        conformance/negative corpus, embedding consumer and SDK fixture
 ```
 
 ## Documentation index

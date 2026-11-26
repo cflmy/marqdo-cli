@@ -81,12 +81,12 @@ fn plugin_identity(extension: &ResolvedExtension) -> Result<LockedExtension, Pre
             ),
         )
     })?;
-    let manifest = marqdo_plugin_abi::PluginManifest::load(&extension.path)
+    let manifest = marqdo_host::plugin::PluginManifest::load(&extension.path)
         .map_err(|error| PrepareError::option(error.code.clone(), error.message.clone()))?;
     manifest
         .validate()
         .map_err(|error| PrepareError::option(error.code.clone(), error.message.clone()))?;
-    let host = marqdo_plugin_abi::HostTarget::current();
+    let host = marqdo_host::plugin::HostTarget::current();
     let artifact = manifest
         .resolve_artifact(&host)
         .map_err(|error| PrepareError::option("ext.no_matching_artifact", error.message))?;
@@ -161,7 +161,7 @@ fn provider_identity(extension: &ResolvedExtension) -> Result<LockedExtension, P
                 format!("`{}` has no version", extension.path.display()),
             )
         })?;
-    let target = marqdo_plugin_abi::HostTarget::current()
+    let target = marqdo_host::plugin::HostTarget::current()
         .triple()
         .to_string();
     let artifacts = manifest
@@ -293,7 +293,7 @@ fn kernel_identity(extension: &ResolvedExtension) -> Result<LockedExtension, Pre
         version: format!("wire:{wire_version}"),
         manifest_digest: hex(&Sha256::digest(&manifest_bytes)),
         artifact_digest: digest.to_ascii_lowercase(),
-        selected_target: marqdo_plugin_abi::HostTarget::current()
+        selected_target: marqdo_host::plugin::HostTarget::current()
             .triple()
             .to_string(),
         source: extension.from.clone(),

@@ -15,6 +15,7 @@ steps:
       - apt-get update
       - apt-get install -y --no-install-recommends ca-certificates python3 python3-jsonschema
       - cargo build --locked -p marqdo-cli -p marqdo-provider-worker
+      - python3 tools/ci/check_dependency_boundaries.py
       - |
         set -eux
         ./target/debug/marqdo check tests/consumers/fixtures/observation/basic.mq.md --emit /tmp/analysis.json
@@ -47,6 +48,9 @@ steps:
       - cargo test --workspace --locked
       - cargo test -p marqdo-cli --test docs_consistency
       - cargo test -p marqdo-cli --test architecture_boundaries
+      - python3 tools/ci/check_dependency_boundaries.py
+      - python3 tools/ci/check_engine_boundary.py
+      - python3 tools/ci/check_plugin_sdk.py
       - python3 -m unittest discover -s tools/ci -p "test_*.py"
       - cargo test -p marqdo-cli --test stdlib_product
       # Windows compile gate: runtime lanes are native on GitHub; this catches

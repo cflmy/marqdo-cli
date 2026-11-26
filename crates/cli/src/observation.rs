@@ -8,10 +8,10 @@ use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use marqdo_host::{
-    FrameId, ObservationConfig, ObservationError, ObservationEvent, ObservationSink,
-    ParameterSource, ValueState, DEFAULT_MAX_OBSERVATION_BYTES, DEFAULT_MAX_OBSERVATION_EVENTS,
-    DEFAULT_MAX_VALUE_BYTES,
+    ObservationConfig, ObservationError, ObservationEvent, ObservationSink, ValueState,
+    DEFAULT_MAX_OBSERVATION_BYTES, DEFAULT_MAX_OBSERVATION_EVENTS, DEFAULT_MAX_VALUE_BYTES,
 };
+use marqdo_host_contract::{FrameId, ParameterSource};
 use marqdo_value::Value;
 use serde_json::{json, Value as Json};
 

@@ -9,27 +9,30 @@ use std::net::{TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use marqdo_plugin_abi::{
-    ErrorKind as PluginErrorKind, LoadedPlugin, PluginError, PluginKind, PluginManifest,
+use crate::plugin::{
+    CapabilityHandler, HostTarget, LoadOptions, LoadedPlugin, PluginKind, PluginManifest,
 };
+use marqdo_host_contract::{
+    ExecutionContext, FrameId, Host, HostOp, ResourceRead, RuntimeObservation,
+};
+use marqdo_plugin_abi::{ErrorKind as PluginErrorKind, PluginError};
 use marqdo_span::Span;
 use marqdo_value::{ErrorCategory, ResourceHandle, RuntimeError, Value};
 use rustls::pki_types::CertificateDer;
 
 use crate::budget::Budget;
 use crate::capability::{Capabilities, CapabilityAudit, CapabilityBroker};
-use crate::context::ExecutionContext;
 use crate::fs::ProjectFs;
 use crate::handles::{contains_plugin_handle, PluginHandleTable};
 use crate::observe::{
-    encode_value, estimate_event_bytes, FrameId, ObservationConfig, ObservationError,
-    ObservationEvent, ObservationSink, ObservationState, RuntimeObservation,
+    encode_value, estimate_event_bytes, ObservationConfig, ObservationError, ObservationEvent,
+    ObservationSink, ObservationState,
 };
 use crate::plugin_worker::WorkerPlugin;
 use crate::provider_c::{load_package, CResourceProvider};
 use crate::provider_worker::WorkerResourceProvider;
 use crate::resource::{
-    is_core_resource_kind, ResourceProvider, ResourceRead, ResourceTable, SharedResourceProvider,
+    is_core_resource_kind, ResourceProvider, ResourceTable, SharedResourceProvider,
 };
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode};
 
@@ -37,187 +40,6 @@ mod dispatch;
 mod providers;
 mod resource_ops;
 mod resource_requests;
-
-/// Host operations reachable from the language surface.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HostOp {
-    /// One-shot foreign execution.
-    ForeignRun,
-    /// Typed foreign call.
-    ForeignCall,
-    /// Read a project file.
-    FsRead,
-    /// Write a project file.
-    FsWrite,
-    /// Invoke a plugin export.
-    PluginInvoke,
-}
-
-impl HostOp {
-    /// Stable operation name used in traces and diagnostics.
-    pub const fn name(self) -> &'static str {
-        match self {
-            HostOp::ForeignRun => "foreign.run",
-            HostOp::ForeignCall => "foreign.call",
-            HostOp::FsRead => "fs.read",
-            HostOp::FsWrite => "fs.write",
-            HostOp::PluginInvoke => "plugin.invoke",
-        }
-    }
-}
-
-/// The host boundary used by the interpreter and future View/IDE frontends.
-pub trait Host {
-    /// Invoke one operation with already-evaluated arguments.
-    fn invoke(
-        &mut self,
-        op: HostOp,
-        args: Vec<Value>,
-        ctx: &ExecutionContext,
-    ) -> Result<Value, RuntimeError>;
-
-    /// Open a resource/stream by kind, descriptor and requested rights.
-    ///
-    /// Default: unavailable. Only the standard host implements the first
-    /// resource kinds (ADR-0025).
-    fn resource_open(
-        &mut self,
-        _kind: &str,
-        _descriptor: &str,
-        _rights: &[String],
-        ctx: &ExecutionContext,
-    ) -> Result<Value, RuntimeError> {
-        Err(RuntimeError::new(
-            ErrorCategory::ResourceUnsupported,
-            ctx.span,
-            "this host does not provide resource streams",
-        ))
-    }
-
-    /// Read up to `max_bytes` from a resource into host memory.
-    fn resource_read(
-        &mut self,
-        _handle: ResourceHandle,
-        _max_bytes: usize,
-        ctx: &ExecutionContext,
-    ) -> Result<ResourceRead, RuntimeError> {
-        Err(RuntimeError::new(
-            ErrorCategory::ResourceUnsupported,
-            ctx.span,
-            "this host does not provide resource streams",
-        ))
-    }
-
-    /// Write bytes to a resource; returns the accepted count.
-    fn resource_write(
-        &mut self,
-        _handle: ResourceHandle,
-        _bytes: &[u8],
-        ctx: &ExecutionContext,
-    ) -> Result<usize, RuntimeError> {
-        Err(RuntimeError::new(
-            ErrorCategory::ResourceUnsupported,
-            ctx.span,
-            "this host does not provide resource streams",
-        ))
-    }
-
-    /// Close a resource handle.
-    fn resource_close(
-        &mut self,
-        _handle: ResourceHandle,
-        ctx: &ExecutionContext,
-    ) -> Result<(), RuntimeError> {
-        Err(RuntimeError::new(
-            ErrorCategory::ResourceUnsupported,
-            ctx.span,
-            "this host does not provide resource streams",
-        ))
-    }
-
-    /// Accept one inbound TCP connection from a `tcp-listener` handle.
-    ///
-    /// Default: unavailable. The standard host returns a new `Resource` in a
-    /// recoverable `{ok,value}` map or `{ok:false,code:"tcp.timeout"}`.
-    fn resource_accept(
-        &mut self,
-        _handle: ResourceHandle,
-        ctx: &ExecutionContext,
-    ) -> Result<Value, RuntimeError> {
-        Err(RuntimeError::new(
-            ErrorCategory::ResourceUnsupported,
-            ctx.span,
-            "this host does not provide tcp listeners",
-        ))
-    }
-
-    /// Execute one non-streaming resource operation (ADR-0041).
-    ///
-    /// Default: unavailable. The standard host implements the `fs.*` group;
-    /// every call is capability-checked and project-mode only.
-    fn resource_request(
-        &mut self,
-        _operation: &str,
-        _args: Vec<Value>,
-        ctx: &ExecutionContext,
-    ) -> Result<Value, RuntimeError> {
-        Err(RuntimeError::new(
-            ErrorCategory::ResourceUnsupported,
-            ctx.span,
-            "this host does not provide resource operations",
-        ))
-    }
-
-    /// Consume evaluation fuel.
-    fn consume_fuel(&mut self, amount: u64, span: Option<Span>) -> Result<(), RuntimeError>;
-
-    /// Check call-stack depth.
-    fn check_stack(&self, depth: usize, span: Option<Span>) -> Result<(), RuntimeError>;
-
-    /// Check the wall-clock deadline.
-    fn check_deadline(&self, span: Option<Span>) -> Result<(), RuntimeError>;
-
-    /// Take the buffered program output.
-    fn take_output(&mut self) -> Vec<u8>;
-
-    /// Whether the host has an installed observation sink.
-    ///
-    /// The default host is inert; the interpreter uses this to skip building
-    /// any observation event when there is no capture destination.
-    fn observation_enabled(&self) -> bool {
-        false
-    }
-
-    /// Announce a successfully bound call frame.
-    ///
-    /// Returns the run-unique frame identity, or `None` when observation is
-    /// disabled. Argument binding must have completed before this is called;
-    /// a binding failure never produces a frame.
-    fn observation_begin_frame(
-        &mut self,
-        _function_id: &str,
-        _module_id: &str,
-        _span: Option<Span>,
-    ) -> Result<Option<FrameId>, RuntimeError> {
-        Ok(None)
-    }
-
-    /// Close a previously announced frame, including failure paths.
-    fn observation_end_frame(
-        &mut self,
-        _frame_id: Option<FrameId>,
-        _status: &str,
-        _module_id: &str,
-        _span: Option<Span>,
-    ) -> Result<(), RuntimeError> {
-        Ok(())
-    }
-
-    /// Emit one borrowed runtime observation event. Default: ignored.
-    fn observe_runtime(&mut self, _event: RuntimeObservation<'_>) -> Result<(), RuntimeError> {
-        Ok(())
-    }
-}
 
 /// Default capability host implementation.
 pub struct StdHost {
@@ -372,7 +194,7 @@ impl StdHost {
             exports.insert(export.name.clone(), export.signature.clone());
         }
         let artifact = manifest
-            .resolve_artifact(&marqdo_plugin_abi::HostTarget::current())
+            .resolve_artifact(&HostTarget::current())
             .map_err(map_plugin_error)?;
         let manifest_digest = artifact.sha256.clone();
         let transport = match manifest.plugin.kind {
@@ -398,8 +220,8 @@ impl StdHost {
                     broker.allow_vendor(capability.clone());
                 }
                 let package = manifest.plugin.name.clone();
-                let options = marqdo_plugin_abi::LoadOptions {
-                    host_target: marqdo_plugin_abi::HostTarget::current(),
+                let options = LoadOptions {
+                    host_target: HostTarget::current(),
                     capability_handler: Some(Box::new(move |capability, request| {
                         broker.execute(&package, capability, request)
                     })),
@@ -419,10 +241,9 @@ impl StdHost {
                     broker.allow_vendor(capability.clone());
                 }
                 let package = manifest.plugin.name.clone();
-                let handler: marqdo_plugin_abi::CapabilityHandler =
-                    Box::new(move |capability, request| {
-                        broker.execute(&package, capability, request)
-                    });
+                let handler: CapabilityHandler = Box::new(move |capability, request| {
+                    broker.execute(&package, capability, request)
+                });
                 PluginTransport::Worker(
                     WorkerPlugin::spawn(manifest, base_dir, Some(handler))
                         .map_err(map_plugin_error)?,

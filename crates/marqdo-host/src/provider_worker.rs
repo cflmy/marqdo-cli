@@ -18,7 +18,8 @@ use marqdo_span::Span;
 use marqdo_worker_ipc::{Connection, FrameError, TransportError};
 use serde_json::{json, Value as Json};
 
-use crate::resource::{ResourceProvider, ResourceRead};
+use crate::resource::ResourceProvider;
+use marqdo_host_contract::ResourceRead;
 use marqdo_value::{ErrorCategory, RuntimeError};
 
 const MAX_FRAME_BYTES: usize = 1024 * 1024;

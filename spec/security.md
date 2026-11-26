@@ -15,7 +15,7 @@ Normative implementation:
 | Observation events (effects included) | `crates/marqdo-host/src/observe.rs`, `crates/cli/src/observation.rs` |
 | Foreign adapter | `crates/marqdo-host/src/kernels.rs` |
 | Foreign child processes | `crates/marqdo-foreign/src/lib.rs` |
-| Plugin loading / in-process plugin calls | `crates/marqdo-host/src/host.rs` (`load_plugin`, `op_plugin_invoke`), `crates/marqdo-plugin-abi/src/loader.rs` |
+| Plugin loading / in-process plugin calls | `crates/marqdo-host/src/host.rs` (`load_plugin`, `op_plugin_invoke`), `crates/marqdo-host/src/plugin/loader.rs` |
 | CLI flags and capability construction | `crates/cli/src/main.rs`, `crates/cli/src/commands.rs` |
 
 ## 1. Modes
@@ -331,7 +331,7 @@ inheritance is future work (ADR-0021).
 * The only plugin transport implemented in this build is **in-process native
   loading** (`libloading`) after `manifest.validate()`, exact target-triple
   artifact resolution, sha256 verification, ABI negotiation and export
-  metadata cross-checking (`crates/marqdo-plugin-abi/src/loader.rs`).
+  metadata cross-checking (`crates/marqdo-host/src/plugin/loader.rs`).
 * Loading requires **three** independent things:
   1. `--plugin <manifest-or-dir>` names the plugin;
   2. `--trust-native-plugin` is an explicit unsafe trust decision;

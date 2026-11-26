@@ -25,6 +25,11 @@ Foreign wire v1, Provider manifest v2, lock v4 and markdown profile
 
 ## Recommended reading order
 
+0. [Current architecture](../architecture/CURRENT.md) and
+   [ADR-0071](../adr/0071-engine-host-contract-boundary.md) — the Engine /
+   Host Contract / Native Host / CLI responsibility map and dependency rules.
+   Read this before touching a crate boundary; the historical plans are not
+   current requirements.
 1. [quickstart.md](quickstart.md) — install the archive and run the first
    project.
 2. [libraries.md](libraries.md) — publish a pure `.mq.md` library and consume
@@ -46,6 +51,19 @@ The full worked handbook is
 contracts are the pages above and `spec/`).
 Normative contracts live in [`../../spec/`](../../spec/); this directory is a
 task-oriented map, not a second specification.
+
+## Internal boundary changes
+
+This page is for third-party consumers. If you change Marqdo CLI itself, the
+internal boundary rules are in [ADR-0071](../adr/0071-engine-host-contract-boundary.md)
+and [CURRENT.md](../architecture/CURRENT.md) §7. In short: the engine depends
+only on `marqdo-host-contract`; the native host implements it; the plugin ABI
+crate is a contract (no loader/worker); the CLI is the only assembly point.
+Run `python3 tools/ci/check_dependency_boundaries.py`,
+`python3 tools/ci/check_engine_boundary.py` and
+`python3 tools/ci/check_plugin_sdk.py` with the Rust suits. Do not create an
+empty candidate repository for a boundary; a split needs the evidence and a new
+ADR.
 
 ## Baseline repository
 

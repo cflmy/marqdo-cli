@@ -44,7 +44,7 @@ pub fn plugin_inspect(target: &Path, json: bool) -> i32 {
         .parent()
         .map(|parent| parent.to_path_buf())
         .unwrap_or_else(|| PathBuf::from("."));
-    let manifest = match marqdo_plugin_abi::PluginManifest::load(&manifest_path) {
+    let manifest = match marqdo_host::plugin::PluginManifest::load(&manifest_path) {
         Ok(manifest) => manifest,
         Err(error) => {
             report_plugin_error(&error, json);
@@ -55,7 +55,7 @@ pub fn plugin_inspect(target: &Path, json: bool) -> i32 {
         report_plugin_error(&error, json);
         return 1;
     }
-    let host_target = marqdo_plugin_abi::HostTarget::current();
+    let host_target = marqdo_host::plugin::HostTarget::current();
     let artifact = match manifest.verify_artifact(&base_dir, &host_target) {
         Ok((path, artifact)) => {
             let abi = match manifest.abi_requirement() {

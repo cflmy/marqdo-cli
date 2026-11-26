@@ -16,8 +16,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
+use marqdo_host::plugin::{HostTarget, TargetTriple};
 use marqdo_host::StdHost;
-use marqdo_plugin_abi::{HostTarget, TargetTriple};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
@@ -577,7 +577,7 @@ fn is_lowercase_sha256(value: &str) -> bool {
 }
 
 fn is_known_capability(name: &str) -> bool {
-    marqdo_plugin_abi::KNOWN_CAPABILITIES.contains(&name)
+    marqdo_host::plugin::KNOWN_CAPABILITIES.contains(&name)
 }
 
 /// A dotted vendor capability proposal (validation only, never a grant).

@@ -91,7 +91,7 @@ wire response: {"wire_version":1,"kind":"response",
 ```
 
 The integration test
-`crates/marqdo-plugin-abi/tests/loader_unix.rs` compiles this exact
+`crates/marqdo-host/tests/loader_unix.rs` compiles this exact
 `solver.c` with `cc -shared -fPIC`, loads it with `libloading`, and round-trips
 the request. It duplicates the compilation with
 `-DMQ_SOLVER_REPORT_ABI_MAJOR=2` to prove that a wrong ABI major fails the

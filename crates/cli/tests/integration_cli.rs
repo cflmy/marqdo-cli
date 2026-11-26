@@ -783,7 +783,7 @@ fn lock_and_sync_locked_detect_dependency_tampering() {
 /// the Linux-only example manifest. This is what makes the integration test a
 /// real test on macOS/Windows rather than an accidental "no matching artifact".
 fn host_triple() -> String {
-    marqdo_plugin_abi::artifact::current_target_triple()
+    marqdo_host::plugin::artifact::current_target_triple()
         .as_str()
         .to_string()
 }

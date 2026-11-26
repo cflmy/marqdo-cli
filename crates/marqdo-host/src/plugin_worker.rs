@@ -15,13 +15,12 @@ use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use marqdo_plugin_abi::worker::{
+use crate::plugin::worker::{
     response_from_frame, MAX_CAPABILITY_REQUESTS, MAX_CAPABILITY_REQUEST_BYTES, MAX_FRAME_BYTES,
     WORKER_COMMAND,
 };
-use marqdo_plugin_abi::{
-    CapabilityHandler, PluginError, PluginManifest, WireRequest, WireResponse,
-};
+use crate::plugin::{CapabilityHandler, PluginManifest};
+use marqdo_plugin_abi::{PluginError, WireRequest, WireResponse};
 use marqdo_worker_ipc::{Connection, FrameError, TransportError};
 use serde_json::json;
 

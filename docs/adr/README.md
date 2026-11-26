@@ -70,3 +70,6 @@ Files: `0001`–`0050`, plus:
   pre-stable public boundary, replaced in place;
 * [0069](0069-public-analysis-boundary.md) — one public Analysis projection for
   independent document, lint and knowledge consumers.
+* [0071](0071-engine-host-contract-boundary.md) — Engine / Host Contract /
+  Native Host / CLI responsibilities, dependency rules, plugin ABI contract split
+  and the keep-in-workspace repository decision.

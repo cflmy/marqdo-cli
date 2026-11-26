@@ -11,8 +11,8 @@ use std::time::Duration;
 
 use marqdo_value::{to_wire, ErrorCategory, RuntimeError, Value};
 
-use crate::context::ExecutionContext;
-use crate::host::{HostOp, StdHost};
+use crate::host::StdHost;
+use marqdo_host_contract::{ExecutionContext, HostOp};
 
 pub(crate) fn foreign(
     host: &mut StdHost,

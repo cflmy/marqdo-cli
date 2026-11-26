@@ -15,6 +15,7 @@ serde_json = { workspace = true }
 marqdo-worker-ipc = { workspace = true }
 
 [dev-dependencies]
+marqdo-host-contract = { workspace = true }
 marqdo-host = { path = "../marqdo-host" }
 marqdo-sandbox = { path = "../marqdo-sandbox" }
 marqdo-value = { path = "../marqdo-value" }

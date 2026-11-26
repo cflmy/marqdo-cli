@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use marqdo_expression::{BinaryOp, Expr, RecordEntry};
-use marqdo_host::{
+use marqdo_host_contract::{
     ExecutionContext, FrameId, Host, HostOp, LoopTransfer, ParameterSource, ResourceRead,
     RuntimeObservation,
 };

@@ -1,0 +1,24 @@
+[package]
+name = "marqdo-embedding-consumer"
+description = "Independent Engine consumer: Markdown -> Frontend -> IR -> Runtime without the native host"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# A separate workspace: this consumer must resolve and build with its own
+# dependency graph so workspace feature unification cannot hide a native-host
+# dependency of the engine.
+[workspace]
+
+[dependencies]
+marqdo-frontend = { path = "../../crates/marqdo-frontend" }
+marqdo-host-contract = { path = "../../crates/marqdo-host-contract" }
+marqdo-ir = { path = "../../crates/marqdo-ir" }
+marqdo-runtime = { path = "../../crates/marqdo-runtime" }
+marqdo-span = { path = "../../crates/marqdo-span" }
+marqdo-value = { path = "../../crates/marqdo-value" }
+serde_json = "1"
+
+[[bin]]
+name = "embedding-consumer"
+path = "src/main.rs"
