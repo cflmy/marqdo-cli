@@ -125,6 +125,32 @@ SDK physical repository after S07/S08, regex/compression replacement under
 ADR-0062, foreign F-B (ADR-0063), platform and strict evidence, and the Engine/
 Native Host split only if the ADR-0071 reopening conditions appear.
 
+## 0.13 Independent plugin SDK repository — issue #15 (unreleased candidate)
+
+This is a repository-ownership/architecture change, not a new product release.
+The contract and plugin ABI behaviour are unchanged. Evidence:
+[`evidence/2026-11-26-issue-15-sdk-independent-repository.md`](evidence/2026-11-26-issue-15-sdk-independent-repository.md);
+decision: [ADR-0072](adr/0072-sdk-independent-repository.md).
+
+- The Rust SDK moved to the public repository
+  [`cflmy/marqdo-plugin-sdk`](https://git.cflmy.cn/cflmy/marqdo-plugin-sdk)
+  (commit `b31187a`), with its own workspace/lock, AGENTS rules, README, license
+  and Woodpecker pipeline definition.
+- It consumes `marqdo-plugin-abi` from the CLI repository at the exact
+  `rev = 2585915e16906dac75f8571bed02e7f6f868c6bc`; it never uses a `../cli`
+  path, a floating branch, a submodule or a copied ABI/Value Wire.
+- The CLI repository no longer contains `crates/marqdo-plugin-sdk`,
+  `tests/sdk-plugin` or the CLI-side SDK gate; the SDK does not appear in the
+  workspace or `Cargo.lock`. The CLI does not depend on the SDK.
+- Clean-clone SDK build/tests and a real integration against the frozen
+  released `3.0.0-rc.4` CLI pass (`Int 42`, tampered digest rejected). CLI
+  workspace tests: 631 passed / 0 failed / 0 ignored (the five SDK tests moved
+  to the SDK repository). The SDK
+  repository's CI repeats those checks; enabling the Woodpecker project for the
+  new repository is an administrative follow-up, not a code claim.
+- Engine/Native Host remain in the CLI workspace under ADR-0071; no other
+  repository split is approved by this change.
+
 ## 0.10 Closed public Analysis boundary — issue #10 (RC.4 released)
 
 The candidate replaces the program-only Analysis projection in place under

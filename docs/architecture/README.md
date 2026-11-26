@@ -83,7 +83,8 @@ The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 | Resource operations and core kinds | [0062](../adr/0062-resource-operation-ownership-and-core-kinds.md) | Accepted and implemented; architecture gate pins the reviewed lists |
 | Foreign F-A transition | [0063](../adr/0063-foreign-kernel-transition-fa.md) | Accepted: retained F-A primitive; F-B deferred |
 | Stable core inventory and external gate | [0064](../adr/0064-stable-core-extension-boundary.md) | Accepted and wired into Linux CI |
-| Engine / Host Contract / Native Host / CLI boundaries | [0071](../adr/0071-engine-host-contract-boundary.md) | Accepted and implemented by issue #13: runtime depends on the neutral contract, native host implements it, plugin ABI is contract-only, keep-in-workspace repository decision |
+| Engine / Host Contract / Native Host / CLI boundaries | [0071](../adr/0071-engine-host-contract-boundary.md) | Accepted and implemented by issue #13: runtime depends on the neutral contract, native host implements it, plugin ABI is contract-only, Engine/Native Host keep-in-workspace decision |
+| Independent plugin SDK repository | [0072](../adr/0072-sdk-independent-repository.md) | Accepted and implemented: public `cflmy/marqdo-plugin-sdk`, pinned to CLI contract commit, CLI does not depend on it |
 | Manifest-driven Resource Control | [0065](../adr/0065-resource-control-vnext.md) | Proposed |
 | Structured Tasks and Channels | [0066](../adr/0066-structured-tasks-v1.md) | Proposed |
 | Table physical storage (T1/T2/T3), strict stdin/stderr/file/network resources | — | **Not decided**; do not implement by implication |

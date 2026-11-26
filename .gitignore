@@ -42,3 +42,7 @@ __pycache__/
 /tests/embedding/target/
 /tests/sdk-plugin/target/
 /.tmp/
+
+# Accidental curl/test capture files
+/out
+/log.txt

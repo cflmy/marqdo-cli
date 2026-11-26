@@ -48,7 +48,6 @@ in the same change.
 | `marqdo-sandbox` | Native Host support | OS isolation probe and strict launch |
 | `marqdo-foreign` | Native Host support | Controlled one-shot foreign kernels (F-A) |
 | `marqdo-plugin-abi` | Public contract | C ABI v1 layout, wire envelope and protocol errors |
-| `marqdo-plugin-sdk` | Public contract consumer | Third-party plugin development helpers |
 | `marqdo-worker-ipc` | Shared plumbing | One bounded worker frame transport |
 | `marqdo-provider-worker` | Shipped worker | Provider helper process |
 | `marqdo-package` | Product support | Project manifest, lock and dependency resolution |
@@ -208,7 +207,7 @@ marqdo-host-contract -> marqdo-value, marqdo-span
 marqdo-host -> marqdo-host-contract, marqdo-plugin-abi, marqdo-foreign,
                marqdo-sandbox, marqdo-worker-ipc
 marqdo-plugin-abi     -> marqdo-value, serde/serde_json (contract only)
-marqdo-plugin-sdk     -> marqdo-plugin-abi (contract only)
+[cflmy/marqdo-plugin-sdk] -> cflmy/marqdo-cli#marqdo-plugin-abi @ pinned rev
 marqdo-provider-worker -> marqdo-worker-ipc
 ```
 
@@ -326,7 +325,7 @@ that a phase is complete.
 |---|---|---|
 | Engine (`span`/`value`/`expression`/`markdown`/`ir`/`frontend`/`runtime`/`host-contract`) | **Keep in this workspace** as one atomic semantic-change domain | A real, non-in-repo consumer needs independent build/release, and the semantic change cost is acceptable |
 | Native Host (`host`/`sandbox`/`foreign`/plugin loader) | **Keep in this workspace**, dependent on the neutral contract | An independent platform maintainer or second product consumes it; security/conformance can be verified separately |
-| `marqdo-plugin-sdk` | Contract decoupled; physical move to an independent repository is a follow-up after the §6.3 external build and pinned-artifact mechanism | A clean-directory build against a fixed contract revision without the CLI checkout passes (S07/S08) |
+| `marqdo-plugin-sdk` | **Moved to independent public repository** `cflmy/marqdo-plugin-sdk` ([ADR-0072](../adr/0072-sdk-independent-repository.md)) | Contract input is a pinned CLI git `rev`; clean-clone build + frozen-CLI integration are the SDK repository's gates. CLI must not depend on it or re-add a copy |
 | Stdlib | Separate issue #11/#12 (Phase A build input); runtime contract unchanged | Ecosystem-assembled Bundle and extension replacement accepted; then retire the in-repo source authority |
 | Regex/compression domain services | **DEFERRED** under ADR-0062 ownership; no new domain operation may be added | A separately installable extension replaces the host-held service and the old entries are removed atomically |
 | Foreign F-A | Retained; no F-B, session or new transport in this change | Separate ADR and milestone |
@@ -358,6 +357,8 @@ host are one source tree until the reopening evidence above exists.
 - [Compute-machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) and [core/stdlib RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) — design input.
 - [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) — historical review input; the current boundary decision is ADR-0071.
 - [ADR-0071: Engine / Host Contract / Native Host boundaries](../adr/0071-engine-host-contract-boundary.md) — accepted responsibility split and keep-in-workspace decision for issue #13.
+- [ADR-0072: Independent `marqdo-plugin-sdk` repository](../adr/0072-sdk-independent-repository.md) — the one deliberate repository split (public SDK leaf pinned to the CLI contract).
+- [Issue #15 SDK split evidence](../evidence/2026-11-26-issue-15-sdk-independent-repository.md) — clean-clone build and frozen-CLI integration.
 - [Issue #13 engine/host evidence](../evidence/2026-11-26-issue-13-engine-host-boundary.md) — executed candidate commands and results.
 - [RFC-EXT-0001](RFC-EXT-0001.md) — extensibility closure task specification (implementation status tracked here and in STATUS).
 - [ADR-0054: single callable binding](../adr/0054-callable-binding-single-source.md) — one registry/binding pass, runtime dispatch by identity.

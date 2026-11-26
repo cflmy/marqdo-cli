@@ -43,8 +43,6 @@ jobs:
         run: python3 tools/ci/check_dependency_boundaries.py
       - name: Engine independence and CLI differential execution
         run: python3 tools/ci/check_engine_boundary.py
-      - name: Plugin SDK real consumption
-        run: python3 tools/ci/check_plugin_sdk.py
       - name: CI evidence tool tests
         run: python3 -m unittest discover -s tools/ci -p "test_*.py"
       - name: Whole stdlib product tests
