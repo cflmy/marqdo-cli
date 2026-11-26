@@ -70,3 +70,6 @@ Files: `0001`–`0050`, plus:
   pre-stable public boundary, replaced in place;
 * [0069](0069-public-analysis-boundary.md) — one public Analysis projection for
   independent document, lint and knowledge consumers.
+* [0070](0070-explicit-stdlib-bundle-build-input.md) — Phase A of the stdlib
+  extraction: one required `--stdlib-dir` build input, one pinned Bundle
+  identity for tests/perf/release CI; runtime contracts unchanged.
