@@ -51,14 +51,24 @@ impl StdlibBundle {
     /// machine path: the release archive must ship a verified `stdlib/` next to
     /// the binary (RFC-EXT-0003 H-08, ADR).
     pub fn discover() -> Result<Option<Self>, String> {
-        if let Some(dir) = std::env::var_os(STDLIB_DIR_ENV) {
-            return Self::load(PathBuf::from(dir)).map(Some);
+        let override_dir = std::env::var_os(STDLIB_DIR_ENV).map(PathBuf::from);
+        let exe_dir = std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(Path::to_path_buf));
+        Self::discover_with(override_dir, exe_dir)
+    }
+
+    /// Discovery with the explicit override and the executable directory passed
+    /// in. The override is authoritative: a bad `MARQDO_STDLIB_DIR` fails even
+    /// when a valid sibling Bundle exists (no silent fallback).
+    fn discover_with(
+        override_dir: Option<PathBuf>,
+        exe_dir: Option<PathBuf>,
+    ) -> Result<Option<Self>, String> {
+        if let Some(dir) = override_dir {
+            return Self::load(dir).map(Some);
         }
-        Self::discover_from_exe_dir(
-            std::env::current_exe()
-                .ok()
-                .and_then(|exe| exe.parent().map(Path::to_path_buf)),
-        )
+        Self::discover_from_exe_dir(exe_dir)
     }
 
     /// Discover from the directory that holds the executable, without the explicit
@@ -454,21 +464,41 @@ pub fn aliases_digest(aliases: &[PublicAlias]) -> String {
 mod tests {
     use super::*;
 
-    fn dev_bundle() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("..")
-            .join("stdlib")
+    /// A small synthetic Bundle so loader unit tests never depend on the
+    /// product tree (ADR-0070 test-lane separation).
+    fn write_synthetic_bundle(root: &Path) {
+        for (relative, body) in [
+            ("io.mq.md", "## @knowledge test\n"),
+            ("io/console.mq.md", "## @knowledge console\n"),
+        ] {
+            let path = root.join(relative);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, body).unwrap();
+        }
+        let digest = tree_digest(root).unwrap();
+        let manifest = serde_json::json!({
+            "name": "test-stdlib",
+            "version": "0.0.0-test",
+            "digest": digest,
+        });
+        std::fs::write(
+            root.join("stdlib.json"),
+            serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap();
     }
 
     #[test]
-    fn dev_bundle_verifies_and_resolves() {
-        let bundle = StdlibBundle::load(dev_bundle()).unwrap();
-        assert!(bundle.digest.starts_with("sha256:"));
+    fn synthetic_bundle_verifies_and_resolves() {
+        let dir = tempfile::tempdir().unwrap();
+        write_synthetic_bundle(dir.path());
+        let bundle = StdlibBundle::load(dir.path()).unwrap();
+        assert_eq!(bundle.version(), "0.0.0-test");
         let io = bundle.resolve("io").unwrap();
         assert_eq!(io.relative_path, "io.mq.md");
-        assert!(io.package.instance_id.starts_with("std:marqdo-stdlib@"));
+        assert!(io.package.instance_id.starts_with("std:test-stdlib@"));
         assert!(bundle.resolve("../escape").is_err());
+        assert!(bundle.resolve("/absolute").is_err());
     }
 
     #[test]
@@ -476,44 +506,31 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let bundle = dir.path().join("stdlib");
         std::fs::create_dir_all(&bundle).unwrap();
-        for entry in std::fs::read_dir(dev_bundle()).unwrap() {
-            let entry = entry.unwrap();
-            let target = bundle.join(entry.file_name());
-            if entry.path().is_dir() {
-                copy_dir(&entry.path(), &target);
-            } else {
-                std::fs::copy(entry.path(), target).unwrap();
-            }
-        }
+        write_synthetic_bundle(&bundle);
         let found = StdlibBundle::discover_from_exe_dir(Some(dir.path().to_path_buf()))
             .unwrap()
             .expect("sibling stdlib");
-        assert_eq!(found.root, bundle.canonicalize().unwrap());
+        assert_eq!(found.root(), bundle.canonicalize().unwrap());
     }
 
-    fn copy_dir(source: &std::path::Path, target: &std::path::Path) {
-        std::fs::create_dir_all(target).unwrap();
-        for entry in std::fs::read_dir(source).unwrap() {
-            let entry = entry.unwrap();
-            let destination = target.join(entry.file_name());
-            if entry.path().is_dir() {
-                copy_dir(&entry.path(), &destination);
-            } else {
-                std::fs::copy(entry.path(), destination).unwrap();
-            }
-        }
+    #[test]
+    fn bad_override_fails_closed_even_with_a_valid_sibling() {
+        let dir = tempfile::tempdir().unwrap();
+        let sibling = dir.path().join("stdlib");
+        std::fs::create_dir_all(&sibling).unwrap();
+        write_synthetic_bundle(&sibling);
+        let error = StdlibBundle::discover_with(
+            Some(dir.path().join("missing")),
+            Some(dir.path().to_path_buf()),
+        )
+        .unwrap_err();
+        assert!(error.contains("cannot open stdlib directory"), "{error}");
     }
 
     #[test]
     fn digest_tamper_is_rejected() {
         let dir = tempfile::tempdir().unwrap();
-        let source = dev_bundle();
-        for entry in std::fs::read_dir(&source).unwrap() {
-            let entry = entry.unwrap();
-            if entry.path().is_file() {
-                std::fs::copy(entry.path(), dir.path().join(entry.file_name())).unwrap();
-            }
-        }
+        write_synthetic_bundle(dir.path());
         std::fs::write(dir.path().join("io.mq.md"), "## @knowledge tampered\n").unwrap();
         let error = StdlibBundle::load(dir.path()).unwrap_err();
         assert!(error.contains("digest mismatch"), "{error}");

@@ -6,6 +6,9 @@
 //! stdio/file/TCP resource endpoints. They are source and digest checks, not an
 //! OS-sandbox proof.
 
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
+
 use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
@@ -88,7 +91,14 @@ fn runtime_depends_on_the_host_platform_layer_without_a_cycle() {
 
 #[test]
 fn bundled_stdlib_stays_in_this_repository_and_matches_its_digest() {
-    let root = repo_root().join("stdlib");
+    let root = stdlib_support::bundle_dir();
+    // Phase A (ADR-0070): the pinned Bundle is still the checkout tree. Phase B
+    // replaces this assertion when the ecosystem Bundle becomes the input.
+    assert_eq!(
+        root,
+        repo_root().join("stdlib").canonicalize().unwrap(),
+        "the Phase A stdlib pin must resolve to the in-repo stdlib tree"
+    );
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(root.join("stdlib.json")).unwrap()).unwrap();
     assert_eq!(manifest["name"], "marqdo-stdlib");
@@ -103,7 +113,7 @@ fn bundled_stdlib_stays_in_this_repository_and_matches_its_digest() {
 
 #[test]
 fn stdlib_imports_resolve_inside_the_bundle() {
-    let root = repo_root().join("stdlib");
+    let root = stdlib_support::bundle_dir();
     for entry in walk_markdown(&root) {
         let is_test = entry.starts_with(root.join("tests"));
         let text = read(&entry);
@@ -439,7 +449,7 @@ const _: fn(marqdo_value::Value) = |value| match value {
 /// hard-coded runtime names. Recompute the canonical metadata digest.
 #[test]
 fn official_stdlib_public_aliases_are_verified_metadata() {
-    let root = repo_root().join("stdlib");
+    let root = stdlib_support::bundle_dir();
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(root.join("stdlib.json")).unwrap()).unwrap();
     let aliases = manifest["public_aliases"]

@@ -20,6 +20,9 @@
 //! expectation; the checked-in goldens were reviewed individually.
 
 use std::fs;
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
+
 use std::path::{Path, PathBuf};
 
 use marqdo_host::{Capabilities, Host, StdHost};
@@ -291,7 +294,7 @@ fn normalise_relative(path: &Path) -> String {
 /// unique registry, run the single binding pass and install its table. There is
 /// no `print_override` and no runtime name guessing.
 fn bind_calls_with_stdlib_aliases(program: &mut Program) {
-    let root = repo_root().join("stdlib");
+    let root = stdlib_support::bundle_dir();
     let mut loaded = std::collections::BTreeSet::new();
     let mut official = Vec::new();
     if root.join("stdlib.json").is_file() {
@@ -428,7 +431,7 @@ fn install_entry_stdlib_imports(
     module_id: &ModuleId,
     analysis: &marqdo_frontend::AnalysisResult,
 ) {
-    let root = repo_root().join("stdlib");
+    let root = stdlib_support::bundle_dir();
     let Some(imports) = analysis
         .document
         .frontmatter()

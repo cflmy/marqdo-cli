@@ -3,24 +3,18 @@
 #[path = "support/observation.rs"]
 pub mod observation;
 
-use std::path::Path;
-use std::process::Command;
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
 
-fn repo_root() -> std::path::PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .to_path_buf()
-}
+use std::process::Command;
 
 #[test]
 fn stdlib_http_parses_chunked_responses_and_builds_requests() {
+    let bundle = stdlib_support::bundle_dir();
     let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
         .args(["run", "tests/http.mq.md", "--output", "json"])
-        .current_dir(repo_root().join("stdlib"))
-        .env("MARQDO_STDLIB_DIR", repo_root().join("stdlib"))
+        .current_dir(&bundle)
+        .env("MARQDO_STDLIB_DIR", &bundle)
         .output()
         .expect("run http self-test");
     assert_eq!(

@@ -3,6 +3,9 @@
 #[path = "support/observation.rs"]
 pub mod observation;
 
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -109,7 +112,8 @@ fn p2_algorithms_run_in_a_pure_no_foreign_no_plugin_host() {
 
 #[test]
 fn p2_stdlib_table_also_runs_in_pure_mode() {
-    let path = repo_root().join("stdlib").join("tests").join("table.mq.md");
+    let bundle = stdlib_support::bundle_dir();
+    let path = bundle.join("tests").join("table.mq.md");
     let output = Command::new(env!("CARGO_BIN_EXE_marqdo"))
         .args([
             "run",
@@ -119,8 +123,8 @@ fn p2_stdlib_table_also_runs_in_pure_mode() {
             "--output",
             "json",
         ])
-        .current_dir(repo_root().join("stdlib"))
-        .env("MARQDO_STDLIB_DIR", repo_root().join("stdlib"))
+        .current_dir(&bundle)
+        .env("MARQDO_STDLIB_DIR", &bundle)
         .output()
         .expect("run table self-test");
     assert_eq!(

@@ -1,23 +1,17 @@
 //! Bundled stdlib (`std:`) and frozen-CLI closure tests (CM-A10).
 
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
-
-fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .to_path_buf()
-}
 
 fn binary() -> &'static str {
     env!("CARGO_BIN_EXE_marqdo")
 }
 
 fn stdlib_dir() -> PathBuf {
-    repo_root().join("stdlib")
+    stdlib_support::bundle_dir()
 }
 
 fn run(dir: &Path, stdlib: &Path, args: &[&str]) -> std::process::Output {

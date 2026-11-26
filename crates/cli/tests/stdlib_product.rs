@@ -8,19 +8,13 @@
 #[path = "support/observation.rs"]
 pub mod observation;
 
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
+
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::{Mutex, MutexGuard};
-
-fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .to_path_buf()
-}
 
 static FS_LOCK: Mutex<()> = Mutex::new(());
 
@@ -33,7 +27,7 @@ fn lock_fs(name: &str) -> Option<MutexGuard<'static, ()>> {
 }
 
 fn stdlib_dir() -> PathBuf {
-    repo_root().join("stdlib")
+    stdlib_support::bundle_dir()
 }
 
 struct TestFile {

@@ -5,6 +5,9 @@
 //! runtime name special case and no hard-coded per-function scan.
 #![cfg(unix)]
 
+#[path = "support/stdlib.rs"]
+pub mod stdlib_support;
+
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -35,15 +38,6 @@ impl Drop for TempDir {
     }
 }
 
-fn repo() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .to_path_buf()
-}
-
 fn cli(args: &[&str], dir: &Path, env: &[(&str, &Path)]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_marqdo"));
     command.args(args).current_dir(dir);
@@ -62,7 +56,7 @@ fn stdout(output: &Output) -> String {
 }
 
 fn copy_stdlib(target: &Path) {
-    let source = repo().join("stdlib");
+    let source = stdlib_support::bundle_dir();
     std::fs::create_dir_all(target).unwrap();
     for entry in std::fs::read_dir(&source).unwrap() {
         let entry = entry.unwrap();
