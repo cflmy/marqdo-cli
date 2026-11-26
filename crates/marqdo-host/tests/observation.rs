@@ -8,10 +8,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use marqdo_host::{
-    encode_value, Capabilities, ExecutionContext, FrameId, Host, ObservationConfig,
-    ObservationError, ObservationEvent, ObservationSink, ParameterSource, RuntimeObservation,
-    StdHost, ValueState,
+    encode_value, Capabilities, ObservationConfig, ObservationError, ObservationEvent,
+    ObservationSink, StdHost, ValueState,
 };
+use marqdo_host_contract::{ExecutionContext, FrameId, Host, ParameterSource, RuntimeObservation};
 use marqdo_sandbox::SandboxMode;
 use marqdo_value::{ErrorCategory, Value};
 

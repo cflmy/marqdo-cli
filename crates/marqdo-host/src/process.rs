@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use marqdo_value::{ErrorCategory, RuntimeError, Value};
 
-use crate::context::ExecutionContext;
+use marqdo_host_contract::ExecutionContext;
 
 fn process_error(code: &str, message: &str) -> Value {
     let mut map = BTreeMap::new();

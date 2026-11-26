@@ -1,6 +1,7 @@
 //! End-to-end interpreter tests: Markdown source → frontend IR → execution.
 
-use marqdo_host::{Capabilities, Host, StdHost};
+use marqdo_host::{Capabilities, StdHost};
+use marqdo_host_contract::Host;
 use marqdo_ir::{ModuleId, Program};
 use marqdo_runtime::{run, run_with_limits, EvaluatedArg, MemoryLimits, RuntimeError, Value};
 use marqdo_sandbox::SandboxMode;

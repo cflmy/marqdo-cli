@@ -24,6 +24,7 @@ contract (rust:1.100-bookworm, python3-jsonschema, both shipped binaries):
   analysis_consumer / observation_consumer / validate_protocols
   stream==snapshot assertion (tools/ci/verify_observation_stream.py)
   stale-Analysis rejection
+  dependency-direction gate (tools/ci/check_dependency_boundaries.py)
 
 test (rust:1.100-bookworm, clippy/rustfmt, Node.js 22, MinGW, both binaries):
   cargo fmt --all -- --check
@@ -31,6 +32,9 @@ test (rust:1.100-bookworm, clippy/rustfmt, Node.js 22, MinGW, both binaries):
   cargo build --locked -p marqdo-provider-worker
   cargo test --workspace --locked
   docs_consistency / architecture_boundaries / stdlib_product
+  check_dependency_boundaries.py (Cargo-metadata responsibility graph)
+  check_engine_boundary.py (independent consumer build/run + CLI differential)
+  check_plugin_sdk.py (real third-party SDK plugin via the real CLI)
   python3 -m unittest discover -s tools/ci -p "test_*.py"
   rustup target add x86_64-pc-windows-gnu
   cargo check --workspace --all-targets --target x86_64-pc-windows-gnu

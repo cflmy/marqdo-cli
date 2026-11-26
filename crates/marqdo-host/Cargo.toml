@@ -12,6 +12,7 @@ authors.workspace = true
 libloading = { workspace = true }
 rustls = { workspace = true }
 rustls-native-certs = { workspace = true }
+marqdo-host-contract = { workspace = true }
 marqdo-plugin-abi = { workspace = true }
 marqdo-worker-ipc = { workspace = true }
 flate2 = { workspace = true }
@@ -23,6 +24,9 @@ marqdo-value = { workspace = true }
 marqdo-foreign = { workspace = true }
 marqdo-sandbox = { workspace = true }
 serde = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+serde_yaml = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 

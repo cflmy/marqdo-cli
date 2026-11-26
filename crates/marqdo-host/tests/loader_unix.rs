@@ -11,9 +11,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use marqdo_plugin_abi::{
-    sha256_file, ErrorKind, HostTarget, LoadedPlugin, PluginManifest, Value, WireRequest,
-};
+use marqdo_host::plugin::{sha256_file, HostTarget, LoadedPlugin, PluginManifest};
+use marqdo_plugin_abi::{ErrorKind, WireRequest};
+use marqdo_value::Value;
 
 static TEMP_COUNTER: AtomicU32 = AtomicU32::new(0);
 

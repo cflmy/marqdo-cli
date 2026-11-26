@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use marqdo_plugin_abi::{sha256_file, HostTarget};
+use marqdo_host::plugin::{sha256_file, HostTarget};
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 

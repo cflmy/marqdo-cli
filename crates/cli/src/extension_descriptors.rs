@@ -10,9 +10,9 @@
 use std::collections::BTreeSet;
 use std::path::{Component, Path, PathBuf};
 
+use marqdo_host::plugin::{HostTarget, PluginKind, PluginManifest};
 use marqdo_ir::callable::{CallableDescriptor, CallableId, CallableOrigin, CallableSignature};
 use marqdo_ir::SignatureKind;
-use marqdo_plugin_abi::{HostTarget, PluginKind, PluginManifest};
 use marqdo_span::Span;
 use sha2::{Digest, Sha256};
 

@@ -3,12 +3,13 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use marqdo_host::{Capabilities, Host, StdHost};
+use marqdo_host::{Capabilities, StdHost};
+use marqdo_host_contract::Host;
 use marqdo_sandbox::SandboxMode;
 use marqdo_value::ErrorCategory;
 
-fn context() -> marqdo_host::ExecutionContext {
-    marqdo_host::ExecutionContext::new("test".to_string(), None)
+fn context() -> marqdo_host_contract::ExecutionContext {
+    marqdo_host_contract::ExecutionContext::new("test".to_string(), None)
 }
 
 fn handle(value: marqdo_value::Value) -> marqdo_value::ResourceHandle {

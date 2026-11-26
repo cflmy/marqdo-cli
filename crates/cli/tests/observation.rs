@@ -280,7 +280,7 @@ fn native_plugin_is_fail_closed_in_event_mode() {
     let digest = hex::encode(sha2::Sha256::digest(fs::read(&artifact).unwrap()));
     let manifest = format!(
         "plugin:\n  name: demo.solver\n  version: 0.1.0\n  abi: \"^1.0\"\n  kind: native\n  exports:\n    - name: solver.add\n      signature: \"($a: Int, $b: Int) -> Int\"\n  requires:\n    - math.compute\n  artifacts:\n    - target: {}\n      file: solver.so\n      sha256: \"{}\"\n",
-        marqdo_plugin_abi::HostTarget::current().triple(),
+        marqdo_host::plugin::HostTarget::current().triple(),
         digest
     );
     fs::write(plugin_dir.join("plugin.yaml"), manifest).unwrap();

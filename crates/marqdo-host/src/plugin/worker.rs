@@ -13,10 +13,10 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::{json, Value};
 
-use crate::error::PluginError;
-use crate::loader::{LoadOptions, LoadedPlugin};
-use crate::manifest::{PluginKind, PluginManifest};
-use crate::wire::{WireRequest, WireResponse};
+use super::loader::{LoadOptions, LoadedPlugin};
+use super::manifest::{PluginKind, PluginManifest};
+use marqdo_plugin_abi::wire::{WireRequest, WireResponse};
+use marqdo_plugin_abi::PluginError;
 
 /// Hidden CLI command name used to start a worker.
 pub const WORKER_COMMAND: &str = "__plugin-worker";
@@ -91,7 +91,7 @@ pub fn serve(manifest_path: &Path, base_dir: &Path) -> i32 {
     let handler_stdout = Arc::clone(&stdout);
     let handler_ids = Arc::clone(&next_request_id);
     let handler_calls = Arc::clone(&capability_calls);
-    let capability_handler: crate::loader::CapabilityHandler = Box::new(
+    let capability_handler: super::loader::CapabilityHandler = Box::new(
         move |capability, request| {
             if handler_calls.fetch_add(1, Ordering::SeqCst) >= MAX_CAPABILITY_REQUESTS {
                 return Err(PluginError::capability(
@@ -185,7 +185,7 @@ pub fn serve(manifest_path: &Path, base_dir: &Path) -> i32 {
         },
     );
     let options = LoadOptions {
-        host_target: crate::artifact::HostTarget::current(),
+        host_target: super::artifact::HostTarget::current(),
         capability_handler: Some(capability_handler),
     };
     let mut plugin = match LoadedPlugin::open_with(&native_manifest, base_dir, options) {

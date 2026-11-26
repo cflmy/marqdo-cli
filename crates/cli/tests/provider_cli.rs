@@ -24,7 +24,7 @@ use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::OnceLock;
 
-use marqdo_plugin_abi::HostTarget;
+use marqdo_host::plugin::HostTarget;
 use sha2::{Digest, Sha256};
 
 const MARKER_ENV: &str = "MARQDO_TEST_PROVIDER_MARKER";

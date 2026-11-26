@@ -420,6 +420,7 @@ dependencies = [
  "marqdo-foreign",
  "marqdo-frontend",
  "marqdo-host",
+ "marqdo-host-contract",
  "marqdo-ir",
  "marqdo-markdown",
  "marqdo-package",
@@ -485,8 +486,10 @@ dependencies = [
  "flate2",
  "getrandom 0.4.3",
  "glob",
+ "hex",
  "libloading",
  "marqdo-foreign",
+ "marqdo-host-contract",
  "marqdo-plugin-abi",
  "marqdo-sandbox",
  "marqdo-span",
@@ -499,8 +502,18 @@ dependencies = [
  "rustls-pemfile",
  "serde",
  "serde_json",
+ "serde_yaml",
+ "sha2",
  "tempfile",
  "thiserror",
+]
+
+[[package]]
+name = "marqdo-host-contract"
+version = "3.0.0-rc.4"
+dependencies = [
+ "marqdo-span",
+ "marqdo-value",
 ]
 
 [[package]]
@@ -542,15 +555,9 @@ dependencies = [
 name = "marqdo-plugin-abi"
 version = "3.0.0-rc.4"
 dependencies = [
- "hex",
- "libloading",
- "marqdo-span",
  "marqdo-value",
- "marqdo-worker-ipc",
  "serde",
  "serde_json",
- "serde_yaml",
- "sha2",
  "thiserror",
 ]
 
@@ -569,6 +576,7 @@ version = "3.0.0-rc.4"
 dependencies = [
  "libloading",
  "marqdo-host",
+ "marqdo-host-contract",
  "marqdo-sandbox",
  "marqdo-value",
  "marqdo-worker-ipc",
@@ -583,6 +591,7 @@ dependencies = [
  "marqdo-expression",
  "marqdo-frontend",
  "marqdo-host",
+ "marqdo-host-contract",
  "marqdo-ir",
  "marqdo-sandbox",
  "marqdo-span",

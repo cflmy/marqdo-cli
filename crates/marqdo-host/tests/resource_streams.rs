@@ -2,7 +2,8 @@
 
 use std::path::Path;
 
-use marqdo_host::{Capabilities, ExecutionContext, Host, HostOp, StdHost};
+use marqdo_host::{Capabilities, StdHost};
+use marqdo_host_contract::{ExecutionContext, Host, HostOp};
 use marqdo_sandbox::SandboxMode;
 use marqdo_value::{ErrorCategory, Value};
 
@@ -325,12 +326,12 @@ impl marqdo_host::ResourceProvider for MockProvider {
         token: u64,
         max_bytes: usize,
         _span: Option<marqdo_span::Span>,
-    ) -> Result<marqdo_host::ResourceRead, marqdo_value::RuntimeError> {
+    ) -> Result<marqdo_host_contract::ResourceRead, marqdo_value::RuntimeError> {
         assert_eq!(token, 7);
         let start = self.position;
         let end = start.saturating_add(max_bytes).min(self.data.len());
         self.position = end;
-        Ok(marqdo_host::ResourceRead {
+        Ok(marqdo_host_contract::ResourceRead {
             bytes: self.data[start..end].to_vec(),
             eof: end >= self.data.len(),
         })

@@ -12,7 +12,8 @@ use libloading::Library;
 use marqdo_span::Span;
 use marqdo_value::{ErrorCategory, RuntimeError};
 
-use crate::resource::{ResourceProvider, ResourceRead};
+use crate::resource::ResourceProvider;
+use marqdo_host_contract::ResourceRead;
 
 const ABI_VERSION: u32 = 1;
 const ERROR_MAX: usize = 1024;

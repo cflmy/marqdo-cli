@@ -3,7 +3,8 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use marqdo_host::{Host, StdHost};
+use marqdo_host::StdHost;
+use marqdo_host_contract::Host;
 use marqdo_runtime::{run_with_limits, EvaluatedArg, MemoryLimits, RuntimeError, Value};
 use marqdo_sandbox::{PlatformCapabilities, SandboxMode, StrictOutcome};
 use marqdo_span::Span;
@@ -270,12 +271,12 @@ fn load_plugin_into_host(
         .parent()
         .map(|parent| parent.to_path_buf())
         .unwrap_or_else(|| PathBuf::from("."));
-    let manifest = marqdo_plugin_abi::PluginManifest::load(&manifest_path)
+    let manifest = marqdo_host::plugin::PluginManifest::load(&manifest_path)
         .map_err(|error| format!("{}: {}", error.code, error.message))?;
     manifest
         .validate()
         .map_err(|error| format!("{}: {}", error.code, error.message))?;
-    if manifest.plugin.kind == marqdo_plugin_abi::PluginKind::Native && !trusted {
+    if manifest.plugin.kind == marqdo_host::plugin::PluginKind::Native && !trusted {
         return Err(format!(
             "loading `{}` in-process requires --trust-native-plugin; use `kind: worker` for crash isolation",
             manifest.plugin.name

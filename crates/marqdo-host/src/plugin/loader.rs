@@ -16,16 +16,16 @@ use std::ptr;
 use libloading::{Library, Symbol};
 use serde::Deserialize;
 
-use crate::abi::{
+use super::artifact::HostTarget;
+use super::manifest::{PluginKind, PluginManifest};
+use marqdo_plugin_abi::abi::{
     check_host_api, negotiate, result, AbiVersion, MqBytes, MqCallContext, MqHostApi, MqOwnedBytes,
     MqPluginApi, MqPluginEntryV1, MqPluginInvoke, PluginMetadata, ABI_MAJOR, ABI_MINOR,
     ENTRY_SYMBOL, MAX_CAPABILITY_REPLY_BYTES, MAX_ERROR_WIRE_BYTES, MAX_EXPORT_NAME_BYTES,
     MAX_RESULT_WIRE_BYTES, MAX_SIGNATURE_WIRE_BYTES,
 };
-use crate::artifact::HostTarget;
-use crate::error::PluginError;
-use crate::manifest::{PluginKind, PluginManifest};
-use crate::wire::{WireRequest, WireResponse};
+use marqdo_plugin_abi::wire::{WireRequest, WireResponse};
+use marqdo_plugin_abi::PluginError;
 
 /// A callback the host installs to answer capability requests from a plugin.
 ///
@@ -304,13 +304,13 @@ impl LoadedPlugin {
     /// This is primarily for ABI conformance tests; prefer
     /// [`LoadedPlugin::invoke`] for normal use.
     pub fn invoke_raw(&mut self, function: &str, args_wire: &[u8]) -> Result<Vec<u8>, PluginError> {
-        if args_wire.len() > crate::abi::MAX_REQUEST_WIRE_BYTES {
+        if args_wire.len() > marqdo_plugin_abi::abi::MAX_REQUEST_WIRE_BYTES {
             return Err(PluginError::wire(
                 "request_too_large",
                 format!(
                     "request wire is {} bytes, limit is {}",
                     args_wire.len(),
-                    crate::abi::MAX_REQUEST_WIRE_BYTES
+                    marqdo_plugin_abi::abi::MAX_REQUEST_WIRE_BYTES
                 ),
             ));
         }

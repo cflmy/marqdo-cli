@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use marqdo_host::{HostOp, ResourceRead};
+use marqdo_host_contract::{HostOp, ResourceRead};
 use marqdo_ir::builtins::Builtin;
 use marqdo_ir::Resource;
 use marqdo_span::Span;
