@@ -1,6 +1,10 @@
 # ADR-0071 — Engine / Host Contract / Native Host / CLI boundaries
 
 Status: **Accepted** for the pre-stable 3.0 line (2026-11-26).
+The SDK portion of the repository decision was later implemented by
+[ADR-0072](0072-sdk-independent-repository.md) (independent public SDK
+repository pinned to this contract); the Engine/Native Host keep-in-workspace
+decision is unchanged.
 
 Supersedes the historical review-RFC position that a Host contract crate is a
 second-step, optional move. It does not supersede the language contract
@@ -91,10 +95,10 @@ maintainer, and an empty candidate repository would be a prohibited boundary
 violation. This ADR records **keep in workspace** as the legal conclusion and
 names the reopening conditions in `docs/architecture/CURRENT.md` §7.
 
-The plugin SDK's physical move is a follow-up: the contract is decoupled now,
-and the move requires a clean-directory build against a fixed contract revision
-(issue #13 S07/S08). No gitlink/submodule or empty `marqdo-cli-*` repository is
-created by this ADR.
+The plugin SDK's physical move landed as [ADR-0072](0072-sdk-independent-repository.md):
+a standalone public repository consumes this contract at one pinned CLI `rev`.
+The Engine and Native Host stay here; no gitlink/submodule or empty
+`marqdo-cli-*` repository is created by this ADR.
 
 ## Verification
 

@@ -18,7 +18,7 @@ Foreign wire v1, Provider manifest v2, lock v4 and markdown profile
 |---|---|---|
 | AI/math/data/quantum/SKILL libraries, pure algorithms | `.mq.md` package | `index.mq.md`, `marqdo.yaml`, README, tests |
 | Knowledge/Proof/View/IDE/lint/analysis tools | CLI Tool protocol | standalone executable + `tool.json` + Analysis/Observation consumer |
-| High-performance native callable functions | Callable Plugin ABI v1 | `plugin.yaml`, host-targeted library, SDK/header |
+| High-performance native callable functions | Callable Plugin ABI v1 | `plugin.yaml`, host-targeted library, public SDK (`cflmy/marqdo-plugin-sdk`) + header |
 | New foreign language backend (R/Python/Julia/…) | Foreign Kernel | `kernel.json`, executable provider, pinned environment |
 | Hardware/device/external-stream resources | Resource Provider v2 | `provider.json`, C ABI library, worker helper |
 | Change `@exec` semantics, add keywords/types | **not** a third-party extension | core language RFC + migration + full conformance |
@@ -61,7 +61,7 @@ only on `marqdo-host-contract`; the native host implements it; the plugin ABI
 crate is a contract (no loader/worker); the CLI is the only assembly point.
 Run `python3 tools/ci/check_dependency_boundaries.py`,
 `python3 tools/ci/check_engine_boundary.py` and
-`python3 tools/ci/check_plugin_sdk.py` with the Rust suits. Do not create an
+the independent SDK repository's frozen-CLI check with the Rust suits. Do not create an
 empty candidate repository for a boundary; a split needs the evidence and a new
 ADR.
 

@@ -33,7 +33,6 @@ tests/
 │   ├── warnings/         2 × warning-model/control fixtures + *.expected.json
 │   └── runtime/         20 × runtime-error fixtures + *.expected.json
 ├── embedding/          Independent Engine consumer (own workspace + lock)
-├── sdk-plugin/         Third-party plugin built only with the public Rust SDK
 └── README.md           this file
 ```
 
@@ -53,7 +52,6 @@ Rust harnesses (all in `crates/cli/tests/`):
 | `negative.rs` | Current-syntax diagnostics are **hard errors** (never prose fallbacks): exact sorted `sem.*`/`symbol.*`/`call.*`/`frontmatter.*` code lists, the `sem.inferred_signature` warning model with inert-knowledge controls, and runtime error codes — each asserted in its own suite. |
 | `properties.rs` | Blueprint §14.2 prose invariance: inserting/removing pure narration paragraphs never changes the executable function IR (modulo source spans) and diagnostics stay error-free. |
 | `embedding/` + `tools/ci/check_engine_boundary.py` | Independent Cargo consumer builds without the native host, executes the real Markdown→frontend→IR→runtime path with bounded budgets and refusal cases, and its terminal Value Wire result matches a real CLI invocation on the same file (issue #13 / ADR-0071). |
-| `sdk-plugin/` + `tools/ci/check_plugin_sdk.py` | A third-party plugin builds against only the public SDK, is loaded/invoked by the real CLI with explicit trust/grant, and a tampered artifact digest is rejected. |
 | `integration_cli.rs` | Real CLI contract: `init`, `check`, `run`, `call`, `inspect`, `fmt`, multi-module imports/cycles, `lock`/`sync --locked`, plugin inspection and explicitly trusted plugin invocation. |
 | `execution_events.rs` | Execution Events v1 black-box contract: pure JSONL, seq/terminal ordering, byte-exact base64 chunks, live delivery before exit, value redaction/selection, trace coexistence, truncation, output budget and broken-pipe failure. |
 

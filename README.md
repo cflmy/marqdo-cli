@@ -50,7 +50,7 @@ CI: the source of truth is the Gitea remote
 [git.cflmy.cn/cflmy/marqdo-cli](https://git.cflmy.cn/cflmy/marqdo-cli) with
 Woodpecker at [ci.cflmy.cn](https://ci.cflmy.cn); [`.woodpecker/main.yml`](.woodpecker/main.yml)
 runs fmt, clippy, workspace tests with `--locked`, the dependency-direction and
-engine-independence gates, the plugin SDK consumption gate, the Windows
+engine-independence gates, the Windows
 cross-target compile gate and a release build of both binaries. The strict OS-isolation lane
 requires the disposable VM described in [docs/ci.md](docs/ci.md); a GitHub
 mirror is not used as the authoritative lane for this beta.
@@ -297,7 +297,7 @@ crates/marqdo-foreign         Python/Node one-shot kernel supervisor
 crates/marqdo-sandbox         mode parsing + platform isolation detection
 crates/marqdo-host-contract   neutral Host trait, HostOp, context and runtime facts
 crates/marqdo-plugin-abi      public C ABI v1 contract: layout, wire envelope, errors
-crates/marqdo-plugin-sdk      Rust plugin SDK and entry macro (contract-only)
+                              (the Rust SDK lives in cflmy/marqdo-plugin-sdk)
 crates/marqdo-host            Native Host: capability, resources, OS, plugin loader/worker
 crates/marqdo-runtime         tree-walk interpreter (depends only on the neutral contract)
 crates/marqdo-package         marqdo.yaml / marqdo.lock / root discovery

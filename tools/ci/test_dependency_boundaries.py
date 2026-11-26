@@ -82,7 +82,6 @@ def valid_workspace_edges() -> dict[str, list[str]]:
         "marqdo-span",
     ]
     edges["marqdo-plugin-abi"] = ["marqdo-value"]
-    edges["marqdo-plugin-sdk"] = ["marqdo-plugin-abi"]
     edges["marqdo-worker-ipc"] = []
     edges["marqdo-sandbox"] = []
     edges["marqdo-foreign"] = ["marqdo-worker-ipc"]
@@ -185,10 +184,15 @@ class DependencyBoundaryTests(unittest.TestCase):
             "must not carry execution-side dependency `libloading`",
         )
 
-    def test_sdk_host_edge_is_rejected(self) -> None:
-        self.assert_rejected(
-            lambda edges: edges["marqdo-plugin-sdk"].append("marqdo-host"),
-            "plugin SDK reaches execution-side dependency `marqdo-host`",
+    def test_sdk_reappearing_as_workspace_member_is_rejected(self) -> None:
+        edges = valid_workspace_edges()
+        edges["marqdo-plugin-sdk"] = ["marqdo-plugin-abi"]
+        workspace = metadata(edges, members=set(gate.WORKSPACE_CRATES) | {"marqdo-plugin-sdk"})
+        consumer = metadata(valid_consumer_edges(), members={"marqdo-embedding-consumer"})
+        problems = gate.evaluate(workspace, consumer)
+        self.assertTrue(
+            any("must not be a CLI workspace member" in problem for problem in problems),
+            problems,
         )
 
     def test_undocumented_workspace_crate_is_rejected(self) -> None:

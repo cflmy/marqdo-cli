@@ -42,7 +42,7 @@ to a different commit.
 | Dependency gate | `python3 tools/ci/check_dependency_boundaries.py` | PASS |
 | Dependency gate negative cases | `python3 -m unittest tools.ci.test_dependency_boundaries` / `python3 -m unittest discover -s tools/ci` | PASS (54 tool tests) |
 | Engine independence and differential execution | `python3 tools/ci/check_engine_boundary.py` | PASS |
-| Plugin SDK real consumption | `python3 tools/ci/check_plugin_sdk.py` | PASS |
+| Plugin SDK real consumption | `python3 tools/ci/check_plugin_sdk.py` | PASS at that candidate; the SDK and this gate moved to the independent repository under issue #15 / ADR-0072 (evidence: `2026-11-26-issue-15-sdk-independent-repository.md`) |
 | Existing product/conformance suites | included in workspace run; stdlib product suite additionally run | PASS |
 
 Behavioral facts from the engine gate:

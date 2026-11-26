@@ -50,7 +50,6 @@ WORKSPACE_CRATES = {
     "marqdo-sandbox": "native host support: OS isolation probe and strict launch",
     "marqdo-foreign": "native host support: controlled one-shot foreign kernels (F-A)",
     "marqdo-plugin-abi": "public contract: C ABI types, wire envelope and protocol errors",
-    "marqdo-plugin-sdk": "public contract consumer: third-party plugin development helpers",
     "marqdo-worker-ipc": "shared plumbing: one bounded worker frame transport",
     "marqdo-provider-worker": "shipped worker: provider helper process",
     "marqdo-package": "product support: project manifest, lock and dependency resolution",
@@ -240,22 +239,14 @@ def check_workspace(metadata: dict) -> list[str]:
                     f"dependency `{forbidden}`"
                 )
 
-    sdk = "marqdo-plugin-sdk"
-    if sdk in graph:
-        closure = reachable(graph, sdk, BUILD_KINDS)
-        for forbidden in (
-            "libloading",
-            "marqdo-worker-ipc",
-            "marqdo-host",
-            "marqdo-sandbox",
-            "marqdo-cli",
-            "marqdo-provider-worker",
-        ):
-            if forbidden in closure:
-                problems.append(
-                    f"plugin SDK reaches execution-side dependency `{forbidden}`: "
-                    f"{closure[forbidden]}"
-                )
+    # ADR-0072: the SDK is an independent repository. The CLI workspace must
+    # not carry it again; a new member here would be an undocumented layer and
+    # would resurrect a second contract-consumer copy.
+    if "marqdo-plugin-sdk" in members:
+        problems.append(
+            "marqdo-plugin-sdk must not be a CLI workspace member; the SDK is the "
+            "independent repository pinned to a contract revision (ADR-0072)"
+        )
 
     # CLT Tool / package identity is a product concern; the CLI is the only
     # crate allowed to combine engine + native host + package.

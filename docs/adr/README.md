@@ -73,3 +73,6 @@ Files: `0001`–`0050`, plus:
 * [0071](0071-engine-host-contract-boundary.md) — Engine / Host Contract /
   Native Host / CLI responsibilities, dependency rules, plugin ABI contract split
   and the keep-in-workspace repository decision.
+
+* [0072](0072-sdk-independent-repository.md) — independent public
+  `cflmy/marqdo-plugin-sdk` repository pinned to one CLI contract `rev`.
