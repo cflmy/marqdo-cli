@@ -274,7 +274,7 @@ pub fn execute(
         && static_plugins
             .plugins
             .iter()
-            .any(|plugin| plugin.kind == marqdo_plugin_abi::PluginKind::Native)
+            .any(|plugin| plugin.kind == marqdo_host::plugin::PluginKind::Native)
     {
         return fail(
             stream,
@@ -558,9 +558,9 @@ mod tests {
                 base_dir: PathBuf::from("/fixtures/demo"),
                 package: "demo.ext".into(),
                 version: "0.1.0".into(),
-                kind: marqdo_plugin_abi::PluginKind::Worker,
+                kind: marqdo_host::plugin::PluginKind::Worker,
                 manifest_sha256: format!("sha256:{}", "b".repeat(64)),
-                artifact_target: marqdo_plugin_abi::HostTarget::current()
+                artifact_target: marqdo_host::plugin::HostTarget::current()
                     .triple()
                     .to_string(),
                 artifact_sha256: "a".repeat(64),

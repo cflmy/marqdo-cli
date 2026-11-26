@@ -8,9 +8,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use marqdo_host::{
-    Capabilities, ObservationConfig, ObservationError, ObservationEvent, ObservationSink,
-    ParameterSource, StdHost, ValueState,
+    Capabilities, ObservationConfig, ObservationError, ObservationEvent, ObservationSink, StdHost,
+    ValueState,
 };
+use marqdo_host_contract::ParameterSource;
 use marqdo_ir::{ModuleId, Program};
 use marqdo_runtime::run;
 use marqdo_sandbox::SandboxMode;

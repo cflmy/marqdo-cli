@@ -9,6 +9,52 @@ replace `spec/` or a recorded test log.
 - This is the **single current overview**. Do not add a second running "current state" file;
   update this file, `docs/STATUS.md` and an evidence file together.
 
+## Engine / Host Contract / Native Host boundary (issue #13, ADR-0071)
+
+The language engine is independent of every concrete native platform
+implementation. `marqdo-host-contract` owns the only side-effect interface the
+runtime knows (`Host`, `HostOp`, `ExecutionContext`, `ResourceRead` and the
+runtime observation facts); `marqdo-host` implements it with capabilities,
+resources, OS adapters and trusted extension execution; `crates/cli` remains the
+single product assembly. The plugin ABI crate is a public contract only: native
+loading, artifact/manifest execution and worker processes live in
+`marqdo-host::plugin`. The SDK depends on the contract, not on a loader or a
+host, and stays in this workspace as a contract-only developer crate
+([ADR-0073](../adr/0073-sdk-stays-in-cli-workspace.md)).
+
+The Engine and the Native Host stay in **this workspace**. Issue #13 §9.2
+admission for a separate repository is not met yet: there is no real external
+Engine consumer outside the in-repo acceptance fixture, and no independent
+platform maintainer. A candidate empty `marqdo-engine`/`marqdo-host` repository
+would violate the issue's boundary conditions. The decision and its reopening
+conditions are recorded in [ADR-0071](../adr/0071-engine-host-contract-boundary.md).
+
+## Workspace crate responsibility map
+
+This is the reviewed allowlist for workspace members. A new crate must be added
+here, in `tools/ci/check_dependency_boundaries.py`, and with its dependency edges
+in the same change.
+
+| Crate | Layer | Responsibility |
+|---|---|---|
+| `marqdo-span` | Engine | UTF-8 position and diagnostic base types |
+| `marqdo-value` | Engine | `Value`, `RuntimeError`, the one Value Wire encoding |
+| `marqdo-expression` | Engine | Expression grammar |
+| `marqdo-markdown` | Engine | The only Markdown profile and AST |
+| `marqdo-ir` | Engine | IR, function/binding identity, builtin inventory |
+| `marqdo-frontend` | Engine | Document mapping, signatures, static binding |
+| `marqdo-runtime` | Engine | Evaluator, control flow and `Memory` |
+| `marqdo-host-contract` | Engine boundary | Neutral `Host` trait and runtime observation facts |
+| `marqdo-host` | Native Host | Capabilities, resources, OS adapters, plugin loader and trusted execution |
+| `marqdo-sandbox` | Native Host support | OS isolation probe and strict launch |
+| `marqdo-foreign` | Native Host support | Controlled one-shot foreign kernels (F-A) |
+| `marqdo-plugin-abi` | Public contract | C ABI v1 layout, wire envelope and protocol errors |
+| `marqdo-plugin-sdk` | Public contract consumer | Third-party plugin development helpers |
+| `marqdo-worker-ipc` | Shared plumbing | One bounded worker frame transport |
+| `marqdo-provider-worker` | Shipped worker | Provider helper process |
+| `marqdo-package` | Product support | Project manifest, lock and dependency resolution |
+| `marqdo-cli` | Composition root | Arguments, prepare, commands, product projection |
+
 > **Language contract and implementation.** The language contract is
 > [RFC-LANG-0002](RFC-LANG-0002-unified-semantics.md) (adopted by ADR-0052) and
 > `spec/mapping.md`. The frontend, `marqdo-expression`, IR lowering, runtime and
@@ -159,11 +205,14 @@ Layer rules:
 Current Rust dependency edges (documented, not proposed):
 
 ```text
-marqdo-cli -> marqdo-runtime -> marqdo-host
-marqdo-cli -> marqdo-package, marqdo-sandbox, marqdo-frontend, ...
+marqdo-cli -> marqdo-runtime -> marqdo-host-contract
+marqdo-cli -> marqdo-host, marqdo-package, marqdo-sandbox, marqdo-frontend, ...
 marqdo-runtime -> marqdo-ir, marqdo-expression, marqdo-value
-marqdo-host   -> marqdo-plugin-abi, marqdo-foreign, marqdo-sandbox, marqdo-worker-ipc
-marqdo-plugin-abi     -> marqdo-worker-ipc
+marqdo-host-contract -> marqdo-value, marqdo-span
+marqdo-host -> marqdo-host-contract, marqdo-plugin-abi, marqdo-foreign,
+               marqdo-sandbox, marqdo-worker-ipc
+marqdo-plugin-abi     -> marqdo-value, serde/serde_json (contract only)
+marqdo-plugin-sdk     -> marqdo-plugin-abi (contract only)
 marqdo-provider-worker -> marqdo-worker-ipc
 ```
 
@@ -173,10 +222,13 @@ copy of bounded worker framing, deadlines and process teardown
 host, the plugin ABI, or a worker binary; sharing plumbing must not share
 capabilities. Foreign kernels and CLI Tools stay outside it.
 
-`marqdo-runtime -> marqdo-host` is the current direction. Do not add a second
-execution backend or a `marqdo-stdlib` crate by implication. A future embedded
-runtime or a second backend needs the thin `ExecutionPort` contract described in the
-review RFC, not a new crate per provider.
+`marqdo-runtime -> marqdo-host-contract` is the only engine-to-host edge. The
+engine must never link `marqdo-host`, sandbox, foreign, plugin loading or the
+CLI in normal/build dependencies. The native host must not depend back on the
+runtime/frontend/IR. `tools/ci/check_dependency_boundaries.py` enforces the
+transitive graph from Cargo metadata; `tests/embedding` proves a real
+platform-neutral consumer. Do not add a second execution backend, a per-provider
+crate, or a `marqdo-stdlib` crate by implication.
 
 | Public contract | API (`.mq.md`) | State | Tests |
 |---|---|---|---|
@@ -234,6 +286,7 @@ that a phase is complete.
 | P0 | **Language syntax migration**: RFC-LANG-0002 single contract | **closed at `9c1723d`**; implementation, stdlib digest, examples and fixtures green; platform/strict evidence remains separate |
 | P0 | Stdlib extraction (issue #11): explicit `--stdlib-dir` + one pinned Bundle for tests/perf/release CI | **Phase A implemented** (ADR-0070); Phase B (ecosystem assembly, source removal) waits on ecosystem issue #2 and the extension replacement evidence |
 | P0 | Documentation drift between `STATUS.md`, the architecture index and the evidence | being fixed by this migration and the docs gate |
+| P1 | Domain service ownership ledger (issue #13 §7): host-held `regex.*` and `compress.*` are ADR-0062 services, not a precedent for new domain operations | **DEFERRED** to the responsible `marqdo-ext-regex`/`marqdo-ext-archive` replacement issues; old entries stay until a real replacement passes authorization/negative tests |
 | P1 | `std:fs/file` read/write/copy, metadata/directory, append/read_at/walk are implemented; watch and binary offset reads remain open | open |
 | P1 | No file watch or binary `read_at` | open; future Resource Operation extension |
 | P1 | JSON/CSV product parsers are implemented with depth bound and multi-value/multi-row; no incremental streaming parser | open |
@@ -271,7 +324,25 @@ that a phase is complete.
    current contract, replace in place, reject retired inputs, no compatibility
    path or version negotiation, and no version bump without a shape change.
 
-## 7. References
+## 7. Repository decision and split admission
+
+| Component | Decision for this round | Reopen condition (issue #13 §9.2) |
+|---|---|---|
+| Engine (`span`/`value`/`expression`/`markdown`/`ir`/`frontend`/`runtime`/`host-contract`) | **Keep in this workspace** as one atomic semantic-change domain | A real, non-in-repo consumer needs independent build/release, and the semantic change cost is acceptable |
+| Native Host (`host`/`sandbox`/`foreign`/plugin loader) | **Keep in this workspace**, dependent on the neutral contract | An independent platform maintainer or second product consumes it; security/conformance can be verified separately |
+| `marqdo-plugin-sdk` | **Keep in this workspace** as a contract-only developer crate. The ADR-0072 independent repository was deleted and the source restored ([ADR-0073](../adr/0073-sdk-stays-in-cli-workspace.md)); atomic ABI/header/spec/SDK changes are the priority for the pre-stable line | Independent SDK release/registry publication, a real non-CLI consumer or maintainer, and a new Accepted ADR. No submodule/gitlink |
+| Stdlib | Separate issue #11/#12 (Phase A build input); runtime contract unchanged | Ecosystem-assembled Bundle and extension replacement accepted; then retire the in-repo source authority |
+| Regex/compression domain services | **DEFERRED** under ADR-0062 ownership; no new domain operation may be added | A separately installable extension replaces the host-held service and the old entries are removed atomically |
+| Foreign F-A | Retained; no F-B, session or new transport in this change | Separate ADR and milestone |
+
+No candidate empty `marqdo-engine`, `marqdo-host` or `marqdo-cli-*` repository
+is created by this decision. The former independent SDK repository was deleted
+under ADR-0073; the SDK is back in this workspace and no remote copy is kept.
+Git repository boundaries are ownership and release boundaries, not a mechanical
+projection of Cargo crates. The engine, native host and plugin developer kit are
+one source tree until the reopening evidence above exists.
+
+## 8. References
 
 - [Architecture index](README.md) — RFC/ADR/evidence history.
 - [Protocol convergence policy](PROTOCOL_CONVERGENCE_POLICY.md) — one-contract rules, anti-patterns and review checklist.
@@ -291,7 +362,12 @@ that a phase is complete.
 - [ADR-0050: host regex extension](../adr/0050-host-regex-extension.md) — accepted project-mode groups/alternation/captures.
 - [ADR-0052: byte-exact HTTP framing](../adr/0051-byte-exact-http-framing.md) — accepted byte-list HTTP/1.1 parser/builder.
 - [Compute-machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) and [core/stdlib RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) — design input.
-- [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) — review input for this migration.
+- [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) — historical review input; the current boundary decision is ADR-0071.
+- [ADR-0071: Engine / Host Contract / Native Host boundaries](../adr/0071-engine-host-contract-boundary.md) — accepted responsibility split and keep-in-workspace decision for issue #13.
+- [ADR-0073: Keep the plugin SDK in the CLI workspace](../adr/0073-sdk-stays-in-cli-workspace.md) — current decision: SDK atomicity, no split, no remote copy; supersedes ADR-0072.
+- [ADR-0072: Independent SDK repository](../adr/0072-sdk-independent-repository.md) — **superseded** decision history; the repository was deleted.
+- [Issue #13 engine/host evidence](../evidence/2026-11-26-issue-13-engine-host-boundary.md) — executed candidate commands and results.
+- [Issue #15 SDK split-revert evidence](../evidence/2026-11-26-issue-15-sdk-split-reverted.md) — repository deletion, source restoration and gates.
 - [RFC-EXT-0001](RFC-EXT-0001.md) — extensibility closure task specification (implementation status tracked here and in STATUS).
 - [ADR-0054: single callable binding](../adr/0054-callable-binding-single-source.md) — one registry/binding pass, runtime dispatch by identity.
 - [ADR-0055: resource provider CLI v2](../adr/0055-resource-provider-cli-v2.md) — provider v2 manifest/worker CLI closure and trust boundary.

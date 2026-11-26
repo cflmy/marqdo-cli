@@ -10,12 +10,12 @@ use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::abi::{
+use super::artifact::{is_valid_sha256_hex, TargetTriple};
+use super::artifact::{verify_sha256_file, HostTarget};
+use marqdo_plugin_abi::abi::{
     AbiVersion, ABI_MAJOR, ABI_MINOR, MAX_EXPORT_NAME_BYTES, MAX_SIGNATURE_WIRE_BYTES,
 };
-use crate::artifact::{is_valid_sha256_hex, TargetTriple};
-use crate::artifact::{verify_sha256_file, HostTarget};
-use crate::error::PluginError;
+use marqdo_plugin_abi::PluginError;
 
 /// Maximum number of exports a single plugin may register.
 pub const MAX_EXPORTS: usize = 256;
@@ -648,7 +648,7 @@ plugin:
     #[test]
     fn malformed_yaml_is_rejected() {
         let error = PluginManifest::parse_str("plugin: [unclosed").expect_err("must fail");
-        assert_eq!(error.kind, crate::error::ErrorKind::Manifest);
+        assert_eq!(error.kind, marqdo_plugin_abi::ErrorKind::Manifest);
         assert_eq!(error.code, "manifest_parse_failed");
         assert!(PluginManifest::parse_str("not_a_plugin: 1").is_err());
     }
@@ -683,7 +683,7 @@ plugin:
                 ),
                 Err(error) => assert_eq!(
                     error.kind,
-                    crate::error::ErrorKind::Manifest,
+                    marqdo_plugin_abi::ErrorKind::Manifest,
                     "`{field}` = `{value}` should fail manifest handling"
                 ),
             }

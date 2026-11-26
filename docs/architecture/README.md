@@ -8,6 +8,12 @@ input and evidence. It is not a second running-status page.
 - Public-contract convergence rules and review checklist:
   [`PROTOCOL_CONVERGENCE_POLICY.md`](PROTOCOL_CONVERGENCE_POLICY.md)
   ([ADR-0068](../adr/0068-single-current-public-contracts.md)).
+- **Current internal boundaries:** the Engine / Host Contract / Native Host /
+  CLI responsibilities, dependency edges, plugin ABI contract split and the
+  keep-in-workspace repository decision are in
+  [ADR-0071](../adr/0071-engine-host-contract-boundary.md) and
+  [`CURRENT.md`](CURRENT.md) §7. Issue #13 closure evidence lives in
+  [`../evidence/2026-11-26-issue-13-engine-host-boundary.md`](../evidence/2026-11-26-issue-13-engine-host-boundary.md).
 - **Current language contract:**
   [`RFC-LANG-0002-unified-semantics.md`](RFC-LANG-0002-unified-semantics.md),
   adopted by [ADR-0052](../adr/0052-unified-markdown-semantics.md) and
@@ -23,7 +29,7 @@ input and evidence. It is not a second running-status page.
 | Document | Status | What it is |
 |---|---|---|
 | [Unified semantics RFC-LANG-0002](RFC-LANG-0002-unified-semantics.md) | **Adopted and implemented** | Single syntax: heading modes, unified payloads, keyword control flow, breaking migration and acceptance gates. |
-| [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) | **Review input (historical)** | Responsibility convergence, stdio/file/stream correctness, CLI/Host split and the migration order at the time. Its language examples predate RFC-LANG-0002. |
+| [Architecture audit and refactor RFC](Marqdo_CLI_Latest_Architecture_Audit_and_Refactor_RFC.md) | **Review input (historical)** | Responsibility convergence, stdio/file/stream correctness, CLI/Host split and the migration order at the time. Its language examples predate RFC-LANG-0002 and its "contract crate only later" position is superseded by ADR-0071. |
 | [Runtime observability RFC-OBS-0001](RFC-OBS-0001-runtime-observability.md) | **Historical: superseded by Observation (ADR-0068)** | Its event vocabulary and privacy model fed the current [Observation](../../spec/observation.md) contract; the Execution Events v1 name/options are retired. |
 | [Compute machine RFC-0001](../MARQDO_COMPUTE_MACHINE_RFC_0001.md) | **Proposed** | Opaque `Memory`, addressable regions, wire/host rejection. Compute semantics are unchanged by the syntax rewrite; its `.mq.md` examples are historical spelling. |
 | [Core and stdlib migration RFC-0002](../MARQDO_COMPUTE_CORE_STDLIB_MIGRATION_RFC_0002.md) | **Proposed** | Minimum core, `.mq.md` stdlib and system-capability migration. The stdlib source migration is complete; current status is recorded in ../STATUS.md. |
@@ -77,6 +83,9 @@ The implemented first slices of these RFCs are recorded in `CURRENT.md` and
 | Resource operations and core kinds | [0062](../adr/0062-resource-operation-ownership-and-core-kinds.md) | Accepted and implemented; architecture gate pins the reviewed lists |
 | Foreign F-A transition | [0063](../adr/0063-foreign-kernel-transition-fa.md) | Accepted: retained F-A primitive; F-B deferred |
 | Stable core inventory and external gate | [0064](../adr/0064-stable-core-extension-boundary.md) | Accepted and wired into Linux CI |
+| Independent plugin SDK repository | [0072](../adr/0072-sdk-independent-repository.md) | **Superseded by ADR-0073**: repository deleted, SDK restored to the CLI workspace |
+| Plugin SDK stays in the CLI workspace | [0073](../adr/0073-sdk-stays-in-cli-workspace.md) | Accepted: atomic pre-stable changes, no split, no remote copy |
+| Engine / Host Contract / Native Host / CLI boundaries | [0071](../adr/0071-engine-host-contract-boundary.md) | Accepted and implemented by issue #13: runtime depends on the neutral contract, native host implements it, plugin ABI is contract-only, keep-in-workspace repository decision |
 | Manifest-driven Resource Control | [0065](../adr/0065-resource-control-vnext.md) | Proposed |
 | Structured Tasks and Channels | [0066](../adr/0066-structured-tasks-v1.md) | Proposed |
 | Table physical storage (T1/T2/T3), strict stdin/stderr/file/network resources | — | **Not decided**; do not implement by implication |

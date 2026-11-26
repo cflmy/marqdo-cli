@@ -1,6 +1,6 @@
 [package]
 name = "marqdo-plugin-abi"
-description = "Versioned C ABI v1 bindings, manifest validation and artifact loading"
+description = "Public plugin ABI v1 contract: C layout, wire envelope and protocol errors"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,13 +9,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-marqdo-span = { workspace = true }
 marqdo-value = { workspace = true }
-marqdo-worker-ipc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_yaml = { workspace = true }
 thiserror = { workspace = true }
-libloading = { workspace = true }
-sha2 = { workspace = true }
-hex = { workspace = true }

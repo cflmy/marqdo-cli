@@ -155,7 +155,7 @@ plugin:
       sha256: "<64 lowercase hex>"
 ```
 
-Validation (`crates/marqdo-plugin-abi/src/manifest.rs::PluginManifest::validate`):
+Validation (`crates/marqdo-host/src/plugin/manifest.rs::PluginManifest::validate`):
 
 * `name`: dotted segments, each starting with a lowercase ASCII letter and
   containing only lowercase letters, digits, `-`/`_`; ≤ 256 bytes; package
@@ -199,7 +199,7 @@ filesystem access (artifact verification is a separate step).
 
 ## 6. Loader lifecycle (host side)
 
-`crates/marqdo-plugin-abi/src/loader.rs::LoadedPlugin::open_with`:
+`crates/marqdo-host/src/plugin/loader.rs::LoadedPlugin::open_with`:
 
 1. `manifest.validate()`;
 2. require `kind == native` (otherwise `plugin_kind_not_loadable_in_process`);
@@ -445,7 +445,7 @@ it (`cc -shared -fPIC -I include`) and rewrites the `sha256` in `plugin.yaml`
 `examples/plugin-demo/README.md` walks through the security model, build,
 inspect and call flow.
 
-The integration test `crates/marqdo-plugin-abi/tests/loader_unix.rs` compiles
+The integration test `crates/marqdo-host/tests/loader_unix.rs` compiles
 this exact `solver.c` with `cc`, loads it with `libloading`, round-trips a wire
 request, and rebuilds it with `-DMQ_SOLVER_REPORT_ABI_MAJOR=2` to prove that a
 wrong ABI major fails the load. It also covers a missing entry symbol, missing

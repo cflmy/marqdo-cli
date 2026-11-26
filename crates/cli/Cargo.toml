@@ -18,6 +18,7 @@ marqdo-frontend = { workspace = true }
 marqdo-foreign = { workspace = true }
 marqdo-plugin-abi = { workspace = true }
 marqdo-host = { workspace = true }
+marqdo-host-contract = { workspace = true }
 marqdo-runtime = { workspace = true }
 marqdo-package = { workspace = true }
 marqdo-sandbox = { workspace = true }

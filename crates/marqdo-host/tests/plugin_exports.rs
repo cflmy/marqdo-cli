@@ -6,8 +6,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use marqdo_host::{Capabilities, Host, HostOp, StdHost};
-use marqdo_plugin_abi::{sha256_file, HostTarget, PluginManifest};
+use marqdo_host::plugin::{sha256_file, HostTarget, PluginManifest};
+use marqdo_host::{Capabilities, StdHost};
+use marqdo_host_contract::{Host, HostOp};
 use marqdo_sandbox::SandboxMode;
 use marqdo_value::Value;
 

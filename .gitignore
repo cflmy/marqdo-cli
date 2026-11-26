@@ -37,3 +37,12 @@ __pycache__/
 *.pyc
 .perf-out-*
 .perf-err-*
+
+# Independent consumer/fixture build outputs and the local scratch dir
+/tests/embedding/target/
+/tests/sdk-plugin/target/
+/.tmp/
+
+# Accidental curl/test capture files
+/out
+/log.txt

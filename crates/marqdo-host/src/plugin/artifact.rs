@@ -11,7 +11,7 @@ use std::path::Path;
 
 use sha2::{Digest, Sha256};
 
-use crate::error::PluginError;
+use marqdo_plugin_abi::PluginError;
 
 /// Length of a lowercase hexadecimal sha256 digest.
 pub const SHA256_HEX_LEN: usize = 64;

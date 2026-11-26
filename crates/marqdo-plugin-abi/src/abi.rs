@@ -255,12 +255,17 @@ pub struct MqCallContext {
 
 impl MqCallContext {
     /// Mint a context for a host invocation.
-    pub(crate) fn new(host_data: *mut c_void) -> Self {
+    ///
+    /// Host-side execution API: the native host owns the invocation lifetime
+    /// and passes an opaque pointer the plugin never dereferences.
+    pub fn new(host_data: *mut c_void) -> Self {
         Self { host_data }
     }
 
     /// Opaque host data pointer carried by this context.
-    pub(crate) fn host_data(&self) -> *mut c_void {
+    ///
+    /// Host-side execution API; not part of the C layout exposed to plugins.
+    pub fn host_data(&self) -> *mut c_void {
         self.host_data
     }
 }

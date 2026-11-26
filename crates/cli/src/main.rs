@@ -500,7 +500,7 @@ fn dispatch() -> i32 {
         },
         Command::External(args) => tool::dispatch(&args),
         Command::PluginWorker(args) => {
-            marqdo_plugin_abi::worker::serve(&args.manifest, &args.base_dir)
+            marqdo_host::plugin::worker::serve(&args.manifest, &args.base_dir)
         }
     }
 }

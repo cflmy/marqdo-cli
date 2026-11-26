@@ -1,19 +1,20 @@
 # Marqdo CLI — Agent / Contributor Operating Rules
 
-**Start here:** read `docs/architecture/RFC-LANG-0002-unified-semantics.md` — it is the single current language authority — and its normative summary `spec/mapping.md` + `spec/expression.ebnf`. Then read `docs/DEVELOPMENT_BLUEPRINT.md` (architecture baseline; its language-mapping sections are historical), `docs/STATUS.md` (what is actually implemented, including the landed RFC-LANG-0002 migration), the relevant `spec/` files, `docs/adr/` for decisions at their date, `docs/contributor-guide.md`, and `tests/README.md` plus the conformance fixtures. Do not assume any current implementation or legacy Marqdo syntax is authoritative.
+**Start here:** read `docs/architecture/RFC-LANG-0002-unified-semantics.md` — it is the single current language authority — and its normative summary `spec/mapping.md` + `spec/expression.ebnf`. Then read `docs/architecture/CURRENT.md` (the single current architecture overview, including the Engine / Host Contract / Native Host map), [ADR-0071](docs/adr/0071-engine-host-contract-boundary.md) (boundary rules and keep-in-workspace decision), `docs/STATUS.md` (what is actually implemented), the relevant `spec/` files, `docs/adr/` for decisions at their date, the developer entry point `docs/developers/README.md`, `docs/contributor-guide.md`, and `tests/README.md` plus the conformance fixtures. Do not assume any current implementation, legacy Marqdo syntax, historical planning document or old architecture gate is authoritative.
 
 For next-phase work, the authoritative release policy for the current
 3.0 prerelease line is `docs/MARQDO_3_0_PRERELEASE_PLAN.md` (beta gates,
-REL-01..REL-05, version axes, LTS conditions). `docs/STABLE_RELEASE_IMPLEMENTATION.md`
-(stable gates G-A/G-B/G-C) is historical roadmap input for the later stable
-release; it does not override the 3.0 prerelease plan. Also read `docs/CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`
-(historical stabilization spec, baseline `0adebe4`), `docs/NEXT_PHASE_IMPLEMENTATION.md`
-(M0.6 plan), `docs/EXTENSIBILITY_AUDIT.md` (E01–E16), `COMPATIBILITY.md` and
-`docs/security-gate.md`. Older plans are historical input; the 3.0 prerelease plan is authoritative for
-current release decisions, and the stable-release spec applies only when the
-project moves from beta to stable.
-None describes implemented behavior; re-check against HEAD and tests. `strict`
-remains fail-closed until G-C passes.
+REL-01..REL-05, version axes, LTS conditions). The current architecture and
+dependency direction are owned by `docs/architecture/CURRENT.md` and
+[ADR-0071](docs/adr/0071-engine-host-contract-boundary.md). The historical plans
+(`DEVELOPMENT_BLUEPRINT.md`, `NEXT_PHASE_IMPLEMENTATION.md`,
+`STABLE_RELEASE_IMPLEMENTATION.md`, `CORE_STABILIZATION_AND_ECOSYSTEM_GATE.md`,
+`EXTENSIBILITY_AUDIT.md`, `NEXT_RELEASE_CI_CONVERGENCE.md`) are archived design
+history: read them with that status, do not use them as current requirements, and
+do not create a second running-status page. `COMPATIBILITY.md` and
+`docs/security-gate.md` remain current inputs. None describes implemented
+behavior; re-check against HEAD and tests. `strict` remains fail-closed until
+G-C passes.
 
 The stable-release spec also governs scope: do not add a top-level CLI command,
 Knowledge/Proof/View special-casing, a second interpreter or a new package
@@ -33,6 +34,8 @@ correctness and release evidence before expanding the surface.
 9. Side effects go through `CapabilityHost`; do not invent host bypasses for tests, plugins, math or foreign kernels. `check` and `inspect` cannot execute untrusted project code.
 10. Language semantics, package format, ABI, authorization defaults or public CLI behavior changes require an ADR + tests + spec updates.
 11. RFC-LANG-0002 is implemented by the frontend, `marqdo-expression`, IR lowering, runtime and the bundled stdlib. Keep `spec/`, implementation, fixtures, stdlib digest and docs in lockstep; there is no legacy mapper or per-file syntax switch to fall back to. Do not make a release claim beyond the evidence recorded in `docs/STATUS.md`.
+12. The language engine depends on the neutral `marqdo-host-contract` only; it must never link `marqdo-host`, the sandbox, foreign kernels, the plugin loader/worker, package or CLI in normal/build dependencies. `marqdo-host-contract` depends on `Value`/`Span` only. The native host implements the contract and must not depend back on the runtime/frontend/IR. The plugin ABI crate is a contract (no `dlopen`/worker/manifest execution); the SDK consumes the contract only. CLI is the one assembly point. This is enforced by `tools/ci/check_dependency_boundaries.py`, `tools/ci/check_engine_boundary.py`, `tools/ci/check_plugin_sdk.py` and `crates/cli/tests/architecture_boundaries.rs`; see ADR-0071.
+13. Do not create empty candidate repositories (for example `marqdo-engine`/`marqdo-host`/`marqdo-cli-*`) to "solve" architecture. A repository split requires the issue #13 §9.2 evidence and a separate accepted ADR; "keep in workspace" is a valid recorded decision. The plugin SDK stays in this CLI workspace as a contract-only crate (ADR-0073); do not re-create an independent SDK repository, mirror or submodule for the pre-stable line. Do not add a second Host trait, Value encoding, wire/RPC engine protocol or compatibility re-export path.
 
 ## Pre-stable protocol changes
 
@@ -51,7 +54,7 @@ closing a protocol replacement issue.
 2. Update the normative spec **in place** first; there is never a second active syntax spec.
 3. Add a small `.mq.md` positive/negative conformance fixture and define the expected Markdown AST, execution IR and diagnostics.
 4. Implement only the smallest module that satisfies this fixture. Keep Markdown parser, semantic mapper, expression parser, runtime and host separated.
-5. Run formatting, clippy, unit tests, golden tests and relevant security/ABI compatibility tests (`cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `cargo test -p marqdo-cli`).
+5. Run formatting, clippy, unit tests, golden tests, the architecture/dependency gates and relevant security/ABI compatibility tests (`cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `cargo test -p marqdo-cli`, `python3 tools/ci/check_dependency_boundaries.py`, `python3 tools/ci/check_engine_boundary.py`, `python3 tools/ci/check_plugin_sdk.py`).
 6. Write the tradeoff and state of completion in the PR. Never say a feature is finished because a design example looks executable. Update `spec/` and `docs/STATUS.md` when behavior or status changes; the docs describe what the code does and flag divergences explicitly.
 
 ## Unresolved design topics

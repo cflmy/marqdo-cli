@@ -25,7 +25,8 @@ pub mod stdlib_support;
 
 use std::path::{Path, PathBuf};
 
-use marqdo_host::{Capabilities, Host, StdHost};
+use marqdo_host::{Capabilities, StdHost};
+use marqdo_host_contract::Host;
 use marqdo_ir::{ModuleId, Program, ResolvedImport};
 use marqdo_runtime::{run, EvaluatedArg};
 use marqdo_sandbox::SandboxMode;

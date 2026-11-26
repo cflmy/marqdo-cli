@@ -1,10 +1,12 @@
 //! Architecture boundary gate (review RFC-CM P0/P1).
 //!
-//! These checks pin the documented layering: the runtime depends on the host
-//! platform layer, the bundled stdlib stays in this repository, `std:` import
-//! targets resolve only inside the bundle, and the host keeps the documented
-//! stdio/file/TCP resource endpoints. They are source and digest checks, not an
-//! OS-sandbox proof.
+//! These checks pin the documented layering: the engine depends on the neutral
+//! Host contract (never the native host), the plugin ABI contract carries no
+//! loader/worker execution side, the bundled stdlib stays in this repository,
+//! `std:` import targets resolve only inside the bundle, and the host keeps the
+//! documented stdio/file/TCP resource endpoints. They are source and digest
+//! checks, not an OS-sandbox proof; `tools/ci/check_dependency_boundaries.py`
+//! adds the Cargo-metadata graph gate.
 
 #[path = "support/stdlib.rs"]
 pub mod stdlib_support;
@@ -26,66 +28,114 @@ fn read(path: &Path) -> String {
     std::fs::read_to_string(path).unwrap_or_else(|error| panic!("read {}: {error}", path.display()))
 }
 
-const WORKSPACE_CRATES: &[&str] = &[
-    "marqdo-span",
-    "marqdo-value",
-    "marqdo-expression",
-    "marqdo-markdown",
-    "marqdo-ir",
-    "marqdo-frontend",
-    "marqdo-foreign",
-    "marqdo-plugin-abi",
-    "marqdo-provider-worker",
-    "marqdo-worker-ipc",
-    "marqdo-plugin-sdk",
-    "marqdo-host",
-    "marqdo-runtime",
-    "marqdo-package",
-    "marqdo-sandbox",
-    "cli",
-];
-
+/// Issue #13 / ADR-0071: the reviewed responsibility allowlist is the crate
+/// table in the single current architecture overview, not a frozen count. A new
+/// crate must be added there (and to the dependency gate's reviewed map) in the
+/// same change.
 #[test]
-fn workspace_crates_match_the_documented_layers() {
-    let manifest = read(&repo_root().join("Cargo.toml"));
+fn workspace_crates_are_documented_responsibilities() {
+    let root = repo_root();
+    let manifest = read(&root.join("Cargo.toml"));
     let members = manifest
         .split("members = [")
         .nth(1)
         .and_then(|rest| rest.split(']').next())
         .expect("workspace members");
-    let names: Vec<&str> = members
+    let names: Vec<String> = members
         .split(',')
         .map(|item| item.trim().trim_matches('"'))
         .filter(|item| !item.is_empty())
+        .map(|member| {
+            let directory = member
+                .strip_prefix("crates/")
+                .expect("workspace members are crates/<name>");
+            let manifest = read(&root.join(member).join("Cargo.toml"));
+            manifest
+                .lines()
+                .find_map(|line| line.strip_prefix("name = "))
+                .map(|name| name.trim().trim_matches('"').to_string())
+                .unwrap_or_else(|| directory.to_string())
+        })
         .collect();
-    let expected: Vec<String> = WORKSPACE_CRATES
-        .iter()
-        .map(|name| format!("crates/{name}"))
-        .collect();
-    assert_eq!(
-        names,
-        expected.iter().map(String::as_str).collect::<Vec<_>>(),
-        "workspace members drifted; update docs/architecture/CURRENT.md with the layer"
-    );
+    let current = read(&root.join("docs/architecture/CURRENT.md"));
+    let responsibilities = current
+        .split("## Workspace crate responsibility map")
+        .nth(1)
+        .expect("CURRENT.md must own the reviewed crate responsibility map")
+        .split("\n## ")
+        .next()
+        .unwrap_or("");
+    for name in &names {
+        assert!(
+            responsibilities.contains(&format!("`{name}`")),
+            "workspace crate `{name}` has no documented responsibility in CURRENT.md"
+        );
+    }
+    for name in [
+        "marqdo-host-contract",
+        "marqdo-host",
+        "marqdo-plugin-abi",
+        "marqdo-cli",
+    ] {
+        assert!(
+            names.iter().any(|crate_name| crate_name == name),
+            "required layer crate `{name}` is missing from the workspace"
+        );
+    }
     assert!(
-        !names.contains(&"crates/marqdo-stdlib"),
-        "the stdlib must stay in this repository (ADR-0039), not become a crate"
+        !names.iter().any(|name| name == "marqdo-stdlib"),
+        "the stdlib is a Bundle input, not a workspace crate (ADR-0039/ADR-0070)"
     );
 }
 
 #[test]
-fn runtime_depends_on_the_host_platform_layer_without_a_cycle() {
-    let runtime = read(&repo_root().join("crates/marqdo-runtime/Cargo.toml"));
+fn engine_depends_on_the_neutral_host_contract_only() {
+    let root = repo_root();
+    let runtime = read(&root.join("crates/marqdo-runtime/Cargo.toml"));
+    let runtime_dependencies = runtime
+        .split("[dependencies]")
+        .nth(1)
+        .expect("runtime dependencies")
+        .split("[dev-dependencies]")
+        .next()
+        .expect("runtime normal dependencies");
     assert!(
-        runtime
+        runtime_dependencies
+            .lines()
+            .any(|line| line.trim() == "marqdo-host-contract = { workspace = true }"),
+        "runtime must depend on the neutral marqdo-host-contract crate"
+    );
+    assert!(
+        !runtime_dependencies
             .lines()
             .any(|line| line.trim() == "marqdo-host = { workspace = true }"),
-        "runtime must keep the documented marqdo-runtime -> marqdo-host direction"
+        "runtime normal/build dependencies must not link the native host"
     );
-    let host = read(&repo_root().join("crates/marqdo-host/Cargo.toml"));
+    let contract = read(&root.join("crates/marqdo-host-contract/Cargo.toml"));
+    let contract_deps: Vec<&str> = contract
+        .split("[dependencies]")
+        .nth(1)
+        .expect("contract dependencies")
+        .lines()
+        .filter_map(|line| line.split('=').next())
+        .map(str::trim)
+        .filter(|name| !name.is_empty() && !name.starts_with('['))
+        .collect();
+    assert_eq!(
+        contract_deps,
+        ["marqdo-span", "marqdo-value"],
+        "the host contract must stay platform neutral (value/span only)"
+    );
+    let host = read(&root.join("crates/marqdo-host/Cargo.toml"));
+    for forbidden in ["marqdo-runtime", "marqdo-frontend", "marqdo-ir ="] {
+        assert!(
+            !host.contains(forbidden),
+            "the native host must not depend back on `{forbidden}`"
+        );
+    }
     assert!(
-        !host.contains("marqdo-runtime"),
-        "marqdo-host must not depend back on marqdo-runtime"
+        host.contains("marqdo-host-contract = { workspace = true }"),
+        "the native host must implement the neutral contract crate"
     );
 }
 
@@ -163,7 +213,6 @@ fn shared_worker_transport_is_neutral_and_not_duplicated() {
     }
     for user in [
         "crates/marqdo-host/Cargo.toml",
-        "crates/marqdo-plugin-abi/Cargo.toml",
         "crates/marqdo-provider-worker/Cargo.toml",
     ] {
         assert!(
@@ -174,8 +223,8 @@ fn shared_worker_transport_is_neutral_and_not_duplicated() {
     // The four-byte length prefix and its bounds live in exactly one crate.
     for private in [
         "crates/marqdo-host/src/plugin_worker.rs",
+        "crates/marqdo-host/src/plugin/worker.rs",
         "crates/marqdo-host/src/provider_worker.rs",
-        "crates/marqdo-plugin-abi/src/worker.rs",
         "crates/marqdo-provider-worker/src/main.rs",
     ] {
         let text = read(&root.join(private));
@@ -419,12 +468,12 @@ fn builtin_names_and_aliases_are_reviewed() {
 }
 
 // Exhaustive matches make a new HostOp or Value variant require review under ADR-0064.
-const _: fn(marqdo_host::HostOp) = |operation| match operation {
-    marqdo_host::HostOp::ForeignRun
-    | marqdo_host::HostOp::ForeignCall
-    | marqdo_host::HostOp::FsRead
-    | marqdo_host::HostOp::FsWrite
-    | marqdo_host::HostOp::PluginInvoke => (),
+const _: fn(marqdo_host_contract::HostOp) = |operation| match operation {
+    marqdo_host_contract::HostOp::ForeignRun
+    | marqdo_host_contract::HostOp::ForeignCall
+    | marqdo_host_contract::HostOp::FsRead
+    | marqdo_host_contract::HostOp::FsWrite
+    | marqdo_host_contract::HostOp::PluginInvoke => (),
 };
 
 const _: fn(marqdo_value::Value) = |value| match value {
@@ -573,6 +622,129 @@ fn domain_math_kernel_is_not_part_of_the_core() {
             "host.rs still dispatches {removed}"
         );
     }
+}
+
+/// E02/E03: there is exactly one Host trait/HostOp definition and it belongs to
+/// the neutral contract; the native host only implements it.
+#[test]
+fn host_contract_is_the_single_side_effect_interface() {
+    let root = repo_root();
+    let mut host_traits = Vec::new();
+    let mut host_ops = Vec::new();
+    for source in walk_rs(&root.join("crates")) {
+        let relative = source
+            .strip_prefix(&root)
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        if relative.contains("/tests/") {
+            continue;
+        }
+        let text = read(&source);
+        if text.contains("pub trait Host {") {
+            host_traits.push(relative.clone());
+        }
+        if text.contains("pub enum HostOp {") {
+            host_ops.push(relative);
+        }
+    }
+    assert_eq!(
+        host_traits,
+        ["crates/marqdo-host-contract/src/host.rs"],
+        "the Host trait must be defined once in the neutral contract"
+    );
+    assert_eq!(
+        host_ops,
+        ["crates/marqdo-host-contract/src/host.rs"],
+        "HostOp must be defined once in the neutral contract"
+    );
+    let runtime = read(&root.join("crates/marqdo-runtime/src/interpreter.rs"));
+    assert!(
+        runtime.contains("use marqdo_host_contract::{"),
+        "the interpreter must consume the neutral contract"
+    );
+    let host = read(&root.join("crates/marqdo-host/src/host.rs"));
+    assert!(
+        host.contains("impl Host for StdHost"),
+        "StdHost remains the single native host implementation"
+    );
+}
+
+/// A05/S01: the public ABI crate is a contract, not a loader; execution side
+/// lives in the native host and the SDK consumes only the contract.
+#[test]
+fn plugin_contract_carries_no_native_execution() {
+    let root = repo_root();
+    let abi = read(&root.join("crates/marqdo-plugin-abi/Cargo.toml"));
+    for forbidden in ["libloading", "marqdo-worker-ipc", "serde_yaml", "sha2"] {
+        assert!(
+            !abi.contains(forbidden),
+            "marqdo-plugin-abi must not depend on execution-side `{forbidden}`"
+        );
+    }
+    for module in ["loader", "worker", "manifest", "artifact"] {
+        assert!(
+            !root
+                .join(format!("crates/marqdo-plugin-abi/src/{module}.rs"))
+                .exists(),
+            "`{module}` is execution-side and belongs to the native host"
+        );
+    }
+    for module in ["loader", "worker", "manifest", "artifact"] {
+        assert!(
+            root.join(format!("crates/marqdo-host/src/plugin/{module}.rs"))
+                .exists(),
+            "native host must own plugin `{module}`"
+        );
+    }
+    let sdk = read(&root.join("crates/marqdo-plugin-sdk/Cargo.toml"));
+    for forbidden in [
+        "marqdo-host",
+        "marqdo-cli",
+        "libloading",
+        "marqdo-worker-ipc",
+    ] {
+        assert!(
+            !sdk.contains(forbidden),
+            "the plugin SDK must not depend on `{forbidden}`"
+        );
+    }
+}
+
+/// E01/E04: the independent embedding consumer is a real package outside the
+/// workspace and depends only on engine crates.
+#[test]
+fn embedding_consumer_is_engine_only() {
+    let root = repo_root();
+    let consumer = read(&root.join("tests/embedding/Cargo.toml"));
+    assert!(
+        consumer.contains("[workspace]"),
+        "the embedding consumer must be its own workspace to avoid feature unification"
+    );
+    assert!(
+        consumer.contains("marqdo-runtime"),
+        "the embedding consumer must execute through the real runtime"
+    );
+    for forbidden in [
+        "marqdo-host",
+        "marqdo-cli",
+        "marqdo-sandbox",
+        "marqdo-foreign",
+    ] {
+        let dependency_line = format!("\n{forbidden} =");
+        assert!(
+            !consumer.contains(&dependency_line),
+            "the embedding consumer must not depend on `{forbidden}`"
+        );
+    }
+    assert!(
+        root.join("tests/embedding/Cargo.lock").is_file(),
+        "the independent consumer must pin its own lock file"
+    );
+    assert!(
+        root.join("tools/ci/check_engine_boundary.py").is_file(),
+        "the build-and-run engine gate must exist"
+    );
 }
 
 fn hex(bytes: &[u8]) -> String {

@@ -115,6 +115,83 @@ Runtime discovery is unchanged: `MARQDO_STDLIB_DIR` (invalid values still fail
 hard), then `stdlib/` next to the executable, then the debug-only source
 fallback. Phase B is gated on ecosystem issue #2 and the extension replacement
 evidence named by issue #11.
+## 0.12 Engine / Host Contract boundary — issue #13 (unreleased candidate)
+
+This is an **internal architecture candidate**, not a release. The product
+version stays `3.0.0-rc.4`; no new tag or release claim is made. Baseline is
+`master` at `4bbefc92449ee480c8a2c89b0308feb4cda8d0e7`; the PR records the exact
+candidate SHA and evidence is
+[`evidence/2026-11-26-issue-13-engine-host-boundary.md`](evidence/2026-11-26-issue-13-engine-host-boundary.md).
+
+Implemented in the candidate:
+
+- `marqdo-host-contract` owns the only Host trait/HostOp/ExecutionContext/
+  ResourceRead and runtime observation facts. `marqdo-runtime` depends on it,
+  never on `marqdo-host` in normal/build edges. `marqdo-host` implements it and
+  has no reverse dependency on runtime/frontend/IR.
+- `tests/embedding` is a real independent Cargo workspace/lock consumer that
+  builds without the native host, executes the real Markdown→frontend→IR→runtime
+  path with real fuel/stack/deadline/memory limits and explicit effect
+  refusals, and matches a real CLI invocation on the same `.mq.md` for `Int` and
+  structural values.
+- `marqdo-plugin-abi` is a contract crate only (C ABI, wire, errors);
+  manifest/artifact validation, `dlopen` and worker process live in
+  `marqdo-host::plugin`. `marqdo-plugin-sdk` transitively carries no loader,
+  worker, host or sandbox dependency.
+- `tests/sdk-plugin` builds a third-party plugin with only the public SDK; the
+  real CLI loads/invokes it with explicit trust/grant and rejects a tampered
+  artifact digest.
+- Dependency direction is enforced from Cargo metadata by
+  `tools/ci/check_dependency_boundaries.py` (with negative unit cases) and
+  `cargo test -p marqdo-cli --test architecture_boundaries`.
+- The current architecture/developer entry and ADR-0071 record the
+  **keep-in-workspace** repository decision; no empty candidate repository was
+  created.
+
+Executed in this environment (Linux x86_64, Rust 1.100): formatting, clippy,
+locked workspace tests (**636 passed / 0 failed / 2 ignored**;
+baseline `4bbefc9` 633 passed / 0 failed / 2 ignored, so no regression), docs/architecture gates, dependency gate, engine
+differential gate and SDK gate PASS. The Windows GNU cross-target compile check
+passes; it is not a native Windows runtime claim. Woodpecker PR pipeline #101
+for code SHA `9b4f0a0` is **success**, including the `build` step (release
+archive from that SHA, archive smoke, frozen external conformance) and the
+`minimum-rust` lane; that is same-candidate CI evidence, not a release tag.
+Deliberately **UNVERIFIED** here: Windows/macOS native lanes, strict VM, WASM
+probe (target std not installed; `E0463`, not a forbidden native dependency)
+and performance/RSS. RC.4 evidence is not reused.
+
+Remaining, separately owned work at that snapshot: stdlib Bundle Phase B (issue #11/#12),
+SDK physical repository after S07/S08 (**superseded by §0.13 — the split was
+reverted and the remote repository deleted**), regex/compression replacement
+under ADR-0062, foreign F-B (ADR-0063), platform and strict evidence, and the
+Engine/Native Host split only if the ADR-0071 reopening conditions appear.
+
+## 0.13 Plugin SDK remains in the CLI workspace — split reverted (unreleased candidate)
+
+This is an architecture correction, not a product/protocol change. Decision:
+[ADR-0073](adr/0073-sdk-stays-in-cli-workspace.md) (supersedes
+[ADR-0072](adr/0072-sdk-independent-repository.md)). Evidence:
+[`evidence/2026-11-26-issue-15-sdk-split-reverted.md`](evidence/2026-11-26-issue-15-sdk-split-reverted.md).
+
+- The public `cflmy/marqdo-plugin-sdk` repository was **deleted**. The SDK
+  source is restored as the CLI workspace crate `crates/marqdo-plugin-sdk`, with
+  the same contract-only dependency graph (`marqdo-plugin-abi` + serde); it is
+  not a remote repository, mirror or submodule.
+- The CLI keeps the atomic plugin-development surface: C header, `spec/`, the
+  `marqdo-plugin-abi` contract, SDK helpers, fixture and real CLI invocation
+  test change in one workspace/lock/candidate SHA. No cross-repository `rev`
+  pin remains.
+- `tests/sdk-plugin` and `tools/ci/check_plugin_sdk.py` are restored; the gate
+  builds the fixture with only the public SDK and invokes it through the real
+  CLI with explicit trust/grant, rejecting a tampered artifact digest.
+- Logical ADR-0071 boundaries are unchanged: the runtime depends only on the
+  neutral contract, `marqdo-plugin-abi` is a pure contract, loader/worker live
+  in `marqdo-host::plugin`, CLI is the single assembly point.
+- External plugin access is unchanged: the CLI product and public repository
+  carry the header/spec/SDK/loader; plugin authors compile their plugin, not the
+  CLI. Engine/Native Host remain in the workspace; no other split is planned.
+- ADR-0072 and the old issue-#15 evidence carry Superseded banners. The remote
+  replica is gone; Git history retains the decision/implementation record.
 
 ## 0.10 Closed public Analysis boundary — issue #10 (RC.4 released)
 
@@ -746,8 +823,9 @@ This is still a **local VM lane**, not a self-hosted GitHub Actions security URL
 - Test and documentation migration (review RFC-CM P0/P2):
   `crates/cli/tests/docs_consistency.rs` pins one current overview, the
   status/index links and SHA-pinned evidence; `crates/cli/tests/architecture_boundaries.rs`
-  pins the workspace graph, `marqdo-runtime -> marqdo-host`, the bundled stdlib
-  digest and the stdio/file/TCP endpoints; `crates/cli/tests/stdlib_product.rs`
+  pins the workspace graph, `marqdo-runtime -> marqdo-host` (historical at that
+  snapshot; the current edge is `marqdo-runtime -> marqdo-host-contract` under
+  ADR-0071), the bundled stdlib digest and the stdio/file/TCP endpoints; `crates/cli/tests/stdlib_product.rs`
   runs every public stdlib module (`clock/compress/console/csv/datetime/demo/env/format/fs/http/io/json/path/process/random/regex/stream/table/text/utf8`)
   through `std:` imports over `stdlib/tests/*.mq.md` resolved from the pinned
   Bundle (`crates/cli/tests/support/stdlib.rs`). `tools/pack-stdlib.py`

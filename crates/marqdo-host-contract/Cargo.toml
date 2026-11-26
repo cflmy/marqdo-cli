@@ -1,0 +1,13 @@
+[package]
+name = "marqdo-host-contract"
+description = "Platform-neutral Host contract: the only side-effect boundary the runtime may know"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+marqdo-span = { workspace = true }
+marqdo-value = { workspace = true }

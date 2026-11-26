@@ -13,6 +13,7 @@ use rustls::{ClientConnection, StreamOwned};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+use marqdo_host_contract::ResourceRead;
 use marqdo_span::Span;
 use marqdo_value::{ErrorCategory, ResourceHandle, RuntimeError};
 
@@ -82,15 +83,6 @@ pub trait ResourceProvider: Send {
 
 /// Shared provider handle registered on the host.
 pub type SharedResourceProvider = Arc<Mutex<Box<dyn ResourceProvider>>>;
-
-/// Bytes returned by one stream read.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResourceRead {
-    /// Bytes actually read (may be empty at EOF).
-    pub bytes: Vec<u8>,
-    /// Whether the stream has reached EOF.
-    pub eof: bool,
-}
 
 struct StdinCursor {
     bytes: Vec<u8>,

@@ -73,3 +73,11 @@ Files: `0001`–`0050`, plus:
 * [0070](0070-explicit-stdlib-bundle-build-input.md) — Phase A of the stdlib
   extraction: one required `--stdlib-dir` build input, one pinned Bundle
   identity for tests/perf/release CI; runtime contracts unchanged.
+* [0071](0071-engine-host-contract-boundary.md) — Engine / Host Contract /
+  Native Host / CLI responsibilities, dependency rules, plugin ABI contract split
+  and the keep-in-workspace repository decision.
+
+* [0072](0072-sdk-independent-repository.md) — **superseded**: the independent
+  public SDK repository was deleted and the SDK returned to the CLI workspace.
+* [0073](0073-sdk-stays-in-cli-workspace.md) — keep the plugin SDK in the CLI
+  workspace for the pre-stable atomic line; repository split deferred.

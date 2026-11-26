@@ -1,10 +1,18 @@
 # Marqdo CLI：语言规范、架构与开发总纲
 
+> **Historical planning input (not current requirements).** This blueprint is an
+> archived design baseline, not current architecture or status. The current
+> architecture and dependency rules are
+> [`architecture/CURRENT.md`](architecture/CURRENT.md) and
+> [ADR-0071](adr/0071-engine-host-contract-boundary.md); executed state is
+> [`STATUS.md`](STATUS.md). Do not derive a current gate or a crate split from
+> this file.
+>
 > **状态**：架构基线提案 M0.5 / 新仓库实施蓝图（不是已实现功能清单）  
 > **面向**：语言设计者、编译器/运行时开发者、插件开发者、贡献者及自动化编码智能体  
 > **日期**：2026-11-20  
 > **建议仓库位置**：`docs/DEVELOPMENT_BLUEPRINT.md`  
-> **优先阅读**：本文件 → `spec/` 形式规范 → `tests/conformance/` 金样 → 相关模块源码  
+> **优先阅读（归档语境）**：本文件 → `spec/` 形式规范 → `tests/conformance/` 金样 → 相关模块源码。当前入口请改用 `docs/architecture/CURRENT.md`、`docs/architecture/RFC-LANG-0002-unified-semantics.md` 与 `docs/developers/README.md`。
 > **约定**：**[D]** 已确定的设计方向；**[P]** 本文提出的可实现细节，须经形式化测试和 ADR 批准后冻结；**[F]** 后期能力，不应阻塞首个独立运行版本。
 
 > **语言映射状态（2026-11-21，必读）**：本文档原本是 M0.5/M0.6 期的架构蓝图，其中关于 Markdown 程序角色的描述（旧映射：`Strong`=执行、`Emph`=返回、有序列表=分支、无序列表=循环、引用块=调用、首个独立 CodeSpan=签名）**已被废止，仅作为历史设计记录**。现行唯一语言语义权威是
