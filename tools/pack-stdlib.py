@@ -1,74 +1,79 @@
 #!/usr/bin/env python3
-"""Build a deterministic offline marqdo-stdlib package.
+"""Build a deterministic offline marqdo-stdlib package from an explicit Bundle.
 
-The archive is intended for the separate external stdlib repository/release
-workflow, not for the CLI's in-repo development fallback. It contains the
-Markdown stdlib tree, stdlib.json and README.md, with stable mtimes/ownership.
+The input is one unpacked Bundle root (a directory that contains
+`stdlib.json`), passed with the required `--stdlib-dir`. This script does not
+read the checkout's `stdlib/` implicitly: the CLI release and the separate
+stdlib release workflow both name the Bundle they package (ADR-0070).
+
+The archive contains the Markdown stdlib tree, `stdlib.json` and every other
+file in the Bundle, with stable mtimes/ownership. An optional `--bundle-pin`
+also requires the input to match the pinned name/version/commit/digests.
+
+Usage:
+
+    python3 tools/pack-stdlib.py --stdlib-dir stdlib \
+        --bundle-pin tools/stdlib/bundle-pin.json
 """
 
+from __future__ import annotations
+
+import argparse
 import hashlib
 import io
 import json
-import os
+import sys
 import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-STDLIB = ROOT / "stdlib"
 DIST = ROOT / "dist"
 
-
-def aliases_digest(manifest: dict) -> str:
-    digest = hashlib.sha256()
-    for alias in sorted(
-        manifest.get("public_aliases", []),
-        key=lambda a: (a["target_module"], a["target_function"]),
-    ):
-        digest.update(alias["target_module"].encode())
-        digest.update(b"\0")
-        digest.update(alias["target_function"].encode())
-        digest.update(b"\0")
-        for name in sorted(alias["public_names"]):
-            digest.update(name.encode())
-            digest.update(b"\0")
-    return f"sha256:{digest.hexdigest()}"
+sys.path.insert(0, str(Path(__file__).resolve().parent / "stdlib"))
+import bundle as stdlib_bundle  # noqa: E402
 
 
-def tree_digest() -> str:
-    digest = hashlib.sha256()
-    for path in sorted(
-        STDLIB.rglob("*.mq.md"), key=lambda p: p.relative_to(STDLIB).as_posix()
-    ):
-        relative = path.relative_to(STDLIB).as_posix()
-        digest.update(relative.encode())
-        digest.update(b"\0")
-        digest.update(path.read_bytes())
-        digest.update(b"\0")
-    return digest.hexdigest()
+def gzip_open(raw):
+    import gzip
+
+    return gzip.GzipFile(fileobj=raw, mode="wb", mtime=0, filename="")
 
 
-def main() -> int:
-    manifest = json.loads((STDLIB / "stdlib.json").read_text())
-    version = manifest["version"]
-    digest = tree_digest()
-    if manifest["digest"] != f"sha256:{digest}":
-        raise SystemExit("stdlib.json digest does not match the tree")
-    alias_digest = aliases_digest(manifest)
-    if manifest.get("aliases_digest") != alias_digest:
-        raise SystemExit("stdlib.json aliases_digest does not match public_aliases")
+def verify_input(root: Path, pin_path: Path | None) -> dict:
+    try:
+        record = stdlib_bundle.verify(root)
+        stdlib_bundle.require_files(record, ("stdlib.json",))
+        if record["aliases_digest"] is None:
+            raise stdlib_bundle.BundleError(
+                f"{root / 'stdlib.json'} declares no aliases_digest"
+            )
+        if pin_path is not None:
+            pin = stdlib_bundle.load_pin(pin_path)
+            stdlib_bundle.verify_pin(record, pin)
+    except stdlib_bundle.BundleError as error:
+        raise SystemExit(f"pack-stdlib: error: {error}") from error
+    return record
 
-    files = sorted(
-        [p for p in STDLIB.rglob("*") if p.is_file() and p.name != "stdlib.json"]
-        + [STDLIB / "stdlib.json"],
-        key=lambda p: p.relative_to(STDLIB).as_posix(),
-    )
-    DIST.mkdir(exist_ok=True)
-    archive = DIST / f"marqdo-stdlib-{version}.tar.gz"
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--stdlib-dir", required=True)
+    parser.add_argument("--out-dir", default=str(DIST))
+    parser.add_argument("--bundle-pin", default=None)
+    args = parser.parse_args(argv)
+
+    root = Path(args.stdlib_dir)
+    record = verify_input(root, Path(args.bundle_pin) if args.bundle_pin else None)
+    version = record["version"]
+    files = [root / name for name in record["files"]]
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    archive = out_dir / f"marqdo-stdlib-{version}.tar.gz"
     with archive.open("wb") as raw:
         with gzip_open(raw) as gz:
             with tarfile.open(fileobj=gz, mode="w") as tar:
                 for path in files:
-                    relative = path.relative_to(STDLIB).as_posix()
+                    relative = path.relative_to(root).as_posix()
                     info = tarfile.TarInfo(name=relative)
                     data = path.read_bytes()
                     info.size = len(data)
@@ -81,28 +86,20 @@ def main() -> int:
     descriptor = {
         "schema": "marqdo.stdlib-package",
         "schema_version": 1,
-        "name": manifest["name"],
+        "name": record["name"],
         "version": version,
-        "tree_digest": f"sha256:{digest}",
-        "aliases_digest": alias_digest,
+        "tree_digest": record["tree_digest"],
+        "aliases_digest": record["aliases_digest"],
         "archive": archive.name,
         "archive_sha256": f"sha256:{archive_sha}",
-        "files": [p.relative_to(STDLIB).as_posix() for p in files],
+        "files": record["files"],
     }
-    descriptor_path = DIST / f"marqdo-stdlib-{version}.json"
+    descriptor_path = out_dir / f"marqdo-stdlib-{version}.json"
     descriptor_path.write_text(json.dumps(descriptor, indent=2) + "\n")
-    (DIST / f"{archive.name}.sha256").write_text(
-        f"{archive_sha}  {archive.name}\n"
-    )
+    (out_dir / f"{archive.name}.sha256").write_text(f"{archive_sha}  {archive.name}\n")
     print(json.dumps(descriptor, indent=2))
     return 0
 
 
-def gzip_open(raw):
-    import gzip
-
-    return gzip.GzipFile(fileobj=raw, mode="wb", mtime=0, filename="")
-
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))
