@@ -172,7 +172,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-expression"
-version = "3.0.0-rc.5"
+version = "3.0.0-rc.6"
 dependencies = [
  "marqdo-span",
  "num-bigint",
@@ -182,7 +182,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-frontend"
-version = "3.0.0-rc.5"
+version = "3.0.0-rc.6"
 dependencies = [
  "marqdo-expression",
  "marqdo-ir",
@@ -196,7 +196,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-host-contract"
-version = "3.0.0-rc.5"
+version = "3.0.0-rc.6"
 dependencies = [
  "marqdo-span",
  "marqdo-value",
@@ -204,7 +204,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-ir"
-version = "3.0.0-rc.5"
+version = "3.0.0-rc.6"
 dependencies = [
  "marqdo-expression",
  "marqdo-span",
@@ -213,7 +213,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-markdown"
-version = "3.0.0-rc.5"
+version = "3.0.0-rc.6"
 dependencies = [
  "comrak",
  "marqdo-span",
@@ -224,7 +224,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-runtime"
-version = "3.0.0-rc.5"
+version = "3.0.0-rc.6"
 dependencies = [
  "marqdo-expression",
  "marqdo-host-contract",
@@ -239,14 +239,14 @@ dependencies = [
 
 [[package]]
 name = "marqdo-span"
-version = "3.0.0-rc.5"
+version = "3.0.0-rc.6"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "marqdo-value"
-version = "3.0.0-rc.5"
+version = "3.0.0-rc.6"
 dependencies = [
  "marqdo-span",
  "num-bigint",

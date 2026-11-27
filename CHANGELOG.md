@@ -15,6 +15,14 @@ separately and do not follow the product version. Dates use ISO 8601.
 Older sections are release records: a retired option or spec they name is
 available at its tagged commit, not in the current tree.
 
+## 3.0.0-rc.6 (candidate)
+
+- The release index binds the packaged CLI and Worker assets to the tested
+  source SHA and the actual stdlib Bundle inputs.
+- A Linux RC can report strict isolation as unsupported with maintainer
+  approval and same-archive fail-closed evidence. Stable and LTS require a
+  passing disposable-VM gate.
+
 ## 3.0.0-rc.5 (2026-11-27)
 
 Release record for tag `v3.0.0-rc.5` (Linux x86_64, glibc 2.39 prerelease).

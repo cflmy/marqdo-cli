@@ -95,6 +95,34 @@ class ReleaseEvidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             release_evidence.build_manifest(SHA, inputs, "stable", approval)
 
+    def test_rc_strict_unsupported_requires_same_sha_evidence_and_approval(self) -> None:
+        approval = "release notes: maintainer approved strict unsupported for this RC"
+        inputs = [spec for spec in self.rc_gates() if not spec.startswith("strict_vm=")]
+        manifest = release_evidence.build_manifest(
+            SHA, inputs + [gate("strict_vm", "UNSUPPORTED")], "rc",
+            rc_strict_unsupported_approval=approval,
+        )
+        self.assertEqual(manifest["release_decision"], "RC_RELEASE_CANDIDATE")
+        self.assertEqual(manifest["gates"]["strict_vm"]["state"], "UNSUPPORTED")
+        self.assertEqual(manifest["gates"]["strict_vm"]["rc_unsupported_approval"], approval)
+        for entry in (gate("strict_vm", "UNSUPPORTED", OTHER),
+                      gate("strict_vm", "UNSUPPORTED", url=""),
+                      gate("strict_vm", "FAIL"), gate("strict_vm", "UNVERIFIED")):
+            with self.subTest(entry=entry):
+                result = release_evidence.build_manifest(
+                    SHA, inputs + [entry], "rc", rc_strict_unsupported_approval=approval,
+                )
+                self.assertEqual(result["release_decision"], "DO_NOT_RELEASE")
+
+    def test_stable_rejects_rc_strict_exception(self) -> None:
+        inputs = [gate(name, "UNSUPPORTED" if name == "strict_vm" else "PASS")
+                  for name in release_evidence.GATES]
+        result = release_evidence.build_manifest(SHA, inputs)
+        self.assertEqual(result["release_decision"], "DO_NOT_RELEASE")
+        with self.assertRaises(ValueError):
+            release_evidence.build_manifest(SHA, inputs,
+                                           rc_strict_unsupported_approval="RC approval")
+
     def test_stable_requires_extension_install_version_and_performance(self) -> None:
         names = ("extension", "clean_install", "version_compat", "performance")
         for name in names:
