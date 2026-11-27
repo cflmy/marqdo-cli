@@ -1,6 +1,6 @@
 # Marqdo Security Model (implemented status)
 
-Status: describes enforcement in the `3.0.0-rc.5` candidate.
+Status: describes enforcement in the `3.0.0-rc.6` candidate.
 
 Normative implementation:
 

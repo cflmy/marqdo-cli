@@ -45,7 +45,8 @@ steps:
         echo "G4_CPU $(awk -F: '/model name/ {print $2; exit}' /proc/cpuinfo | xargs)"
         echo "G4_GOVERNOR $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo unavailable)"
         (cd "$perf_dir/beta" && python3 tools/perf/runner.py --no-build \
-          --warmups 5 --samples 20 --platform-id woodpecker-agent-1 \
+          --stdlib-dir "$candidate/stdlib" --warmups 5 --samples 20 \
+          --platform-id woodpecker-agent-1 \
           --cpu-list "$cpu_list" --out "$perf_dir/beta.json" > /dev/null)
         python3 tools/perf/runner.py --no-build --binary "$candidate/marqdo" \
           --stdlib-dir "$candidate/stdlib" --warmups 5 --samples 20 \

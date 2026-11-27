@@ -113,7 +113,7 @@ keyword or built-in. The selected provider is verified (schema version, target,
 artifact SHA-256, duplicate kind, grant) before the sibling
 `marqdo-provider-worker` starts; a missing helper is
 `ext.worker_unavailable` and never falls back to `PATH` or in-process loading.
-Linux x86_64 only for this beta; not an OS sandbox. Runnable example:
+Linux x86_64 only for this prerelease line; not an OS sandbox. Runnable example:
 `examples/provider-demo/` (build with its `build.sh`; the tracked manifest has a
 zero digest template). Normative contract:
 [`../../spec/resource-provider-v2.md`](../../spec/resource-provider-v2.md).

@@ -10,7 +10,7 @@ The official implementation is a Rust workspace; Python/Node are optional
 foreign kernels, never the compiler target.
 
 This repository is the new, independent Marqdo toolchain, now at product
-version **`3.0.0-rc.5`** in this checkout. It is **not** a compatibility rewrite of
+version **`3.0.0-rc.6`** in this checkout. It is **not** a compatibility rewrite of
 `cflmy/marqdo`; the old syntax, package format and plugin ABI v2 are not
 claimed to work here. See [docs/developers/](docs/developers/README.md) for the
 third-party entry point and `docs/MARQDO_3_0_PRERELEASE_PLAN.md` for the beta
@@ -27,19 +27,23 @@ release policy.
 > [`docs/STATUS.md`](docs/STATUS.md) and
 > [`docs/migration/README.md`](docs/migration/README.md).
 
-> **Current release: `3.0.0-rc.5` prerelease** —
-> [release](https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.5),
+> **Current release: `3.0.0-rc.6` prerelease** —
+> [release](https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.6),
 > source: the tagged release commit, Linux x86_64. The previous published
-> release was `3.0.0-rc.4` —
-> [release](https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-beta.1),
-> source `2c7c4f31e7a388d3fcfa717a77067e696ed13854`. The public beta target is **Linux x86_64 (glibc)**; macOS and Windows are experimental and not claimed, and the
-> C ABI plugin/provider paths are Linux-only in this beta. The language
+> release was `3.0.0-rc.5` —
+> [release](https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.5),
+> source `c44b0f943875d563bb7c170f8ccd3fd56a82360f`. The supported prerelease
+> target is **Linux x86_64 (glibc 2.39)**; macOS and Windows are experimental
+> and not claimed, and the C ABI plugin/provider paths are Linux-only in this
+> prerelease line. The language
 > (RFC-LANG-0002), lock v4, Analysis, Observation, CLI Tool, Plugin ABI v1
 > (native + worker), pinned Foreign providers and Resource Provider v2 are
 > implemented and covered by tests. **`strict` OS isolation is Linux-only and
 > probe-gated**; unsupported hosts must fail closed, and strict L2
-> (Worker/Foreign/Provider) is not implemented. The broker and worker
-> transports are not sandboxes. The beta release decision, support matrix and
+> (Worker/Foreign/Provider) is not implemented. This RC records `strict:
+> unsupported` with same-SHA fail-closed evidence; a disposable-VM PASS is
+> required for stable/LTS, not for the RC. The broker and worker
+> transports are not sandboxes. The RC release decision, support matrix and
 > remaining gaps are recorded in [`docs/STATUS.md`](docs/STATUS.md),
 > [`COMPATIBILITY.md`](COMPATIBILITY.md),
 > [`docs/developers/release-limits.md`](docs/developers/release-limits.md) and
@@ -53,7 +57,7 @@ runs fmt, clippy, workspace tests with `--locked`, the dependency-direction and
 engine-independence gates, the plugin SDK consumption gate, the Windows
 cross-target compile gate and a release build of both binaries. The strict OS-isolation lane
 requires the disposable VM described in [docs/ci.md](docs/ci.md); a GitHub
-mirror is not used as the authoritative lane for this beta.
+mirror is not used as the authoritative lane for this prerelease line.
 
 ## Build
 

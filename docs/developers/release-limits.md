@@ -1,4 +1,4 @@
-# Marqdo 3.0.0-rc.5 — known limitations
+# Marqdo 3.0.0-rc.6 — known limitations
 
 This file ships in the release archive as `KNOWN_LIMITATIONS.md`. It is part of
 the release record: it defines the platform and feature scope for the release candidate.
@@ -19,9 +19,12 @@ user and is not a security boundary against hostile code.
 
 ## `strict` isolation
 
-`strict` is Linux-only and probe-gated. The RC release requires same-SHA
-G3 evidence from a non-root disposable VM. The CLI fails closed when the
-runtime probe is unavailable.
+`strict` is Linux-only and probe-gated. A stable/LTS release requires
+same-SHA G3 evidence from a non-root disposable VM. A release candidate may
+record `strict: unsupported` when the packaged archive proves that strict mode
+fails closed on the distribution test environment and the maintainer approves
+the RC exception; it must not claim an isolation PASS. The CLI fails closed
+whenever the runtime probe is unavailable.
 
 Even when available:
 
@@ -57,11 +60,11 @@ Even when available:
 
 ## Compatibility and versioning
 
-* `3.0.0-rc.5` is a **prerelease**. The changelog lists changes from the beta.
+* `3.0.0-rc.6` is a **prerelease**. The changelog lists changes from the beta.
 * The product version is independent of protocol versions: Analysis,
   Observation, CLI Tool, Plugin ABI v1, Foreign wire v1, Provider manifest v2
   and lock v4 keep their own identifiers.
-* The official bundled stdlib keeps its independent package version `0.1.0`.
+* The official bundled stdlib keeps its independent package version `0.2.0`.
   A plugin `.mq.md` package version such as `0.1.0` is also independent.
 * `project.marqdo` in `marqdo.yaml` is enforced in this release. SemVer
   prerelease rules apply: `>=3.0.0,<4.0.0` does **not** accept a prerelease core. Packages and Tools can use a prerelease range such as
