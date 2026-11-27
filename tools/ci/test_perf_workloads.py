@@ -36,7 +36,7 @@ def snapshot(run_id: str, status: str, value, extra_file: str = "/tmp/index.mq.m
                 "run_id": run_id,
                 "seq": 0,
                 "kind": "stream.opened",
-                "payload": {"producer": {"name": "marqdo", "version": "3.0.0-rc.4"}},
+                "payload": {"producer": {"name": "marqdo", "version": "3.0.0-rc.5"}},
             },
             {
                 "schema": "marqdo.observation",

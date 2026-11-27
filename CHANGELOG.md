@@ -5,8 +5,9 @@ All notable changes to the Marqdo CLI workspace. Published prereleases:
 `2c7c4f31e7a388d3fcfa717a77067e696ed13854`),
 `3.0.0-rc.1` (source `f7a5a7b0163bf5229ed09adfffd892f9899e6667`) and
 `3.0.0-rc.2` (source `9149ee40a48fcda692c5c112f66c465487d13dfb`) and
-`3.0.0-rc.3` (2026-11-24, source `1e2a045cc78bf40972181abb44e7117c56cf4401`); the section below is the current
-release record. Current
+`3.0.0-rc.3` (2026-11-24, source `1e2a045cc78bf40972181abb44e7117c56cf4401`)
+and `3.0.0-rc.4` (2026-11-25, source `452e9a32bd9e40dba427d4180691c58bab74449e`);
+the section below is the current release record. Current
 protocol contracts are Analysis v3, Observation v1, CLI Tool revision 1,
 Plugin ABI v1, Foreign wire v1, Provider manifest v2 and lock v4; independent
 package versions (including the bundled stdlib `0.1.0`) are versioned
@@ -14,12 +15,12 @@ separately and do not follow the product version. Dates use ISO 8601.
 Older sections are release records: a retired option or spec they name is
 available at its tagged commit, not in the current tree.
 
-## 3.0.0-rc.5 (unreleased candidate)
+## 3.0.0-rc.5 (2026-11-27)
 
-> Candidate preparation only: this section and the workspace version are not a
-> release record. No tag, archive or Gitea release exists for `3.0.0-rc.5`; the
-> tag/Release requires the frozen-SHA gates and maintainer sign-off documented
-> in `docs/releasing.md`.
+Release record for tag `v3.0.0-rc.5` (Linux x86_64, glibc 2.39 prerelease).
+The Gitea release carries the archive; known limitations (strict L1 UNVERIFIED
+in the release environment, shared-node G4 WARN only) are recorded in
+`docs/releases/3.0.0-rc.5.md`.
 
 - The CLI and provider worker consume one explicit external stdlib Bundle
   (`--stdlib-dir`/Bundle pin) and the repository no longer carries a `stdlib/`

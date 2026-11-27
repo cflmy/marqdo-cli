@@ -78,7 +78,7 @@ def build_dependencies(package: str, offline: bool) -> set[str]:
         stripped = line.strip()
         if not stripped:
             continue
-        # Lines look like `marqdo-value v3.0.0-rc.4 (/path)` or `serde v1.0.1`.
+        # Lines look like `marqdo-value v3.0.0-rc.5 (/path)` or `serde v1.0.1`.
         name = stripped.split(" v", 1)[0].strip()
         if name:
             names.add(name)

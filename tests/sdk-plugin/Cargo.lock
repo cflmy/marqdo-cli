@@ -16,7 +16,7 @@ checksum = "3bd1574e617a9a6c1f8f8181bd7e841e1f20e4277607ef28945765188d6284d4"
 
 [[package]]
 name = "marqdo-plugin-abi"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "marqdo-value",
  "serde",
@@ -26,7 +26,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-plugin-sdk"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "marqdo-plugin-abi",
  "serde",
@@ -42,14 +42,14 @@ dependencies = [
 
 [[package]]
 name = "marqdo-span"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "marqdo-value"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "marqdo-span",
  "num-bigint",

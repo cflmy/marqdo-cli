@@ -1,10 +1,9 @@
 # Marqdo Implementation Status
 
-Snapshot: **2026-11-25**, product version **`3.0.0-rc.4`** (prerelease,
-released). Tag `v3.0.0-rc.4` at source SHA
+Snapshot: **2026-11-27**, product version **`3.0.0-rc.5`** (prerelease,
+released). Tag `v3.0.0-rc.5` on the tagged release commit; release:
+https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.5. The previous release is `3.0.0-rc.4` at source SHA
 **`452e9a32bd9e40dba427d4180691c58bab74449e`**; release:
-https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.4. The previous release is `3.0.0-rc.3` at source SHA
-**`1e2a045cc78bf40972181abb44e7117c56cf4401`**; release:
 https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.3. The supported
 platform is **Linux x86_64 (glibc 2.39)**. The rc.3 same-SHA gate aggregate is
 [`evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json`](evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json)
@@ -33,11 +32,16 @@ as current status.
 
 ## RC candidate
 
-The workspace reports `3.0.0-rc.4` and declares Rust 1.89 as its locked
-minimum. Linux x86_64 on glibc 2.39 is the supported platform. The rc.4
-manifest is green on its SHA with the documented strict-VM PASS and a
-maintainer-approved shared-node performance `WARN`; stable/LTS still requires a
-dedicated fixed node. The release records below refer to their tagged binaries.
+The workspace reports `3.0.0-rc.5` and declares Rust 1.89 as its locked
+minimum. Linux x86_64 on glibc 2.39 is the supported platform. rc.5 moves the
+standard library to one external Bundle (CLI Phase B, no in-repo `stdlib/` tree)
+and is released with deterministic archive builds, the archive-only Ubuntu 24.04
+cold install, the three migrated extensions and frozen external conformance.
+Known limitations are explicit in the release notes: strict L1 could not run in
+the release environment (UNVERIFIED; no PASS claimed) and the paired shared-node
+G4 comparison is below thresholds but not an approved-node PASS. Stable/LTS
+still requires a dedicated fixed node and the remaining strict gates. The
+release records below refer to their tagged binaries.
 
 ## Current protocol integration
 
@@ -118,7 +122,7 @@ evidence named by issue #11.
 ## 0.12 Engine / Host Contract boundary — issue #13 (unreleased candidate)
 
 This is an **internal architecture candidate**, not a release. The product
-version stays `3.0.0-rc.4`; no new tag or release claim is made. Baseline is
+version stays `3.0.0-rc.5`; no new tag or release claim is made. Baseline is
 `master` at `4bbefc92449ee480c8a2c89b0308feb4cda8d0e7`; the PR records the exact
 candidate SHA and evidence is
 [`evidence/2026-11-26-issue-13-engine-host-boundary.md`](evidence/2026-11-26-issue-13-engine-host-boundary.md).
@@ -230,7 +234,7 @@ Local evidence and raw numbers:
 [`evidence/2026-11-25-rc.4-analysis-boundary.md`](evidence/2026-11-25-rc.4-analysis-boundary.md).
 
 Executed 2026-11-25 in the local Linux x86_64 development container
-(workspace `3.0.0-rc.4`, Rust 1.100.0):
+(workspace `3.0.0-rc.5`, Rust 1.100.0):
 
 ```text
 cargo fmt --all -- --check                              PASS
@@ -262,7 +266,7 @@ is a maintainer-approved shared-node `WARN` for this RC only; stable/LTS still
 requires a dedicated fixed node. The gate aggregate is
 [`evidence/ci/452e9a32bd9e40dba427d4180691c58bab74449e/manifest.json`](evidence/ci/452e9a32bd9e40dba427d4180691c58bab74449e/manifest.json)
 (`RC_RELEASE_CANDIDATE`). Release
-[notes and assets](https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.4).
+[notes and assets](https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.5).
 Downstream migration issues: `marqdo-view#6`, `marqdo-lint#4`.
 
 ## 0.9 Pre-stable protocol convergence — issue #8 (RC.3 candidate)

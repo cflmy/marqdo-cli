@@ -18,7 +18,7 @@ steps:
         # Baseline is the previous published release (rc.4), not the pre-external-
         # Bundle beta: both the harness and the workload sources must be identical.
         baseline_sha=452e9a32bd9e40dba427d4180691c58bab74449e
-        git fetch --no-tags origin refs/tags/v3.0.0-rc.4
+        git fetch --no-tags origin refs/tags/v3.0.0-rc.5
         test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "$baseline_sha"
         perf_dir="$(mktemp -d)"
         git worktree add --detach "$perf_dir/beta" "$baseline_sha"

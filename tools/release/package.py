@@ -22,7 +22,7 @@ Usage (from the repository root, after
 
     python3 tools/release/package.py \
         --source-sha "$(git rev-parse HEAD)" \
-        --version 3.0.0-rc.4 \
+        --version 3.0.0-rc.5 \
         --stdlib-dir stdlib \
         --bundle-pin tools/stdlib/bundle-pin.json
 """

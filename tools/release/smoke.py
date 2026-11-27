@@ -9,7 +9,7 @@ Provider v2 worker (positive, unauthorized and missing-helper fail-closed), and
 strict mode when the host genuinely supports it.
 
 Usage:
-    python3 tools/release/smoke.py --archive dist/marqdo-3.0.0-rc.4-x86_64-unknown-linux-gnu.tar.gz
+    python3 tools/release/smoke.py --archive dist/marqdo-3.0.0-rc.5-x86_64-unknown-linux-gnu.tar.gz
 """
 
 from __future__ import annotations
