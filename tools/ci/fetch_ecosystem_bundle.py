@@ -109,17 +109,16 @@ def fetch_root(pin: dict, cache: Path) -> Path:
     return cache
 
 
-def build_bundle(root: Path, out: Path) -> Path:
+def build_bundle(root: Path, out: Path) -> str:
     """Build the Bundle; an existing output is reused only after verification.
 
-    CI jobs share one workspace, so a parallel or earlier job may already have
-    materialized the same pinned Bundle. The output is built in a temporary
-    sibling and moved into place atomically; a mismatch is rebuilt, never used.
+    The caller serializes jobs that share a worktree. The output is built
+    in a temporary sibling and moved into place.
     """
     temp = out.with_name(out.name + ".partial-" + str(os.getpid()))
     if temp.exists():
         shutil.rmtree(temp)
-    run(
+    receipt = run(
         [
             sys.executable,
             str(root / "scripts" / "build-stdlib.py"),
@@ -131,7 +130,7 @@ def build_bundle(root: Path, out: Path) -> Path:
     if out.exists():
         shutil.rmtree(out)
     temp.rename(out)
-    return out
+    return receipt
 
 
 def verify(pin: dict, bundle: Path) -> dict:
@@ -158,12 +157,13 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default=str(ROOT / "target" / "ecosystem-stdlib"))
     parser.add_argument("--cache", default=str(ROOT / "target" / "ecosystem-root"))
+    parser.add_argument("--receipt", type=Path, help="save the pinned producer's JSON summary")
     args = parser.parse_args(argv)
     out = Path(args.out).resolve()
     cache = Path(args.cache).resolve()
     try:
         pin = load_pin()
-        if out.is_dir():
+        if out.is_dir() and args.receipt is None:
             try:
                 verify(pin, out)
             except (FetchError, OSError, json.JSONDecodeError):
@@ -172,12 +172,14 @@ def main(argv: list[str]) -> int:
                 print(out)
                 return 0
         root = fetch_root(pin, cache)
-        bundle = build_bundle(root, out)
-        verify(pin, bundle)
-    except FetchError as error:
+        receipt = build_bundle(root, out)
+        verify(pin, out)
+        if args.receipt is not None:
+            args.receipt.write_text(receipt, encoding="utf-8")
+    except (FetchError, OSError, json.JSONDecodeError) as error:
         print(f"fetch-ecosystem-bundle: error: {error}", file=sys.stderr)
         return 1
-    print(bundle)
+    print(out)
     return 0
 
 

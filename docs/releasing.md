@@ -221,8 +221,25 @@ git tag -a "v${version}" -m "Marqdo CLI v${version}" "$sha"
 git push origin "v${version}"
 ```
 
-Then create the Gitea release for the tag with `prerelease: true`, attach the
-tarball and its `.sha256`, and include the release notes. The notes must state:
+Before publication, use the existing Bundle producer and the exact Woodpecker
+pipeline number to create the ecosystem release index. Build and cold-test the
+archive with the `--bundle-pin` and Bundle directory below, as in sections 3–4.
+The receipt is the root producer's build summary and stays with the release
+evidence.
+
+```bash
+python3 tools/ci/fetch_ecosystem_bundle.py --out target/ecosystem-stdlib \
+  --receipt target/ecosystem-stdlib.receipt.json
+# Run the existing package and smoke commands with that Bundle.
+archive="dist/marqdo-${version}-x86_64-unknown-linux-gnu.tar.gz"
+python3 tools/release/release_index.py --archive "$archive" \
+  --bundle-receipt target/ecosystem-stdlib.receipt.json \
+  --pipeline "$pipeline_number" > dist/release-evidence.json.tmp
+mv dist/release-evidence.json.tmp dist/release-evidence.json
+```
+
+Create a Gitea draft for the tag with `prerelease: true` and attach the tarball,
+its `.sha256`, and `release-evidence.json`. The notes must state:
 
 * prerelease status, support lifetime and the Linux x86_64 platform scope;
 * the breaking RFC-LANG-0002 language change and no legacy path;
@@ -232,21 +249,16 @@ tarball and its `.sha256`, and include the release notes. The notes must state:
 * the checksum-integrity-not-signature caveat and the known-limitations file;
 * the exact source SHA and links to the evidence manifest.
 
-Example Gitea API shape (token with repository release permission; never commit
-the token):
+Download the draft's assets from Gitea and verify their sizes and digests against
+the index. Compare the downloaded index to the local copy and verify the remote
+tag points at the tested SHA. Publish the complete draft, then confirm the
+public tag and asset set again. Resume an interrupted draft only for the same
+tag, commit and matching assets. For an already published release, verify the
+existing bytes and send any outstanding notification. Report a mismatch to the
+release owner and stop. A failed notification is retried independently through
+the root reconcile workflow, with its cron as the recovery path.
 
-```bash
-curl -X POST -H "Authorization: token $MARQDO_GIT_TOKEN" \
-  -H 'Content-Type: application/json' \
-  https://git.cflmy.cn/api/v1/repos/cflmy/marqdo-cli/releases \
-  -d '{"tag_name":"v3.0.0-beta.1","name":"Marqdo CLI 3.0.0-beta.1",
-       "prerelease":true,"draft":false,"body":"..."}'
-curl -X POST -H "Authorization: token $MARQDO_GIT_TOKEN" \
-  -F "attachment=@dist/marqdo-3.0.0-beta.1-x86_64-unknown-linux-gnu.tar.gz" \
-  https://git.cflmy.cn/api/v1/repos/cflmy/marqdo-cli/releases/<id>/assets
-```
-
-The tag points at the tested SHA. Evidence files and the final STATUS update
+Evidence files and the final STATUS update
 may land in a **post-release docs commit** that references the tagged SHA, so
 that the evidence never has to claim a SHA it cannot contain. Do not force-push,
 do not tag a red commit, and do not upload macOS/Windows binaries unless those
@@ -254,10 +266,9 @@ platform lanes actually passed.
 
 ## 7. Rollback
 
-- Missing/mismatched gate discovered after tagging: mark the release withdrawn,
-  delete the assets, keep the tag only if source/tag integrity is unaffected,
-  and ship a corrected prerelease (for example `3.0.0-beta.2`). Never delete a
-  failing test.
+- Missing or mismatched gate discovered after tagging: record the withdrawal
+  in an issue, retain the published tag and assets for traceability, and ship
+  a corrected prerelease with a new tag (for example `3.0.0-beta.2`).
 - Platform regression: remove that platform from `COMPATIBILITY.md`, the
   release notes and the archive, then fix and re-run the gate.
 - Security regression: set strict back to fail-closed/unsupported, publish a
