@@ -1,9 +1,10 @@
 {
   "measure_argv": [
-    "run",
-    "tools/perf/fixtures/print-demo.mq.md"
+    "call",
+    "tools/perf/fixtures/print-demo.mq.md",
+    "main"
   ],
-  "measure_sha256": "sha256:ca03bebeb3052ad7ae18943d04dccb7921e58421c46a2d8db460fbe3e96d9d51",
+  "measure_sha256": "sha256:663b632142809ee1bdfa24671263228f52fe8017db0b81a15db8f2bf3028ea33",
   "normalized": {
     "events": {
       "by_kind": {

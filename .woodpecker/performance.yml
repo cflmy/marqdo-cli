@@ -15,8 +15,10 @@ steps:
       - cargo build --release --locked -p marqdo-cli -p marqdo-provider-worker
       - |
         set -eu
-        baseline_sha=2c7c4f31e7a388d3fcfa717a77067e696ed13854
-        git fetch --no-tags origin refs/tags/v3.0.0-beta.1
+        # Baseline is the previous published release (rc.4), not the pre-external-
+        # Bundle beta: both the harness and the workload sources must be identical.
+        baseline_sha=452e9a32bd9e40dba427d4180691c58bab74449e
+        git fetch --no-tags origin refs/tags/v3.0.0-rc.4
         test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "$baseline_sha"
         perf_dir="$(mktemp -d)"
         git worktree add --detach "$perf_dir/beta" "$baseline_sha"

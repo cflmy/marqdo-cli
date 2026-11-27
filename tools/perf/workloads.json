@@ -127,14 +127,16 @@
       "kind": "run",
       "source": "tools/perf/fixtures/print-demo.mq.md",
       "argv": [
-        "run",
+        "call",
         "tools/perf/fixtures/print-demo.mq.md",
+        "main",
         "--output",
         "json"
       ],
       "measure_argv": [
-        "run",
-        "tools/perf/fixtures/print-demo.mq.md"
+        "call",
+        "tools/perf/fixtures/print-demo.mq.md",
+        "main"
       ]
     }
   ]
