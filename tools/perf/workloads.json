@@ -123,18 +123,18 @@
       ]
     },
     {
-      "name": "stdlib-print-demo",
+      "name": "print-demo",
       "kind": "run",
-      "source": "stdlib/demo.mq.md",
+      "source": "tools/perf/fixtures/print-demo.mq.md",
       "argv": [
         "run",
-        "stdlib/demo.mq.md",
+        "tools/perf/fixtures/print-demo.mq.md",
         "--output",
         "json"
       ],
       "measure_argv": [
         "run",
-        "stdlib/demo.mq.md"
+        "tools/perf/fixtures/print-demo.mq.md"
       ]
     }
   ]

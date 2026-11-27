@@ -1,0 +1,48 @@
+{
+  "measure_argv": [
+    "run",
+    "tools/perf/fixtures/print-demo.mq.md"
+  ],
+  "measure_sha256": "sha256:ca03bebeb3052ad7ae18943d04dccb7921e58421c46a2d8db460fbe3e96d9d51",
+  "normalized": {
+    "events": {
+      "by_kind": {
+        "branch.eval": 70,
+        "call.enter": 9,
+        "call.exit": 9,
+        "effect": 20,
+        "loop.iteration": 24,
+        "parameter.observed": 13,
+        "return": 9,
+        "run.completed": 1,
+        "run.started": 1,
+        "stdout.chunk": 1,
+        "stream.opened": 1,
+        "variable.assigned": 83
+      },
+      "count": 241,
+      "sequence_sha256": "sha256:d7a9c356294e2ecace0f93b8b65c4eb0555073e1eec4846fb044dd5f395c97bd"
+    },
+    "schema": "marqdo.observation",
+    "status": "ok",
+    "stderr": {
+      "bytes": 0,
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 16,
+      "sha256": "sha256:ca03bebeb3052ad7ae18943d04dccb7921e58421c46a2d8db460fbe3e96d9d51"
+    },
+    "terminal": {
+      "status": "ok",
+      "value": {
+        "type": "text",
+        "value": "你好，Marqdo"
+      },
+      "value_type": "Text"
+    }
+  },
+  "schema": "marqdo.perf.expected.v1",
+  "wire_sha256": "sha256:a36f2476e799cc45127ebb31c1a7828115276a6bec39368b6b9f5297b7d16799",
+  "workload": "print-demo"
+}

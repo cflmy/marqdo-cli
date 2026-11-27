@@ -412,7 +412,7 @@ checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
 name = "marqdo-cli"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "clap",
  "hex",
@@ -439,7 +439,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-expression"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "marqdo-span",
  "num-bigint",
@@ -450,7 +450,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-foreign"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "hex",
  "libc",
@@ -466,7 +466,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-frontend"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "marqdo-expression",
  "marqdo-ir",
@@ -481,7 +481,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-host"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "flate2",
  "getrandom 0.4.3",
@@ -510,7 +510,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-host-contract"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "marqdo-span",
  "marqdo-value",
@@ -518,7 +518,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-ir"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "marqdo-expression",
  "marqdo-span",
@@ -528,7 +528,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-markdown"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "comrak",
  "marqdo-span",
@@ -539,7 +539,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-package"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "hex",
  "semver",
@@ -553,7 +553,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-plugin-abi"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "marqdo-value",
  "serde",
@@ -563,7 +563,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-plugin-sdk"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "marqdo-plugin-abi",
  "serde",
@@ -572,7 +572,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-provider-worker"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "libloading",
  "marqdo-host",
@@ -586,7 +586,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-runtime"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "marqdo-expression",
  "marqdo-frontend",
@@ -606,7 +606,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-sandbox"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "libc",
  "serde",
@@ -614,14 +614,14 @@ dependencies = [
 
 [[package]]
 name = "marqdo-span"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "marqdo-value"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "marqdo-span",
  "num-bigint",
@@ -632,7 +632,7 @@ dependencies = [
 
 [[package]]
 name = "marqdo-worker-ipc"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 dependencies = [
  "serde_json",
  "thiserror",

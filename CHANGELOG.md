@@ -14,6 +14,23 @@ separately and do not follow the product version. Dates use ISO 8601.
 Older sections are release records: a retired option or spec they name is
 available at its tagged commit, not in the current tree.
 
+## 3.0.0-rc.5 (unreleased candidate)
+
+> Candidate preparation only: this section and the workspace version are not a
+> release record. No tag, archive or Gitea release exists for `3.0.0-rc.5`; the
+> tag/Release requires the frozen-SHA gates and maintainer sign-off documented
+> in `docs/releasing.md`.
+
+- The CLI and provider worker consume one explicit external stdlib Bundle
+  (`--stdlib-dir`/Bundle pin) and the repository no longer carries a `stdlib/`
+  source tree (issue #11 Phase B). Contract lanes and product tests materialize
+  the ecosystem Bundle through `tools/ci/fetch_ecosystem_bundle.py`.
+- Tooling, docs and test support reference the external Bundle; the release
+  archive still ships exactly one verified stdlib Bundle.
+- Version metadata is `3.0.0-rc.5` on this candidate branch only. Remaining
+  release gates: frozen SHA, same-SHA CI, strict VM, G4 performance and
+  maintainer approval.
+
 ## 3.0.0-rc.4 (2026-11-25)
 
 - The Rust workspace, CLI version output and protocol producers report

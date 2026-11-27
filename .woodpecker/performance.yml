@@ -22,6 +22,12 @@ steps:
         git worktree add --detach "$perf_dir/beta" "$baseline_sha"
         trap 'git worktree remove --force "$perf_dir/beta"; rm -rf "$perf_dir"' EXIT
         (cd "$perf_dir/beta" && cargo build --release --locked -p marqdo-cli)
+        # The external-Bundle migration moved the print workload fixture out of
+        # the removed in-repo stdlib tree; both binaries must measure the same
+        # workload sources/expected digests, so copy the perf definition into
+        # the baseline worktree.
+        rm -rf "$perf_dir/beta/tools/perf"
+        cp -a tools/perf "$perf_dir/beta/tools/perf"
 
         version="$(target/release/marqdo --version | cut -d ' ' -f 2)"
         python3 tools/release/package.py --version "$version" --source-sha "$CI_COMMIT_SHA" \
