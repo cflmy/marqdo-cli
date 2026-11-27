@@ -26,9 +26,17 @@ steps:
     commands:
       - rustup component add clippy rustfmt
       - apt-get update
-      - apt-get install -y --no-install-recommends curl ca-certificates git python3 python3-jsonschema build-essential gcc-mingw-w64-x86-64
-      - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-      - apt-get install -y --no-install-recommends nodejs
+      - apt-get install -y --no-install-recommends curl ca-certificates git python3 python3-jsonschema build-essential gcc-mingw-w64-x86-64 xz-utils
+      # Node 22 is required by the ES-module foreign-kernel tests. Install the
+      # official tarball from the reachable npmmirror binary mirror; the
+      # NodeSource apt repository has repeatedly stalled in this runner.
+      - |
+        set -eu
+        node_version=22.23.5
+        curl -fsSL --retry 5 --retry-delay 5           "https://cdn.npmmirror.com/binaries/node/v${node_version}/node-v${node_version}-linux-x64.tar.xz"           -o /tmp/node.tar.xz
+        tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
+        node --version
+        npm --version
       - mkdir -p target
       - flock target/ecosystem-bundle.lock python3 tools/ci/fetch_ecosystem_bundle.py --out target/ecosystem-stdlib
       - python3 tools/stdlib/bundle.py --stdlib-dir target/ecosystem-stdlib
