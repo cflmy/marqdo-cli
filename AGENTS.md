@@ -1,5 +1,10 @@
 # Marqdo CLI — Agent / Contributor Operating Rules
 
+<!-- marqdo:repo-conventions v1 -->
+
+生态级仓库开发规范：https://git.cflmy.cn/cflmy/marqdo/src/branch/main/docs/REPOSITORY-CONVENTIONS.md
+
+
 **Start here:** read `docs/architecture/RFC-LANG-0002-unified-semantics.md` — it is the single current language authority — and its normative summary `spec/mapping.md` + `spec/expression.ebnf`. Then read `docs/architecture/CURRENT.md` (the single current architecture overview, including the Engine / Host Contract / Native Host map), [ADR-0071](docs/adr/0071-engine-host-contract-boundary.md) (boundary rules and keep-in-workspace decision), `docs/STATUS.md` (what is actually implemented), the relevant `spec/` files, `docs/adr/` for decisions at their date, the developer entry point `docs/developers/README.md`, `docs/contributor-guide.md`, and `tests/README.md` plus the conformance fixtures. Do not assume any current implementation, legacy Marqdo syntax, historical planning document or old architecture gate is authoritative.
 
 For next-phase work, the authoritative release policy for the current
