@@ -4,7 +4,7 @@ Status: **current architecture overview**. This file summarises the tree as it
 is today. It is not a release promise, does not reopen a frozen ADR, and does not
 replace `spec/` or a recorded test log.
 
-- Baseline: `452e9a32bd9e40dba427d4180691c58bab74449e` (2026-11-25, tagged `v3.0.0-rc.5`; same-SHA evidence in `../STATUS.md` and `../evidence/ci/452e9a32bd9e40dba427d4180691c58bab74449e/manifest.json`).
+- Baseline: the tagged `v3.0.0-rc.6` release candidate (2026-11-28); same-SHA evidence is recorded in `../STATUS.md` and CLI issue #22.
 - Normative behavior: `spec/`; frozen decisions: `docs/adr/`; executed evidence: `docs/STATUS.md` and `docs/evidence/`.
 - This is the **single current overview**. Do not add a second running "current state" file;
   update this file, `docs/STATUS.md` and an evidence file together.

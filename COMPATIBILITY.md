@@ -1,21 +1,21 @@
 # Compatibility and support matrix
 
-Snapshot: product version **`3.0.0-rc.5`** (prerelease, released 2026-11-27).
-Tag `v3.0.0-rc.5` on the tagged release commit; release
-https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.5. The previous
-release is `3.0.0-rc.4` at source SHA
-`452e9a32bd9e40dba427d4180691c58bab74449e`; its evidence remains under
-[`docs/evidence/`](docs/evidence/2026-11-25-rc.4-release.md). This file records
+Snapshot: product version **`3.0.0-rc.6`** (prerelease, release candidate,
+2026-11-28). Tag `v3.0.0-rc.6` on the tested release commit; release
+https://git.cflmy.cn/cflmy/marqdo-cli/releases/tag/v3.0.0-rc.6. The previous
+release is `3.0.0-rc.5` at source SHA
+`c44b0f943875d563bb7c170f8ccd3fd56a82360f`; its evidence remains under
+[`docs/releases/3.0.0-rc.5.md`](docs/releases/3.0.0-rc.5.md). This file records
 what was actually verified and separates it from what is only implemented. The
 supported release platform is **Linux x86_64 (glibc 2.39)**; everything else is
 experimental and not claimed for this prerelease. Executed status and SHA-bound
 evidence are in [`docs/STATUS.md`](docs/STATUS.md) and
 [`docs/evidence/`](docs/evidence/).
 
-The `3.0.0-rc.5` release includes the post-beta protocol convergence and the
-closed public Analysis boundary below. See the
+The `3.0.0-rc.6` release candidate includes the post-beta protocol convergence
+and the closed public Analysis boundary below. See the
 [RC acceptance procedure](docs/releasing.md). The platform evidence table
-records the beta, rc.1/rc.2/rc.3 and rc.4 candidate verification.
+records the beta, rc.1/rc.2/rc.3, rc.4 and rc.5 candidate verification.
 
 ## Language source syntax (breaking change)
 
@@ -55,7 +55,7 @@ Consequences for compatibility:
 
 ## Post-`3.0.0-beta.1` boundary changes (RFC-EXT-0003)
 
-These landed after the beta tag and **are included in the `3.0.0-rc.5` candidate**; they are
+These landed after the beta tag and **are included in the `3.0.0-rc.6` candidate**; they are
 intentional beta-line incompatibilities. Frozen decisions: ADR-0060..0063; executed
 evidence: [`docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md`](docs/evidence/2026-11-22-rfc-ext-0003-core-hardcoding.md).
 
@@ -90,7 +90,7 @@ consume this candidate's `check --emit` output.
 | Surface | Version | Compatibility rule |
 |---|---|---|
 | Markdown profile | `marqdo.md.v1` | Frozen parser/options. The RFC-LANG-0002 mapping rewrite keeps this profile; the source-language break is tracked above, not by a new profile id. |
-| Language / CLI | `3.0.0-rc.5` (candidate) | SemVer prerelease: breaking changes inside the 3.0 beta line are allowed and announced in the changelog. The `.mq.md` source language changed incompatibly (RFC-LANG-0002); there is no old-syntax execution path or downgrade. CLI flags may change with a changelog note; `strict` refusal is contractual. |
+| Language / CLI | `3.0.0-rc.6` (candidate) | SemVer prerelease: breaking changes inside the 3.0 beta line are allowed and announced in the changelog. The `.mq.md` source language changed incompatibly (RFC-LANG-0002); there is no old-syntax execution path or downgrade. CLI flags may change with a changelog note; `strict` refusal is contractual. |
 | `marqdo.lock` | v4 | v3 is rejected with an explicit `marqdo lock` migration error; v1/v2 are rejected with a relock instruction; `run`/`call`/`check` never rewrite or fetch the lock. `extensions:` records manifest/artifact identity (integrity, not publisher auth). |
 | Analysis | v3 | One writer and one current major for every project, including projects without loop transfers. Consumers reject other majors; the retired v2 selector, schema and documents are gone (ADR-0068). |
 | Observation | v1 | One `run_id`/`seq` event sequence per execution, delivered as JSONL, JSON snapshot or file snapshot from the same run. Values are opt-in and bounded; consumers reject other identifiers (spec/observation.md). |
@@ -138,7 +138,7 @@ build of both binaries), the release-archive cold-install smoke, the external
 frozen-binary conformance repository, and the disposable-VM strict lane. The
 source of truth is the Gitea remote `git.cflmy.cn/cflmy/marqdo-cli` with
 Woodpecker at `ci.cflmy.cn`; a GitHub mirror is not the authoritative lane for
-this beta. macOS/Windows entries are implementation notes, not support claims;
+this prerelease line. macOS/Windows entries are implementation notes, not support claims;
 the Windows C ABI/provider paths remain fail-closed.
 
 ## Strict L1 scope (ADR-0021)
@@ -198,18 +198,16 @@ the Windows C ABI/provider paths remain fail-closed.
 
 ## Release decision
 
-**`3.0.0-rc.5` prerelease — released as a Linux x86_64 RC.** The RC profile in
+**`3.0.0-rc.6` prerelease — release candidate for a Linux x86_64 RC.** The RC
+profile in
 [`docs/MARQDO_3_0_PRERELEASE_PLAN.md`](docs/MARQDO_3_0_PRERELEASE_PLAN.md) §3 was
 used: Linux is the only supported platform, macOS/Windows are UNSUPPORTED for
-this scope. This cycle's external-Bundle migration was verified with
-deterministic archive builds, the archive-only Ubuntu 24.04 cold install, the
-three migrated extensions and frozen external conformance. Known limitations are
-recorded in the release notes: the disposable-VM strict L1 lane could not run in
-the release environment (UNVERIFIED, no PASS claimed) and the paired shared-node
-G4 result is below the regression thresholds but not an approved-node PASS. The
-aggregate decision and per-gate evidence are in
-[`docs/evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json`](docs/evidence/ci/1e2a045cc78bf40972181abb44e7117c56cf4401/manifest.json)
-(`RC_RELEASE_CANDIDATE`) and the release assets; see
-[`docs/evidence/2026-11-24-rc.3-release.md`](docs/evidence/2026-11-24-rc.3-release.md).
-A prerelease does not imply stable `3.0.0` or LTS; the stable gate remains
+this scope. This cycle verifies the deterministic archive, the archive-only
+Ubuntu 24.04 cold install, the migrated extensions, frozen external conformance
+and a shared-host performance `WARN`. The RC records `strict: unsupported` with
+same-SHA fail-closed smoke evidence; the disposable-VM strict L1 PASS remains a
+stable/LTS gate, so no isolation PASS is claimed here. The RC gate aggregate
+(`RC_RELEASE_CANDIDATE`) is generated by `tools/ci/release_evidence.py`; the
+per-gate references are recorded in CLI issue #22 and the release assets. A
+prerelease does not imply stable `3.0.0` or LTS; the stable gate remains
 stricter and separate.
