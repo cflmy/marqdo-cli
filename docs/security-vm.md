@@ -10,8 +10,9 @@ be registered as a dedicated self-hosted security runner.
 > ([`architecture/RFC-LANG-0002-unified-semantics.md`](architecture/RFC-LANG-0002-unified-semantics.md)).
 > The lane is only evidence for the **exact SHA in its
 > `strict-evidence.json`**; a PASS at an older SHA or on another host is
-> historical. Every candidate release must rerun `tests/security/run-lane.sh`
-> and archive the evidence document. See [`STATUS.md`](STATUS.md).
+> historical. A stable or LTS release must rerun `tests/security/run-lane.sh`
+> and archive the evidence document. Linux RCs can use the approved
+> fail-closed path in [the release procedure](releasing.md#linux-rc-preconditions).
 
 **Do not run this on a daily host with valuable data.** The VM is disposable;
 the commands below do not disable AppArmor or any global host protection.
@@ -38,9 +39,9 @@ export SOURCE_SHA="$(git rev-parse HEAD)"   # reviewed commit, clean tree
 mkdir -p .tools/vm && cd .tools/vm
 # Replace with the reviewed dated release URL, never .../current/...
 curl -L -o ubuntu-base.img \
-  https://cloud-images.ubuntu.com/releases/26.04/release-20261120/ubuntu-26.04-server-cloudimg-amd64.img
+  https://cloud-images.ubuntu.com/releases/resolute/release-20261108/ubuntu-26.04-server-cloudimg-amd64.img
 curl -L -o SHA256SUMS \
-  https://cloud-images.ubuntu.com/releases/26.04/release-20261120/SHA256SUMS
+  https://cloud-images.ubuntu.com/releases/resolute/release-20261108/SHA256SUMS
 grep 'ubuntu-26.04-server-cloudimg-amd64.img' SHA256SUMS | sha256sum -c -
 sha256sum ubuntu-base.img | tee ubuntu-base.img.sha256
 qemu-img create -f qcow2 -b ubuntu-base.img -F qcow2 \
@@ -159,6 +160,9 @@ mkdir -p ~/marqdo-${SOURCE_SHA}
 tar -C ~/marqdo-${SOURCE_SHA} -xf ~/marqdo-${SOURCE_SHA}.tar
 cd ~/marqdo-${SOURCE_SHA}
 export PATH="$HOME/.cargo/bin:$PATH"
+python3 tools/ci/fetch_ecosystem_bundle.py --out target/ecosystem-stdlib
+export MARQDO_STDLIB_DIR="$PWD/target/ecosystem-stdlib"
+export MARQDO_TEST_STDLIB_BUNDLE="$MARQDO_STDLIB_DIR"
 export MARQDO_TESTED_SHA="$SOURCE_SHA"
 export MARQDO_SOURCE_ARCHIVE="$HOME/marqdo-${SOURCE_SHA}.tar"
 export MARQDO_SOURCE_ARCHIVE_SHA256="sha256:<digest from the host>"

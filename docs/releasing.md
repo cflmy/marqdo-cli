@@ -73,8 +73,12 @@ unsupported/experimental in
 
 Use the frozen-SHA build and archive checks above. Additionally:
 
-- Strict L1 requires a same-SHA PASS on a disposable VM as a non-root user.
-  Record the strict evidence and verify the archived binary on that guest.
+- Report strict L1 as `PASS` only with same-SHA evidence from a disposable VM
+  running as a non-root user. An RC may report `strict: unsupported` with
+  maintainer approval and a same-SHA archive smoke log which confirms strict
+  execution fails closed on the distribution test environment. A skipped
+  test or an observed isolation defect blocks publication. Stable and LTS
+  require the disposable-VM PASS.
 - Measure the packaged CLI with 5 warmups and 20 samples or more for each of
   the nine workloads, or for the changed boundary's representative fixture when
   the gate is scoped by an accepted ADR. Compare against a correctness-verified
@@ -203,7 +207,10 @@ python3 tools/ci/release_evidence.py --profile beta --target-sha "$sha" \
 missing, skipped, failed or SHA-mismatched gate is `DO_NOT_RELEASE`; never
 hand-edit a manifest to PASS. For a Linux RC, use
 `--profile rc --require-release` and declare both excluded platforms. If
-the shared-node exception applies, pass
+strict is unavailable, supply `strict_vm=UNSUPPORTED:<candidate-sha>:<smoke-log>`
+and `--rc-strict-unsupported-approval <release-notes-reference>`. The smoke
+log must show strict mode's explicit refusal from the packaged binary. If the
+shared-node exception applies, pass
 `--rc-shared-performance-approval <release-notes-reference>` and supply
 `performance=WARN:<candidate-sha>:<comparison-evidence>`. Use the generated
 `RC_RELEASE_CANDIDATE` decision before running the tagging commands.

@@ -25,7 +25,7 @@
 | 公开版本 | `Cargo.toml` 仍为 `0.1.0`，若干工具兼容样例 `<1` | 3.0.0-beta 发布前必须迁移验证 |
 | 第三方入门 | README 有扩展示例、`spec/` 有协议；Tool v1 标头仍称 Proposed，plugin spec 某段称 Native only | 需要整合并去除失效状态文本 |
 
-## 3. 两套必须明确分开的发布策略
+## 3. 各发行阶段的发布策略
 
 ### 3.1 Beta（允许明确声明的非安全性缺口）
 
@@ -45,11 +45,17 @@
 
 **可延期至后续 Beta 或稳定版：** Windows Native/Worker ABI、macOS Provider Worker、strict L2、uv/npm 自动建环境、分布式 registry、JIT、内置 Knowledge/Proof/View、成熟异步/并发模型、未经承诺的平台安装包。明确注明项目默认 `project` 模式不是 OS 沙箱，Worker 也不是完整沙箱。
 
-### 3.2 Stable / LTS（不可用 Beta 例外替代）
+### 3.2 RC
+
+- 同 SHA 的归档烟测实际验证 strict 不可用时安全拒绝运行，经维护者批准后，RC 可按 `strict: unsupported` 发行。发布索引、支持范围及门禁记录仍绑定同一候选。通过标准与命令见 [发布手册](releasing.md#linux-rc-preconditions)。
+- 已观测的隔离缺陷、未运行的烟测、过期证据均阻塞 RC。具备合格一次性 VM 后按同 SHA 取得 strict PASS，可声明相应支持。
+
+### 3.3 Stable / LTS
 
 - Stable `3.0.0`：在公开支持的 Linux 平台上所有承诺功能有安全/兼容/性能证据；公开协议与变更策略清楚；有迁移说明和至少一次真实使用者反馈周期。平台可继续限定 Linux，不要求通过虚假的“全平台 LTS”门禁。
 - LTS（建议后续 `3.2.x`）：冻结 `.mq.md` 语言语义、Analysis/Trace/Tool/Plugin/Provider 各自协议主版本和 lockfile 契约；提供安全修复流程、回归 CI、外部仓库兼容矩阵、从 3.0 及 2.9 迁移材料、发布渠道与公告模板。
 - LTS 应提前承诺支持窗口（建议至少 12 个月，实际长短由维护资源决定），定义安全补丁与非破坏性修复回移规则，明确 API/ABI 哪些会不兼容；不因开发完成某一里程碑自动称 LTS。
+- 一次性 VM 上的同 SHA strict G3 通过证据是 stable/LTS 的发布门禁。
 - 默认不为旧 `cflmy/marqdo` 的历史语法或旧插件 ABI 建隐性兼容层。需要迁移的由独立迁移工具、教程和示例承担。
 
 ## 4. 3.0.0-beta.1 之前建议拆分的 5 个短 PR
